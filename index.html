@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS Scouting | Pro Football Scouting System</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="theme-light">
+
+  <!-- TOP HEADER & MAIN NAVIGATION -->
+  <header class="app-header">
+    <div class="header-container">
+      <!-- Brand Logo -->
+      <div class="brand">
+        <div class="brand-badge">
+          <img src="RS.png" alt="RS Scouting Logo" class="brand-logo-img">
+        </div>
+        <div class="brand-text">
+          <span class="brand-name" id="appBrandName">RS Scouting</span>
+        </div>
+      </div>
+
+      <!-- Main Navigation Menu Tabs -->
+      <nav class="main-nav">
+        <button class="nav-tab active" data-tab="dashboard">
+          <i data-lucide="home"></i>
+          <span>Inicio</span>
+        </button>
+        <button class="nav-tab" data-tab="calendario">
+          <i data-lucide="calendar"></i>
+          <span>Calendario</span>
+        </button>
+        <button class="nav-tab" data-tab="partidos">
+          <i data-lucide="trophy"></i>
+          <span>Partidos</span>
+        </button>
+        <button class="nav-tab" data-tab="directorio">
+          <i data-lucide="folder-open"></i>
+          <span>Directorio</span>
+        </button>
+        <button class="nav-tab" data-tab="importador">
+          <i data-lucide="wand-2"></i>
+          <span>Importador</span>
+        </button>
+        <button class="nav-tab" data-tab="agenda">
+          <i data-lucide="check-square"></i>
+          <span>Agenda</span>
+        </button>
+        <button class="nav-tab" data-tab="enlaces">
+          <i data-lucide="link"></i>
+          <span>Enlaces</span>
+        </button>
+        <button class="nav-tab" data-tab="configuracion">
+          <i data-lucide="settings"></i>
+          <span>Configuración</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="app-main" id="mainContainer">
+
+    <!-- ==================== 0. DASHBOARD VIEW ==================== -->
+    <section class="tab-view active" id="view-dashboard">
+      <div class="dashboard-banner">
+        <div class="dashboard-welcome">
+          <h2>🏠 Panel de Inicio - RS Scouting</h2>
+          <p>Resumen general del sistema de scouting, métricas clave y accesos directos</p>
+        </div>
+        <div class="dashboard-date-badge">
+          <i data-lucide="clock"></i>
+          <span id="dashboardDateDisplay">Hoy</span>
+        </div>
+      </div>
+
+      <!-- KPI METRICS GRID -->
+      <div class="dashboard-section-title">
+        <h3><i data-lucide="activity"></i> Métricas Clave</h3>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" data-shortcut="partidos">
+          <div class="kpi-icon blue"><i data-lucide="trophy"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Partidos Totales</span>
+            <span class="kpi-value" id="kpiTotalMatches">0</span>
+            <span class="kpi-subtext" id="kpiScheduledMatches">0 programados</span>
+          </div>
+        </div>
+        <div class="kpi-card" data-shortcut="partidos">
+          <div class="kpi-icon green"><i data-lucide="file-text"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Informes Creados</span>
+            <span class="kpi-value" id="kpiTotalReports">0</span>
+            <span class="kpi-subtext">Evaluaciones de scouting</span>
+          </div>
+        </div>
+        <div class="kpi-card" data-shortcut="directorio">
+          <div class="kpi-icon purple"><i data-lucide="users"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Jugadores</span>
+            <span class="kpi-value" id="kpiTotalPlayers">0</span>
+            <span class="kpi-subtext">En directorio activo</span>
+          </div>
+        </div>
+        <div class="kpi-card" data-shortcut="agenda">
+          <div class="kpi-icon orange"><i data-lucide="check-square"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Tareas Pendientes</span>
+            <span class="kpi-value" id="kpiPendingTasks">0</span>
+            <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCESOS DIRECTOS GRID -->
+      <div class="dashboard-section-title">
+        <h3><i data-lucide="zap"></i> Accesos Directos</h3>
+      </div>
+      <div class="shortcuts-grid">
+        <button class="shortcut-card" data-action="nav" data-target="calendario">
+          <div class="shortcut-icon"><i data-lucide="calendar"></i></div>
+          <div class="shortcut-content">
+            <h4>Calendario</h4>
+            <p>Planificación de partidos y fechas</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="partidos">
+          <div class="shortcut-icon"><i data-lucide="trophy"></i></div>
+          <div class="shortcut-content">
+            <h4>Gestión de Partidos</h4>
+            <p>Lista de partidos e informes</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="modal" data-target="modalNuevoPartido">
+          <div class="shortcut-icon highlight"><i data-lucide="plus-circle"></i></div>
+          <div class="shortcut-content">
+            <h4>Nuevo Partido</h4>
+            <p>Programar un nuevo encuentro</p>
+          </div>
+          <i data-lucide="plus" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="directorio">
+          <div class="shortcut-icon"><i data-lucide="folder-open"></i></div>
+          <div class="shortcut-content">
+            <h4>Directorio</h4>
+            <p>Jugadores, clubes y scouting</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="importador">
+          <div class="shortcut-icon"><i data-lucide="wand-2"></i></div>
+          <div class="shortcut-content">
+            <h4>Importador IA</h4>
+            <p>Importar partidos mediante IA</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="agenda">
+          <div class="shortcut-icon"><i data-lucide="check-square"></i></div>
+          <div class="shortcut-content">
+            <h4>Agenda de Tareas</h4>
+            <p>Gestión de notas y recordatorios</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="enlaces">
+          <div class="shortcut-icon"><i data-lucide="link"></i></div>
+          <div class="shortcut-content">
+            <h4>Enlaces Útiles</h4>
+            <p>Federaciones y recursos web</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+
+        <button class="shortcut-card" data-action="nav" data-target="configuracion">
+          <div class="shortcut-icon"><i data-lucide="settings"></i></div>
+          <div class="shortcut-content">
+            <h4>Configuración</h4>
+            <p>Ajustes de la aplicación y tema</p>
+          </div>
+          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
+        </button>
+      </div>
+
+      <!-- WIDGETS DUAL GRID -->
+      <div class="dashboard-widgets-grid">
+        <!-- Widget: Próximos Partidos -->
+        <div class="widget-card">
+          <div class="widget-header">
+            <div class="widget-title">
+              <i data-lucide="calendar"></i>
+              <h3>Próximos Partidos</h3>
+            </div>
+            <button class="btn btn-sm btn-ghost" data-action="nav" data-target="calendario">Ver todos</button>
+          </div>
+          <div class="widget-body" id="dashboardUpcomingMatchesList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Widget: Tareas Pendientes -->
+        <div class="widget-card">
+          <div class="widget-header">
+            <div class="widget-title">
+              <i data-lucide="check-square"></i>
+              <h3>Tareas Pendientes</h3>
+            </div>
+            <button class="btn btn-sm btn-ghost" data-action="nav" data-target="agenda">Ir a Agenda</button>
+          </div>
+          <div class="widget-body" id="dashboardPendingTasksList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 1. CALENDARIO VIEW ==================== -->
+    <section class="tab-view" id="view-calendario">
+      <div class="view-header">
+        <div class="view-title-group">
+          <h1>📅 Calendario y Control de Partidos</h1>
+          <p class="view-subtitle">Seguimiento de partidos programados y recuento total de scouting</p>
+        </div>
+        <button class="btn btn-primary" id="btnNewCalendarMatch">
+          <i data-lucide="plus"></i> Programar Partido
+        </button>
+      </div>
+
+      <!-- General Match Counter Stats Card -->
+      <div class="stats-grid">
+        <div class="stat-card primary">
+          <div class="stat-icon"><i data-lucide="eye"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Total Partidos Vistos</span>
+            <span class="stat-value" id="counterTotalVistos">0</span>
+          </div>
+          <div class="stat-badge">Contador General</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="calendar"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Partidos Programados</span>
+            <span class="stat-value" id="counterTotalProgramados">0</span>
+          </div>
+          <div class="stat-badge info">Próximos</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="activity"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Partidos En Directo</span>
+            <span class="stat-value" id="counterTotalDirecto">0</span>
+          </div>
+          <div class="stat-badge warning">Hoy / Directo</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="file-text"></i></div>
+          <div class="stat-info">
+            <span class="stat-label">Informes Generados</span>
+            <span class="stat-value" id="counterTotalInformes">0</span>
+          </div>
+          <div class="stat-badge success">Completados</div>
+        </div>
+      </div>
+
+      <!-- Filters, Search & View Switcher Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <i data-lucide="search"></i>
+          <input type="text" id="calendarSearchInput" placeholder="Buscar por partido, equipo, categoría o competición...">
+        </div>
+
+        <div class="toolbar-filters">
+          <select id="calendarFilterStatus" class="select-input">
+            <option value="all">Todos los estados</option>
+            <option value="visto">Vistos</option>
+            <option value="programado">Programados</option>
+            <option value="directo">En Directo</option>
+          </select>
+          <select id="calendarFilterCategory" class="select-input">
+            <option value="all">Todas las categorías</option>
+            <option value="Senior">Senior</option>
+            <option value="División de Honor">División de Honor</option>
+            <option value="Liga Nacional">Liga Nacional</option>
+            <option value="Cadete">Cadete</option>
+            <option value="Infantil">Infantil</option>
+          </select>
+
+          <!-- Toggle View Mode: List vs Month Grid -->
+          <div class="view-mode-buttons">
+            <button type="button" class="btn-mode-toggle" id="btnViewModeList" title="Vista Lista">
+              <i data-lucide="list"></i> Lista
+            </button>
+            <button type="button" class="btn-mode-toggle active" id="btnViewModeMonth" title="Vista Calendario Mensual">
+              <i data-lucide="calendar"></i> Mes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- View State 1: Match List Grid -->
+      <div class="calendar-matches-grid hidden" id="calendarMatchesContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- View State 2: Interactive Monthly Calendar Grid -->
+      <div class="calendar-month-wrapper" id="calendarMonthWrapper">
+        <!-- Month Header Navigation -->
+        <div class="month-header-bar">
+          <div class="month-nav-controls">
+            <button type="button" class="btn-month-nav" id="btnPrevMonth" title="Mes Anterior"><i data-lucide="chevron-left"></i></button>
+            <h2 class="month-title-display" id="monthTitleDisplay">Agosto 2026</h2>
+            <button type="button" class="btn-month-nav" id="btnNextMonth" title="Mes Siguiente"><i data-lucide="chevron-right"></i></button>
+            <button type="button" class="btn btn-secondary compact" id="btnTodayMonth">Hoy</button>
+          </div>
+
+          <div class="month-badge-stat">
+            <i data-lucide="trophy"></i>
+            <span>Partidos este mes: <strong id="monthMatchCountDisplay">0</strong></span>
+          </div>
+        </div>
+
+        <!-- 7 Days Weekday Headers -->
+        <div class="month-weekdays-grid">
+          <div>Lun</div>
+          <div>Mar</div>
+          <div>Mié</div>
+          <div>Jue</div>
+          <div>Vie</div>
+          <div>Sáb</div>
+          <div>Dom</div>
+        </div>
+
+        <!-- 35/42 Days Monthly Grid -->
+        <div class="month-days-grid" id="monthDaysGrid">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. PARTIDOS VIEW (INFORME TÉCNICO DE PARTIDO) ==================== -->
+    <section class="tab-view" id="view-partidos">
+      <!-- Partidos List view state -->
+      <div id="partidosListState" class="partidos-list-container">
+        <div class="view-header">
+          <div class="view-title-group">
+            <h1>⚽ Partidos e Informes Técnicos</h1>
+            <p class="view-subtitle">Crea y consulta informes técnicos detallados con alineaciones, gráficos 2D y análisis táctico</p>
+          </div>
+          <button class="btn btn-primary" id="btnCreateNewMatchReport">
+            <i data-lucide="plus-circle"></i> Crear Nuevo Informe de Partido
+          </button>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-search">
+            <i data-lucide="search"></i>
+            <input type="text" id="reportsSearchInput" placeholder="Buscar informes por equipo, estadio, fecha o scout...">
+          </div>
+        </div>
+
+        <div class="reports-grid" id="reportsListContainer">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Detailed Match Report Editor (Matches Informe partido 1.png & Informe 2.png) -->
+      <div id="matchReportEditorState" class="match-report-editor hidden">
+        <!-- Header Banner -->
+        <div class="report-header-banner">
+          <div class="report-header-title">
+            <i data-lucide="clipboard-check" class="banner-icon"></i>
+            <h2>Informe Técnico de Partido</h2>
+          </div>
+
+          <!-- Live Match Stopwatch Timer -->
+          <div class="live-timer-container">
+            <span class="timer-display" id="matchTimerDisplay">00:00</span>
+            <div class="timer-controls">
+              <button type="button" class="btn-timer" id="btnTimerPlay" title="Iniciar Cronómetro"><i data-lucide="play"></i></button>
+              <button type="button" class="btn-timer" id="btnTimerPause" title="Pausar Cronómetro"><i data-lucide="pause"></i></button>
+              <button type="button" class="btn-timer" id="btnTimerReset" title="Reiniciar Cronómetro"><i data-lucide="rotate-ccw"></i></button>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="report-banner-actions">
+            <button type="button" class="btn btn-secondary-light" id="btnBackToReportsList">
+              <i data-lucide="arrow-left"></i> VOLVER
+            </button>
+            <button type="button" class="btn btn-white-solid" id="btnSaveMatchReport">
+              <i data-lucide="save"></i> GUARDAR
+            </button>
+            <button type="button" class="btn-icon-close" id="btnCloseReportEditor">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Información General -->
+        <div class="report-card">
+          <div class="report-card-header">
+            <i data-lucide="info"></i>
+            <span>INFORMACIÓN GENERAL</span>
+          </div>
+          <div class="report-card-body">
+            <datalist id="reportEquiposSeleccionesDatalistOptions"></datalist>
+            <datalist id="reportEstadiosDatalistOptions"></datalist>
+            <datalist id="reportCompeticionesDatalistOptions"></datalist>
+            <datalist id="reportCategoriasDatalistOptions"></datalist>
+            <datalist id="reportFederacionesDatalistOptions"></datalist>
+
+            <!-- Teams & Score Row -->
+            <div class="match-teams-row">
+              <!-- Local Team Input -->
+              <div class="team-input-group local">
+                <label class="team-badge-picker" id="localTeamBadge">
+                  <i data-lucide="shield"></i>
+                </label>
+                <div class="input-wrapper flex-grow">
+                  <span class="input-tag">LOCAL</span>
+                  <input type="text" id="reportLocalTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección local..." value="">
+                </div>
+              </div>
+
+              <!-- Scoreboard -->
+              <div class="score-display">
+                <input type="number" id="reportLocalScore" min="0" max="99" value="0" class="score-input">
+                <span class="score-divider">-</span>
+                <input type="number" id="reportVisitanteScore" min="0" max="99" value="0" class="score-input">
+              </div>
+
+              <!-- Visitante Team Input -->
+              <div class="team-input-group visitante">
+                <div class="input-wrapper flex-grow text-right">
+                  <span class="input-tag">VISITANTE</span>
+                  <input type="text" id="reportVisitanteTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección visitante..." value="">
+                </div>
+                <label class="team-badge-picker" id="visitanteTeamBadge">
+                  <i data-lucide="shield"></i>
+                </label>
+              </div>
+            </div>
+
+            <!-- Meta Data Grid -->
+            <div class="meta-inputs-grid">
+              <div class="form-group">
+                <label>FECHA</label>
+                <input type="date" id="reportDate" class="form-control">
+              </div>
+              <div class="form-group">
+                <label>HORA</label>
+                <input type="time" id="reportTime" class="form-control" value="17:00">
+              </div>
+              <div class="form-group">
+                <label>ESTADIO</label>
+                <input type="text" id="reportEstadio" list="reportEstadiosDatalistOptions" class="form-control" placeholder="Buscar o escribir estadio...">
+              </div>
+              <div class="form-group">
+                <label>CLIMA</label>
+                <div class="custom-multiselect-wrapper" id="climaMultiselectWrapper">
+                  <input type="text" id="reportClima" class="form-control" placeholder="Seleccionar clima..." readonly style="cursor: pointer; background-color: var(--bg-surface);">
+                  <div class="custom-multiselect-dropdown hidden" id="climaMultiselectDropdown">
+                    <label class="clima-option-item"><input type="checkbox" value="Día"> ☀️ Día</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Noche"> 🌙 Noche</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Soleado"> 🌤️ Soleado</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Nublado"> ☁️ Nublado</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Lluvia"> 🌧️ Lluvia</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Nieve"> ❄️ Nieve</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Frío"> 🥶 Frío</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Calor"> 🥵 Calor</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Viento"> 💨 Viento</label>
+                    <label class="clima-option-item"><input type="checkbox" value="Niebla"> 🌫️ Niebla</label>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>COMPETICIÓN</label>
+                <input type="text" id="reportCompeticion" list="reportCompeticionesDatalistOptions" class="form-control" placeholder="Buscar o crear competición...">
+              </div>
+              <div class="form-group">
+                <label>CATEGORÍA</label>
+                <input type="text" id="reportCategoria" list="reportCategoriasDatalistOptions" class="form-control" placeholder="Buscar o crear categoría...">
+              </div>
+              <div class="form-group">
+                <label>FEDERACIÓN</label>
+                <input type="text" id="reportFederacion" list="reportFederacionesDatalistOptions" class="form-control" placeholder="Buscar o elegir federación...">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Tactical Formations & Lineups (Dual Column: Local vs Visitante) -->
+        <div class="tactical-dual-grid">
+          
+          <!-- Local Team Tactical Column -->
+          <div class="tactical-team-column">
+            <!-- Tabs (Principal, Secundario, Ocasional) & Formation selector -->
+            <div class="tactical-column-header">
+              <div class="role-tabs" id="localRoleTabs">
+                <button type="button" class="role-tab active" data-role="principal">Principal</button>
+                <button type="button" class="role-tab" data-role="secundario">Secundario</button>
+                <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+              </div>
+              <div class="formation-selector">
+                <select id="localFormationSelect" class="form-control select-compact">
+                  <optgroup label="Fútbol 11">
+                    <option value="1-4-3-3" selected>1-4-3-3</option>
+                    <option value="1-4-4-2">1-4-4-2 (Línea)</option>
+                    <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
+                    <option value="1-4-2-3-1">1-4-2-3-1</option>
+                    <option value="1-4-1-4-1">1-4-1-4-1</option>
+                    <option value="1-4-3-2-1">1-4-3-2-1</option>
+                    <option value="1-4-3-1-2">1-4-3-1-2</option>
+                    <option value="1-4-5-1">1-4-5-1</option>
+                    <option value="1-3-5-2">1-3-5-2</option>
+                    <option value="1-3-4-3">1-3-4-3</option>
+                    <option value="1-3-4-2-1">1-3-4-2-1</option>
+                    <option value="1-3-4-1-2">1-3-4-1-2</option>
+                    <option value="1-3-3-3-1">1-3-3-3-1</option>
+                    <option value="1-5-3-2">1-5-3-2</option>
+                    <option value="1-5-4-1">1-5-4-1</option>
+                    <option value="1-5-2-3">1-5-2-3</option>
+                  </optgroup>
+                  <optgroup label="Fútbol 7">
+                    <option value="1-3-2-1 (F7)">1-3-2-1 (Fútbol 7)</option>
+                    <option value="1-3-1-2 (F7)">1-3-1-2 (Fútbol 7)</option>
+                    <option value="1-2-3-1 (F7)">1-2-3-1 (Fútbol 7)</option>
+                    <option value="1-2-2-2 (F7)">1-2-2-2 (Fútbol 7)</option>
+                    <option value="1-2-1-3 (F7)">1-2-1-3 (Fútbol 7)</option>
+                    <option value="1-3-3 (F7)">1-3-3 (Fútbol 7)</option>
+                    <option value="1-4-2 (F7)">1-4-2 (Fútbol 7)</option>
+                    <option value="1-1-4-1 (F7)">1-1-4-1 (Fútbol 7)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
+            <div class="tactical-field-split">
+              <!-- Player Lineup Inputs -->
+              <div class="players-lineup-table">
+                <div class="lineup-table-header">
+                  <span class="col-num">#</span>
+                  <span class="col-name">JUGADOR</span>
+                  <span class="col-pos">PO</span>
+                </div>
+                <div class="lineup-rows" id="localTitularesRows">
+                  <!-- 11 Titulares rows rendered by JS -->
+                </div>
+
+                <!-- Suplentes Header & Rows -->
+                <div class="suplentes-divider">SUPLENTES</div>
+                <div class="lineup-rows" id="localSuplentesRows">
+                  <!-- 5 Suplentes rows rendered by JS -->
+                </div>
+              </div>
+
+              <!-- 2D Interactive Pitch Field -->
+              <div class="pitch-container">
+                <div class="football-pitch" id="localPitchField">
+                  <div class="pitch-marking pitch-outline"></div>
+                  <div class="pitch-marking pitch-center-line"></div>
+                  <div class="pitch-marking pitch-center-circle"></div>
+                  <div class="pitch-marking pitch-center-dot"></div>
+                  <div class="pitch-marking pitch-penalty-area-top"></div>
+                  <div class="pitch-marking pitch-penalty-area-bottom"></div>
+                  <div class="pitch-marking pitch-goal-area-top"></div>
+                  <div class="pitch-marking pitch-goal-area-bottom"></div>
+                  <div class="pitch-marking pitch-penalty-spot-top"></div>
+                  <div class="pitch-marking pitch-penalty-spot-bottom"></div>
+                  <div class="pitch-marking pitch-penalty-arc-top"></div>
+                  <div class="pitch-marking pitch-penalty-arc-bottom"></div>
+                  <div class="pitch-marking pitch-corner-top-left"></div>
+                  <div class="pitch-marking pitch-corner-top-right"></div>
+                  <div class="pitch-marking pitch-corner-bottom-left"></div>
+                  <div class="pitch-marking pitch-corner-bottom-right"></div>
+                  <div class="pitch-marking pitch-goal-top"></div>
+                  <div class="pitch-marking pitch-goal-bottom"></div>
+                  <div class="pitch-pins-container" id="localPitchPins">
+                    <!-- 11 Tactical Player Pins rendered dynamically -->
+                  </div>
+                </div>
+                <!-- Bench Area (Suplentes) -->
+                <div class="pitch-bench-area">
+                  <div class="bench-title">SUPLENTES / BANQUILLO</div>
+                  <div class="bench-pins-wrapper" id="localBenchPins"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Team Evaluation Box (Local) -->
+            <div class="team-eval-box">
+              <div class="eval-row">
+                <label class="eval-label">DIFICULTAD</label>
+                <div class="rating-buttons" id="localDifficultyButtons">
+                  <button type="button" class="btn-rating" data-val="1">1</button>
+                  <button type="button" class="btn-rating" data-val="2">2</button>
+                  <button type="button" class="btn-rating active" data-val="3">3</button>
+                  <button type="button" class="btn-rating" data-val="4">4</button>
+                  <button type="button" class="btn-rating" data-val="5">5</button>
+                </div>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">ESTILO DE JUEGO</label>
+                <select class="form-control select-compact team-option-select mb-1" data-target="localEstiloJuego">
+                  <option value="">+ Seleccionar estilo de juego...</option>
+                  <option value="Combinativo">Combinativo</option>
+                  <option value="Directo">Directo</option>
+                  <option value="Contraataque">Contraataque</option>
+                  <option value="Posesión">Posesión</option>
+                  <option value="Repliegue">Repliegue</option>
+                  <option value="Presión alta">Presión alta</option>
+                  <option value="Basculaciones">Basculaciones</option>
+                  <option value="Transiciones rápidas">Transiciones rápidas</option>
+                  <option value="Juego por bandas">Juego por bandas</option>
+                  <option value="Juego interior">Juego interior</option>
+                </select>
+                <textarea id="localEstiloJuego" class="form-control textarea-compact" style="height: 55px;" placeholder="Selecciona o escribe observaciones sobre el estilo de juego..."></textarea>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">ABP (BALÓN PARADO)</label>
+                <div class="abp-tabs-bar" id="localABPTabs">
+                  <button type="button" class="abp-tab-btn active" data-team="local" data-abp="cornerOfensivo">Córner Ofensivo</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="cornerDefensivo">Córner Defensivo</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="faltaLatOfensiva">Falta Lat. Ofensiva</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="faltaLatDefensiva">Falta Lat. Defensiva</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="penalti">Penalti</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="saqueBanda">Saque de Banda</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="faltaDirecta">Falta Directa</button>
+                  <button type="button" class="abp-tab-btn" data-team="local" data-abp="saqueCentro">Saque de Centro</button>
+                </div>
+                <div class="abp-panes-container" id="localABPPanes">
+                  <textarea id="localABP_cornerOfensivo" class="form-control textarea-compact abp-pane-textarea" style="height: 55px;" placeholder="Observaciones de Córner Ofensivo..."></textarea>
+                  <textarea id="localABP_cornerDefensivo" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Córner Defensivo..."></textarea>
+                  <textarea id="localABP_faltaLatOfensiva" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Lateral Ofensiva..."></textarea>
+                  <textarea id="localABP_faltaLatDefensiva" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Lateral Defensiva..."></textarea>
+                  <textarea id="localABP_penalti" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Penalti..."></textarea>
+                  <textarea id="localABP_saqueBanda" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Saque de Banda..."></textarea>
+                  <textarea id="localABP_faltaDirecta" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Directa..."></textarea>
+                  <textarea id="localABP_saqueCentro" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Saque de Centro..."></textarea>
+                </div>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">COMENTARIO EQUIPO</label>
+                <textarea id="localComentario" class="form-control textarea-compact" placeholder="Obs. equipo local..."></textarea>
+              </div>
+
+              <!-- Local Coach Section -->
+              <div style="border-top: 1px dashed var(--border-light); margin-top: 10px; padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label class="eval-label" style="margin: 0; color: var(--primary-blue); font-weight: 800;">👔 ENTRENADOR</label>
+                  <button type="button" class="tag-control-btn btn-kirol-sport-toggle" id="localBtnKirolSport" title="Recomendar a Kirol Sport">
+                    ⚽ Kirol Sport
+                  </button>
+                </div>
+
+                <input type="text" id="localEntrenador" class="form-control mb-2" placeholder="Nombre entrenador (auto / manual)...">
+
+                <div class="eval-row mb-2">
+                  <label class="eval-label" style="font-size: 10px;">NOTA ENTRENADOR (1-5)</label>
+                  <div class="rating-buttons" id="localCoachDifficultyButtons">
+                    <button type="button" class="btn-rating" data-val="1">1</button>
+                    <button type="button" class="btn-rating" data-val="2">2</button>
+                    <button type="button" class="btn-rating active" data-val="3">3</button>
+                    <button type="button" class="btn-rating" data-val="4">4</button>
+                    <button type="button" class="btn-rating" data-val="5">5</button>
+                  </div>
+                </div>
+
+                <div class="eval-row">
+                  <label class="eval-label" style="font-size: 10px;">COMENTARIO ENTRENADOR</label>
+                  <textarea id="localComentarioEntrenador" class="form-control textarea-compact" style="height: 50px;" placeholder="Análisis táctico/gestión del técnico..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visitante Team Tactical Column -->
+          <div class="tactical-team-column">
+            <!-- Tabs (Principal, Secundario, Ocasional) & Formation selector -->
+            <div class="tactical-column-header">
+              <div class="role-tabs" id="visitanteRoleTabs">
+                <button type="button" class="role-tab active" data-role="principal">Principal</button>
+                <button type="button" class="role-tab" data-role="secundario">Secundario</button>
+                <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+              </div>
+              <div class="formation-selector">
+                <select id="visitanteFormationSelect" class="form-control select-compact">
+                  <optgroup label="Fútbol 11">
+                    <option value="1-4-4-2" selected>1-4-4-2 (Línea)</option>
+                    <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
+                    <option value="1-4-3-3">1-4-3-3</option>
+                    <option value="1-4-2-3-1">1-4-2-3-1</option>
+                    <option value="1-4-1-4-1">1-4-1-4-1</option>
+                    <option value="1-4-3-2-1">1-4-3-2-1</option>
+                    <option value="1-4-3-1-2">1-4-3-1-2</option>
+                    <option value="1-4-5-1">1-4-5-1</option>
+                    <option value="1-3-5-2">1-3-5-2</option>
+                    <option value="1-3-4-3">1-3-4-3</option>
+                    <option value="1-3-4-2-1">1-3-4-2-1</option>
+                    <option value="1-3-4-1-2">1-3-4-1-2</option>
+                    <option value="1-3-3-3-1">1-3-3-3-1</option>
+                    <option value="1-5-3-2">1-5-3-2</option>
+                    <option value="1-5-4-1">1-5-4-1</option>
+                    <option value="1-5-2-3">1-5-2-3</option>
+                  </optgroup>
+                  <optgroup label="Fútbol 7">
+                    <option value="1-3-2-1 (F7)">1-3-2-1 (Fútbol 7)</option>
+                    <option value="1-3-1-2 (F7)">1-3-1-2 (Fútbol 7)</option>
+                    <option value="1-2-3-1 (F7)">1-2-3-1 (Fútbol 7)</option>
+                    <option value="1-2-2-2 (F7)">1-2-2-2 (Fútbol 7)</option>
+                    <option value="1-2-1-3 (F7)">1-2-1-3 (Fútbol 7)</option>
+                    <option value="1-3-3 (F7)">1-3-3 (Fútbol 7)</option>
+                    <option value="1-4-2 (F7)">1-4-2 (Fútbol 7)</option>
+                    <option value="1-1-4-1 (F7)">1-1-4-1 (Fútbol 7)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
+            <div class="tactical-field-split">
+              <!-- Player Lineup Inputs -->
+              <div class="players-lineup-table">
+                <div class="lineup-table-header">
+                  <span class="col-num">#</span>
+                  <span class="col-name">JUGADOR</span>
+                  <span class="col-pos">PO</span>
+                </div>
+                <div class="lineup-rows" id="visitanteTitularesRows">
+                  <!-- 11 Titulares rows rendered by JS -->
+                </div>
+
+                <!-- Suplentes Header & Rows -->
+                <div class="suplentes-divider">SUPLENTES</div>
+                <div class="lineup-rows" id="visitanteSuplentesRows">
+                  <!-- 5 Suplentes rows rendered by JS -->
+                </div>
+              </div>
+
+              <!-- 2D Interactive Pitch Field -->
+              <div class="pitch-container">
+                <div class="football-pitch" id="visitantePitchField">
+                  <div class="pitch-marking pitch-outline"></div>
+                  <div class="pitch-marking pitch-center-line"></div>
+                  <div class="pitch-marking pitch-center-circle"></div>
+                  <div class="pitch-marking pitch-center-dot"></div>
+                  <div class="pitch-marking pitch-penalty-area-top"></div>
+                  <div class="pitch-marking pitch-penalty-area-bottom"></div>
+                  <div class="pitch-marking pitch-goal-area-top"></div>
+                  <div class="pitch-marking pitch-goal-area-bottom"></div>
+                  <div class="pitch-marking pitch-penalty-spot-top"></div>
+                  <div class="pitch-marking pitch-penalty-spot-bottom"></div>
+                  <div class="pitch-marking pitch-penalty-arc-top"></div>
+                  <div class="pitch-marking pitch-penalty-arc-bottom"></div>
+                  <div class="pitch-marking pitch-corner-top-left"></div>
+                  <div class="pitch-marking pitch-corner-top-right"></div>
+                  <div class="pitch-marking pitch-corner-bottom-left"></div>
+                  <div class="pitch-marking pitch-corner-bottom-right"></div>
+                  <div class="pitch-marking pitch-goal-top"></div>
+                  <div class="pitch-marking pitch-goal-bottom"></div>
+                  <div class="pitch-pins-container" id="visitantePitchPins">
+                    <!-- 11 Tactical Player Pins rendered dynamically -->
+                  </div>
+                </div>
+                <!-- Bench Area (Suplentes) -->
+                <div class="pitch-bench-area">
+                  <div class="bench-title">SUPLENTES / BANQUILLO</div>
+                  <div class="bench-pins-wrapper" id="visitanteBenchPins"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Team Evaluation Box (Visitante) -->
+            <div class="team-eval-box">
+              <div class="eval-row">
+                <label class="eval-label">DIFICULTAD</label>
+                <div class="rating-buttons" id="visitanteDifficultyButtons">
+                  <button type="button" class="btn-rating" data-val="1">1</button>
+                  <button type="button" class="btn-rating" data-val="2">2</button>
+                  <button type="button" class="btn-rating active" data-val="3">3</button>
+                  <button type="button" class="btn-rating" data-val="4">4</button>
+                  <button type="button" class="btn-rating" data-val="5">5</button>
+                </div>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">ESTILO DE JUEGO</label>
+                <select class="form-control select-compact team-option-select mb-1" data-target="visitanteEstiloJuego">
+                  <option value="">+ Seleccionar estilo de juego...</option>
+                  <option value="Combinativo">Combinativo</option>
+                  <option value="Directo">Directo</option>
+                  <option value="Contraataque">Contraataque</option>
+                  <option value="Posesión">Posesión</option>
+                  <option value="Repliegue">Repliegue</option>
+                  <option value="Presión alta">Presión alta</option>
+                  <option value="Basculaciones">Basculaciones</option>
+                  <option value="Transiciones rápidas">Transiciones rápidas</option>
+                  <option value="Juego por bandas">Juego por bandas</option>
+                  <option value="Juego interior">Juego interior</option>
+                </select>
+                <textarea id="visitanteEstiloJuego" class="form-control textarea-compact" style="height: 55px;" placeholder="Selecciona o escribe observaciones sobre el estilo de juego..."></textarea>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">ABP (BALÓN PARADO)</label>
+                <div class="abp-tabs-bar" id="visitanteABPTabs">
+                  <button type="button" class="abp-tab-btn active" data-team="visitante" data-abp="cornerOfensivo">Córner Ofensivo</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="cornerDefensivo">Córner Defensivo</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="faltaLatOfensiva">Falta Lat. Ofensiva</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="faltaLatDefensiva">Falta Lat. Defensiva</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="penalti">Penalti</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="saqueBanda">Saque de Banda</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="faltaDirecta">Falta Directa</button>
+                  <button type="button" class="abp-tab-btn" data-team="visitante" data-abp="saqueCentro">Saque de Centro</button>
+                </div>
+                <div class="abp-panes-container" id="visitanteABPPanes">
+                  <textarea id="visitanteABP_cornerOfensivo" class="form-control textarea-compact abp-pane-textarea" style="height: 55px;" placeholder="Observaciones de Córner Ofensivo..."></textarea>
+                  <textarea id="visitanteABP_cornerDefensivo" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Córner Defensivo..."></textarea>
+                  <textarea id="visitanteABP_faltaLatOfensiva" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Lateral Ofensiva..."></textarea>
+                  <textarea id="visitanteABP_faltaLatDefensiva" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Lateral Defensiva..."></textarea>
+                  <textarea id="visitanteABP_penalti" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Penalti..."></textarea>
+                  <textarea id="visitanteABP_saqueBanda" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Saque de Banda..."></textarea>
+                  <textarea id="visitanteABP_faltaDirecta" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Falta Directa..."></textarea>
+                  <textarea id="visitanteABP_saqueCentro" class="form-control textarea-compact abp-pane-textarea hidden" style="height: 55px;" placeholder="Observaciones de Saque de Centro..."></textarea>
+                </div>
+              </div>
+
+              <div class="eval-row">
+                <label class="eval-label">COMENTARIO EQUIPO</label>
+                <textarea id="visitanteComentario" class="form-control textarea-compact" placeholder="Obs. equipo visitante..."></textarea>
+              </div>
+
+              <!-- Visitante Coach Section -->
+              <div style="border-top: 1px dashed var(--border-light); margin-top: 10px; padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label class="eval-label" style="margin: 0; color: var(--primary-blue); font-weight: 800;">👔 ENTRENADOR</label>
+                  <button type="button" class="tag-control-btn btn-kirol-sport-toggle" id="visitanteBtnKirolSport" title="Recomendar a Kirol Sport">
+                    ⚽ Kirol Sport
+                  </button>
+                </div>
+
+                <input type="text" id="visitanteEntrenador" class="form-control mb-2" placeholder="Nombre entrenador (auto / manual)...">
+
+                <div class="eval-row mb-2">
+                  <label class="eval-label" style="font-size: 10px;">NOTA ENTRENADOR (1-5)</label>
+                  <div class="rating-buttons" id="visitanteCoachDifficultyButtons">
+                    <button type="button" class="btn-rating" data-val="1">1</button>
+                    <button type="button" class="btn-rating" data-val="2">2</button>
+                    <button type="button" class="btn-rating active" data-val="3">3</button>
+                    <button type="button" class="btn-rating" data-val="4">4</button>
+                    <button type="button" class="btn-rating" data-val="5">5</button>
+                  </div>
+                </div>
+
+                <div class="eval-row">
+                  <label class="eval-label" style="font-size: 10px;">COMENTARIO ENTRENADOR</label>
+                  <textarea id="visitanteComentarioEntrenador" class="form-control textarea-compact" style="height: 50px;" placeholder="Análisis táctico/gestión del técnico..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section 3: Observaciones / Análisis General -->
+        <div class="report-card mt-6">
+          <div class="report-card-header text-uppercase">
+            <i data-lucide="file-text"></i>
+            <span>OBSERVACIONES / ANÁLISIS GENERAL</span>
+          </div>
+          <div class="report-card-body">
+            <textarea id="reportGeneralAnalysis" class="form-control textarea-large" placeholder="Observaciones generales sobre el partido, jugadores destacados, notas tácticas..."></textarea>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== 3. DIRECTORIO VIEW ==================== -->
+    <section class="tab-view" id="view-directorio">
+      <!-- 12 Sub-Tabs Bar (Matches Directorio.png) -->
+      <div class="directory-subtabs-bar">
+        <button class="directory-tab active" data-dir="jugadores">Jugadores</button>
+        <button class="directory-tab" data-dir="clubes">Clubes</button>
+        <button class="directory-tab" data-dir="equipos">Equipos</button>
+        <button class="directory-tab" data-dir="federaciones">Federaciones</button>
+        <button class="directory-tab" data-dir="selecciones">Selecciones</button>
+        <button class="directory-tab" data-dir="convocatorias">Convocatorias</button>
+        <button class="directory-tab" data-dir="torneos">Torneos</button>
+        <button class="directory-tab" data-dir="staff">Staff</button>
+        <button class="directory-tab" data-dir="agencias">Agencias</button>
+        <button class="directory-tab" data-dir="agentes">Agentes</button>
+        <button class="directory-tab" data-dir="estadios">Estadios</button>
+        <button class="directory-tab" data-dir="informes">Informes</button>
+      </div>
+
+      <!-- Filter Bar (Matches Directorio.png) -->
+      <div class="directory-filter-card">
+        <div class="filter-row">
+          <!-- Main Search Box -->
+          <div class="filter-search-box">
+            <i data-lucide="search"></i>
+            <input type="text" id="dirSearchInput" placeholder="Filtrar registros por nombre...">
+          </div>
+
+          <!-- Dropdowns -->
+          <select id="dirFilterAno" class="select-input compact"><option value="">Año...</option><option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option></select>
+          <select id="dirFilterEquipo" class="select-input compact"><option value="">Equipo...</option></select>
+          <select id="dirFilterCompeticion" class="select-input compact"><option value="">Competición...</option></select>
+          <select id="dirFilterCategoria" class="select-input compact"><option value="">Categoría...</option></select>
+          <select id="dirFilterNivel" class="select-input compact"><option value="">Nivel...</option></select>
+          <select id="dirFilterPosicion" class="select-input compact"><option value="">Posición...</option></select>
+          <select id="dirFilterOtro" class="select-input compact"><option value="">Filtrar por...</option></select>
+
+          <!-- Quick Action Icon Buttons -->
+          <div class="action-icon-buttons" style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn btn-primary" id="btnAddNewPlayerHeader" style="display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; padding: 8px 16px;">
+              <i data-lucide="user-plus"></i> Crear Nuevo Jugador
+            </button>
+            <button type="button" class="btn-action-icon danger" title="Limpiar filtros" id="btnResetDirFilters"><i data-lucide="trash-2"></i></button>
+            <button type="button" class="btn-action-icon primary" title="Crear Nuevo Registro" id="btnAddNewDirectoryItem"><i data-lucide="plus"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Area: List or Empty State (Matches Directorio.png) -->
+      <div class="directory-content-box" id="directoryContentBox">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ==================== 4. IMPORTADOR INTELIGENTE VIEW ==================== -->
+    <section class="tab-view" id="view-importador">
+      <div class="importador-card">
+        <!-- Title & Subtitle matching Importador.png -->
+        <div class="importador-header">
+          <div class="importador-title">
+            <i data-lucide="wand-2" class="title-icon"></i>
+            <h2>Importador Inteligente</h2>
+          </div>
+          <p class="importador-subtitle">Súper Poder: Copia y pega el contenido completo de la web de la federación para extraer entidades.</p>
+        </div>
+
+        <div class="importador-body">
+          <form id="importerForm" onsubmit="return false;">
+            <!-- Entity Type Select -->
+            <div class="form-group mb-4">
+              <label class="form-label font-bold text-uppercase text-xs">TIPO DE ENTIDAD A IMPORTAR</label>
+              <select id="importerEntityType" class="form-control font-bold" style="font-size: 15px; padding: 10px;">
+                <option value="clubes" selected>1. 🛡️ Clubes</option>
+                <option value="estadios">2. 🏟️ Estadios</option>
+                <option value="equipos">3. 👕 Equipos</option>
+                <option value="plantilla">4. 🏃 Plantilla Completa (Jugadores y Staff)</option>
+              </select>
+            <!-- Contextual Fields Container (shown for Equipos, Staff, Jugadores, Plantilla) -->
+            <div id="importerContextOptions" class="grid grid-3 gap-4 mb-4 hidden" style="background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+              <div class="form-group mb-0">
+                <label class="form-label font-bold text-uppercase text-xs">EQUIPO DE DESTINO (DEL DIRECTORIO)</label>
+                <select id="importerTargetEquipo" class="form-control font-bold">
+                  <option value="" disabled selected>-- Selecciona un Equipo del Directorio --</option>
+                </select>
+                <input type="text" id="importerManualEquipoInput" class="form-control mt-2 hidden" placeholder="Nombre del equipo manual...">
+              </div>
+
+              <div class="form-group mb-0" id="importerCatContainer">
+                <label class="form-label font-bold text-uppercase text-xs">CATEGORÍA</label>
+                <select id="importerCategoria" class="form-control">
+                  <option value="Tercera RFEF" selected>Tercera RFEF</option>
+                  <option value="Primera RFEF">Primera RFEF</option>
+                  <option value="Segunda RFEF">Segunda RFEF</option>
+                  <option value="División de Honor Juvenil">División de Honor Juvenil</option>
+                  <option value="Liga Nacional Juvenil">Liga Nacional Juvenil</option>
+                  <option value="Primera Autonómica">Primera Autonómica</option>
+                  <option value="Preferente">Preferente</option>
+                  <option value="Juvenil Primera">Juvenil Primera</option>
+                  <option value="Cadete DH">Cadete DH</option>
+                  <option value="Infantil DH">Infantil DH</option>
+                  <option value="Femenino Senior">Femenino Senior</option>
+                </select>
+              </div>
+
+              <div class="form-group mb-0" id="importerTempContainer">
+                <label class="form-label font-bold text-uppercase text-xs">TEMPORADA</label>
+                <select id="importerTemporada" class="form-control">
+                  <option value="2026/2027" selected>2026/2027 (Temporada Actual)</option>
+                  <option value="2025/2026">2025/2026</option>
+                  <option value="2024/2025">2024/2025</option>
+                </select>
+              </div>
+            </div>
+
+
+
+            <!-- Content Textarea -->
+            <div class="form-group mb-5">
+              <label class="form-label font-bold text-uppercase text-xs">CONTENIDO COPIADO DE LA WEB</label>
+              <textarea id="importerRawContent" class="form-control importer-textarea" rows="12" placeholder="Pega el texto de clasificación, listas de jugadores, o tablas aquí..."></textarea>
+            </div>
+
+            <!-- Action Button -->
+            <button type="button" class="btn btn-primary btn-lg" id="btnRunImporter">
+              <i data-lucide="search"></i> Paso 1: Extraer y Revisar Datos
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Results Preview Area -->
+      <div id="importerResultsContainer" class="importer-results hidden mt-6">
+        <!-- Extraction summary and table rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ==================== 5. AGENDA VIEW ==================== -->
+    <section class="tab-view" id="view-agenda">
+      <div class="view-header">
+        <div class="view-title-group">
+          <h1>📝 Agenda y Tareas Diario</h1>
+          <p class="view-subtitle">Organiza tus viajes de scouting, eventos, contactos y notas de trabajo</p>
+        </div>
+        <button class="btn btn-primary" id="btnNewAgendaTask">
+          <i data-lucide="plus"></i> Nueva Tarea / Evento
+        </button>
+      </div>
+
+      <div class="agenda-layout">
+        <!-- Sidebar Filter / Quick Stats -->
+        <div class="agenda-sidebar">
+          <div class="agenda-card">
+            <h3>Categorías</h3>
+            <ul class="category-list" id="agendaCategoryFilters">
+              <li class="active" data-cat="all"><i data-lucide="layers"></i> Todas las tareas</li>
+              <li data-cat="scouting"><i data-lucide="eye"></i> Viajes Scouting</li>
+              <li data-cat="partido"><i data-lucide="trophy"></i> Partidos a seguir</li>
+              <li data-cat="contacto"><i data-lucide="user-check"></i> Contactos / Agentes</li>
+              <li data-cat="nota"><i data-lucide="file-text"></i> Notas de campo</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Task List Grid -->
+        <div class="agenda-main">
+          <div class="agenda-task-list" id="agendaTasksContainer">
+            <!-- Dynamic task items -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 6. ENLACES FEDERATIVOS VIEW ==================== -->
+    <section class="tab-view" id="view-enlaces">
+      <div class="view-header">
+        <div class="view-title-group">
+          <h1>🔗 Enlaces Útiles y Federaciones</h1>
+          <p class="view-subtitle">Portales de federaciones, plataformas de scouting, estadísticas y recursos favoritos</p>
+        </div>
+        <button class="btn btn-primary" id="btnAddNewLink">
+          <i data-lucide="plus"></i> Añadir Nuevo Enlace
+        </button>
+      </div>
+
+      <!-- Controls: Search & Category Tabs -->
+      <div class="links-controls-wrapper mb-4">
+        <div class="links-search-box">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="linkSearchInput" placeholder="Buscar enlace por título, etiqueta, región..." class="form-control">
+        </div>
+        <div class="links-category-tabs" id="linksCategoryTabs">
+          <!-- Dynamic Category Tabs generated by JS -->
+        </div>
+      </div>
+
+      <div class="links-grid" id="federationLinksContainer">
+        <!-- Dynamic Federation Link Cards -->
+      </div>
+    </section>
+
+    <!-- ==================== 7. CONFIGURACIÓN VIEW ==================== -->
+    <section class="tab-view" id="view-configuracion">
+      <div class="view-header">
+        <div class="view-title-group">
+          <h1>⚙️ Configuración del Sistema</h1>
+          <p class="view-subtitle">Personalización visual, gestión de datos y copias de seguridad</p>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <!-- Appearance Settings -->
+        <div class="config-card">
+          <div class="config-card-title">
+            <i data-lucide="palette"></i>
+            <h3>Tema y Apariencia</h3>
+          </div>
+          <div class="config-card-body">
+            <div class="form-group mb-4">
+              <label class="form-label">Modo Visual</label>
+              <div class="theme-switcher-buttons">
+                <button type="button" class="btn-theme active" data-theme="light">
+                  <i data-lucide="sun"></i> Modo Claro (Por defecto)
+                </button>
+                <button type="button" class="btn-theme" data-theme="dark">
+                  <i data-lucide="moon"></i> Modo Oscuro
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">Nombre de la Aplicación en Cabecera</label>
+              <input type="text" id="configAppNameInput" class="form-control" value="RS Scouting">
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup & Restore -->
+        <div class="config-card">
+          <div class="config-card-title">
+            <i data-lucide="database"></i>
+            <h3>Copia de Seguridad y Datos</h3>
+          </div>
+          <div class="config-card-body">
+            <p class="text-sm text-muted mb-4">Exporta o importa todos tus informes, jugadores, partidos, agenda y enlaces en un archivo JSON seguro.</p>
+            <div class="btn-group-vertical">
+              <button type="button" class="btn btn-secondary" id="btnExportBackup">
+                <i data-lucide="download"></i> Exportar Copia de Seguridad (JSON)
+              </button>
+              <label class="btn btn-outline cursor-pointer">
+                <i data-lucide="upload"></i> Importar Copia de Seguridad (JSON)
+                <input type="file" id="inputImportBackup" accept=".json" class="hidden">
+              </label>
+              <button type="button" class="btn btn-danger" id="btnClearAllData" style="background-color: var(--accent-red); color: white; border: none;">
+                <i data-lucide="trash-2"></i> Borrar Todos los Datos (Limpiar Base de Datos)
+              </button>
+              <button type="button" class="btn btn-outline-danger" id="btnResetSampleData">
+                <i data-lucide="rotate-ccw"></i> Restablecer Datos de Ejemplo Iniciales
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- GENERAL MODAL CONTAINER FOR ENTITY CREATION / EDITING -->
+  <div class="modal-overlay hidden" id="generalModalOverlay">
+    <div class="modal-card" id="generalModalCard">
+      <div class="modal-header">
+        <h3 id="modalTitle">Crear Registro</h3>
+        <button type="button" class="modal-close" id="btnCloseModal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Rendered dynamically depending on entity type -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnSubmitModal">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs (v10 Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>
