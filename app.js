@@ -10786,9 +10786,15 @@
           </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Logo / Icono (URL de Imagen o Emoji)</label>
-          <input type="text" id="lLogo" class="form-control" placeholder="Ej: https://sitio.com/logo.png o ⚽">
-          <span class="text-muted" style="font-size: 11px;">Si se deja en blanco, se obtendrá automáticamente el favicon del sitio web.</span>
+          <label class="form-label">Logo / Icono (URL, Emoji o Subir Archivo)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="lLogo" class="form-control" placeholder="Ej: https://sitio.com/logo.png o ⚽">
+            <input type="file" id="lLogoFile" accept="image/*" class="hidden">
+            <button type="button" id="btnUploadLogoFile" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; height: 38px;">
+              📁 Subir Imagen
+            </button>
+          </div>
+          <span class="text-muted" style="font-size: 11px;">Si se deja en blanco, se obtendrá automáticamente el favicon del sitio. Puedes pulsar "Subir Imagen" para cargar tu archivo (se guardará en Firebase).</span>
         </div>
         <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
           <input type="checkbox" id="lFav" style="width: 18px; height: 18px; cursor: pointer;">
@@ -10846,6 +10852,23 @@
         alert('URL no válida.');
       }
     });
+
+    const logoFileInput = document.getElementById('lLogoFile');
+    document.getElementById('btnUploadLogoFile')?.addEventListener('click', () => logoFileInput.click());
+    logoFileInput?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 2 * 1024 * 1024) {
+          alert('La imagen no debe superar los 2MB');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          document.getElementById('lLogo').value = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
   });
 
   function openEditLinkModal(linkId) {
@@ -10890,9 +10913,15 @@
           </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Logo / Icono (URL de Imagen o Emoji)</label>
-          <input type="text" id="elLogo" class="form-control" value="${escapeHtml(link.logo || '')}">
-          <span class="text-muted" style="font-size: 11px;">Deja en blanco para auto-favicon.</span>
+          <label class="form-label">Logo / Icono (URL, Emoji o Subir Archivo)</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="elLogo" class="form-control" value="${escapeHtml(link.logo || '')}">
+            <input type="file" id="elLogoFile" accept="image/*" class="hidden">
+            <button type="button" id="btnEditUploadLogoFile" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; height: 38px;">
+              📁 Subir Imagen
+            </button>
+          </div>
+          <span class="text-muted" style="font-size: 11px;">Deja en blanco para auto-favicon o sube una imagen local (se guardará en Firebase).</span>
         </div>
         <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
           <input type="checkbox" id="elFav" ${link.favorito ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -10945,6 +10974,23 @@
         document.getElementById('elLogo').value = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
       } else {
         alert('URL no válida.');
+      }
+    });
+
+    const editLogoFileInput = document.getElementById('elLogoFile');
+    document.getElementById('btnEditUploadLogoFile')?.addEventListener('click', () => editLogoFileInput.click());
+    editLogoFileInput?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 2 * 1024 * 1024) {
+          alert('La imagen no debe superar los 2MB');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          document.getElementById('elLogo').value = ev.target.result;
+        };
+        reader.readAsDataURL(file);
       }
     });
   }
