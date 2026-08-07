@@ -382,6 +382,16 @@
           }
         });
       }
+
+      // Colección 'enlaces' en Firestore
+      if (state.links) {
+        state.links.forEach(l => {
+          if (l.id) {
+            db.collection('enlaces').doc(l.id).set(l, { merge: true })
+              .catch(e => console.warn('Error sync enlace:', e));
+          }
+        });
+      }
     }
   }
 
