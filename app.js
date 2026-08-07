@@ -10484,18 +10484,346 @@
     });
   }
 
+  function checkAutoArchiveAgendaTasks() {
+    if (!Array.isArray(state.agenda)) return;
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    state.agenda.forEach(t => {
+      if (t.estado === 'done') {
+        if (!t.completedAt) {
+          t.completedAt = now;
+        } else if (!t.archivada && (now - t.completedAt >= SEVEN_DAYS_MS)) {
+          t.archivada = true;
+        }
+      } else {
+        t.completedAt = null;
+        t.archivada = false;
+      }
+    });
+  }
+
+  function normalizeNotifications() {
+    if (!Array.isArray(state.notifications)) state.notifications = [];
+  }
+
+  function renderNotificationsUI() {
+    normalizeNotifications();
+    const badge = document.getElementById('notifBadgeCount');
+    const subtext = document.getElementById('notifUnreadSubtext');
+    const container = document.getElementById('notificationsListContainer');
+
+    const unreadCount = state.notifications.filter(n => !n.read).length;
+
+    if (badge) {
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    if (subtext) {
+      subtext.textContent = `${unreadCount} sin leer`;
+    }
+
+    if (container) {
+      if (state.notifications.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 30px 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+            <i data-lucide="bell-off" style="width: 32px; height: 32px; opacity: 0.4; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"></i>
+            No tienes notificaciones por el momento.
+          </div>
+        `;
+      } else {
+        container.innerHTML = state.notifications.map(n => `
+          <div class="notif-item ${n.read ? '' : 'unread'}" data-notifid="${n.id}" data-taskid="${n.taskId}">
+            <i data-lucide="clock" style="width: 16px; height: 16px; color: #f59e0b; flex-shrink: 0; margin-top: 2px;"></i>
+            <div style="flex: 1;">
+              <h5 style="font-size: 13px; font-weight: 700; margin: 0 0 2px 0; color: var(--text-main);">${escapeHtml(n.titulo)}</h5>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Revisión programada: <strong>${escapeHtml(n.hora || '12:00')} hs</strong> (${escapeHtml(n.fecha || 'Hoy')})</p>
+            </div>
+            ${!n.read ? '<span class="notif-item-unread-dot" title="Sin leer"></span>' : ''}
+          </div>
+        `).join('');
+
+        container.querySelectorAll('.notif-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const notif = state.notifications.find(x => x.id === item.dataset.notifid);
+            if (notif) {
+              notif.read = true;
+              saveState();
+              renderNotificationsUI();
+            }
+            const dropdown = document.getElementById('notificationsDropdown');
+            if (dropdown) dropdown.classList.add('hidden');
+
+            if (item.dataset.taskid) {
+              openAgendaTaskDetailModal(item.dataset.taskid);
+            }
+          });
+        });
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  function initNotificationsSystem() {
+    renderNotificationsUI();
+
+    const btnNotif = document.getElementById('btnNotifications');
+    const dropdown = document.getElementById('notificationsDropdown');
+    const btnMarkAll = document.getElementById('btnMarkAllNotifsRead');
+
+    if (btnNotif && !btnNotif.dataset.initialized) {
+      btnNotif.dataset.initialized = 'true';
+      btnNotif.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dropdown) {
+          dropdown.classList.toggle('hidden');
+        }
+      });
+    }
+
+    if (btnMarkAll && !btnMarkAll.dataset.initialized) {
+      btnMarkAll.dataset.initialized = 'true';
+      btnMarkAll.addEventListener('click', (e) => {
+        e.stopPropagation();
+        normalizeNotifications();
+        state.notifications.forEach(n => n.read = true);
+        saveState();
+        renderNotificationsUI();
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (dropdown && !dropdown.classList.contains('hidden')) {
+        if (!e.target.closest('.notifications-nav-wrapper')) {
+          dropdown.classList.add('hidden');
+        }
+      }
+    });
+  }
+
+  function checkAgendaTaskReminders() {
+    if (!Array.isArray(state.agenda)) return;
+    normalizeNotifications();
+
+    const now = new Date();
+    const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const currentHours = String(now.getHours()).padStart(2, '0');
+    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+    const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+    let stateUpdated = false;
+
+    state.agenda.forEach(t => {
+      if (t.fecha && t.hora && !t.completada && !t.archivada && !t.notified) {
+        if (t.fecha < currentDateStr || (t.fecha === currentDateStr && t.hora <= currentTimeStr)) {
+          t.notified = true;
+          stateUpdated = true;
+
+          state.notifications.unshift({
+            id: 'notif_' + Date.now(),
+            taskId: t.id,
+            titulo: t.titulo,
+            fecha: t.fecha,
+            hora: t.hora,
+            read: false,
+            createdAt: Date.now()
+          });
+
+          triggerTaskNotification(t);
+        }
+      }
+    });
+
+    if (stateUpdated) {
+      saveState();
+      renderNotificationsUI();
+    }
+  }
+
+  function triggerTaskNotification(task) {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification(`⏰ Recordatorio de Agenda: ${task.titulo}`, {
+            body: `Es hora de revisar la tarea programada para las ${task.hora} hs.`,
+            icon: '/favicon.ico'
+          });
+        } catch (err) {}
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+
+    showAgendaToastNotification(task);
+  }
+
+  function showAgendaToastNotification(task) {
+    let container = document.getElementById('agendaToastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'agendaToastContainer';
+      container.className = 'agenda-toast-container';
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'agenda-toast-item';
+    toast.innerHTML = `
+      <div class="toast-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="bell-ring" style="color: #f59e0b; width: 18px; height: 18px;"></i>
+          <strong style="color: var(--text-main); font-weight: 800;">⏰ Recordatorio de Agenda</strong>
+        </div>
+        <button class="toast-close-btn">&times;</button>
+      </div>
+      <div class="toast-body" style="margin-top: 4px;">
+        <h4 style="font-size: 14px; font-weight: 800; margin: 0 0 4px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h4>
+        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Programado para las <strong>${escapeHtml(task.hora)} hs</strong> (${escapeHtml(task.fecha)}).</p>
+      </div>
+      <div class="toast-actions" style="display: flex; gap: 8px; margin-top: 12px;">
+        <button class="btn btn-sm btn-primary btn-view-toast-task" style="flex: 1; font-size: 11px; padding: 6px 10px;">
+          <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ver Ficha
+        </button>
+        <button class="btn btn-sm btn-secondary btn-dismiss-toast" style="font-size: 11px; padding: 6px 10px;">
+          Entendido
+        </button>
+      </div>
+    `;
+
+    container.appendChild(toast);
+    if (window.lucide) window.lucide.createIcons();
+
+    toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-view-toast-task').addEventListener('click', () => {
+      toast.remove();
+      openAgendaTaskDetailModal(task.id);
+    });
+
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 20000);
+  }
+
+  // Intervalo de comprobación cada 15 segundos
+  setInterval(checkAgendaTaskReminders, 15000);
+
+  function initAgendaArchiveControl() {
+    const btnArchive = document.getElementById('btnOpenAgendaArchive');
+    if (btnArchive && !btnArchive.dataset.initialized) {
+      btnArchive.dataset.initialized = 'true';
+      btnArchive.addEventListener('click', () => {
+        openAgendaArchiveModal();
+      });
+    }
+  }
+
+  function openAgendaArchiveModal() {
+    checkAutoArchiveAgendaTasks();
+    const archivedTasks = (state.agenda || []).filter(t => t.archivada);
+
+    let contentHtml = '';
+    if (archivedTasks.length === 0) {
+      contentHtml = `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <i data-lucide="archive" style="width: 48px; height: 48px; opacity: 0.4; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;"></i>
+          <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px; color: var(--text-main);">El Archivo está vacío</h4>
+          <p style="font-size: 13px;">Las tareas completadas que lleven más de 7 días se trasladarán aquí automáticamente.</p>
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        <div style="margin-bottom: 16px; font-size: 12px; color: var(--text-muted); background: var(--bg-subtle); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          📦 Se muestran <strong>${archivedTasks.length} tareas / eventos archivados</strong> (completados hace más de 7 días).
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+          ${archivedTasks.map(t => {
+            const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
+            const catName = catObj ? catObj.label : (t.categoria || 'General');
+            return `
+              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
+                <div>
+                  <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 4px 0; color: var(--text-main); text-decoration: line-through; opacity: 0.7;">${escapeHtml(t.titulo)}</h4>
+                  <div style="display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); align-items: center;">
+                    <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')}</span>
+                    <span style="background: var(--bg-subtle); padding: 1px 6px; border-radius: 4px;">🏷️ ${escapeHtml(catName)}</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+                  <button class="btn btn-sm btn-secondary btn-unarchive-task" data-id="${t.id}" title="Restaurar a En proceso">
+                    <i data-lucide="rotate-ccw" style="width: 13px;"></i> Restaurar
+                  </button>
+                  <button class="btn-action-icon danger btn-delete-archived-task" data-id="${t.id}" title="Eliminar permanentemente">
+                    <i data-lucide="trash-2" style="width: 14px;"></i>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    showModal('📦 Archivo de Tareas y Eventos (>7 días)', contentHtml, null);
+
+    const modalBody = document.querySelector('.modal-body');
+    if (modalBody) {
+      modalBody.querySelectorAll('.btn-unarchive-task').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const task = state.agenda.find(t => t.id === btn.dataset.id);
+          if (task) {
+            task.estado = 'in_progress';
+            task.completada = false;
+            task.archivada = false;
+            task.completedAt = null;
+            saveState();
+            renderAgenda();
+            renderCalendario();
+            openAgendaArchiveModal();
+          }
+        });
+      });
+
+      modalBody.querySelectorAll('.btn-delete-archived-task').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (confirm('¿Eliminar esta tarea definitivamente?')) {
+            deleteFromFirebase('agenda', btn.dataset.id);
+            state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
+            saveState();
+            renderAgenda();
+            renderCalendario();
+            openAgendaArchiveModal();
+          }
+        });
+      });
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
   function initAgendaFilters() {
     renderAgenda();
   }
 
   function renderAgenda() {
     normalizeAgendaCategories();
+    checkAutoArchiveAgendaTasks();
+    initAgendaArchiveControl();
+    initNotificationsSystem();
+    checkAgendaTaskReminders();
 
-    // Render sidebar categories
+    // 1. Render sidebar categories (filtering active non-archived tasks)
+    const activeTasksList = state.agenda.filter(t => !t.archivada);
+
     const filterContainer = document.getElementById('agendaCategoryFilters');
     if (filterContainer) {
-      const counts = { all: state.agenda.length };
-      state.agenda.forEach(t => {
+      const counts = { all: activeTasksList.length };
+      activeTasksList.forEach(t => {
         const cat = t.categoria || 'general';
         counts[cat] = (counts[cat] || 0) + 1;
       });
@@ -10567,7 +10895,7 @@
     const container = document.getElementById('agendaTasksContainer');
     if (!container) return;
 
-    const filtered = state.agenda.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
+    const filtered = activeTasksList.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
     const todoTasks = filtered.filter(t => (t.estado || 'todo') === 'todo');
     const inProgressTasks = filtered.filter(t => t.estado === 'in_progress');
     const doneTasks = filtered.filter(t => t.estado === 'done');
@@ -12162,6 +12490,7 @@
     initCalendarViewSwitcher();
     initDirectorioSubtabs();
     initAgendaFilters();
+    initNotificationsSystem();
     initFirebaseRealtimeListener();
     
     // Apply saved brand name & theme

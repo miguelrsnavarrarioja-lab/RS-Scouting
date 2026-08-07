@@ -2214,6 +2214,167 @@ a {
   background-color: var(--bg-subtle);
 }
 
+/* Agenda Toast Reminders & Notifications */
+.agenda-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+  width: calc(100vw - 40px);
+  pointer-events: none;
+}
+
+.agenda-toast-item {
+  background: var(--bg-card, #ffffff);
+  border: 2px solid #f59e0b;
+  border-radius: var(--radius-lg, 12px);
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.toast-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Notifications Nav Button & Dropdown */
+.nav-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--border-light);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  margin-left: 8px;
+}
+
+.nav-icon-btn:hover {
+  background-color: var(--bg-hover, rgba(59, 130, 246, 0.08));
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.nav-icon-btn i {
+  width: 18px;
+  height: 18px;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+
+.notifications-dropdown {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  width: 340px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.notif-dropdown-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  background-color: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notif-dropdown-body {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item:hover {
+  background-color: var(--bg-hover, rgba(59, 130, 246, 0.05));
+}
+
+.notif-item.unread {
+  background-color: rgba(59, 130, 246, 0.04);
+}
+
+.notif-item-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary-blue);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
 .column-cards-list .link-card {
   width: 100%;
 }

@@ -65,6 +65,28 @@
           <i data-lucide="settings"></i>
           <span>Configuración</span>
         </button>
+        <div class="notifications-nav-wrapper" style="position: relative; display: inline-flex; align-items: center;">
+          <button class="nav-icon-btn" id="btnNotifications" title="Notificaciones de Agenda">
+            <i data-lucide="bell"></i>
+            <span id="notifBadgeCount" class="notif-badge hidden">0</span>
+          </button>
+          
+          <!-- Notifications Dropdown Panel -->
+          <div class="notifications-dropdown hidden" id="notificationsDropdown">
+            <div class="notif-dropdown-header">
+              <div>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-main);">🔔 Notificaciones</h4>
+                <span id="notifUnreadSubtext" style="font-size: 11px; color: var(--text-muted);">0 sin leer</span>
+              </div>
+              <button class="btn-text-sm" id="btnMarkAllNotifsRead" style="font-size: 11px; font-weight: 700; color: var(--primary-blue); background: none; border: none; cursor: pointer;">
+                Marcar leídas
+              </button>
+            </div>
+            <div class="notif-dropdown-body" id="notificationsListContainer">
+              <!-- Rendered notifications list -->
+            </div>
+          </div>
+        </div>
       </nav>
     </div>
   </header>
@@ -1043,9 +1065,14 @@
           <h1>📝 Agenda y Tareas Diario</h1>
           <p class="view-subtitle">Organiza tus viajes de scouting, eventos, contactos y notas de trabajo</p>
         </div>
-        <button class="btn btn-primary" id="btnNewAgendaTask">
-          <i data-lucide="plus"></i> Nueva Tarea / Evento
-        </button>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas">
+            <i data-lucide="archive"></i> Archivo
+          </button>
+          <button class="btn btn-primary" id="btnNewAgendaTask">
+            <i data-lucide="plus"></i> Nueva Tarea / Evento
+          </button>
+        </div>
       </div>
 
       <div class="agenda-layout">
