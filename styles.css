@@ -1930,6 +1930,28 @@ a {
   cursor: pointer;
   white-space: nowrap;
   transition: var(--transition-fast);
+  user-select: none;
+}
+
+.link-tab-btn.category-tab {
+  cursor: grab;
+}
+
+.link-tab-btn.category-tab:active {
+  cursor: grabbing;
+}
+
+.link-tab-btn.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: var(--primary-blue);
+  transform: scale(0.95);
+}
+
+.link-tab-btn.drag-over {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  transform: scale(1.05);
 }
 
 .link-tab-btn:hover {

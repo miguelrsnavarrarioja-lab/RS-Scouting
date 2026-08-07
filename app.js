@@ -10551,6 +10551,7 @@
 
   function normalizeLinks() {
     if (!Array.isArray(state.links)) state.links = [];
+    if (!Array.isArray(state.customTabOrder)) state.customTabOrder = [];
     state.links.forEach(l => {
       if (!l.etiqueta) l.etiqueta = 'Federaciones';
       if (typeof l.favorito !== 'boolean') l.favorito = false;
@@ -10605,13 +10606,24 @@
     const favCount = state.links.filter(l => l.favorito).length;
     const totalCount = state.links.length;
 
-    // Collect unique tags sorted alphabetically
+    // Collect unique tags
     const tagsMap = {};
     state.links.forEach(l => {
       const tag = l.etiqueta || 'Federaciones';
       tagsMap[tag] = (tagsMap[tag] || 0) + 1;
     });
-    const uniqueTags = Object.keys(tagsMap).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+
+    const currentUniqueTags = Object.keys(tagsMap);
+    if (!Array.isArray(state.customTabOrder)) {
+      state.customTabOrder = [];
+    }
+
+    // Keep existing customTabOrder items that exist in currentUniqueTags
+    state.customTabOrder = state.customTabOrder.filter(tag => currentUniqueTags.includes(tag));
+
+    // Append any newly added tags to customTabOrder (sorted alphabetically amongst themselves)
+    const newTags = currentUniqueTags.filter(tag => !state.customTabOrder.includes(tag)).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    state.customTabOrder.push(...newTags);
 
     // 1. Favoritos (Primera)
     let tabsHtml = `
@@ -10621,10 +10633,10 @@
       </button>
     `;
 
-    // 2. Categorías por orden alfabético
-    uniqueTags.forEach(tag => {
+    // 2. Categorías según orden personalizado (draggable)
+    state.customTabOrder.forEach(tag => {
       tabsHtml += `
-        <button class="link-tab-btn ${currentLinkTab === tag ? 'active' : ''}" data-tab="${escapeHtml(tag)}">
+        <button class="link-tab-btn category-tab ${currentLinkTab === tag ? 'active' : ''}" data-tab="${escapeHtml(tag)}" draggable="true" title="Mantener y arrastrar para reordenar pestaña">
           <i data-lucide="tag" style="width: 13px;"></i> ${escapeHtml(tag)}
           <span class="tab-count">${tagsMap[tag]}</span>
         </button>
@@ -10641,10 +10653,61 @@
 
     if (tabsContainer) {
       tabsContainer.innerHTML = tabsHtml;
+
+      // Click handling
       tabsContainer.querySelectorAll('.link-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           currentLinkTab = btn.dataset.tab;
           renderEnlaces();
+        });
+      });
+
+      // Drag and Drop handling for category tabs
+      let draggedTabTag = null;
+      tabsContainer.querySelectorAll('.link-tab-btn.category-tab').forEach(btn => {
+        btn.addEventListener('dragstart', (e) => {
+          draggedTabTag = btn.dataset.tab;
+          btn.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', btn.dataset.tab);
+        });
+
+        btn.addEventListener('dragend', () => {
+          draggedTabTag = null;
+          tabsContainer.querySelectorAll('.link-tab-btn').forEach(b => {
+            b.classList.remove('dragging', 'drag-over');
+          });
+        });
+
+        btn.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (btn.dataset.tab !== draggedTabTag) {
+            btn.classList.add('drag-over');
+          }
+        });
+
+        btn.addEventListener('dragleave', () => {
+          btn.classList.remove('drag-over');
+        });
+
+        btn.addEventListener('drop', (e) => {
+          e.preventDefault();
+          btn.classList.remove('drag-over');
+          const targetTag = btn.dataset.tab;
+
+          if (draggedTabTag && targetTag && draggedTabTag !== targetTag) {
+            const fromIdx = state.customTabOrder.indexOf(draggedTabTag);
+            const toIdx = state.customTabOrder.indexOf(targetTag);
+
+            if (fromIdx !== -1 && toIdx !== -1) {
+              const [movedTag] = state.customTabOrder.splice(fromIdx, 1);
+              state.customTabOrder.splice(toIdx, 0, movedTag);
+
+              saveState();
+              renderEnlaces();
+            }
+          }
         });
       });
     }
@@ -10699,7 +10762,6 @@
             <h3>${escapeHtml(l.titulo)}</h3>
             <div class="link-badges">
               <span class="link-tag-badge">${escapeHtml(l.etiqueta || 'Federaciones')}</span>
-              ${l.region ? `<span class="link-region-badge">${escapeHtml(l.region)}</span>` : ''}
             </div>
           </div>
         </div>
@@ -10804,7 +10866,6 @@
         </h2>
         <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
           <span class="link-tag-badge" style="font-size: 11px; padding: 4px 12px;">${escapeHtml(link.etiqueta || 'Federaciones')}</span>
-          ${link.region ? `<span class="link-region-badge" style="font-size: 11px; padding: 4px 12px;">${escapeHtml(link.region)}</span>` : ''}
         </div>
         <div style="background: var(--bg-body); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: inline-block; max-width: 100%; word-break: break-all; margin-bottom: 24px;">
           <a href="${escapeHtml(link.url)}" target="_blank" style="color: var(--primary-blue); font-weight: 600; text-decoration: none; font-size: 13px;">
@@ -10877,19 +10938,13 @@
             </button>
           </div>
         </div>
-        <div class="grid-2-col mb-3">
-          <div class="form-group">
-            <label class="form-label">Etiqueta / Categoría</label>
-            <select id="lTagSelect" class="form-control mb-2">
-              ${tagOptions}
-              <option value="__custom__">+ Nueva Etiqueta...</option>
-            </select>
-            <input type="text" id="lTagCustom" class="form-control hidden" placeholder="Escribe la nueva etiqueta">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Región / Ámbito</label>
-            <input type="text" id="lRegion" class="form-control" placeholder="Ej: España / Internacional / Madrid">
-          </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Etiqueta / Categoría</label>
+          <select id="lTagSelect" class="form-control mb-2">
+            ${tagOptions}
+            <option value="__custom__">+ Nueva Etiqueta...</option>
+          </select>
+          <input type="text" id="lTagCustom" class="form-control hidden" placeholder="Escribe la nueva etiqueta">
         </div>
         <div class="form-group mb-3">
           <label class="form-label">Logo / Icono (URL, Emoji o Subir Archivo)</label>
@@ -10925,7 +10980,6 @@
         titulo: title,
         url: url,
         etiqueta: etiqueta,
-        region: document.getElementById('lRegion').value.trim() || 'General',
         logo: document.getElementById('lLogo').value.trim(),
         favorito: document.getElementById('lFav').checked
       });
@@ -11010,19 +11064,13 @@
             </button>
           </div>
         </div>
-        <div class="grid-2-col mb-3">
-          <div class="form-group">
-            <label class="form-label">Etiqueta / Categoría</label>
-            <select id="elTagSelect" class="form-control mb-2">
-              ${tagOptions}
-              <option value="__custom__">+ Nueva Etiqueta...</option>
-            </select>
-            <input type="text" id="elTagCustom" class="form-control hidden" placeholder="Escribe la nueva etiqueta">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Región / Ámbito</label>
-            <input type="text" id="elRegion" class="form-control" value="${escapeHtml(link.region || '')}">
-          </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Etiqueta / Categoría</label>
+          <select id="elTagSelect" class="form-control mb-2">
+            ${tagOptions}
+            <option value="__custom__">+ Nueva Etiqueta...</option>
+          </select>
+          <input type="text" id="elTagCustom" class="form-control hidden" placeholder="Escribe la nueva etiqueta">
         </div>
         <div class="form-group mb-3">
           <label class="form-label">Logo / Icono (URL, Emoji o Subir Archivo)</label>
@@ -11056,7 +11104,6 @@
       link.titulo = title;
       link.url = url;
       link.etiqueta = etiqueta;
-      link.region = document.getElementById('elRegion').value.trim() || 'General';
       link.logo = document.getElementById('elLogo').value.trim();
       link.favorito = document.getElementById('elFav').checked;
 
