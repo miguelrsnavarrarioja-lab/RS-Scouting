@@ -1052,13 +1052,14 @@
         <!-- Sidebar Filter / Quick Stats -->
         <div class="agenda-sidebar">
           <div class="agenda-card">
-            <h3>Categorías</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <h3 style="margin: 0;">Categorías</h3>
+              <button class="btn btn-sm btn-secondary" id="btnAddNewAgendaCat" title="Añadir nueva categoría">
+                <i data-lucide="plus" style="width: 14px;"></i> Nueva
+              </button>
+            </div>
             <ul class="category-list" id="agendaCategoryFilters">
-              <li class="active" data-cat="all"><i data-lucide="layers"></i> Todas las tareas</li>
-              <li data-cat="scouting"><i data-lucide="eye"></i> Viajes Scouting</li>
-              <li data-cat="partido"><i data-lucide="trophy"></i> Partidos a seguir</li>
-              <li data-cat="contacto"><i data-lucide="user-check"></i> Contactos / Agentes</li>
-              <li data-cat="nota"><i data-lucide="file-text"></i> Notas de campo</li>
+              <!-- Dynamic Categories rendered by JS -->
             </ul>
           </div>
         </div>

@@ -2095,6 +2095,125 @@ a {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
+/* Agenda 3-Column Kanban Board Styles */
+.agenda-board-wrapper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .agenda-board-wrapper {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding-bottom: 12px;
+  }
+  .agenda-board-column {
+    flex: 0 0 320px;
+  }
+}
+
+.agenda-board-column {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+  min-height: 480px;
+  transition: var(--transition-fast);
+}
+
+.agenda-board-column.col-todo {
+  border-top: 4px solid #ef4444;
+}
+
+.agenda-board-column.col-in-progress {
+  border-top: 4px solid #f59e0b;
+}
+
+.agenda-board-column.col-done {
+  border-top: 4px solid #10b981;
+}
+
+.agenda-column-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agenda-column-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agenda-column-title h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+}
+
+.agenda-column-count {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.agenda-cards-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 250px;
+}
+
+.agenda-cards-list.drag-over-list {
+  background-color: rgba(59, 130, 246, 0.05);
+  border: 2px dashed var(--primary-blue);
+  border-radius: var(--radius-md);
+}
+
+.agenda-card-item {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-fast);
+  cursor: grab;
+  position: relative;
+}
+
+.agenda-card-item:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-blue);
+}
+
+.agenda-card-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.96);
+  border-style: dashed;
+}
+
+.agenda-card-item.is-done {
+  opacity: 0.75;
+  background-color: var(--bg-subtle);
+}
+
 .column-cards-list .link-card {
   width: 100%;
 }

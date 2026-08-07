@@ -858,57 +858,96 @@
 
   function renderCalendarListView(filtered) {
     const container = document.getElementById('calendarMatchesContainer');
-    if (filtered.length === 0) {
+    const agendaEvents = (state.agenda || []).filter(t => t.fecha);
+
+    const combined = [
+      ...filtered.map(m => ({ ...m, _type: 'match' })),
+      ...agendaEvents.map(a => ({ ...a, _type: 'agenda' }))
+    ].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+    if (combined.length === 0) {
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
           <i data-lucide="calendar-x" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
-          <p class="empty-state-text">No hay partidos en el calendario con los filtros seleccionados.</p>
+          <p class="empty-state-text">No hay partidos ni tareas en el calendario con los filtros seleccionados.</p>
           <button class="btn btn-primary" id="btnEmptyScheduleMatch">Programar Primer Partido</button>
         </div>
       `;
       document.getElementById('btnEmptyScheduleMatch')?.addEventListener('click', () => openNewMatchModal());
     } else {
-      container.innerHTML = filtered.map(m => `
-        <div class="match-card">
-          <div class="match-card-header">
-            <span class="match-category-tag">${escapeHtml(m.categoria)}</span>
-            <span class="match-status-badge ${m.estado}">${m.estado === 'visto' ? '✓ Visto' : m.estado === 'directo' ? '🔴 En Directo' : '📅 Programado'}</span>
-          </div>
+      container.innerHTML = combined.map(item => {
+        if (item._type === 'match') {
+          return `
+            <div class="match-card">
+              <div class="match-card-header">
+                <span class="match-category-tag">${escapeHtml(item.categoria)}</span>
+                <span class="match-status-badge ${item.estado}">${item.estado === 'visto' ? '✓ Visto' : item.estado === 'directo' ? '🔴 En Directo' : '📅 Programado'}</span>
+              </div>
 
-          <div class="match-card-teams">
-            <span class="match-team-name">${escapeHtml(m.local)}</span>
-            <span class="match-vs">VS</span>
-            <span class="match-team-name text-right">${escapeHtml(m.visitante)}</span>
-          </div>
+              <div class="match-card-teams">
+                <span class="match-team-name">${escapeHtml(item.local)}</span>
+                <span class="match-vs">VS</span>
+                <span class="match-team-name text-right">${escapeHtml(item.visitante)}</span>
+              </div>
 
-          <div class="match-card-details">
-            <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(m.fecha)} | ${escapeHtml(m.hora)} hs</div>
-            <div><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(m.estadio || 'Estadio no especificado')}</div>
-            <div><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(m.competicion || 'Competición')}</div>
-          </div>
+              <div class="match-card-details">
+                <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)} | ${escapeHtml(item.hora)} hs</div>
+                <div><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(item.estadio || 'Estadio no especificado')}</div>
+                <div><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(item.competicion || 'Competición')}</div>
+              </div>
 
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            ${m.reportId ? `
-              <button class="btn btn-primary btn-open-report" data-repid="${m.reportId}" data-mid="${m.id}" style="width: 100%;">
-                <i data-lucide="file-text"></i> Ver Informe Técnico
-              </button>
-            ` : `
-              <button class="btn btn-secondary btn-create-report-from-match" data-mid="${m.id}" style="width: 100%;">
-                <i data-lucide="plus"></i> Crear Informe Técnico
-              </button>
-            `}
-          </div>
-        </div>
-      `).join('');
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                ${item.reportId ? `
+                  <button class="btn btn-primary btn-open-report" data-repid="${item.reportId}" data-mid="${item.id}" style="width: 100%;">
+                    <i data-lucide="file-text"></i> Ver Informe Técnico
+                  </button>
+                ` : `
+                  <button class="btn btn-secondary btn-create-report-from-match" data-mid="${item.id}" style="width: 100%;">
+                    <i data-lucide="plus"></i> Crear Informe Técnico
+                  </button>
+                `}
+              </div>
+            </div>
+          `;
+        } else {
+          const catObj = (state.agendaCategories || []).find(c => c.id === item.categoria);
+          const catLabel = catObj ? catObj.label : item.categoria;
+          return `
+            <div class="match-card agenda-card-item-click" data-agid="${item.id}" style="border-left: 4px solid #f59e0b; background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Ficha de Tarea / Evento">
+              <div class="match-card-header">
+                <span class="match-category-tag" style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d;">📝 Agenda / Tarea</span>
+                <span class="match-status-badge ${item.completada ? 'visto' : 'programado'}">${item.completada ? '✓ Completada' : '📅 Pendiente'}</span>
+              </div>
+              <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
+                ${escapeHtml(item.titulo)}
+              </div>
+              <div class="match-card-details">
+                <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)} | ${escapeHtml(item.hora || '12:00')} hs</div>
+                <div><i data-lucide="tag" style="width: 14px;"></i> Categoría: ${escapeHtml(catLabel)}</div>
+                <div><i data-lucide="alert-circle" style="width: 14px;"></i> Prioridad: ${escapeHtml(item.prioridad)}</div>
+              </div>
+            </div>
+          `;
+        }
+      }).join('');
 
       container.querySelectorAll('.btn-open-report').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const match = state.matches.find(m => m.id === btn.dataset.mid || m.reportId === btn.dataset.repid);
           openMatchReportEditor(btn.dataset.repid, match);
         });
       });
       container.querySelectorAll('.btn-create-report-from-match').forEach(btn => {
-        btn.addEventListener('click', () => createReportFromMatch(btn.dataset.mid));
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          createReportFromMatch(btn.dataset.mid);
+        });
+      });
+      container.querySelectorAll('.agenda-card-item-click').forEach(card => {
+        card.addEventListener('click', () => {
+          openAgendaTaskDetailModal(card.dataset.agid);
+        });
       });
     }
   }
@@ -920,24 +959,27 @@
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     document.getElementById('monthTitleDisplay').textContent = `${monthNames[month]} ${year}`;
 
-    // Days in current month & start day offset (Monday = 0)
     const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
     const prevMonthDays = new Date(year, month, 0).getDate();
 
-    // Matches in selected month/year
     const monthMatches = filteredMatches.filter(m => {
       if (!m.fecha) return false;
       const d = new Date(m.fecha);
       return d.getFullYear() === year && d.getMonth() === month;
     });
 
-    document.getElementById('monthMatchCountDisplay').textContent = monthMatches.length;
+    const monthAgendaTasks = (state.agenda || []).filter(t => {
+      if (!t.fecha) return false;
+      const d = new Date(t.fecha);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    document.getElementById('monthMatchCountDisplay').textContent = monthMatches.length + monthAgendaTasks.length;
 
     const grid = document.getElementById('monthDaysGrid');
     let cellsHTML = '';
 
-    // 1. Previous month trailing days
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const prevDayNum = prevMonthDays - i;
       cellsHTML += `
@@ -947,7 +989,6 @@
       `;
     }
 
-    // 2. Current month days
     const today = new Date();
     const isCurrentRealMonth = today.getFullYear() === year && today.getMonth() === month;
 
@@ -956,6 +997,7 @@
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
+      const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
 
       cellsHTML += `
         <div class="month-day-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
@@ -963,7 +1005,12 @@
           <div class="day-matches-list">
             ${dayMatches.map(m => `
               <div class="day-match-pill ${m.estado}" data-mid="${m.id}" title="${escapeHtml(m.local)} vs ${escapeHtml(m.visitante)}">
-                <span>${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
+                <span>⚽ ${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
+              </div>
+            `).join('')}
+            ${dayAgendaTasks.map(t => `
+              <div class="day-match-pill day-agenda-pill" data-agid="${t.id}" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
+                <span>📝 ${escapeHtml(t.titulo)}</span>
               </div>
             `).join('')}
           </div>
@@ -971,7 +1018,6 @@
       `;
     }
 
-    // 3. Next month trailing days to complete grid
     const totalCellsSoFar = firstDayIndex + totalDaysInMonth;
     const remainingCells = (7 - (totalCellsSoFar % 7)) % 7;
     for (let i = 1; i <= remainingCells; i++) {
@@ -984,9 +1030,15 @@
 
     grid.innerHTML = cellsHTML;
 
-    // Click handler for day cells to add match or open existing
     grid.querySelectorAll('.month-day-cell:not(.other-month)').forEach(cell => {
       cell.addEventListener('click', (e) => {
+        const agendaPill = e.target.closest('.day-agenda-pill');
+        if (agendaPill) {
+          e.stopPropagation();
+          openAgendaTaskDetailModal(agendaPill.dataset.agid);
+          return;
+        }
+
         const pill = e.target.closest('.day-match-pill');
         if (pill) {
           e.stopPropagation();
@@ -10421,72 +10473,409 @@
   // --------------------------------------------------------------------------
   let currentAgendaCat = 'all';
 
-  function initAgendaFilters() {
-    const list = document.querySelectorAll('#agendaCategoryFilters li');
-    list.forEach(item => {
-      item.addEventListener('click', () => {
-        list.forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
-        currentAgendaCat = item.dataset.cat;
-        renderAgenda();
-      });
+  function normalizeAgendaCategories() {
+    if (!Array.isArray(state.agenda)) state.agenda = [];
+    if (!Array.isArray(state.agendaCategories)) state.agendaCategories = [];
+    state.agenda.forEach(t => {
+      if (!t.estado) {
+        t.estado = t.completada ? 'done' : 'todo';
+      }
+      t.completada = (t.estado === 'done');
     });
   }
 
+  function initAgendaFilters() {
+    renderAgenda();
+  }
+
   function renderAgenda() {
-    const filtered = state.agenda.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
-    const container = document.getElementById('agendaTasksContainer');
+    normalizeAgendaCategories();
 
-    if (filtered.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state" style="padding: 40px; background-color: var(--bg-card); border-radius: var(--radius-lg);">
-          <p class="empty-state-text">No hay tareas o notas en esta categoría.</p>
-        </div>
+    // Render sidebar categories
+    const filterContainer = document.getElementById('agendaCategoryFilters');
+    if (filterContainer) {
+      const counts = { all: state.agenda.length };
+      state.agenda.forEach(t => {
+        const cat = t.categoria || 'general';
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+
+      let filtersHtml = `
+        <li class="${currentAgendaCat === 'all' ? 'active' : ''}" data-cat="all">
+          <i data-lucide="layers"></i> Todas las tareas
+          <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts.all}</span>
+        </li>
       `;
-    } else {
-      container.innerHTML = filtered.map(t => `
-        <div class="task-item">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <input type="checkbox" ${t.completada ? 'checked' : ''} class="btn-toggle-task" data-id="${t.id}" style="width: 18px; height: 18px; cursor: pointer;">
-            <div>
-              <h4 style="font-size: 14px; font-weight: 700; ${t.completada ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
-              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(t.fecha)} ${escapeHtml(t.hora)}</span>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="match-category-tag" style="background-color: var(--bg-subtle); color: var(--text-muted);">${escapeHtml(t.prioridad)}</span>
-            <button class="btn-action-icon danger btn-delete-task" data-id="${t.id}" style="width: 28px; height: 28px;">
-              <i data-lucide="trash-2" style="width: 14px;"></i>
-            </button>
-          </div>
-        </div>
-      `).join('');
 
-      container.querySelectorAll('.btn-toggle-task').forEach(chk => {
-        chk.addEventListener('change', () => {
-          const item = state.agenda.find(i => i.id === chk.dataset.id);
-          if (item) {
-            item.completada = chk.checked;
+      state.agendaCategories.forEach(cat => {
+        filtersHtml += `
+          <li class="${currentAgendaCat === cat.id ? 'active' : ''}" data-cat="${cat.id}">
+            <i data-lucide="${cat.icon || 'bookmark'}"></i> ${escapeHtml(cat.label)}
+            <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts[cat.id] || 0}</span>
+            <button class="btn-action-icon danger btn-delete-agenda-cat" data-id="${cat.id}" title="Eliminar categoría" style="margin-left: 6px; padding: 2px;">
+              <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+            </button>
+          </li>
+        `;
+      });
+
+      filterContainer.innerHTML = filtersHtml;
+
+      filterContainer.querySelectorAll('li').forEach(item => {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.btn-delete-agenda-cat')) return;
+          currentAgendaCat = item.dataset.cat;
+          renderAgenda();
+        });
+      });
+
+      filterContainer.querySelectorAll('.btn-delete-agenda-cat').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const catId = btn.dataset.id;
+          if (confirm('¿Eliminar esta categoría de la agenda?')) {
+            state.agendaCategories = state.agendaCategories.filter(c => c.id !== catId);
+            if (currentAgendaCat === catId) currentAgendaCat = 'all';
             saveState();
             renderAgenda();
           }
         });
       });
+    }
 
-      container.querySelectorAll('.btn-delete-task').forEach(btn => {
-        btn.addEventListener('click', () => {
-          deleteFromFirebase('agenda', btn.dataset.id);
-          state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
+    const btnAddNewCat = document.getElementById('btnAddNewAgendaCat');
+    if (btnAddNewCat && !btnAddNewCat.dataset.initialized) {
+      btnAddNewCat.dataset.initialized = 'true';
+      btnAddNewCat.addEventListener('click', () => {
+        const name = prompt('Nombre de la nueva categoría para la Agenda:');
+        if (name && name.trim()) {
+          const cleanName = name.trim();
+          const newId = 'cat_' + Date.now();
+          state.agendaCategories.push({
+            id: newId,
+            label: cleanName,
+            icon: 'bookmark'
+          });
+          currentAgendaCat = newId;
           saveState();
           renderAgenda();
-        });
+        }
       });
     }
+
+    // Render 3-Column Kanban Board
+    const container = document.getElementById('agendaTasksContainer');
+    if (!container) return;
+
+    const filtered = state.agenda.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
+    const todoTasks = filtered.filter(t => (t.estado || 'todo') === 'todo');
+    const inProgressTasks = filtered.filter(t => t.estado === 'in_progress');
+    const doneTasks = filtered.filter(t => t.estado === 'done');
+
+    const renderTaskCard = (t) => {
+      const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
+      const catName = catObj ? catObj.label : (t.categoria || 'General');
+      const isDone = t.estado === 'done';
+
+      return `
+        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id}" draggable="true">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted);" title="Mantener y arrastrar entre estados">
+                <i data-lucide="grip-vertical" style="width: 15px; height: 15px;"></i>
+              </div>
+              <h4 style="font-size: 14px; font-weight: 700; margin: 0; color: var(--text-main); ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
+            </div>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id}" title="Editar tarea">
+                <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+              </button>
+              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id}" title="Eliminar tarea">
+                <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
+            <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')} ${escapeHtml(t.hora || '')}</span>
+            <span style="background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; font-weight: 600;">🏷️ ${escapeHtml(catName)}</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-light);">
+            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id}" style="font-size: 11px; font-weight: 700; padding: 2px 6px; height: 26px;">
+              <option value="todo" ${t.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
+              <option value="in_progress" ${t.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
+              <option value="done" ${t.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
+            </select>
+            <span class="match-category-tag" style="font-size: 10px; padding: 2px 6px;">${escapeHtml(t.prioridad)}</span>
+          </div>
+        </div>
+      `;
+    };
+
+    container.innerHTML = `
+      <div class="agenda-board-wrapper">
+        <div class="agenda-board-column col-todo">
+          <div class="agenda-column-header">
+            <div class="agenda-column-title">
+              <i data-lucide="circle" style="width: 16px; color: #ef4444;"></i>
+              <h3>Sin hacer</h3>
+            </div>
+            <span class="agenda-column-count">${todoTasks.length}</span>
+          </div>
+          <div class="agenda-cards-list" data-status="todo">
+            ${todoTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas pendientes</div>` : todoTasks.map(renderTaskCard).join('')}
+          </div>
+        </div>
+        <div class="agenda-board-column col-in-progress">
+          <div class="agenda-column-header">
+            <div class="agenda-column-title">
+              <i data-lucide="clock" style="width: 16px; color: #f59e0b;"></i>
+              <h3>En proceso</h3>
+            </div>
+            <span class="agenda-column-count">${inProgressTasks.length}</span>
+          </div>
+          <div class="agenda-cards-list" data-status="in_progress">
+            ${inProgressTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas en proceso</div>` : inProgressTasks.map(renderTaskCard).join('')}
+          </div>
+        </div>
+        <div class="agenda-board-column col-done">
+          <div class="agenda-column-header">
+            <div class="agenda-column-title">
+              <i data-lucide="check-circle-2" style="width: 16px; color: #10b981;"></i>
+              <h3>Completadas</h3>
+            </div>
+            <span class="agenda-column-count">${doneTasks.length}</span>
+          </div>
+          <div class="agenda-cards-list" data-status="done">
+            ${doneTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas completadas</div>` : doneTasks.map(renderTaskCard).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    attachAgendaBoardEvents(container);
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function attachAgendaBoardEvents(container) {
+    let draggedTaskId = null;
+    container.querySelectorAll('.agenda-card-item').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        draggedTaskId = card.dataset.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+      card.addEventListener('dragend', () => {
+        draggedTaskId = null;
+        container.querySelectorAll('.agenda-card-item').forEach(c => c.classList.remove('dragging'));
+        container.querySelectorAll('.agenda-cards-list').forEach(l => l.classList.remove('drag-over-list'));
+      });
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-action-icon') || e.target.closest('.agenda-status-select') || e.target.closest('.task-drag-handle')) return;
+        openAgendaTaskDetailModal(card.dataset.id);
+      });
+    });
+    container.querySelectorAll('.agenda-cards-list').forEach(cardsList => {
+      cardsList.addEventListener('dragover', (e) => { e.preventDefault(); cardsList.classList.add('drag-over-list'); });
+      cardsList.addEventListener('dragleave', () => cardsList.classList.remove('drag-over-list'));
+      cardsList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        cardsList.classList.remove('drag-over-list');
+        const task = state.agenda.find(t => t.id === draggedTaskId);
+        if (task) {
+          task.estado = cardsList.dataset.status;
+          task.completada = (task.estado === 'done');
+          saveState();
+          renderAgenda();
+          renderCalendario();
+        }
+      });
+    });
+    container.querySelectorAll('.agenda-status-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const task = state.agenda.find(t => t.id === sel.dataset.id);
+        if (task) {
+          task.estado = sel.value;
+          task.completada = (sel.value === 'done');
+          saveState();
+          renderAgenda();
+          renderCalendario();
+        }
+      });
+    });
+    container.querySelectorAll('.btn-edit-agenda-task').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditAgendaTaskModal(btn.dataset.id);
+      });
+    });
+    container.querySelectorAll('.btn-delete-task').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteFromFirebase('agenda', btn.dataset.id);
+        state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
+        saveState();
+        renderAgenda();
+        renderCalendario();
+      });
+    });
+  }
+
+  function openAgendaTaskDetailModal(taskId) {
+    const task = (state.agenda || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    normalizeAgendaCategories();
+    const catObj = (state.agendaCategories || []).find(c => c.id === task.categoria);
+    const catName = catObj ? catObj.label : (task.categoria || 'General');
+
+    const statusBadgeClass = task.estado === 'done' ? 'visto' : task.estado === 'in_progress' ? 'directo' : 'programado';
+    const statusLabel = task.estado === 'done' ? '🟢 Completada' : task.estado === 'in_progress' ? '🟡 En proceso' : '🔴 Sin hacer';
+
+    showModal('Ficha de Tarea / Evento de Agenda', `
+      <div class="agenda-detail-card" style="padding: 4px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 6px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h2>
+            <span class="match-category-tag" style="background: var(--bg-subtle);">🏷️ Categoría: ${escapeHtml(catName)}</span>
+          </div>
+          <span class="match-status-badge ${statusBadgeClass}" style="font-size: 12px; padding: 4px 10px;">${statusLabel}</span>
+        </div>
+
+        <div style="background: var(--bg-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px;">
+            <div>
+              <strong style="color: var(--text-muted); display: block; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">📅 FECHA Y HORA</strong>
+              <span style="font-weight: 700; color: var(--text-main);">${escapeHtml(task.fecha || 'Sin fecha')} | ${escapeHtml(task.hora || '12:00')} hs</span>
+            </div>
+            <div>
+              <strong style="color: var(--text-muted); display: block; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">⚡ PRIORIDAD</strong>
+              <span style="font-weight: 700; color: var(--text-main);">${escapeHtml(task.prioridad || 'Media')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group mb-4" style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 2px dashed var(--primary-blue); box-shadow: var(--shadow-sm);">
+          <label class="form-label" style="font-weight: 800; margin-bottom: 8px; display: block; color: var(--primary-blue); font-size: 13px;">
+            🔄 Cambiar Estado de la Tarea / Evento
+          </label>
+          <select id="agDetailStatusSelect" class="form-control" style="font-weight: 800; font-size: 14px; padding: 8px 12px; cursor: pointer;">
+            <option value="todo" ${task.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
+            <option value="in_progress" ${task.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
+            <option value="done" ${task.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px;">
+          <button class="btn btn-secondary" id="btnDetailEditTask">
+            <i data-lucide="edit-2"></i> Editar Tarea
+          </button>
+          <button class="btn btn-outline-danger" id="btnDetailDeleteTask">
+            <i data-lucide="trash-2"></i> Eliminar
+          </button>
+        </div>
+      </div>
+    `, null);
+
+    const statusSel = document.getElementById('agDetailStatusSelect');
+    if (statusSel) {
+      statusSel.addEventListener('change', (e) => {
+        task.estado = e.target.value;
+        task.completada = (task.estado === 'done');
+        saveState();
+        renderAgenda();
+        renderCalendario();
+        openAgendaTaskDetailModal(task.id);
+      });
+    }
+
+    document.getElementById('btnDetailEditTask')?.addEventListener('click', () => {
+      hideModal();
+      openEditAgendaTaskModal(task.id);
+    });
+
+    document.getElementById('btnDetailDeleteTask')?.addEventListener('click', () => {
+      if (confirm('¿Eliminar esta tarea de la agenda?')) {
+        deleteFromFirebase('agenda', task.id);
+        state.agenda = state.agenda.filter(i => i.id !== task.id);
+        saveState();
+        hideModal();
+        renderAgenda();
+        renderCalendario();
+      }
+    });
 
     if (window.lucide) window.lucide.createIcons();
   }
 
+  function openEditAgendaTaskModal(taskId) {
+    const task = state.agenda.find(t => t.id === taskId);
+    if (!task) return;
+    normalizeAgendaCategories();
+    const catOptions = state.agendaCategories.map(c => `<option value="${c.id}" ${c.id === task.categoria ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
+    showModal('Editar Tarea / Evento de Agenda', `
+      <form id="editAgendaForm">
+        <div class="form-group mb-4">
+          <label class="form-label">Título de la Tarea / Evento</label>
+          <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="agDateEdit" class="form-control" value="${task.fecha || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hora</label>
+            <input type="time" id="agTimeEdit" class="form-control" value="${task.hora || '12:00'}">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Categoría</label>
+            <select id="agCatEdit" class="form-control">${catOptions}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select id="agEstadoEdit" class="form-control">
+              <option value="todo" ${task.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
+              <option value="in_progress" ${task.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
+              <option value="done" ${task.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prioridad</label>
+            <select id="agPrioEdit" class="form-control">
+              <option value="Alta" ${task.prioridad === 'Alta' ? 'selected' : ''}>Alta 🔴</option>
+              <option value="Media" ${task.prioridad === 'Media' ? 'selected' : ''}>Media 🟡</option>
+              <option value="Baja" ${task.prioridad === 'Baja' ? 'selected' : ''}>Baja 🟢</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    `, () => {
+      const title = document.getElementById('agTitleEdit').value.trim();
+      if (!title) return alert('Por favor ingresa un título');
+      const estadoVal = document.getElementById('agEstadoEdit').value;
+      task.titulo = title;
+      task.fecha = document.getElementById('agDateEdit').value;
+      task.hora = document.getElementById('agTimeEdit').value;
+      task.categoria = document.getElementById('agCatEdit').value;
+      task.estado = estadoVal;
+      task.completada = (estadoVal === 'done');
+      task.prioridad = document.getElementById('agPrioEdit').value;
+      saveState();
+      hideModal();
+      renderAgenda();
+      renderCalendario();
+    });
+  }
+
   document.getElementById('btnNewAgendaTask')?.addEventListener('click', () => {
+    normalizeAgendaCategories();
+    const catOptions = state.agendaCategories.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
+    const hasExistingCats = state.agendaCategories.length > 0;
     showModal('Añadir Tarea / Evento a la Agenda', `
       <form id="newAgendaForm">
         <div class="form-group mb-4">
@@ -10503,14 +10892,21 @@
             <input type="time" id="agTime" class="form-control" value="12:00">
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label class="form-label">Categoría</label>
-            <select id="agCat" class="form-control">
-              <option value="scouting">Viaje Scouting</option>
-              <option value="partido">Partido a Seguir</option>
-              <option value="contacto">Contacto Agente</option>
-              <option value="nota">Nota de Campo</option>
+            <select id="agCat" class="form-control mb-2">
+              ${catOptions}
+              <option value="__custom__" ${!hasExistingCats ? 'selected' : ''}>+ Crear Nueva Categoría...</option>
+            </select>
+            <input type="text" id="agCatCustom" class="form-control ${hasExistingCats ? 'hidden' : ''}" placeholder="Nombre de la categoría">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select id="agEstado" class="form-control">
+              <option value="todo" selected>🔴 Sin hacer</option>
+              <option value="in_progress">🟡 En proceso</option>
+              <option value="done">🟢 Completada</option>
             </select>
           </div>
           <div class="form-group">
@@ -10526,13 +10922,24 @@
     `, () => {
       const title = document.getElementById('agTitle').value.trim();
       if (!title) return alert('Por favor ingresa un título');
-
+      let catValue = document.getElementById('agCat').value;
+      const customValue = document.getElementById('agCatCustom').value.trim();
+      if ((catValue === '__custom__' || !catValue) && customValue) {
+        const newId = 'cat_' + Date.now();
+        state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
+        catValue = newId;
+      } else if (!catValue && !customValue) {
+        const defaultId = 'cat_' + Date.now();
+        state.agendaCategories.push({ id: defaultId, label: 'General', icon: 'bookmark' });
+        catValue = defaultId;
+      }
+      const estadoVal = document.getElementById('agEstado').value;
       state.agenda.unshift({
         id: 'ag_' + Date.now(),
         titulo: title,
         fecha: document.getElementById('agDate').value,
         hora: document.getElementById('agTime').value,
-        categoria: document.getElementById('agCat').value,
+        categoria: catValue,
         prioridad: document.getElementById('agPrio').value,
         completada: false
       });
@@ -10540,7 +10947,21 @@
       saveState();
       hideModal();
       renderAgenda();
+      renderCalendario();
     });
+
+    const agCatSel = document.getElementById('agCat');
+    const agCatCust = document.getElementById('agCatCustom');
+    if (agCatSel && agCatCust) {
+      agCatSel.addEventListener('change', () => {
+        if (agCatSel.value === '__custom__') {
+          agCatCust.classList.remove('hidden');
+          agCatCust.focus();
+        } else {
+          agCatCust.classList.add('hidden');
+        }
+      });
+    }
   });
 
   // --------------------------------------------------------------------------
