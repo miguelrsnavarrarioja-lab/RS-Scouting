@@ -10546,7 +10546,7 @@
   // --------------------------------------------------------------------------
   // 9. SECTION 6: ENLACES FEDERATIVOS & RECURSOS
   // --------------------------------------------------------------------------
-  let currentLinkTab = 'all'; // 'all', 'favorites', or tag string
+  let currentLinkTab = 'favorites'; // 'favorites' (primera), tag string (alfabéticas), or 'all' (al final)
   let currentLinkSearch = '';
 
   function normalizeLinks() {
@@ -10605,25 +10605,23 @@
     const favCount = state.links.filter(l => l.favorito).length;
     const totalCount = state.links.length;
 
-    // Collect unique tags
+    // Collect unique tags sorted alphabetically
     const tagsMap = {};
     state.links.forEach(l => {
       const tag = l.etiqueta || 'Federaciones';
       tagsMap[tag] = (tagsMap[tag] || 0) + 1;
     });
-    const uniqueTags = Object.keys(tagsMap).sort();
+    const uniqueTags = Object.keys(tagsMap).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 
+    // 1. Favoritos (Primera)
     let tabsHtml = `
-      <button class="link-tab-btn ${currentLinkTab === 'all' ? 'active' : ''}" data-tab="all">
-        <i data-lucide="globe" style="width: 14px;"></i> Todos
-        <span class="tab-count">${totalCount}</span>
-      </button>
       <button class="link-tab-btn fav-tab ${currentLinkTab === 'favorites' ? 'active' : ''}" data-tab="favorites">
         <i data-lucide="star" style="width: 14px; fill: ${currentLinkTab === 'favorites' ? '#ffffff' : '#f59e0b'}; color: #f59e0b;"></i> Favoritos
         <span class="tab-count">${favCount}</span>
       </button>
     `;
 
+    // 2. Categorías por orden alfabético
     uniqueTags.forEach(tag => {
       tabsHtml += `
         <button class="link-tab-btn ${currentLinkTab === tag ? 'active' : ''}" data-tab="${escapeHtml(tag)}">
@@ -10632,6 +10630,14 @@
         </button>
       `;
     });
+
+    // 3. Todos (Al final siempre)
+    tabsHtml += `
+      <button class="link-tab-btn ${currentLinkTab === 'all' ? 'active' : ''}" data-tab="all">
+        <i data-lucide="globe" style="width: 14px;"></i> Todos
+        <span class="tab-count">${totalCount}</span>
+      </button>
+    `;
 
     if (tabsContainer) {
       tabsContainer.innerHTML = tabsHtml;
