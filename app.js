@@ -10546,17 +10546,20 @@
   // --------------------------------------------------------------------------
   // 9. SECTION 6: ENLACES FEDERATIVOS & RECURSOS
   // --------------------------------------------------------------------------
-  let currentLinkTab = 'favorites'; // 'favorites' (primera), tag string (alfabéticas), or 'all' (al final)
+  let currentLinkTab = 'favorites';
   let currentLinkSearch = '';
 
   function normalizeLinks() {
     if (!Array.isArray(state.links)) state.links = [];
     if (!Array.isArray(state.customTabOrder)) state.customTabOrder = [];
+    if (!Array.isArray(state.favColumns) || state.favColumns.length === 0) {
+      state.favColumns = ['Columna 1', 'Columna 2', 'Columna 3'];
+    }
     state.links.forEach(l => {
       if (!l.etiqueta) l.etiqueta = 'Federaciones';
       if (typeof l.favorito !== 'boolean') l.favorito = false;
       if (!l.logo) l.logo = '';
-      if (!l.region) l.region = 'General';
+      if (!l.favCol) l.favCol = 'Columna 1';
     });
   }
 
@@ -10590,23 +10593,36 @@
   function renderEnlaces() {
     normalizeLinks();
 
-    const container = document.getElementById('federationLinksContainer');
-    const tabsContainer = document.getElementById('linksCategoryTabs');
     const searchInput = document.getElementById('linkSearchInput');
-
     if (searchInput && !searchInput.dataset.initialized) {
       searchInput.dataset.initialized = 'true';
       searchInput.addEventListener('input', (e) => {
         currentLinkSearch = e.target.value.toLowerCase().trim();
-        renderEnlacesGrid();
+        renderEnlaces();
       });
     }
 
-    // 1. Build Category Tabs
+    const btnAddFavCol = document.getElementById('btnAddNewFavCol');
+    if (btnAddFavCol && !btnAddFavCol.dataset.initialized) {
+      btnAddFavCol.dataset.initialized = 'true';
+      btnAddFavCol.addEventListener('click', () => {
+        const colName = prompt('Nombre de la nueva columna de favoritos:');
+        if (colName && colName.trim()) {
+          const cleanName = colName.trim();
+          if (!state.favColumns.includes(cleanName)) {
+            state.favColumns.push(cleanName);
+            saveState();
+            renderEnlaces();
+          }
+        }
+      });
+    }
+
+    // 1. Render Category Tabs at top
+    const tabsContainer = document.getElementById('linksCategoryTabs');
     const favCount = state.links.filter(l => l.favorito).length;
     const totalCount = state.links.length;
 
-    // Collect unique tags
     const tagsMap = {};
     state.links.forEach(l => {
       const tag = l.etiqueta || 'Federaciones';
@@ -10614,18 +10630,10 @@
     });
 
     const currentUniqueTags = Object.keys(tagsMap);
-    if (!Array.isArray(state.customTabOrder)) {
-      state.customTabOrder = [];
-    }
-
-    // Keep existing customTabOrder items that exist in currentUniqueTags
-    state.customTabOrder = state.customTabOrder.filter(tag => currentUniqueTags.includes(tag));
-
-    // Append any newly added tags to customTabOrder (sorted alphabetically amongst themselves)
+    state.customTabOrder = state.customTabOrder.filter(tag => tag === '⭐ Favoritos' || currentUniqueTags.includes(tag));
     const newTags = currentUniqueTags.filter(tag => !state.customTabOrder.includes(tag)).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
     state.customTabOrder.push(...newTags);
 
-    // 1. Favoritos (Primera)
     let tabsHtml = `
       <button class="link-tab-btn fav-tab ${currentLinkTab === 'favorites' ? 'active' : ''}" data-tab="favorites">
         <i data-lucide="star" style="width: 14px; fill: ${currentLinkTab === 'favorites' ? '#ffffff' : '#f59e0b'}; color: #f59e0b;"></i> Favoritos
@@ -10633,17 +10641,15 @@
       </button>
     `;
 
-    // 2. Categorías según orden personalizado (draggable)
-    state.customTabOrder.forEach(tag => {
+    state.customTabOrder.filter(t => t !== '⭐ Favoritos').forEach(tag => {
       tabsHtml += `
         <button class="link-tab-btn category-tab ${currentLinkTab === tag ? 'active' : ''}" data-tab="${escapeHtml(tag)}" draggable="true" title="Mantener y arrastrar para reordenar pestaña">
           <i data-lucide="tag" style="width: 13px;"></i> ${escapeHtml(tag)}
-          <span class="tab-count">${tagsMap[tag]}</span>
+          <span class="tab-count">${tagsMap[tag] || 0}</span>
         </button>
       `;
     });
 
-    // 3. Todos (Al final siempre)
     tabsHtml += `
       <button class="link-tab-btn ${currentLinkTab === 'all' ? 'active' : ''}" data-tab="all">
         <i data-lucide="globe" style="width: 14px;"></i> Todos
@@ -10654,7 +10660,6 @@
     if (tabsContainer) {
       tabsContainer.innerHTML = tabsHtml;
 
-      // Click handling
       tabsContainer.querySelectorAll('.link-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           currentLinkTab = btn.dataset.tab;
@@ -10662,7 +10667,6 @@
         });
       });
 
-      // Drag and Drop handling for category tabs
       let draggedTabTag = null;
       tabsContainer.querySelectorAll('.link-tab-btn.category-tab').forEach(btn => {
         btn.addEventListener('dragstart', (e) => {
@@ -10703,7 +10707,6 @@
             if (fromIdx !== -1 && toIdx !== -1) {
               const [movedTag] = state.customTabOrder.splice(fromIdx, 1);
               state.customTabOrder.splice(toIdx, 0, movedTag);
-
               saveState();
               renderEnlaces();
             }
@@ -10712,7 +10715,387 @@
       });
     }
 
-    renderEnlacesGrid();
+    // Toggle views: Columns for Favoritos and Todos tabs, Regular grid for individual category tabs
+    const boardWrapper = document.getElementById('linksBoardContainer');
+    const gridContainer = document.getElementById('federationLinksContainer');
+
+    if (currentLinkTab === 'favorites') {
+      if (btnAddFavCol) btnAddFavCol.classList.remove('hidden');
+      if (boardWrapper) boardWrapper.classList.remove('hidden');
+      if (gridContainer) gridContainer.classList.add('hidden');
+      renderFavoritosBoard();
+    } else if (currentLinkTab === 'all') {
+      if (btnAddFavCol) btnAddFavCol.classList.add('hidden');
+      if (boardWrapper) boardWrapper.classList.remove('hidden');
+      if (gridContainer) gridContainer.classList.add('hidden');
+      renderTodosBoard();
+    } else {
+      if (btnAddFavCol) btnAddFavCol.classList.add('hidden');
+      if (boardWrapper) boardWrapper.classList.add('hidden');
+      if (gridContainer) gridContainer.classList.remove('hidden');
+      renderEnlacesGrid();
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function renderTodosBoard() {
+    const boardContainer = document.getElementById('linksBoardContainer');
+    if (!boardContainer) return;
+
+    normalizeLinks();
+
+    const tagsMap = {};
+    state.links.forEach(l => {
+      const tag = l.etiqueta || 'Federaciones';
+      tagsMap[tag] = (tagsMap[tag] || 0) + 1;
+    });
+
+    const currentUniqueTags = Object.keys(tagsMap);
+    const activeCategoryTags = (state.customTabOrder || []).filter(t => t !== '⭐ Favoritos' && currentUniqueTags.includes(t));
+    currentUniqueTags.forEach(tag => {
+      if (!activeCategoryTags.includes(tag)) {
+        activeCategoryTags.push(tag);
+      }
+    });
+
+    let boardHtml = '';
+
+    activeCategoryTags.forEach(colName => {
+      let colLinks = state.links.filter(l => (l.etiqueta || 'Federaciones') === colName);
+
+      if (currentLinkSearch) {
+        colLinks = colLinks.filter(l =>
+          (l.titulo || '').toLowerCase().includes(currentLinkSearch) ||
+          (l.url || '').toLowerCase().includes(currentLinkSearch) ||
+          (l.etiqueta || '').toLowerCase().includes(currentLinkSearch)
+        );
+      }
+
+      const count = colLinks.length;
+
+      boardHtml += `
+        <div class="link-board-column" data-tag-col="${escapeHtml(colName)}">
+          <div class="column-header">
+            <div class="column-header-title">
+              <i data-lucide="tag" style="width: 15px; color: var(--primary-blue);"></i>
+              <h3>${escapeHtml(colName)}</h3>
+              <span class="column-count">${count}</span>
+            </div>
+          </div>
+          <div class="column-cards-list" data-tag-col="${escapeHtml(colName)}">
+            ${colLinks.length === 0 ? `
+              <div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">
+                Sin enlaces en esta categoría
+              </div>
+            ` : colLinks.map(l => `
+              <div class="link-card ${l.favorito ? 'is-favorite' : ''}" data-id="${l.id}" draggable="true">
+                <div class="link-drag-handle" title="Mantener y arrastrar entre categorías">
+                  <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+                </div>
+                <div class="link-card-left">
+                  <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
+                    ${renderLinkLogo(l)}
+                  </div>
+                  <div class="link-info">
+                    <h3>${escapeHtml(l.titulo)}</h3>
+                    <div class="link-badges">
+                      <span class="link-tag-badge">${escapeHtml(l.etiqueta || 'Federaciones')}</span>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn-star-fav ${l.favorito ? 'active' : ''} btn-toggle-fav" data-id="${l.id}" title="${l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}">
+                  <i data-lucide="star" style="width: 18px; height: 18px;"></i>
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    boardContainer.innerHTML = boardHtml;
+    attachTodosBoardEvents(boardContainer);
+  }
+
+  function attachTodosBoardEvents(boardContainer) {
+    let draggedLinkId = null;
+
+    boardContainer.querySelectorAll('.link-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        draggedLinkId = card.dataset.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+
+      card.addEventListener('dragend', (e) => {
+        e.stopPropagation();
+        draggedLinkId = null;
+        boardContainer.querySelectorAll('.link-card').forEach(c => c.classList.remove('dragging', 'drag-over'));
+        boardContainer.querySelectorAll('.column-cards-list').forEach(l => l.classList.remove('drag-over-list'));
+      });
+
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-toggle-fav') || e.target.closest('.btn-logo-click') || e.target.closest('.link-drag-handle')) return;
+        openLinkDetailModal(card.dataset.id);
+      });
+    });
+
+    boardContainer.querySelectorAll('.btn-logo-click').forEach(logoBox => {
+      logoBox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = logoBox.dataset.url;
+        if (url) window.open(url, '_blank');
+      });
+    });
+
+    boardContainer.querySelectorAll('.btn-toggle-fav').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = btn.dataset.id;
+        const link = state.links.find(l => l.id === id);
+        if (link) {
+          link.favorito = !link.favorito;
+          saveState();
+          renderEnlaces();
+        }
+      });
+    });
+
+    boardContainer.querySelectorAll('.column-cards-list').forEach(cardsList => {
+      cardsList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        cardsList.classList.add('drag-over-list');
+      });
+
+      cardsList.addEventListener('dragleave', () => {
+        cardsList.classList.remove('drag-over-list');
+      });
+
+      cardsList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        cardsList.classList.remove('drag-over-list');
+        const targetTag = cardsList.dataset.tagCol;
+
+        if (draggedLinkId && targetTag) {
+          const link = state.links.find(l => l.id === draggedLinkId);
+          if (link) {
+            link.etiqueta = targetTag;
+            saveState();
+            renderEnlaces();
+          }
+        }
+      });
+    });
+  }
+
+  function renderFavoritosBoard() {
+    const boardContainer = document.getElementById('linksBoardContainer');
+    if (!boardContainer) return;
+
+    normalizeLinks();
+
+    const favoriteLinks = state.links.filter(l => l.favorito);
+    let boardHtml = '';
+
+    state.favColumns.forEach((colName, colIdx) => {
+      let colLinks = favoriteLinks.filter(l => {
+        const c = l.favCol || state.favColumns[0] || 'Columna 1';
+        return c === colName;
+      });
+
+      // Handle unassigned favorites to fallback into first column
+      if (colIdx === 0) {
+        const unassigned = favoriteLinks.filter(l => !l.favCol || !state.favColumns.includes(l.favCol));
+        unassigned.forEach(u => {
+          if (!colLinks.includes(u)) colLinks.push(u);
+        });
+      }
+
+      if (currentLinkSearch) {
+        colLinks = colLinks.filter(l =>
+          (l.titulo || '').toLowerCase().includes(currentLinkSearch) ||
+          (l.url || '').toLowerCase().includes(currentLinkSearch) ||
+          (l.etiqueta || '').toLowerCase().includes(currentLinkSearch)
+        );
+      }
+
+      const count = colLinks.length;
+
+      boardHtml += `
+        <div class="link-board-column" data-fav-col="${escapeHtml(colName)}">
+          <div class="column-header">
+            <div class="column-header-title">
+              <i data-lucide="star" style="width: 16px; color: #f59e0b; fill: #f59e0b;"></i>
+              <h3 class="fav-col-title" data-fav-col="${escapeHtml(colName)}" style="cursor: pointer;" title="Doble clic para cambiar nombre">${escapeHtml(colName)}</h3>
+              <button class="btn-action-icon btn-edit-fav-col" data-fav-col="${escapeHtml(colName)}" title="Cambiar nombre a la columna">
+                <i data-lucide="edit-2" style="width: 13px;"></i>
+              </button>
+              <span class="column-count">${count}</span>
+            </div>
+            <div class="column-actions">
+              ${state.favColumns.length > 1 ? `
+                <button class="btn-action-icon danger btn-delete-fav-col" data-fav-col="${escapeHtml(colName)}" title="Eliminar columna">
+                  <i data-lucide="trash-2" style="width: 14px;"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+          <div class="column-cards-list" data-fav-col="${escapeHtml(colName)}">
+            ${colLinks.length === 0 ? `
+              <div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">
+                Arrastra enlaces favoritos aquí
+              </div>
+            ` : colLinks.map(l => `
+              <div class="link-card is-favorite" data-id="${l.id}" draggable="true">
+                <div class="link-drag-handle" title="Mantener y arrastrar entre columnas de favoritos">
+                  <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+                </div>
+                <div class="link-card-left">
+                  <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
+                    ${renderLinkLogo(l)}
+                  </div>
+                  <div class="link-info">
+                    <h3>${escapeHtml(l.titulo)}</h3>
+                    <div class="link-badges">
+                      <span class="link-tag-badge">${escapeHtml(l.etiqueta || 'Federaciones')}</span>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn-star-fav active btn-toggle-fav" data-id="${l.id}" title="Quitar de favoritos">
+                  <i data-lucide="star" style="width: 18px; height: 18px;"></i>
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    boardContainer.innerHTML = boardHtml;
+    attachFavoritosBoardEvents(boardContainer);
+  }
+
+  function attachFavoritosBoardEvents(boardContainer) {
+    let draggedLinkId = null;
+
+    boardContainer.querySelectorAll('.link-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        draggedLinkId = card.dataset.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+
+      card.addEventListener('dragend', (e) => {
+        e.stopPropagation();
+        draggedLinkId = null;
+        boardContainer.querySelectorAll('.link-card').forEach(c => c.classList.remove('dragging', 'drag-over'));
+        boardContainer.querySelectorAll('.column-cards-list').forEach(l => l.classList.remove('drag-over-list'));
+      });
+
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-toggle-fav') || e.target.closest('.btn-logo-click') || e.target.closest('.link-drag-handle')) return;
+        openLinkDetailModal(card.dataset.id);
+      });
+    });
+
+    boardContainer.querySelectorAll('.btn-logo-click').forEach(logoBox => {
+      logoBox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = logoBox.dataset.url;
+        if (url) window.open(url, '_blank');
+      });
+    });
+
+    boardContainer.querySelectorAll('.btn-toggle-fav').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = btn.dataset.id;
+        const link = state.links.find(l => l.id === id);
+        if (link) {
+          link.favorito = !link.favorito;
+          saveState();
+          renderEnlaces();
+        }
+      });
+    });
+
+    const triggerRenameFavCol = (oldName) => {
+      const newName = prompt(`Nuevo nombre para la columna "${oldName}":`, oldName);
+      if (newName && newName.trim() && newName.trim() !== oldName) {
+        const cleanName = newName.trim();
+        const idx = state.favColumns.indexOf(oldName);
+        if (idx !== -1) {
+          state.favColumns[idx] = cleanName;
+        }
+        state.links.forEach(l => {
+          if (l.favCol === oldName) {
+            l.favCol = cleanName;
+          }
+        });
+        saveState();
+        renderEnlaces();
+      }
+    };
+
+    boardContainer.querySelectorAll('.btn-edit-fav-col').forEach(btn => {
+      btn.addEventListener('click', () => {
+        triggerRenameFavCol(btn.dataset.favCol);
+      });
+    });
+
+    boardContainer.querySelectorAll('.fav-col-title').forEach(titleEl => {
+      titleEl.addEventListener('dblclick', () => {
+        triggerRenameFavCol(titleEl.dataset.favCol);
+      });
+    });
+
+    boardContainer.querySelectorAll('.btn-delete-fav-col').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const colName = btn.dataset.favCol;
+        if (confirm(`¿Eliminar la columna "${colName}"?`)) {
+          state.favColumns = state.favColumns.filter(c => c !== colName);
+          saveState();
+          renderEnlaces();
+        }
+      });
+    });
+
+    boardContainer.querySelectorAll('.column-cards-list').forEach(cardsList => {
+      cardsList.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        cardsList.classList.add('drag-over-list');
+      });
+
+      cardsList.addEventListener('dragleave', () => {
+        cardsList.classList.remove('drag-over-list');
+      });
+
+      cardsList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        cardsList.classList.remove('drag-over-list');
+        const targetCol = cardsList.dataset.favCol;
+
+        if (draggedLinkId && targetCol) {
+          const link = state.links.find(l => l.id === draggedLinkId);
+          if (link) {
+            link.favCol = targetCol;
+            saveState();
+            renderEnlaces();
+          }
+        }
+      });
+    });
   }
 
   function renderEnlacesGrid() {
