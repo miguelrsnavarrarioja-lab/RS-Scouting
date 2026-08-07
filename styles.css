@@ -1978,7 +1978,7 @@ a {
   background-color: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1986,6 +1986,39 @@ a {
   box-shadow: var(--shadow-sm);
   transition: var(--transition-fast);
   position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.link-card.dragging {
+  opacity: 0.4;
+  border: 2px dashed var(--primary-blue);
+  transform: scale(0.98);
+}
+
+.link-card.drag-over {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+  transform: translateY(-4px);
+}
+
+.link-drag-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0.35;
+  transition: var(--transition-fast);
+  padding: 4px 2px;
+  display: flex;
+  align-items: center;
+}
+
+.link-card:hover .link-drag-handle {
+  opacity: 0.9;
+  color: var(--primary-blue);
+}
+
+.link-drag-handle:active {
+  cursor: grabbing;
 }
 
 .link-card:hover {
@@ -2001,24 +2034,35 @@ a {
 .link-card-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-width: 0;
 }
 
 .link-logo-box {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 10px;
+  width: 68px;
+  height: 68px;
+  min-width: 68px;
+  border-radius: 14px;
   background-color: var(--bg-body, #f8fafc);
   border: 1px solid var(--border-light);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-size: 20px;
+  font-size: 32px;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+  transition: var(--transition-fast);
+}
+
+.link-logo-box.btn-logo-click {
+  cursor: pointer;
+}
+
+.link-logo-box.btn-logo-click:hover {
+  transform: scale(1.06);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .link-logo-box img {
@@ -2026,7 +2070,7 @@ a {
   height: 100%;
   object-fit: contain;
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .link-info {
@@ -2034,21 +2078,15 @@ a {
   min-width: 0;
 }
 
-.link-info-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
-}
-
 .link-info h3 {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  line-height: 1.35;
+  margin: 0 0 6px 0;
 }
 
 .link-info p {

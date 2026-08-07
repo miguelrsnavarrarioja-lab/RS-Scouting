@@ -10687,40 +10687,41 @@
     }
 
     container.innerHTML = filtered.map(l => `
-      <div class="link-card ${l.favorito ? 'is-favorite' : ''}">
+      <div class="link-card ${l.favorito ? 'is-favorite' : ''}" data-id="${l.id}" draggable="true">
+        <div class="link-drag-handle" title="Mantener y arrastrar para reordenar">
+          <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+        </div>
         <div class="link-card-left">
-          <div class="link-logo-box">
+          <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
             ${renderLinkLogo(l)}
           </div>
           <div class="link-info">
             <h3>${escapeHtml(l.titulo)}</h3>
-            <p>${escapeHtml(l.url)}</p>
             <div class="link-badges">
               <span class="link-tag-badge">${escapeHtml(l.etiqueta || 'Federaciones')}</span>
               ${l.region ? `<span class="link-region-badge">${escapeHtml(l.region)}</span>` : ''}
             </div>
           </div>
         </div>
-        <div class="link-actions">
-          <button class="btn-star-fav ${l.favorito ? 'active' : ''} btn-toggle-fav" data-id="${l.id}" title="${l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}">
-            <i data-lucide="star" style="width: 16px; height: 16px;"></i>
-          </button>
-          <a href="${escapeHtml(l.url)}" target="_blank" class="btn btn-primary" style="padding: 6px 10px; font-size: 12px; height: 34px;" title="Abrir Enlace">
-            <i data-lucide="external-link" style="width: 14px;"></i>
-          </a>
-          <button class="btn-action-icon btn-edit-link" data-id="${l.id}" style="width: 34px; height: 34px;" title="Editar">
-            <i data-lucide="edit-3" style="width: 14px;"></i>
-          </button>
-          <button class="btn-action-icon danger btn-delete-link" data-id="${l.id}" style="width: 34px; height: 34px;" title="Eliminar">
-            <i data-lucide="trash-2" style="width: 14px;"></i>
-          </button>
-        </div>
+        <button class="btn-star-fav ${l.favorito ? 'active' : ''} btn-toggle-fav" data-id="${l.id}" title="${l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}">
+          <i data-lucide="star" style="width: 18px; height: 18px;"></i>
+        </button>
       </div>
     `).join('');
 
     // Attach Event Listeners
+    container.querySelectorAll('.btn-logo-click').forEach(logoBox => {
+      logoBox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = logoBox.dataset.url;
+        if (url) window.open(url, '_blank');
+      });
+    });
+
     container.querySelectorAll('.btn-toggle-fav').forEach(btn => {
       btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         e.preventDefault();
         const id = btn.dataset.id;
         const link = state.links.find(l => l.id === id);
@@ -10732,24 +10733,123 @@
       });
     });
 
-    container.querySelectorAll('.btn-edit-link').forEach(btn => {
-      btn.addEventListener('click', () => {
-        openEditLinkModal(btn.dataset.id);
-      });
-    });
+    let draggedId = null;
 
-    container.querySelectorAll('.btn-delete-link').forEach(btn => {
-      btn.addEventListener('click', () => {
-        if (confirm('¿Deseas eliminar este enlace?')) {
-          deleteFromFirebase('enlaces', btn.dataset.id);
-          state.links = state.links.filter(l => l.id !== btn.dataset.id);
-          saveState();
-          renderEnlaces();
+    container.querySelectorAll('.link-card').forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedId = card.dataset.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+      });
+
+      card.addEventListener('dragend', () => {
+        draggedId = null;
+        container.querySelectorAll('.link-card').forEach(c => {
+          c.classList.remove('dragging', 'drag-over');
+        });
+      });
+
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (card.dataset.id !== draggedId) {
+          card.classList.add('drag-over');
         }
+      });
+
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        const targetId = card.dataset.id;
+
+        if (draggedId && targetId && draggedId !== targetId) {
+          const fromIndex = state.links.findIndex(l => l.id === draggedId);
+          const toIndex = state.links.findIndex(l => l.id === targetId);
+
+          if (fromIndex !== -1 && toIndex !== -1) {
+            const [movedLink] = state.links.splice(fromIndex, 1);
+            state.links.splice(toIndex, 0, movedLink);
+
+            saveState();
+            renderEnlaces();
+          }
+        }
+      });
+
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-toggle-fav') || e.target.closest('.btn-logo-click') || e.target.closest('.link-drag-handle')) return;
+        openLinkDetailModal(card.dataset.id);
       });
     });
 
     if (window.lucide) window.lucide.createIcons();
+  }
+
+  function openLinkDetailModal(linkId) {
+    const link = state.links.find(l => l.id === linkId);
+    if (!link) return;
+
+    showModal('Ficha General del Enlace', `
+      <div style="text-align: center; padding: 10px 0 20px 0;">
+        <div class="link-logo-box" style="width: 80px; height: 80px; min-width: 80px; font-size: 40px; border-radius: 18px; margin: 0 auto 16px auto; box-shadow: var(--shadow-md);">
+          ${renderLinkLogo(link)}
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px; color: var(--text-main); line-height: 1.3;">
+          ${escapeHtml(link.titulo)}
+        </h2>
+        <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+          <span class="link-tag-badge" style="font-size: 11px; padding: 4px 12px;">${escapeHtml(link.etiqueta || 'Federaciones')}</span>
+          ${link.region ? `<span class="link-region-badge" style="font-size: 11px; padding: 4px 12px;">${escapeHtml(link.region)}</span>` : ''}
+        </div>
+        <div style="background: var(--bg-body); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: inline-block; max-width: 100%; word-break: break-all; margin-bottom: 24px;">
+          <a href="${escapeHtml(link.url)}" target="_blank" style="color: var(--primary-blue); font-weight: 600; text-decoration: none; font-size: 13px;">
+            <i data-lucide="link" style="width: 14px; vertical-align: middle; margin-right: 4px;"></i> ${escapeHtml(link.url)}
+          </a>
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px;">
+          <a href="${escapeHtml(link.url)}" target="_blank" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">
+            <i data-lucide="external-link" style="width: 16px;"></i> Abrir Web
+          </a>
+          <button id="btnModalToggleFav" class="btn btn-secondary" style="padding: 10px 16px; font-weight: 600; border-color: #f59e0b; color: ${link.favorito ? '#d97706' : 'var(--text-main)'};">
+            <i data-lucide="star" style="width: 16px; fill: ${link.favorito ? '#f59e0b' : 'none'}; color: #f59e0b;"></i> ${link.favorito ? 'Favorito' : 'Marcar Favorito'}
+          </button>
+          <button id="btnModalEditLink" class="btn btn-secondary" style="padding: 10px 16px; font-weight: 600;">
+            <i data-lucide="edit-3" style="width: 16px;"></i> Editar
+          </button>
+          <button id="btnModalDeleteLink" class="btn btn-danger" style="padding: 10px 16px; font-weight: 600;">
+            <i data-lucide="trash-2" style="width: 16px;"></i> Eliminar
+          </button>
+        </div>
+      </div>
+    `, null);
+
+    document.getElementById('btnModalToggleFav')?.addEventListener('click', () => {
+      link.favorito = !link.favorito;
+      saveState();
+      hideModal();
+      renderEnlaces();
+    });
+
+    document.getElementById('btnModalEditLink')?.addEventListener('click', () => {
+      hideModal();
+      openEditLinkModal(link.id);
+    });
+
+    document.getElementById('btnModalDeleteLink')?.addEventListener('click', () => {
+      if (confirm('¿Deseas eliminar este enlace?')) {
+        deleteFromFirebase('enlaces', link.id);
+        state.links = state.links.filter(l => l.id !== link.id);
+        saveState();
+        hideModal();
+        renderEnlaces();
+      }
+    });
   }
 
   function getExistingTagsList() {
@@ -10890,6 +10990,12 @@
     ).join('');
 
     showModal('Editar Enlace', `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-light);">
+        <button type="button" id="btnBackToDetailModal" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+          <i data-lucide="arrow-left" style="width: 14px;"></i> Volver a la Ficha
+        </button>
+        <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">EDICIÓN DE ENLACE</span>
+      </div>
       <form id="editLinkForm">
         <div class="form-group mb-3">
           <label class="form-label">Nombre / Título del Sitio</label>
@@ -10957,6 +11063,11 @@
       saveState();
       hideModal();
       renderEnlaces();
+    });
+
+    document.getElementById('btnBackToDetailModal')?.addEventListener('click', () => {
+      hideModal();
+      openLinkDetailModal(link.id);
     });
 
     const sel = document.getElementById('elTagSelect');
