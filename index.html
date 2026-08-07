@@ -113,19 +113,35 @@
       </div>
       <div class="kpi-grid">
         <div class="kpi-card" data-shortcut="partidos">
-          <div class="kpi-icon blue"><i data-lucide="trophy"></i></div>
+          <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
           <div class="kpi-info">
-            <span class="kpi-label">Partidos Totales</span>
-            <span class="kpi-value" id="kpiTotalMatches">0</span>
-            <span class="kpi-subtext" id="kpiScheduledMatches">0 programados</span>
+            <span class="kpi-label">Partidos Vistos</span>
+            <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
+            <span class="kpi-subtext">Total acumulado</span>
+          </div>
+        </div>
+        <div class="kpi-card" data-shortcut="calendario">
+          <div class="kpi-icon info"><i data-lucide="calendar"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Partidos Programados</span>
+            <span class="kpi-value" id="kpiScheduledMatchesCount">0</span>
+            <span class="kpi-subtext">Próximos eventos</span>
+          </div>
+        </div>
+        <div class="kpi-card" data-shortcut="partidos">
+          <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
+          <div class="kpi-info">
+            <span class="kpi-label">Partidos En Directo</span>
+            <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
+            <span class="kpi-subtext">Hoy / En curso</span>
           </div>
         </div>
         <div class="kpi-card" data-shortcut="partidos">
           <div class="kpi-icon green"><i data-lucide="file-text"></i></div>
           <div class="kpi-info">
-            <span class="kpi-label">Informes Creados</span>
+            <span class="kpi-label">Informes Generados</span>
             <span class="kpi-value" id="kpiTotalReports">0</span>
-            <span class="kpi-subtext">Evaluaciones de scouting</span>
+            <span class="kpi-subtext">Evaluaciones creadas</span>
           </div>
         </div>
         <div class="kpi-card" data-shortcut="directorio">
@@ -137,7 +153,7 @@
           </div>
         </div>
         <div class="kpi-card" data-shortcut="agenda">
-          <div class="kpi-icon orange"><i data-lucide="check-square"></i></div>
+          <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
           <div class="kpi-info">
             <span class="kpi-label">Tareas Pendientes</span>
             <span class="kpi-value" id="kpiPendingTasks">0</span>
@@ -268,45 +284,6 @@
         </button>
       </div>
 
-      <!-- General Match Counter Stats Card -->
-      <div class="stats-grid">
-        <div class="stat-card primary">
-          <div class="stat-icon"><i data-lucide="eye"></i></div>
-          <div class="stat-info">
-            <span class="stat-label">Total Partidos Vistos</span>
-            <span class="stat-value" id="counterTotalVistos">0</span>
-          </div>
-          <div class="stat-badge">Contador General</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon"><i data-lucide="calendar"></i></div>
-          <div class="stat-info">
-            <span class="stat-label">Partidos Programados</span>
-            <span class="stat-value" id="counterTotalProgramados">0</span>
-          </div>
-          <div class="stat-badge info">Próximos</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon"><i data-lucide="activity"></i></div>
-          <div class="stat-info">
-            <span class="stat-label">Partidos En Directo</span>
-            <span class="stat-value" id="counterTotalDirecto">0</span>
-          </div>
-          <div class="stat-badge warning">Hoy / Directo</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon"><i data-lucide="file-text"></i></div>
-          <div class="stat-info">
-            <span class="stat-label">Informes Generados</span>
-            <span class="stat-value" id="counterTotalInformes">0</span>
-          </div>
-          <div class="stat-badge success">Completados</div>
-        </div>
-      </div>
-
       <!-- Filters, Search & View Switcher Toolbar -->
       <div class="toolbar">
         <div class="toolbar-search">
@@ -315,21 +292,6 @@
         </div>
 
         <div class="toolbar-filters">
-          <select id="calendarFilterStatus" class="select-input">
-            <option value="all">Todos los estados</option>
-            <option value="visto">Vistos</option>
-            <option value="programado">Programados</option>
-            <option value="directo">En Directo</option>
-          </select>
-          <select id="calendarFilterCategory" class="select-input">
-            <option value="all">Todas las categorías</option>
-            <option value="Senior">Senior</option>
-            <option value="División de Honor">División de Honor</option>
-            <option value="Liga Nacional">Liga Nacional</option>
-            <option value="Cadete">Cadete</option>
-            <option value="Infantil">Infantil</option>
-          </select>
-
           <!-- Toggle View Mode: List vs Month Grid -->
           <div class="view-mode-buttons">
             <button type="button" class="btn-mode-toggle" id="btnViewModeList" title="Vista Lista">

@@ -603,19 +603,23 @@
     const players = state.directory?.jugadores || [];
     const agenda = state.agenda || [];
     
+    const totalVistos = matches.filter(m => m.estado === 'visto').length;
     const scheduledMatches = matches.filter(m => m.estado === 'programado').length;
-    const pendingTasks = agenda.filter(a => !a.completada);
+    const directMatches = matches.filter(m => m.estado === 'directo').length;
+    const pendingTasks = agenda.filter(a => !a.completada && !a.archivada);
     const highPriorityTasks = pendingTasks.filter(a => a.prioridad === 'Alta').length;
 
-    const elTotalMatches = document.getElementById('kpiTotalMatches');
-    const elScheduledMatches = document.getElementById('kpiScheduledMatches');
+    const elVistos = document.getElementById('kpiTotalMatchesVistos');
+    const elScheduled = document.getElementById('kpiScheduledMatchesCount');
+    const elDirect = document.getElementById('kpiDirectMatchesCount');
     const elTotalReports = document.getElementById('kpiTotalReports');
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
 
-    if (elTotalMatches) elTotalMatches.textContent = matches.length;
-    if (elScheduledMatches) elScheduledMatches.textContent = `${scheduledMatches} programados`;
+    if (elVistos) elVistos.textContent = totalVistos;
+    if (elScheduled) elScheduled.textContent = scheduledMatches;
+    if (elDirect) elDirect.textContent = directMatches;
     if (elTotalReports) elTotalReports.textContent = reports.length;
     if (elTotalPlayers) elTotalPlayers.textContent = players.length;
     if (elPendingTasks) elPendingTasks.textContent = pendingTasks.length;
@@ -821,15 +825,20 @@
     const totalDirecto = state.matches.filter(m => m.estado === 'directo').length;
     const totalInformes = state.reports.length;
 
-    document.getElementById('counterTotalVistos').textContent = totalVistos;
-    document.getElementById('counterTotalProgramados').textContent = totalProgramados;
-    document.getElementById('counterTotalDirecto').textContent = totalDirecto;
-    document.getElementById('counterTotalInformes').textContent = totalInformes;
+    const elV = document.getElementById('counterTotalVistos');
+    const elP = document.getElementById('counterTotalProgramados');
+    const elD = document.getElementById('counterTotalDirecto');
+    const elI = document.getElementById('counterTotalInformes');
+
+    if (elV) elV.textContent = totalVistos;
+    if (elP) elP.textContent = totalProgramados;
+    if (elD) elD.textContent = totalDirecto;
+    if (elI) elI.textContent = totalInformes;
 
     // Filter matches
-    const searchVal = document.getElementById('calendarSearchInput').value.toLowerCase();
-    const statusVal = document.getElementById('calendarFilterStatus').value;
-    const catVal = document.getElementById('calendarFilterCategory').value;
+    const searchVal = (document.getElementById('calendarSearchInput')?.value || '').toLowerCase();
+    const statusVal = document.getElementById('calendarFilterStatus')?.value || 'all';
+    const catVal = document.getElementById('calendarFilterCategory')?.value || 'all';
 
     const filtered = state.matches.filter(m => {
       const matchText = `${m.local} ${m.visitante} ${m.categoria} ${m.competicion} ${m.estadio}`.toLowerCase();
@@ -912,10 +921,12 @@
         } else {
           const catObj = (state.agendaCategories || []).find(c => c.id === item.categoria);
           const catLabel = catObj ? catObj.label : item.categoria;
+          const colorObj = getCategoryColor(item.categoria);
+
           return `
-            <div class="match-card agenda-card-item-click" data-agid="${item.id}" style="border-left: 4px solid #f59e0b; background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Ficha de Tarea / Evento">
+            <div class="match-card agenda-card-item-click" data-agid="${item.id}" style="border-left: 5px solid ${colorObj.accent}; background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Ficha de Tarea / Evento">
               <div class="match-card-header">
-                <span class="match-category-tag" style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d;">📝 Agenda / Tarea</span>
+                <span class="match-category-tag" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700;">📝 ${escapeHtml(catLabel)}</span>
                 <span class="match-status-badge ${item.completada ? 'visto' : 'programado'}">${item.completada ? '✓ Completada' : '📅 Pendiente'}</span>
               </div>
               <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
@@ -1008,11 +1019,14 @@
                 <span>⚽ ${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
               </div>
             `).join('')}
-            ${dayAgendaTasks.map(t => `
-              <div class="day-match-pill day-agenda-pill" data-agid="${t.id}" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
-                <span>📝 ${escapeHtml(t.titulo)}</span>
-              </div>
-            `).join('')}
+            ${dayAgendaTasks.map(t => {
+              const colorObj = getCategoryColor(t.categoria);
+              return `
+                <div class="day-match-pill day-agenda-pill" data-agid="${t.id}" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
+                  <span>📝 ${escapeHtml(t.titulo)}</span>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
       `;
@@ -10473,6 +10487,35 @@
   // --------------------------------------------------------------------------
   let currentAgendaCat = 'all';
 
+  const CATEGORY_COLORS = [
+    { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe', accent: '#3b82f6' }, // Soft Blue
+    { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0', accent: '#10b981' }, // Soft Emerald
+    { bg: '#ede9fe', text: '#5b21b6', border: '#ddd6fe', accent: '#8b5cf6' }, // Soft Purple
+    { bg: '#fef3c7', text: '#92400e', border: '#fde68a', accent: '#f59e0b' }, // Soft Amber
+    { bg: '#ffe4e6', text: '#9f1239', border: '#fecdd3', accent: '#f43f5e' }, // Soft Rose
+    { bg: '#cffafe', text: '#155e75', border: '#a5f3fc', accent: '#06b6d4' }, // Soft Cyan
+    { bg: '#fce7f3', text: '#9d174d', border: '#fbcfe8', accent: '#ec4899' }, // Soft Pink
+    { bg: '#fef9c3', text: '#854d0e', border: '#fef08a', accent: '#eab308' }  // Soft Yellow
+  ];
+
+  function getCategoryColor(catId) {
+    if (!catId) return CATEGORY_COLORS[0];
+    normalizeAgendaCategories();
+    const index = (state.agendaCategories || []).findIndex(c => c.id === catId);
+    let safeIdx = 0;
+    if (index >= 0) {
+      safeIdx = index % CATEGORY_COLORS.length;
+    } else {
+      let hash = 0;
+      for (let i = 0; i < catId.length; i++) {
+        hash = (hash << 5) - hash + catId.charCodeAt(i);
+        hash |= 0;
+      }
+      safeIdx = Math.abs(hash) % CATEGORY_COLORS.length;
+    }
+    return CATEGORY_COLORS[safeIdx];
+  }
+
   function normalizeAgendaCategories() {
     if (!Array.isArray(state.agenda)) state.agenda = [];
     if (!Array.isArray(state.agendaCategories)) state.agendaCategories = [];
@@ -10745,13 +10788,14 @@
           ${archivedTasks.map(t => {
             const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
             const catName = catObj ? catObj.label : (t.categoria || 'General');
+            const colorObj = getCategoryColor(t.categoria);
             return `
-              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
+              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-left: 4px solid ${colorObj.accent}; border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
                 <div>
                   <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 4px 0; color: var(--text-main); text-decoration: line-through; opacity: 0.7;">${escapeHtml(t.titulo)}</h4>
                   <div style="display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); align-items: center;">
                     <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')}</span>
-                    <span style="background: var(--bg-subtle); padding: 1px 6px; border-radius: 4px;">🏷️ ${escapeHtml(catName)}</span>
+                    <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 1px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
                   </div>
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
@@ -10836,8 +10880,10 @@
       `;
 
       state.agendaCategories.forEach(cat => {
+        const colorObj = getCategoryColor(cat.id);
         filtersHtml += `
           <li class="${currentAgendaCat === cat.id ? 'active' : ''}" data-cat="${cat.id}">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${colorObj.accent}; flex-shrink: 0; display: inline-block;"></span>
             <i data-lucide="${cat.icon || 'bookmark'}"></i> ${escapeHtml(cat.label)}
             <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts[cat.id] || 0}</span>
             <button class="btn-action-icon danger btn-delete-agenda-cat" data-id="${cat.id}" title="Eliminar categoría" style="margin-left: 6px; padding: 2px;">
@@ -10904,9 +10950,10 @@
       const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
       const catName = catObj ? catObj.label : (t.categoria || 'General');
       const isDone = t.estado === 'done';
+      const colorObj = getCategoryColor(t.categoria);
 
       return `
-        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id}" draggable="true">
+        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id}" draggable="true" style="border-left: 4px solid ${colorObj.accent};">
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted);" title="Mantener y arrastrar entre estados">
@@ -10925,7 +10972,7 @@
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
             <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')} ${escapeHtml(t.hora || '')}</span>
-            <span style="background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; font-weight: 600;">🏷️ ${escapeHtml(catName)}</span>
+            <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-light);">
             <select class="form-control form-control-sm agenda-status-select" data-id="${t.id}" style="font-size: 11px; font-weight: 700; padding: 2px 6px; height: 26px;">
@@ -11058,6 +11105,7 @@
     normalizeAgendaCategories();
     const catObj = (state.agendaCategories || []).find(c => c.id === task.categoria);
     const catName = catObj ? catObj.label : (task.categoria || 'General');
+    const colorObj = getCategoryColor(task.categoria);
 
     const statusBadgeClass = task.estado === 'done' ? 'visto' : task.estado === 'in_progress' ? 'directo' : 'programado';
     const statusLabel = task.estado === 'done' ? '🟢 Completada' : task.estado === 'in_progress' ? '🟡 En proceso' : '🔴 Sin hacer';
@@ -11067,7 +11115,7 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
           <div>
             <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 6px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h2>
-            <span class="match-category-tag" style="background: var(--bg-subtle);">🏷️ Categoría: ${escapeHtml(catName)}</span>
+            <span class="match-category-tag" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700;">🏷️ Categoría: ${escapeHtml(catName)}</span>
           </div>
           <span class="match-status-badge ${statusBadgeClass}" style="font-size: 12px; padding: 4px 10px;">${statusLabel}</span>
         </div>
