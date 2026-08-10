@@ -3869,3 +3869,47 @@ a {
   0% { transform: scale(1); opacity: 0.8; }
   100% { transform: scale(1.1); opacity: 1; }
 }
+
+/* Multi-Select Club Type Chips */
+.club-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  border: 1px solid var(--border-medium, #cbd5e1);
+  background: #ffffff;
+  color: var(--text-muted, #64748b);
+}
+.club-type-chip:hover {
+  border-color: var(--primary-blue, #2563eb);
+  color: var(--primary-blue, #2563eb);
+}
+.club-type-chip.selected {
+  background: var(--primary-blue, #2563eb);
+  color: #ffffff;
+  border-color: var(--primary-blue, #2563eb);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Dynamic Filter Dropdowns */
+.dir-dynamic-select {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-medium, #cbd5e1);
+  background-color: var(--bg-surface, #ffffff);
+  color: var(--text-main, #1e293b);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.dir-dynamic-select:focus, .dir-dynamic-select:hover {
+  border-color: var(--primary-blue, #2563eb);
+}

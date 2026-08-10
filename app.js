@@ -212,6 +212,7 @@
         const configToSave = Object.assign({}, state.settings || {}, {
           favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
           customTabOrder: state.customTabOrder || [],
+          customClubTypes: state.customClubTypes || [],
           clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
           federacionesSeeded: !!state.directory?.federacionesSeeded
         });
@@ -361,6 +362,9 @@
           }
           if (Array.isArray(configData.customTabOrder)) {
             state.customTabOrder = configData.customTabOrder;
+          }
+          if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
+            state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
           if (configData.clubesNavarraSeeded) {
             state.directory.clubesNavarraSeeded = true;
@@ -4488,7 +4492,16 @@
     const club = isEdit ? (state.directory.clubes.find(c => c.id === clubId) || {}) : {};
 
     const nombre = club.nombre || club.equipo || '';
-    const tipo = club.tipo || '';
+    if (!state.customClubTypes) {
+      state.customClubTypes = ['Profesional', 'Formador', 'Escuela', 'Juvenil+Senior', 'Solo Senior', 'Captador', 'Fútbol Base', 'Cantera', 'Convenio', 'Filial', 'Fundación'];
+    }
+    const tipoStr = club.tipo || '';
+    let selectedClubTypes = Array.isArray(club.tiposArray) ? [...club.tiposArray] : (tipoStr ? tipoStr.split(',').map(s => s.trim()).filter(Boolean) : []);
+    
+    // Ensure any custom types from existing club are in state.customClubTypes
+    selectedClubTypes.forEach(t => {
+      if (t && !state.customClubTypes.includes(t)) state.customClubTypes.push(t);
+    });
     const anoFundacion = club.anoFundacion || club.ano || '';
     const comunidad = club.comunidad || '';
     const localidad = club.localidad || '';
@@ -4575,21 +4588,19 @@
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-                  <div class="form-group">
-                    <label class="form-label">TIPO DE CLUB</label>
-                    <select id="cfTipo" class="form-control">
-                      <option value="">Seleccionar tipo...</option>
-                      <option value="Profesional" ${tipo === 'Profesional' ? 'selected' : ''}>Profesional</option>
-                      <option value="Formador" ${tipo === 'Formador' ? 'selected' : ''}>Formador</option>
-                      <option value="Escuela" ${tipo === 'Escuela' ? 'selected' : ''}>Escuela</option>
-                      <option value="Juvenil+Senior" ${tipo === 'Juvenil+Senior' ? 'selected' : ''}>Juvenil+Senior</option>
-                      <option value="Solo Senior" ${tipo === 'Solo Senior' ? 'selected' : ''}>Solo Senior</option>
-                      <option value="Captador" ${tipo === 'Captador' ? 'selected' : ''}>Captador</option>
-                      <option value="Nivel Bajo" ${tipo === 'Nivel Bajo' ? 'selected' : ''}>Nivel Bajo</option>
-                      <option value="Nivel Medio" ${tipo === 'Nivel Medio' ? 'selected' : ''}>Nivel Medio</option>
-                      <option value="Nivel Alto" ${tipo === 'Nivel Alto' ? 'selected' : ''}>Nivel Alto</option>
-                      ${tipo && !['Profesional', 'Formador', 'Escuela', 'Juvenil+Senior', 'Solo Senior', 'Captador', 'Nivel Bajo', 'Nivel Medio', 'Nivel Alto'].includes(tipo) ? `<option value="${escapeHtml(tipo)}" selected>${escapeHtml(tipo)}</option>` : ''}
-                    </select>
+                  <div class="form-group" style="grid-column: span 2;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                      <label class="form-label" style="margin: 0; font-weight: 800;">TIPO(S) DE CLUB (Selección Múltiple)</label>
+                      <button type="button" id="btnShowAddClubTypeInput" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px; font-weight: 800;">+ Crear Nuevo Tipo</button>
+                    </div>
+
+                    <div id="newClubTypeInputRow" style="display: none; gap: 6px; margin-bottom: 8px; align-items: center;">
+                      <input type="text" id="inputNewCustomClubType" class="form-control" placeholder="Escribe el nombre del nuevo tipo de club..." style="font-size: 12px; padding: 5px 10px;">
+                      <button type="button" id="btnConfirmAddClubType" class="btn btn-primary" style="padding: 5px 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">Añadir</button>
+                    </div>
+
+                    <div id="clubTypeChipsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border: 1.5px solid var(--border-medium, #cbd5e1); border-radius: var(--radius-md, 8px); background: var(--bg-subtle, #f8fafc); min-height: 48px; align-items: center;">
+                    </div>
                   </div>
                   <div class="form-group">
                     <label class="form-label">AÑO FUNDACIÓN</label>
@@ -4846,7 +4857,8 @@
         id: isEdit ? clubId : 'c_' + Date.now(),
         nombre: nameVal,
         equipo: nameVal,
-        tipo: document.getElementById('cfTipo').value.trim(),
+        tipo: selectedClubTypes.join(', '),
+        tiposArray: [...selectedClubTypes],
         anoFundacion: document.getElementById('cfAnoFundacion').value.trim(),
         ano: document.getElementById('cfAnoFundacion').value.trim(),
         comunidad: document.getElementById('cfComunidad').value.trim(),
@@ -5763,25 +5775,48 @@
       }
       saveToFirebase('equipos', updatedTeam);
 
-      // Bidirectional sync for Club Vinculado
-      const syncClubName = updatedTeam.clubVinculado;
+      // Bidirectional sync for Club Vinculado (Sync Colors, Logo & Data to Parent Club)
+      const syncClubName = updatedTeam.clubVinculado || targetClubName || nameVal;
       if (syncClubName && state.directory.clubes) {
         let parentC = state.directory.clubes.find(c => 
           (c.nombre && c.nombre.toLowerCase() === syncClubName.toLowerCase()) ||
           (c.equipo && c.equipo.toLowerCase() === syncClubName.toLowerCase())
         );
+        if (!parentC && typeof findParentClub === 'function') {
+          parentC = findParentClub(updatedTeam);
+        }
         if (!parentC) {
           parentC = {
             id: 'c_' + Date.now() + Math.floor(Math.random()*100),
-            nombre: targetClubName,
-            equipo: targetClubName,
+            nombre: targetClubName || syncClubName,
+            equipo: targetClubName || syncClubName,
             equiposList: []
           };
           state.directory.clubes.unshift(parentC);
         }
+
+        // UPDATE PARENT CLUB COLORS, LOGO & FEDERATION WITH TEAM VALUES
+        parentC.colorPrimary = finalColorPri;
+        parentC.colorSecondary = finalColorSec;
+        if (finalEscudo) {
+          parentC.logo = finalEscudo;
+          parentC.escudo = finalEscudo;
+        }
+        if (updatedTeam.federacion && (!parentC.federacion || parentC.federacion === 'Sin Federación')) {
+          parentC.federacion = updatedTeam.federacion;
+        }
+
         if (!parentC.equiposList) parentC.equiposList = [];
         const exists = parentC.equiposList.some(eq => (typeof eq === 'string' ? eq : eq.nombre) === nameVal);
         if (!exists) parentC.equiposList.push({ id: updatedTeam.id, nombre: nameVal });
+
+        // Save updated parent club directly to Firebase Cloud Firestore
+        saveToFirebase('clubes', parentC);
+
+        // Propagate updated colors to all sister teams linked to this club
+        if (typeof syncClubDataToLinkedTeams === 'function') {
+          syncClubDataToLinkedTeams(parentC);
+        }
       }
 
       // Bidirectional sync for Federación
@@ -10058,10 +10093,112 @@
     }
 
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
-    const deletedIds = state.directory?.deletedIds || [];
-    const deletedClubIds = state.directory?.deletedClubIds || [];
+    if (!state.dirActiveFilters) state.dirActiveFilters = {};
+    if (!state.dirActiveFilters[currentDirectoryTab]) state.dirActiveFilters[currentDirectoryTab] = {};
+    const activeFilters = state.dirActiveFilters[currentDirectoryTab];
 
     const rawItems = [...(state.directory[currentDirectoryTab] || [])];
+
+    // Helper to render dynamic filter selects for current directory section
+    const renderSectionFiltersUI = () => {
+      const filterContainer = document.getElementById('dirDynamicSectionFilters');
+      if (!filterContainer) return;
+
+      const getUniqueVals = (key, fallbackKey = null) => {
+        const vals = new Set();
+        rawItems.forEach(item => {
+          if (!item) return;
+          const v = item[key] || (fallbackKey ? item[fallbackKey] : null);
+          if (v && typeof v === 'string' && v.trim() !== '') {
+            vals.add(v.trim());
+          }
+        });
+        return Array.from(vals).sort((a, b) => a.localeCompare(b, 'es'));
+      };
+
+      let filterConfigs = [];
+
+      if (currentDirectoryTab === 'jugadores') {
+        filterConfigs = [
+          { key: 'posicion', label: 'Posición', options: getUniqueVals('posicionPrincipal', 'posicion') },
+          { key: 'perfil', label: 'Perfil/Pie', options: getUniqueVals('perfil', 'pieDominante') },
+          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') }
+        ];
+      } else if (currentDirectoryTab === 'clubes') {
+        filterConfigs = [
+          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion', 'delegacion') },
+          { key: 'comunidad', label: 'Comunidad/Prov.', options: getUniqueVals('comunidad', 'provincia') },
+          { key: 'tipo', label: 'Tipo de Club', options: state.customClubTypes || getUniqueVals('tipo') }
+        ];
+      } else if (currentDirectoryTab === 'equipos') {
+        filterConfigs = [
+          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') },
+          { key: 'grupo', label: 'Grupo', options: getUniqueVals('grupo') },
+          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion') }
+        ];
+      } else if (currentDirectoryTab === 'federaciones') {
+        filterConfigs = [
+          { key: 'comunidad', label: 'Comunidad', options: getUniqueVals('comunidad', 'region') }
+        ];
+      } else if (currentDirectoryTab === 'selecciones') {
+        filterConfigs = [
+          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion') },
+          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') }
+        ];
+      } else if (currentDirectoryTab === 'convocatorias') {
+        filterConfigs = [
+          { key: 'seleccion', label: 'Selección', options: getUniqueVals('seleccion', 'equipo') },
+          { key: 'temporada', label: 'Temporada', options: getUniqueVals('temporada') }
+        ];
+      } else if (currentDirectoryTab === 'torneos') {
+        filterConfigs = [
+          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') },
+          { key: 'tipo', label: 'Tipo', options: getUniqueVals('tipo') }
+        ];
+      } else if (currentDirectoryTab === 'staff') {
+        filterConfigs = [
+          { key: 'cargo', label: 'Cargo', options: getUniqueVals('cargo', 'rol') },
+          { key: 'club', label: 'Club/Equipo', options: getUniqueVals('club', 'equipo') }
+        ];
+      } else if (currentDirectoryTab === 'agencias') {
+        filterConfigs = [
+          { key: 'localidad', label: 'País/Ciudad', options: getUniqueVals('localidad', 'pais') }
+        ];
+      } else if (currentDirectoryTab === 'agentes') {
+        filterConfigs = [
+          { key: 'agencia', label: 'Agencia', options: getUniqueVals('agencia') },
+          { key: 'licencia', label: 'Licencia', options: getUniqueVals('licencia') }
+        ];
+      } else if (currentDirectoryTab === 'estadios') {
+        filterConfigs = [
+          { key: 'comunidad', label: 'Comunidad/Prov.', options: getUniqueVals('comunidad', 'provincia') },
+          { key: 'cesped', label: 'Tipo Césped', options: getUniqueVals('cesped', 'tipoCesped') }
+        ];
+      }
+
+      filterContainer.innerHTML = filterConfigs.map(cfg => {
+        const curVal = activeFilters[cfg.key] || '';
+        return `
+          <select class="dir-dynamic-select" data-filter-key="${cfg.key}">
+            <option value="">${cfg.label}: Todos</option>
+            ${cfg.options.map(opt => `<option value="${escapeHtml(opt)}" ${curVal === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+          </select>
+        `;
+      }).join('');
+
+      filterContainer.querySelectorAll('.dir-dynamic-select').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+          const key = sel.dataset.filter-key;
+          const val = e.target.value;
+          if (val) activeFilters[key] = val;
+          else delete activeFilters[key];
+          currentDirectoryPage = 1;
+          renderDirectorio();
+        });
+      });
+    };
+
+    renderSectionFiltersUI();
 
     // 1. Universal Alphabetical Sorting for most entities, Custom OrderIndex for Federaciones
     if (currentDirectoryTab === 'federaciones') {
@@ -11398,6 +11535,9 @@
   document.getElementById('btnResetDirFilters')?.addEventListener('click', () => {
     const input = document.getElementById('dirSearchInput');
     if (input) input.value = '';
+    if (state.dirActiveFilters) {
+      state.dirActiveFilters[currentDirectoryTab] = {};
+    }
     renderDirectorio();
   });
   document.getElementById('btnAddNewDirectoryItem')?.addEventListener('click', () => openAddDirectoryItemModal());
