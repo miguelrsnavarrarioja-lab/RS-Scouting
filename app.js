@@ -3627,68 +3627,6 @@
     card.classList.add('large');
 
     showModal(titleText, modalHTML, () => {
-      // Render Club Type Chips (DOM element exists now)
-      const renderClubTypeChips = () => {
-        const container = document.getElementById('clubTypeChipsContainer');
-        if (!container) return;
-        container.innerHTML = state.customClubTypes.map(t => {
-          const isSelected = selectedClubTypes.includes(t);
-          return `
-            <span class="club-type-chip ${isSelected ? 'selected' : ''}" data-type="${escapeHtml(t)}" style="padding: 2px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; user-select: none;">
-              ${isSelected ? '✓ ' : ''}${escapeHtml(t)}
-            </span>
-          `;
-        }).join('');
-
-        container.querySelectorAll('.club-type-chip').forEach(chip => {
-          chip.addEventListener('click', () => {
-            const tVal = chip.dataset.type;
-            if (selectedClubTypes.includes(tVal)) {
-              selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
-            } else {
-              selectedClubTypes.push(tVal);
-            }
-            renderClubTypeChips();
-          });
-        });
-      };
-
-      renderClubTypeChips();
-
-      const btnShowInput = document.getElementById('btnShowAddClubTypeInput');
-      const inputRow = document.getElementById('newClubTypeInputRow');
-      const inputNewType = document.getElementById('inputNewCustomClubType');
-      const btnConfirmAdd = document.getElementById('btnConfirmAddClubType');
-
-      btnShowInput?.addEventListener('click', () => {
-        if (inputRow) {
-          inputRow.style.display = inputRow.style.display === 'none' ? 'flex' : 'none';
-          if (inputRow.style.display === 'flex') inputNewType?.focus();
-        }
-      });
-
-      const handleAddNewType = () => {
-        const val = inputNewType?.value.trim();
-        if (!val) return;
-        if (!state.customClubTypes.includes(val)) {
-          state.customClubTypes.push(val);
-        }
-        if (!selectedClubTypes.includes(val)) {
-          selectedClubTypes.push(val);
-        }
-        if (inputNewType) inputNewType.value = '';
-        if (inputRow) inputRow.style.display = 'none';
-        saveState();
-        renderClubTypeChips();
-      };
-
-      btnConfirmAdd?.addEventListener('click', handleAddNewType);
-      inputNewType?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleAddNewType();
-        }
-      });
       const nameVal = document.getElementById('pfNombre').value.trim();
       if (!nameVal) return alert('Por favor ingresa el nombre del jugador');
 
@@ -4731,7 +4669,16 @@
                     <input type="text" id="cfConvenidoDe" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeHtml(convenidoDe)}">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">CLUBES CONVENIDOS VINCULADOS</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label class="form-label" style="margin: 0;">CLUBES CONVENIDOS VINCULADOS</label>
+                      ${(() => {
+                        const convList = getConvenidosListForClub(club);
+                        if (convList.length > 0) {
+                          return `<button type="button" id="btnOpenConvenidosModalInForm" style="background: none; border: none; font-size: 11px; color: var(--primary-blue, #2563eb); font-weight: 800; cursor: pointer; padding: 0;">👥 Ver Todos (${convList.length})</button>`;
+                        }
+                        return '';
+                      })()}
+                    </div>
                     <input type="text" id="cfConvenidosVinculados" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeHtml(convenidosVinculados)}">
                   </div>
                 </div>
@@ -4914,6 +4861,74 @@
     card.classList.add('large');
 
     showModal(titleText, modalHTML, () => {
+      // Render Club Type Chips inside openClubModal
+      const renderClubTypeChips = () => {
+        const container = document.getElementById('clubTypeChipsContainer');
+        if (!container) return;
+        container.innerHTML = state.customClubTypes.map(t => {
+          const isSelected = selectedClubTypes.includes(t);
+          return `
+            <span class="club-type-chip ${isSelected ? 'selected' : ''}" data-type="${escapeHtml(t)}" style="padding: 2px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; user-select: none;">
+              ${isSelected ? '✓ ' : ''}${escapeHtml(t)}
+            </span>
+          `;
+        }).join('');
+
+        container.querySelectorAll('.club-type-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const tVal = chip.dataset.type;
+            if (selectedClubTypes.includes(tVal)) {
+              selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
+            } else {
+              selectedClubTypes.push(tVal);
+            }
+            renderClubTypeChips();
+          });
+        });
+      };
+
+      renderClubTypeChips();
+
+      const btnShowInput = document.getElementById('btnShowAddClubTypeInput');
+      const inputRow = document.getElementById('newClubTypeInputRow');
+      const inputNewType = document.getElementById('inputNewCustomClubType');
+      const btnConfirmAdd = document.getElementById('btnConfirmAddClubType');
+
+      const btnOpenConvModal = document.getElementById('btnOpenConvenidosModalInForm');
+      btnOpenConvModal?.addEventListener('click', () => {
+        openClubConvenidosWindow(club);
+      });
+
+      btnShowInput?.addEventListener('click', () => {
+        if (inputRow) {
+          inputRow.style.display = inputRow.style.display === 'none' ? 'flex' : 'none';
+          if (inputRow.style.display === 'flex') inputNewType?.focus();
+        }
+      });
+
+      const handleAddNewType = () => {
+        const val = inputNewType?.value.trim();
+        if (!val) return;
+        if (!state.customClubTypes.includes(val)) {
+          state.customClubTypes.push(val);
+        }
+        if (!selectedClubTypes.includes(val)) {
+          selectedClubTypes.push(val);
+        }
+        if (inputNewType) inputNewType.value = '';
+        if (inputRow) inputRow.style.display = 'none';
+        saveState();
+        renderClubTypeChips();
+      };
+
+      btnConfirmAdd?.addEventListener('click', handleAddNewType);
+      inputNewType?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddNewType();
+        }
+      });
+
       const nameVal = document.getElementById('cfNombre').value.trim();
       if (!nameVal) return alert('Por favor ingresa el nombre del club');
 
@@ -10139,6 +10154,116 @@
     function ensureClubesNavarraSeeded() {}
 
 
+  
+  // Helper to extract convenidos list for a club
+  function getConvenidosListForClub(clubItem) {
+    if (!clubItem) return [];
+    let rawList = [];
+    
+    if (Array.isArray(clubItem.convenidosVinculados)) {
+      rawList = clubItem.convenidosVinculados.map(s => typeof s === 'string' ? s : (s.nombre || s.equipo || '')).filter(Boolean);
+    } else if (typeof clubItem.convenidosVinculados === 'string' && clubItem.convenidosVinculados.trim()) {
+      rawList = clubItem.convenidosVinculados.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    if (state.directory?.clubes && clubItem.nombre) {
+      const parentName = clubItem.nombre.toLowerCase().trim();
+      state.directory.clubes.forEach(c => {
+        if (c && c.convenidoDe && String(c.convenidoDe).toLowerCase().trim().includes(parentName)) {
+          if (!rawList.includes(c.nombre)) rawList.push(c.nombre);
+        }
+      });
+    }
+
+    return Array.from(new Set(rawList));
+  }
+
+  // Open window/modal for Clubes Convenidos with clickable cards
+  function openClubConvenidosWindow(clubObj) {
+    if (!clubObj) return;
+    const convenidosNames = getConvenidosListForClub(clubObj);
+
+    if (!convenidosNames || convenidosNames.length === 0) {
+      return showCustomAlertModal('Sin Clubes Convenidos', `El club "${escapeHtml(clubObj.nombre)}" no tiene clubes convenidos vinculados.`);
+    }
+
+    const convenidosClubs = convenidosNames.map(name => {
+      let matched = (state.directory.clubes || []).find(c => 
+        c && c.nombre && c.nombre.toLowerCase().trim() === name.toLowerCase().trim()
+      );
+      if (!matched) {
+        matched = {
+          id: 'c_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          nombre: name,
+          equipo: name,
+          localidad: 'Navarra',
+          federacion: clubObj.federacion || 'Sin Federación'
+        };
+      }
+      return matched;
+    });
+
+    const modalHTML = `
+      <div style="padding: 10px;">
+        <p style="font-size: 13px; color: var(--text-muted); font-weight: 700; margin-bottom: 16px;">
+          Mostrando <strong>${convenidosClubs.length}</strong> clubes convenidos vinculados a <strong>${escapeHtml(clubObj.nombre)}</strong>. Haz clic en cualquiera de ellos para acceder a su ficha completa:
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; max-height: 480px; overflow-y: auto; padding-right: 4px;">
+          ${convenidosClubs.map(c => {
+            const clubPriColor = c.colorPrimary || '#2563eb';
+            const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${c.codigo}.png` : `./escudos/${(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
+
+            return `
+              <div class="convenido-item-card" data-club-name="${escapeHtml(c.nombre)}" data-club-id="${c.id || ''}" style="background: #ffffff; border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${clubPriColor}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${clubPriColor}; padding: 2px; flex-shrink: 0;">
+                    <img src="${clubLogo}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: contain;">
+                  </div>
+                  <div style="flex: 1; overflow: hidden;">
+                    <h4 style="margin: 0; font-size: 13px; font-weight: 800; color: var(--text-dark, #1e293b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(c.nombre)}</h4>
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(c.localidad || 'Navarra')}</div>
+                  </div>
+                </div>
+                <div style="font-size: 10px; color: var(--text-muted); font-weight: 700; background: var(--bg-subtle, #f8fafc); padding: 4px 8px; border-radius: 6px;">
+                  ${escapeHtml(c.federacion || 'FNF - Federación Navarra')}
+                </div>
+                <button type="button" class="btn btn-primary" style="width: 100%; padding: 5px 8px; font-size: 11px; font-weight: 800; border-radius: 6px; margin-top: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                  Abrir Ficha <i data-lucide="arrow-right" style="width: 12px;"></i>
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    const card = document.getElementById('generalModalCard');
+    if (card) card.classList.add('large');
+
+    showModal(`🏆 Clubes Convenidos de ${clubObj.nombre} (${convenidosClubs.length})`, modalHTML, () => {
+      document.querySelectorAll('.convenido-item-card').forEach(cardEl => {
+        cardEl.addEventListener('click', () => {
+          const cName = cardEl.dataset.clubName;
+          const cId = cardEl.dataset.clubId;
+          
+          let targetClub = (state.directory.clubes || []).find(c => 
+            c && (String(c.id) === String(cId) || (c.nombre && c.nombre.toLowerCase().trim() === cName.toLowerCase().trim()))
+          );
+          if (!targetClub) {
+            targetClub = { id: cId || ('c_' + Date.now()), nombre: cName, equipo: cName, convenidoDe: clubObj.nombre };
+          }
+          
+          closeModal();
+          setTimeout(() => {
+            openClubModal(targetClub);
+          }, 150);
+        });
+      });
+      if (window.lucide) window.lucide.createIcons();
+    });
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (tabOverride) {
       if (currentDirectoryTab !== tabOverride) {
@@ -10295,10 +10420,23 @@
       });
     }
 
-    // 3. Search Filter
+    // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER)
     const filtered = subFilteredItems.filter(item => {
-      const text = Object.values(item).join(' ').toLowerCase();
-      return !searchVal || text.includes(searchVal);
+      if (!searchVal) return true;
+      const itemName = String(
+        item.nombre || 
+        item.equipo || 
+        item.jugador || 
+        item.staff || 
+        item.torneo || 
+        item.estadio || 
+        item.agencia || 
+        item.agente || 
+        item.seleccion || 
+        item.federacion || 
+        ''
+      ).toLowerCase();
+      return itemName.includes(searchVal);
     });
 
     // 4. Sub-filter Pills Bar Generation
@@ -10601,6 +10739,17 @@
                   ${c.web ? `<div><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600;">${escapeHtml(c.web)}</a></div>` : ''}
                 </div>
 
+                ${(() => {
+                  const convList = getConvenidosListForClub(c);
+                  if (convList.length > 0) {
+                    return `
+                      <button type="button" class="btn-convenidos-trigger" data-id="${c.id}" style="width: 100%; padding: 5px 10px; font-size: 11px; font-weight: 800; border-radius: 8px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i data-lucide="building-2" style="width: 14px;"></i> Clubes Convenidos (${convList.length})
+                      </button>
+                    `;
+                  }
+                  return '';
+                })()}
                 <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${clubPriColor}40;">
                   <i data-lucide="shield-check"></i> Ver / Editar Ficha de Club
                 </button>
@@ -10613,6 +10762,15 @@
 
         container.querySelectorAll('.club-name-link, .btn-open-club-modal').forEach(el => {
           el.addEventListener('click', () => openClubModal(el.dataset.id));
+        });
+
+        container.querySelectorAll('.btn-convenidos-trigger').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const clubId = btn.dataset.id;
+            const clubObj = (state.directory.clubes || []).find(c => c && String(c.id) === String(clubId));
+            if (clubObj) openClubConvenidosWindow(clubObj);
+          });
         });
 
         container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
