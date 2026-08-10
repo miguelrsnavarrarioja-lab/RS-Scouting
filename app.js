@@ -12038,6 +12038,8 @@
     if (!state.directory) state.directory = {};
     if (!state.directory.clubes) state.directory.clubes = [];
     if (!state.directory.federaciones) state.directory.federaciones = [];
+    if (state.directory.clubesAragonSeeded) return;
+    state.directory.clubesAragonSeeded = true;
 
     // 1. Ensure FARGF Federation exists in state
     let fargf = state.directory.federaciones.find(f => 
@@ -12296,32 +12298,32 @@
     let subFilteredItems = rawItems.filter(item => {
       if (!item) return false;
 
-      if (filterValAno) {
+      if (filterValAno && !filterValAno.startsWith('año')) {
         const itemVal = String(item.ano || item.anoFundacion || item.nacimiento || item.temporada || '').toLowerCase();
         if (!itemVal.includes(filterValAno)) return false;
       }
-      if (filterValEquipo) {
+      if (filterValEquipo && !filterValEquipo.startsWith('equipo')) {
         const itemVal = String(item.equipo || item.club || item.clubVinculado || '').toLowerCase();
         if (!itemVal.includes(filterValEquipo)) return false;
       }
-      if (filterValComp) {
-        const teamComp = getPlayerLinkedTeamCompetition(item);
+      if (filterValComp && !filterValComp.startsWith('competic')) {
+        const teamComp = typeof getPlayerLinkedTeamCompetition === 'function' ? getPlayerLinkedTeamCompetition(item) : '';
         const itemVal = String(teamComp || item.competicion || item.torneo || item.liga || '').toLowerCase();
         if (!itemVal.includes(filterValComp)) return false;
       }
-      if (filterValCat) {
+      if (filterValCat && !filterValCat.startsWith('sub')) {
         const itemVal = String(item.sub || item.categoria || item.grupo || '').toLowerCase();
         if (!itemVal.includes(filterValCat)) return false;
       }
-      if (filterValNivel) {
+      if (filterValNivel && !filterValNivel.startsWith('nivel')) {
         const itemVal = String(item.rendimientoRS || item.rendimiento || item.nivel || item.nivelCompetitividad || item.tipo || item.comunidad || '').toLowerCase();
         if (!itemVal.includes(filterValNivel)) return false;
       }
-      if (filterValPos) {
+      if (filterValPos && !filterValPos.startsWith('posici')) {
         const itemVal = String(item.posicionPrincipal || item.posicion || item.perfil || item.cargo || item.cesped || '').toLowerCase();
         if (!itemVal.includes(filterValPos)) return false;
       }
-      if (filterValOtro) {
+      if (filterValOtro && !filterValOtro.startsWith('filtrar')) {
         const itemVal = String(item.estado || item.situacion || item.federacion || item.licencia || '').toLowerCase();
         if (!itemVal.includes(filterValOtro)) return false;
       }
