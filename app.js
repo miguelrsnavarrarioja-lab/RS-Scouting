@@ -3858,7 +3858,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Jugador',
+      title: `¿Eliminar Ficha de ${nombre || 'Jugador'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Jugador'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('jugadores', playerId);
+        state.directory.jugadores = (state.directory.jugadores || []).filter(item => item.id !== playerId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // PDF Export Event Listener for Player Profile (5 Pages)
     document.getElementById('btnExportPlayerPdf')?.addEventListener('click', () => {
@@ -5023,7 +5034,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Club',
+      title: `¿Eliminar Ficha de ${nombre || 'Club'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente el club "${nombre}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('clubes', clubId);
+        state.directory.clubes = (state.directory.clubes || []).filter(c => c.id !== clubId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -5803,7 +5825,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Equipo',
+      title: `¿Eliminar Ficha de ${nombre || 'Equipo'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Equipo'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('equipos', teamId);
+        state.directory.equipos = (state.directory.equipos || []).filter(item => item.id !== teamId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Auto sync escudo and colors when Club Vinculado is selected + Live Header Color Update
     const applyTeamColorsHeader = (pri, sec) => {
@@ -6691,7 +6724,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Federación',
+      title: `¿Eliminar Ficha de ${nombre || 'Federación'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Federación'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('federaciones', fedId);
+        state.directory.federaciones = (state.directory.federaciones || []).filter(item => item.id !== fedId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -7148,7 +7192,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Selección',
+      title: `¿Eliminar Ficha de ${nombre || 'Selección'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Selección'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('selecciones', selId);
+        state.directory.selecciones = (state.directory.selecciones || []).filter(item => item.id !== selId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Auto sync Escudo and Colors when Federación is selected
     const inputFedSel = document.getElementById('sfFederacion');
@@ -7686,7 +7741,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Convocatoria',
+      title: `¿Eliminar Ficha de ${nombre || 'Convocatoria'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Convocatoria'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('convocatorias', convId);
+        state.directory.convocatorias = (state.directory.convocatorias || []).filter(item => item.id !== convId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // PDF Export Event Listener
     document.getElementById('btnExportConvPdf')?.addEventListener('click', () => {
@@ -8214,7 +8280,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Torneo',
+      title: `¿Eliminar Ficha de ${nombre || 'Torneo'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Torneo'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('torneos', trnId);
+        state.directory.torneos = (state.directory.torneos || []).filter(item => item.id !== trnId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -8546,7 +8623,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Staff',
+      title: `¿Eliminar Ficha de ${nombre || 'Staff'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Staff'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('staff', staffId);
+        state.directory.staff = (state.directory.staff || []).filter(item => item.id !== staffId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -8919,7 +9007,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Agencia',
+      title: `¿Eliminar Ficha de ${nombre || 'Agencia'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Agencia'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('agencias', agencyId);
+        state.directory.agencias = (state.directory.agencias || []).filter(item => item.id !== agencyId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -9327,7 +9426,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Agente',
+      title: `¿Eliminar Ficha de ${nombre || 'Agente'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Agente'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('agentes', agentId);
+        state.directory.agentes = (state.directory.agentes || []).filter(item => item.id !== agentId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -9674,7 +9784,18 @@
       card.classList.remove('large');
       hideModal();
       renderDirectorio();
-    });
+    }, isEdit ? {
+      label: 'Eliminar Estadio',
+      title: `¿Eliminar Ficha de ${nombre || 'Estadio'}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente a "${nombre || 'Estadio'}" de la base de datos?`,
+      action: () => {
+        deleteFromFirebase('estadios', stadiumId);
+        state.directory.estadios = (state.directory.estadios || []).filter(item => item.id !== stadiumId);
+        saveState();
+        hideModal();
+        renderDirectorio();
+      }
+    } : null);
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -9753,7 +9874,7 @@
     { id: 'fed_rfef', nombre: 'RFEF - Real Federación Española de Fútbol', federacion: 'RFEF - Real Federación Española de Fútbol', ambito: 'Nacional', sede: 'Las Rozas (Madrid)', web: 'https://rfef.es', paginaWeb: 'https://rfef.es', email: 'rfef@rfef.es', telefono: '914 95 98 00', orderIndex: 1, logo: 'https://upload.wikimedia.org/wikipedia/commons/4/47/RFEF_logo.svg', escudo: 'https://upload.wikimedia.org/wikipedia/commons/4/47/RFEF_logo.svg', colorPrimary: '#dc2626', colorSecondary: '#eab308' },
     { id: 'fed_rfaf', nombre: 'RFAF - Real Federación Andaluza de Fútbol', federacion: 'RFAF - Real Federación Andaluza de Fútbol', ambito: 'Andalucía', sede: 'Sevilla', web: 'https://www.rfaf.es', paginaWeb: 'https://www.rfaf.es', email: 'rfaf@rfaf.es', telefono: '954 92 42 42', orderIndex: 2, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png/360px-Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png/360px-Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png', colorPrimary: '#059669', colorSecondary: '#ffffff' },
     { id: 'fed_faf', nombre: 'FAF - Real Federación Aragonesa de Fútbol', federacion: 'FAF - Real Federación Aragonesa de Fútbol', ambito: 'Aragón', sede: 'Zaragoza', web: 'https://www.futbolaragon.org', paginaWeb: 'https://www.futbolaragon.org', email: 'secretaria@futbolaragon.org', telefono: '976 73 09 30', orderIndex: 3, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png/360px-Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png/360px-Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png', colorPrimary: '#d97706', colorSecondary: '#2563eb' },
-    { id: 'fed_asturias', nombre: 'Real Federación de Fútbol del Principado de Asturias', federacion: 'Real Federación de Fútbol del Principado de Asturias', ambito: 'Asturias', sede: 'Gijón', web: 'https://www.asturfutbol.es', paginaWeb: 'https://www.asturfutbol.es', email: 'asturfutbol@asturfutbol.es', telefono: '985 17 62 00', orderIndex: 4, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', colorPrimary: '#2563eb', colorSecondary: '#eab308' },
+    { id: 'fed_asturias', nombre: 'RFFPA - Real Federación de Fútbol del Principado de Asturias', federacion: 'RFFPA - Real Federación de Fútbol del Principado de Asturias', ambito: 'Asturias', sede: 'Gijón', web: 'https://www.asturfutbol.es', paginaWeb: 'https://www.asturfutbol.es', email: 'asturfutbol@asturfutbol.es', telefono: '985 17 62 00', orderIndex: 4, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', colorPrimary: '#2563eb', colorSecondary: '#eab308' },
     { id: 'fed_ffib', nombre: 'FFIB - Federació de Futbol de les Illes Balears', federacion: 'FFIB - Federació de Futbol de les Illes Balears', ambito: 'Baleares', sede: 'Palma de Mallorca', web: 'https://www.ffib.es', paginaWeb: 'https://www.ffib.es', email: 'ffib@ffib.es', telefono: '971 24 84 11', orderIndex: 5, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Escudo_FFIB.png/360px-Escudo_FFIB.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Escudo_FFIB.png/360px-Escudo_FFIB.png', colorPrimary: '#1d4ed8', colorSecondary: '#eab308' },
     { id: 'fed_fcf_canarias', nombre: 'FCF - Federación Canaria de Fútbol', federacion: 'FCF - Federación Canaria de Fútbol', ambito: 'Canarias', sede: 'Las Palmas / Tenerife', web: 'https://www.ftf.es', paginaWeb: 'https://www.ftf.es', email: 'fcf@fcfutbol.es', telefono: '928 24 28 80', orderIndex: 6, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Logo_FCF_Canarias.png/360px-Logo_FCF_Canarias.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Logo_FCF_Canarias.png/360px-Logo_FCF_Canarias.png', colorPrimary: '#0284c7', colorSecondary: '#eab308' },
     { id: 'fed_rfcf', nombre: 'RFCF - Real Federación Cántabra de Fútbol', federacion: 'RFCF - Real Federación Cántabra de Fútbol', ambito: 'Cantabria', sede: 'Santander', web: 'https://www.rfcf.es', paginaWeb: 'https://www.rfcf.es', email: 'rfcf@rfcf.es', telefono: '942 22 28 00', orderIndex: 7, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_RFCF.png/360px-Logo_RFCF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_RFCF.png/360px-Logo_RFCF.png', colorPrimary: '#e11d48', colorSecondary: '#ffffff' },
@@ -9771,6 +9892,37 @@
     { id: 'fed_ffce', nombre: 'FFCE - Real Federación de Fútbol de Ceuta', federacion: 'FFCE - Real Federación de Fútbol de Ceuta', ambito: 'Ceuta', sede: 'Ceuta', web: 'https://www.ffce.es', paginaWeb: 'https://www.ffce.es', email: 'ffce@ffce.es', telefono: '956 51 90 00', orderIndex: 19, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Escudo_FFCE.png/360px-Escudo_FFCE.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Escudo_FFCE.png/360px-Escudo_FFCE.png', colorPrimary: '#1e293b', colorSecondary: '#0284c7' },
     { id: 'fed_rfmf', nombre: 'RFMF - Real Federación Melillense de Fútbol', federacion: 'RFMF - Real Federación Melillense de Fútbol', ambito: 'Melilla', sede: 'Melilla', web: 'https://www.rfmf.es', paginaWeb: 'https://www.rfmf.es', email: 'rfmf@rfmf.es', telefono: '952 68 30 00', orderIndex: 20, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Escudo_RFMF.png/360px-Escudo_RFMF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Escudo_RFMF.png/360px-Escudo_RFMF.png', colorPrimary: '#1d4ed8', colorSecondary: '#ffffff' }
   ];
+
+  function getFedAcronym(fedStr) {
+    if (!fedStr || fedStr === 'TODAS') return 'TODAS';
+    const s = String(fedStr).trim();
+    if (s.includes(' - ')) {
+      return s.split(' - ')[0].trim();
+    }
+    const lower = s.toLowerCase();
+    if (lower.includes('asturias') || lower.includes('rffpa')) return 'RFFPA';
+    if (lower.includes('galicia') || lower.includes('futgal')) return 'FGF';
+    if (lower.includes('madrid') || lower.includes('rffm')) return 'RFFM';
+    if (lower.includes('navarra') || lower.includes('fnf')) return 'FNF';
+    if (lower.includes('vasca') || lower.includes('euskal')) return 'EFF-FVF';
+    if (lower.includes('andaluza') || lower.includes('rfaf')) return 'RFAF';
+    if (lower.includes('catalana') || lower.includes('fcf')) return 'FCF';
+    if (lower.includes('valenciana') || lower.includes('ffcv')) return 'FFCV';
+    if (lower.includes('aragonesa') || lower.includes('faf')) return 'FAF';
+    if (lower.includes('balears') || lower.includes('ffib')) return 'FFIB';
+    if (lower.includes('canaria')) return 'FCF';
+    if (lower.includes('cántabra') || lower.includes('rfcf')) return 'RFCF';
+    if (lower.includes('castilla y león') || lower.includes('fcylf')) return 'FCYLF';
+    if (lower.includes('castilla-la mancha') || lower.includes('ffcm')) return 'FFCM';
+    if (lower.includes('extremadura') || lower.includes('fexf')) return 'FEXF';
+    if (lower.includes('riojana') || lower.includes('frf')) return 'FRF';
+    if (lower.includes('murcia') || lower.includes('ffrm')) return 'FFRM';
+    if (lower.includes('ceuta') || lower.includes('ffce')) return 'FFCE';
+    if (lower.includes('melilla') || lower.includes('rfmf')) return 'RFMF';
+    if (lower.includes('española') || lower.includes('rfef')) return 'RFEF';
+    
+    return s.split(' ').map(w => w.charAt(0).toUpperCase()).join('').slice(0, 6);
+  }
 
   function ensureFederacionesSeeded() {
     if (!state.directory) state.directory = {};
@@ -9891,7 +10043,9 @@
     } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab) && currentFederationFilter !== 'TODAS') {
       subFilteredItems = subFilteredItems.filter(item => {
         const itemFed = (item.federacion || item.federacionVinculada || item.ambito || 'Sin Federación').toUpperCase().trim();
-        return itemFed.includes(currentFederationFilter.toUpperCase().trim()) || currentFederationFilter.toUpperCase().trim().includes(itemFed);
+        const filterVal = currentFederationFilter.toUpperCase().trim();
+        const filterAcronym = getFedAcronym(currentFederationFilter).toUpperCase().trim();
+        return itemFed.includes(filterVal) || filterVal.includes(itemFed) || (filterAcronym.length >= 3 && itemFed.includes(filterAcronym));
       });
     }
 
@@ -9953,11 +10107,14 @@
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
           </span>
-          ${allFeds.map(fed => `
-            <button type="button" class="btn-dir-subfilter ${currentFederationFilter === fed ? 'active' : ''}" data-type="federacion" data-val="${escapeHtml(fed)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentFederationFilter === fed ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-              ${escapeHtml(fed)}
+          ${allFeds.map(fed => {
+            const acronym = getFedAcronym(fed);
+            return `
+            <button type="button" class="btn-dir-subfilter ${currentFederationFilter === fed ? 'active' : ''}" data-type="federacion" data-val="${escapeHtml(fed)}" title="${escapeHtml(fed)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentFederationFilter === fed ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              ${escapeHtml(acronym)}
             </button>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       `;
     } else if (currentDirectoryTab === 'estadios') {
@@ -13827,17 +13984,51 @@
   // --------------------------------------------------------------------------
   let currentModalSubmitCallback = null;
 
-  function showModal(title, htmlContent, onSubmit) {
+  function showModal(title, htmlContent, onSubmit, onDelete = null) {
     document.getElementById('modalTitle').textContent = title;
     document.getElementById('modalBody').innerHTML = htmlContent;
     currentModalSubmitCallback = onSubmit;
+
+    const footer = document.querySelector('#generalModalOverlay .modal-footer');
+    let btnDelete = document.getElementById('btnDeleteModal');
+    if (!btnDelete && footer) {
+      btnDelete = document.createElement('button');
+      btnDelete.type = 'button';
+      btnDelete.className = 'btn btn-danger hidden';
+      btnDelete.id = 'btnDeleteModal';
+      btnDelete.style.marginRight = 'auto';
+      btnDelete.style.fontWeight = '800';
+      footer.prepend(btnDelete);
+    }
+
+    if (onDelete && btnDelete) {
+      const deleteLabel = typeof onDelete === 'string' ? onDelete : (typeof onDelete === 'object' && onDelete.label ? onDelete.label : 'Eliminar');
+      const deleteFunc = typeof onDelete === 'function' ? onDelete : (typeof onDelete === 'object' && onDelete.action ? onDelete.action : null);
+      const deleteTitle = (typeof onDelete === 'object' && onDelete.title) ? onDelete.title : '¿Eliminar Registro?';
+      const deleteMsg = (typeof onDelete === 'object' && onDelete.message) ? onDelete.message : '¿Estás seguro de que deseas eliminar este registro permanentemente de la base de datos?';
+
+      btnDelete.innerHTML = `<i data-lucide="trash-2" style="width: 14px; margin-right: 4px; vertical-align: middle;"></i> ${escapeHtml(deleteLabel)}`;
+      btnDelete.classList.remove('hidden');
+      btnDelete.onclick = (e) => {
+        e.preventDefault();
+        showCustomConfirmModal(deleteTitle, deleteMsg, () => {
+          if (deleteFunc) deleteFunc();
+        });
+      };
+    } else if (btnDelete) {
+      btnDelete.classList.add('hidden');
+      btnDelete.onclick = null;
+    }
+
     document.getElementById('generalModalOverlay').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
   }
 
   function hideModal() {
     const card = document.getElementById('generalModalCard');
-    if (card) card.classList.remove('xlarge');
+    if (card) card.classList.remove('xlarge', 'large');
+    const btnDelete = document.getElementById('btnDeleteModal');
+    if (btnDelete) btnDelete.classList.add('hidden');
     document.getElementById('generalModalOverlay').classList.add('hidden');
     currentModalSubmitCallback = null;
   }
