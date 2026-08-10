@@ -2383,10 +2383,10 @@
               <div class="minutes-salir-row">
                 <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 55px; font-weight: 800; text-align: center;">
                 <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada">
-                  <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + '\')') : 'ENTRA'}
+                  <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
                 </button>
                 <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida">
-                  <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + '\')') : 'SALIR'}
+                  <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
                 </button>
               </div>
             </div>
@@ -3016,7 +3016,7 @@
       'Torrejón de Ardoz', 'Parla', 'Alcobendas', 'Las Rozas', 'San Sebastián de los Reyes'
     ],
     'Cataluña': [
-      'Barcelona', 'L\'Hospitalet de Llobregat', 'Terrassa', 'Badalona', 'Sabadell', 'Lleida',
+      'Barcelona', "L'Hospitalet de Llobregat", 'Terrassa', 'Badalona', 'Sabadell', 'Lleida',
       'Tarragona', 'Mataró', 'Santa Coloma de Gramenet', 'Reus', 'Girona', 'Manresa', 'Cornellà'
     ],
     'Andalucía': [
@@ -3735,7 +3735,7 @@
 
       if (!state.directory.jugadores) state.directory.jugadores = [];
       if (isEdit) {
-        const idx = state.directory.jugadores.findIndex(j => j.id === playerId);
+        const idx = state.directory.jugadores.findIndex(j => j && (String(j.id) === String(playerId) || (j.codigo && String(j.codigo) === String(playerId))));
         if (idx !== -1) state.directory.jugadores[idx] = updatedPlayer;
         else state.directory.jugadores.unshift(updatedPlayer);
       } else {
@@ -4915,7 +4915,7 @@
 
       if (!state.directory.clubes) state.directory.clubes = [];
       if (isEdit) {
-        const idx = state.directory.clubes.findIndex(c => c.id === clubId);
+        const idx = state.directory.clubes.findIndex(c => c && (String(c.id) === String(clubId) || (c.codigo && String(c.codigo) === String(clubId))));
         if (idx !== -1) state.directory.clubes[idx] = updatedClub;
       } else {
         state.directory.clubes.unshift(updatedClub);
@@ -4938,6 +4938,9 @@
             }
             if (updatedClub.colorSecondary) {
               eq.colorSecondary = updatedClub.colorSecondary;
+            }
+            if (updatedClub.federacion) {
+              eq.federacion = updatedClub.federacion;
             }
             saveToFirebase('equipos', eq);
           }
@@ -5343,6 +5346,45 @@
   }
 
   // Helper to flexibly match a team to its parent club even with spelling typos (e.g. Obereno / Oberena)
+    function syncClubDataToLinkedTeams(clubObj) {
+    if (!clubObj || !state.directory || !Array.isArray(state.directory.equipos)) return;
+    const clubNameLower = (clubObj.nombre || clubObj.equipo || '').trim().toLowerCase();
+    if (!clubNameLower) return;
+
+    state.directory.equipos.forEach(eq => {
+      const eqParent = typeof findParentClub === 'function' ? findParentClub(eq) : null;
+      const isLinked = (eqParent && String(eqParent.id) === String(clubObj.id)) || 
+                       (eq.clubVinculado && eq.clubVinculado.trim().toLowerCase() === clubNameLower) ||
+                       (eq.club && eq.club.trim().toLowerCase() === clubNameLower) ||
+                       (eq.nombre && (eq.nombre.trim().toLowerCase() === clubNameLower || eq.nombre.trim().toLowerCase().startsWith(clubNameLower)));
+      
+      if (isLinked) {
+        let modified = false;
+        if (clubObj.federacion && (!eq.federacion || eq.federacion === '' || eq.federacion === 'Sin Federación' || eq.federacion !== clubObj.federacion)) {
+          eq.federacion = clubObj.federacion;
+          modified = true;
+        }
+        const l = clubObj.logo || clubObj.escudo;
+        if (l && (!eq.escudo || eq.escudo === '')) {
+          eq.escudo = l;
+          eq.logo = l;
+          modified = true;
+        }
+        if (clubObj.colorPrimary && (!eq.colorPrimary || eq.colorPrimary === '#2563eb')) {
+          eq.colorPrimary = clubObj.colorPrimary;
+          modified = true;
+        }
+        if (clubObj.colorSecondary && (!eq.colorSecondary || eq.colorSecondary === '#ffffff')) {
+          eq.colorSecondary = clubObj.colorSecondary;
+          modified = true;
+        }
+        if (modified) {
+          saveToFirebase('equipos', eq);
+        }
+      }
+    });
+  }
+
   function findParentClub(teamObj) {
     if (!teamObj || !state.directory.clubes || !state.directory.clubes.length) return null;
     const clubName = (teamObj.clubVinculado || teamObj.club || '').trim();
@@ -5740,11 +5782,12 @@
 
       if (!state.directory.equipos) state.directory.equipos = [];
       if (isEdit) {
-        const idx = state.directory.equipos.findIndex(eq => eq.id === teamId);
+        const idx = state.directory.equipos.findIndex(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
         if (idx !== -1) state.directory.equipos[idx] = updatedTeam;
       } else {
         state.directory.equipos.unshift(updatedTeam);
       }
+      saveToFirebase('equipos', updatedTeam);
 
       // Bidirectional sync for Club Vinculado
       const syncClubName = updatedTeam.clubVinculado;
@@ -6704,11 +6747,12 @@
 
       if (!state.directory.federaciones) state.directory.federaciones = [];
       if (isEdit) {
-        const idx = state.directory.federaciones.findIndex(f => f.id === federationId);
+        const idx = state.directory.federaciones.findIndex(f => f && (String(f.id) === String(federationId) || (f.codigo && String(f.codigo) === String(federationId))));
         if (idx !== -1) state.directory.federaciones[idx] = updatedFed;
       } else {
         state.directory.federaciones.unshift(updatedFed);
       }
+      saveToFirebase('federaciones', updatedFed);
 
       // Bidirectional sync for Cuerpo Técnico (Staff)
       if (Array.isArray(localStaffList) && state.directory.staff) {
@@ -7166,11 +7210,12 @@
 
       if (!state.directory.selecciones) state.directory.selecciones = [];
       if (isEdit) {
-        const idx = state.directory.selecciones.findIndex(s => s.id === selectionId);
+        const idx = state.directory.selecciones.findIndex(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
         if (idx !== -1) state.directory.selecciones[idx] = updatedSel;
       } else {
         state.directory.selecciones.unshift(updatedSel);
       }
+      saveToFirebase('selecciones', updatedSel);
 
       // Bidirectional sync for Jugadores
       if (Array.isArray(localJugadoresList)) {
@@ -7714,11 +7759,12 @@
 
       if (!state.directory.convocatorias) state.directory.convocatorias = [];
       if (isEdit) {
-        const idx = state.directory.convocatorias.findIndex(c => c.id === convocatoriaId);
+        const idx = state.directory.convocatorias.findIndex(c => c && (String(c.id) === String(convocatoriaId) || (c.codigo && String(c.codigo) === String(convocatoriaId))));
         if (idx !== -1) state.directory.convocatorias[idx] = updatedConv;
       } else {
         state.directory.convocatorias.unshift(updatedConv);
       }
+      saveToFirebase('convocatorias', updatedConv);
 
       // Bidirectional sync for Jugadores
       if (Array.isArray(localJugadoresList)) {
@@ -8287,11 +8333,12 @@
 
       if (!state.directory.torneos) state.directory.torneos = [];
       if (isEdit) {
-        const idx = state.directory.torneos.findIndex(t => t.id === tournamentId);
+        const idx = state.directory.torneos.findIndex(t => t && (String(t.id) === String(tournamentId) || (t.codigo && String(t.codigo) === String(tournamentId))));
         if (idx !== -1) state.directory.torneos[idx] = updatedTrn;
       } else {
         state.directory.torneos.unshift(updatedTrn);
       }
+      saveToFirebase('torneos', updatedTrn);
 
       // Bidirectional sync for Participantes (Selecciones and Equipos)
       if (Array.isArray(localParticipantesList)) {
@@ -8616,11 +8663,12 @@
 
       if (!state.directory.staff) state.directory.staff = [];
       if (isEdit) {
-        const idx = state.directory.staff.findIndex(s => s.id === staffId);
+        const idx = state.directory.staff.findIndex(s => s && (String(s.id) === String(staffId) || (s.codigo && String(s.codigo) === String(staffId))));
         if (idx !== -1) state.directory.staff[idx] = updatedStaff;
       } else {
         state.directory.staff.unshift(updatedStaff);
       }
+      saveToFirebase('staff', updatedStaff);
 
       // Bidirectional sync for Staff into Equipos, Selecciones, and Clubes
       const syncStaffToEquipo = (eqName) => {
@@ -8981,11 +9029,12 @@
 
       if (!state.directory.agencias) state.directory.agencias = [];
       if (isEdit) {
-        const idx = state.directory.agencias.findIndex(a => a.id === agencyId);
+        const idx = state.directory.agencias.findIndex(a => a && (String(a.id) === String(agencyId) || (a.codigo && String(a.codigo) === String(agencyId))));
         if (idx !== -1) state.directory.agencias[idx] = updatedAgency;
       } else {
         state.directory.agencias.unshift(updatedAgency);
       }
+      saveToFirebase('agencias', updatedAgency);
 
       // Bidirectional sync for Agentes
       if (Array.isArray(localAgentesList)) {
@@ -9415,11 +9464,12 @@
 
       if (!state.directory.agentes) state.directory.agentes = [];
       if (isEdit) {
-        const idx = state.directory.agentes.findIndex(a => a.id === agentId);
+        const idx = state.directory.agentes.findIndex(a => a && (String(a.id) === String(agentId) || (a.codigo && String(a.codigo) === String(agentId))));
         if (idx !== -1) state.directory.agentes[idx] = updatedAgent;
       } else {
         state.directory.agentes.unshift(updatedAgent);
       }
+      saveToFirebase('agentes', updatedAgent);
 
       // Bidirectional sync for Agencia
       if (updatedAgent.agencia && state.directory.agencias) {
@@ -9791,11 +9841,12 @@
 
       if (!state.directory.estadios) state.directory.estadios = [];
       if (isEdit) {
-        const idx = state.directory.estadios.findIndex(e => e.id === stadiumId);
+        const idx = state.directory.estadios.findIndex(e => e && (String(e.id) === String(stadiumId) || (e.codigo && String(e.codigo) === String(stadiumId))));
         if (idx !== -1) state.directory.estadios[idx] = updatedStadium;
       } else {
         state.directory.estadios.unshift(updatedStadium);
       }
+      saveToFirebase('estadios', updatedStadium);
 
       // Bidirectional sync for Clubes & Equipos
       if (Array.isArray(localClubesList)) {
@@ -10113,6 +10164,9 @@
     });
 
     state.directory.clubesNavarraSeeded = true;
+    if (Array.isArray(state.directory.clubes)) {
+      state.directory.clubes.forEach(c => syncClubDataToLinkedTeams(c));
+    }
     if (addedCount > 0) {
       saveState();
       syncAllToFirebase();
@@ -10541,6 +10595,9 @@
                 }
                 if (parentC.colorSecondary && (!eq.colorSecondary || eq.colorSecondary === '#ffffff')) {
                   eq.colorSecondary = parentC.colorSecondary;
+                }
+                if (parentC.federacion && (!eq.federacion || eq.federacion === '' || eq.federacion === 'Sin Federación')) {
+                  eq.federacion = parentC.federacion;
                 }
               }
 
@@ -11555,8 +11612,10 @@
 
       if (!state.directory[currentDirectoryTab]) state.directory[currentDirectoryTab] = [];
       state.directory[currentDirectoryTab].unshift(newItem);
+      saveToFirebase('jugadores', updatedPlayer);
       saveState();
       hideModal();
+      showToast(`Ficha de "${nameVal}" guardada con éxito`, 'success');
       renderDirectorio();
     });
   }
