@@ -10279,6 +10279,1833 @@
     });
   }
 
+  
+  // LISTA DE CLUBES DE LA FEDERACIÓN ARAGONESA DE FÚTBOL (FARGF)
+  const ARAGON_CLUBS_DATA = [
+  {
+    "codigo": "1001",
+    "nombre": "REAL ZARAGOZA S.A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000047835_Escudo-Zaragoza.jpg"
+  },
+  {
+    "codigo": "1002",
+    "nombre": "ARENAS S.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043191_arenas_zaragoza.jpg"
+  },
+  {
+    "codigo": "1003",
+    "nombre": "CASETAS-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000355738_escudo_udcasetas_dorado.png"
+  },
+  {
+    "codigo": "1004",
+    "nombre": "CASPE-C.D. Caspe",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000159560_898ec445a5f8772a5a1b61d5d019d680.jpg"
+  },
+  {
+    "codigo": "1005",
+    "nombre": "ZUERA-C.D. Zuera",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000211302_14.png"
+  },
+  {
+    "codigo": "1006",
+    "nombre": "EJEA-S.D. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1008",
+    "nombre": "TAUSTE-C.D. Tauste",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000417911_1.jpg"
+  },
+  {
+    "codigo": "1009",
+    "nombre": "ALFAJARIN-C.F. Alfajarn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000113869_alfajarin.jpg"
+  },
+  {
+    "codigo": "1010",
+    "nombre": "MONZALBARBA-AT.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000445798_ESCUDO_MONZALBARBA.png"
+  },
+  {
+    "codigo": "1011",
+    "nombre": "PINA-C.D. Pina De Ebro",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000196817_escudo_pina_letras_negras.jpg"
+  },
+  {
+    "codigo": "1012",
+    "nombre": "UTEBO-C.F. Utebo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000309723_Escudo_Utebo_FC___copia.png"
+  },
+  {
+    "codigo": "1013",
+    "nombre": "HURACAN-C.D. Mara De Huerva",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000168835_escudo_FONDO_BLANCO.jpg"
+  },
+  {
+    "codigo": "1016",
+    "nombre": "BOQUIENI-C.F. Boquieni",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043234_boquineni.jpg"
+  },
+  {
+    "codigo": "1017",
+    "nombre": "REMOLINOS-C.D. Remolinos",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000314032_PHOTO_2021_07_26_12_02_49_5339_.jpg"
+  },
+  {
+    "codigo": "1020",
+    "nombre": "ILLUECA-C.F. Illueca",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1021",
+    "nombre": "SAN MATEO-C.D. San Mateo De Gllego",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000315140_SAN_MATEO.jpg"
+  },
+  {
+    "codigo": "1022",
+    "nombre": "EL BURGO DE EBRO-C.D. Inmortalem",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000400185_1.jpg"
+  },
+  {
+    "codigo": "1023",
+    "nombre": "LUNA-C.D. Luna",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043245_luna.jpg"
+  },
+  {
+    "codigo": "1024",
+    "nombre": "MAELLA-C.D. Maella",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000191784_maella_cd.jpg"
+  },
+  {
+    "codigo": "1025",
+    "nombre": "EBRO-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000169078_CD_EBRO.jpg"
+  },
+  {
+    "codigo": "1026",
+    "nombre": "EL GANCHO C.F.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000383730_Escudo_El_Gancho.jpg"
+  },
+  {
+    "codigo": "1030",
+    "nombre": "BREA-C.D. Brea de Aragn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1033",
+    "nombre": "MEQUINENZA-C.D. Mequinenza",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000048049_zar_Mequinenza_CD.gif"
+  },
+  {
+    "codigo": "1037",
+    "nombre": "EL SALVADOR-S.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000064528_Escudo_El_Salvador.JPG"
+  },
+  {
+    "codigo": "1038",
+    "nombre": "ST. VENECIA-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000411948_PHOTO_2024_01_25_12_42_43.jpg"
+  },
+  {
+    "codigo": "1039",
+    "nombre": "BORJA-S.D. Borja",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000445391_ESC_S.D._BORJA.png"
+  },
+  {
+    "codigo": "1040",
+    "nombre": "LA ALMUNIA-C.D. Almunia De Doa Godina (La)",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1042",
+    "nombre": "MONTECARLO-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1043",
+    "nombre": "PEAFLOR-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1044",
+    "nombre": "PINSORO- C.D. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000060982_C.D.PINSORO.jpg"
+  },
+  {
+    "codigo": "1049",
+    "nombre": "CALATORAO-C.D. Calatorao",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1050",
+    "nombre": "CARIENA-C.D. Cariena",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000137276_escudo_carinena.JPG"
+  },
+  {
+    "codigo": "1051",
+    "nombre": "DAROCA-C.D. Daroca",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000255111_IMG-20191020-WA0007.jpg"
+  },
+  {
+    "codigo": "1053",
+    "nombre": "FUENTES-C.D. Fuentes De Ebro",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000196954_ESCUDO.jpg"
+  },
+  {
+    "codigo": "1054",
+    "nombre": "LA CARTUJA F.O.C.A.R. CLUB",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1057",
+    "nombre": "MALLEN-C.D. Malln",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000356080_BA965F00_6538_434F_84C1_CC2DFAC020AE.jpeg"
+  },
+  {
+    "codigo": "1058",
+    "nombre": "PERDIGUERA-C.D. Perdiguera",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1059",
+    "nombre": "QUINTO-C.D. Quinto",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000502105_escudo_CDQuinto.png"
+  },
+  {
+    "codigo": "1062",
+    "nombre": "CUARTE-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1064",
+    "nombre": "GINER TORRERO-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000173634_giner_torrero.jpg"
+  },
+  {
+    "codigo": "1066",
+    "nombre": "SAN G. ARRABAL-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1073",
+    "nombre": "FLETA-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1074",
+    "nombre": "BOSCOS-DEPORTIVO",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1076",
+    "nombre": "SANTO D.SILOS-O.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1077",
+    "nombre": "TARAZONA-S.D. Tarazona",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1078",
+    "nombre": "TERRER-C.D. Terrer",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000317844_PHOTO_2021_10_05_10_30_14.jpg"
+  },
+  {
+    "codigo": "1079",
+    "nombre": "VILLAMAYOR-C.D. Villamayor De Gllego",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000274918_ESCUDO.jpg"
+  },
+  {
+    "codigo": "1081",
+    "nombre": "ATECA-C.D. Ateca",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000204549_Escudo_CD_Ateca.png"
+  },
+  {
+    "codigo": "1082",
+    "nombre": "CASTILISCAR-C.F.J. Castiliscar",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000414947_Junta_Directiva_Castiliscar.png"
+  },
+  {
+    "codigo": "1083",
+    "nombre": "UNION LA JOTA VADORREY-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1086",
+    "nombre": "SADABENSE-C.D. Sdaba",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000399696_escudo_sadabense_centenario_page_0001.jpg"
+  },
+  {
+    "codigo": "1087",
+    "nombre": "BALSAS PICARRAL-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000391775_escudo.jpg"
+  },
+  {
+    "codigo": "1090",
+    "nombre": "FARLETE- C.D. Farlete",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000389156_farl.jpg"
+  },
+  {
+    "codigo": "1092",
+    "nombre": "MORATA-C.D. Morata De Jaln",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000204675_Escudo_Morata_CD_grande.png"
+  },
+  {
+    "codigo": "1097",
+    "nombre": "AJAX DE JUSLIBOL-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000386839_IMG_20230808_WA0007.jpg"
+  },
+  {
+    "codigo": "1104",
+    "nombre": "HELIOS-C.N.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1107",
+    "nombre": "MOVERA-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1109",
+    "nombre": "PINSEQUE-C.D. Pinseque",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000079726_pinseque.jpg"
+  },
+  {
+    "codigo": "1110",
+    "nombre": "MONEGRILLO-AT. Monegrillo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000388833_ESCUDO_ATL_TICO_MONEGRILLO.png"
+  },
+  {
+    "codigo": "1114",
+    "nombre": "TERESIANO DEL PILAR",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000464281_LOGO_TERESIANO.jpg"
+  },
+  {
+    "codigo": "1117",
+    "nombre": "BRITANICO ARAGON-COL. Cuarte de Huerva",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1118",
+    "nombre": "MARIANISTAS-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1119",
+    "nombre": "HISPANIDAD-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000356336_hispanidad_modificado__1_.jpg"
+  },
+  {
+    "codigo": "1121",
+    "nombre": "VILLANUEVA C.F. Villanueva de Gllego",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000256746_Escudo_Villanueva_001.png"
+  },
+  {
+    "codigo": "1123",
+    "nombre": "ARIZA-U.D. Ariza",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1126",
+    "nombre": "COMPAIA DE MARIA",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000421062_IMG_xwm4ya.jpg"
+  },
+  {
+    "codigo": "1127",
+    "nombre": "DELICIAS-CLUB DEPORTIVO",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1129",
+    "nombre": "EL BAYO-C.D. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069721_escudo_bayo.jpg"
+  },
+  {
+    "codigo": "1130",
+    "nombre": "EPILA C.F.-A.D. pila",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000312174_IMG_4810_copia.jpeg"
+  },
+  {
+    "codigo": "1133",
+    "nombre": "SAN JORGE DE ARAGON-COLEGIO",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1136",
+    "nombre": "AMISTAD-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1141",
+    "nombre": "JUMARA",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000053319_Leon_verde.jpg"
+  },
+  {
+    "codigo": "1143",
+    "nombre": "GUSANTINA KALDERETE",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1144",
+    "nombre": "LICEO EUROPA-COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000071917_liceo_europa.jpg"
+  },
+  {
+    "codigo": "1154",
+    "nombre": "OLIVAR-ESTADIO MIRALBUENO EL",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1160",
+    "nombre": "ROMAREDA-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000222900_Escudo_Rom.png"
+  },
+  {
+    "codigo": "1161",
+    "nombre": "SAN VIATOR F.S. 78",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1162",
+    "nombre": "GARRAPINILLOS-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1166",
+    "nombre": "BAJO ARAGON-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000390676_Logo_Nuevo_Blanco_.jpg"
+  },
+  {
+    "codigo": "1171",
+    "nombre": "SALA ZARAGOZA F.S.-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1174",
+    "nombre": "MONTEARAGON A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000434841_Logo_Montearag__n.PNG"
+  },
+  {
+    "codigo": "1178",
+    "nombre": "PARACUELLOS-C.D. Paracuellos De Jiloca",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000312214_E.PARACUELLOS_OFICIAL_sello.jpg"
+  },
+  {
+    "codigo": "1181",
+    "nombre": "PRADILLANO-SPORTING Pradilla De Ebro",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043240_pradillano.jpg"
+  },
+  {
+    "codigo": "1183",
+    "nombre": "SANTO D.JUVENTUD-C.F.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1187",
+    "nombre": "UNCASTILLO-C.D.J. Uncastillo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000047894_Escudo_Uncastillo.jpg"
+  },
+  {
+    "codigo": "1190",
+    "nombre": "ESCATRON- C.F. Escatrn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000056648_C.F._ESCATRON.jpg"
+  },
+  {
+    "codigo": "1192",
+    "nombre": "LECIENA-C.D.R. Leciena",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000144265_Escudo_CDRS_Lecinena.jpg"
+  },
+  {
+    "codigo": "1193",
+    "nombre": "OLIVER-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000070387_CDO.jpg"
+  },
+  {
+    "codigo": "1194",
+    "nombre": "RIVAS-A.D. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1196",
+    "nombre": "SANTA ISABEL-R.S.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1197",
+    "nombre": "STADIUM CASABLANCA-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1198",
+    "nombre": "VALDEFIERRO-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000478076_Logo_Valdefierro_Rebranding_vectorizado_25_26.png"
+  },
+  {
+    "codigo": "1208",
+    "nombre": "MADRE MARIA ROSA MOLAS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000108090_rosa_molass.jpg"
+  },
+  {
+    "codigo": "1209",
+    "nombre": "MIGUEL CATALAN-I.E.S.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069112_Logo2.JPG"
+  },
+  {
+    "codigo": "1216",
+    "nombre": "SAGRADA FAMILIA-COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1217",
+    "nombre": "ABOGADOS-COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000255720_1.JPG"
+  },
+  {
+    "codigo": "1221",
+    "nombre": "LA SALLE FRANCISCANAS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000459207_images.jpeg"
+  },
+  {
+    "codigo": "1222",
+    "nombre": "CONDES DE ARAGON-C.F.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000111871_logo__club_deporte._deporte_jpg.jpg"
+  },
+  {
+    "codigo": "1229",
+    "nombre": "PASTRIZ-C.D. Pastriz",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000395626_Club_deportivo_Pastriz_escudo.jpg"
+  },
+  {
+    "codigo": "1232",
+    "nombre": "HERRERA-C.D. Herrera De Los Navarros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000068918_Herrera.jpg"
+  },
+  {
+    "codigo": "1234",
+    "nombre": "BUJARALOZ-C.D. Bujaraloz",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069062_Escudo.jpg"
+  },
+  {
+    "codigo": "1237",
+    "nombre": "RICLA-C.D. Ricla",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000113702_ESCUDO_CD_RICLA.jpg"
+  },
+  {
+    "codigo": "1242",
+    "nombre": "CORTES DE ARAGON-COL",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1244",
+    "nombre": "MIRAFLORES-C.P.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1252",
+    "nombre": "CRISTO REY-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000088139_escudo_cr.jpg"
+  },
+  {
+    "codigo": "1257",
+    "nombre": "MONTAANA-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000486720_ESCUDO_COLOR_VECTORIZADO.png"
+  },
+  {
+    "codigo": "1264",
+    "nombre": "LA CIGEA-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000096089_LA_CIGUENA.jpg"
+  },
+  {
+    "codigo": "1266",
+    "nombre": "LA MILAGROSA-COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000469582_1684342788107.jpeg"
+  },
+  {
+    "codigo": "1267",
+    "nombre": "UTEBO F.S.-A.D. Utebo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1272",
+    "nombre": "FIGUERUELAS-AYTO. Figueruelas",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1283",
+    "nombre": "CALASANZ",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069553_calasanz1.jpg"
+  },
+  {
+    "codigo": "1284",
+    "nombre": "POMPILIANO ESCOLAPIAS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000071919_pompiliano.jpg"
+  },
+  {
+    "codigo": "1296",
+    "nombre": "ANION-C.D. Anin",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000318118_escudo_ani_on2__1_.png"
+  },
+  {
+    "codigo": "1303",
+    "nombre": "JUAN DE LANUZA-COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000141657_logo_vertical2.jpg"
+  },
+  {
+    "codigo": "1304",
+    "nombre": "JUAN XXIII-A.P.A.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1313",
+    "nombre": "ALFINDEN-A.D. Puebla De Alfindn (La)",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1314",
+    "nombre": "MAGALLON-A.D. Magalln",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000111889_Escudo_A.D._Magallon.png"
+  },
+  {
+    "codigo": "1317",
+    "nombre": "LOS MOLINOS-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000254774_ESCUDO.jpg"
+  },
+  {
+    "codigo": "1329",
+    "nombre": "HERNAN CORTES JUNQUERA-C.F.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000274922_escudo.png"
+  },
+  {
+    "codigo": "1332",
+    "nombre": "SAN JOSE-U.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000041067_ESCUDO.JPG"
+  },
+  {
+    "codigo": "1342",
+    "nombre": "EL BURGO F.S. Burgo De Ebro (El)",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000288760_00_Escudo_A.D._El_Burgo_FS._v1_4_AF__CMYK.JPG"
+  },
+  {
+    "codigo": "1343",
+    "nombre": "SAN AGUSTIN-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000423455_PHOTO_2024_01_17_11_23_26.jpg"
+  },
+  {
+    "codigo": "1350",
+    "nombre": "ARAGON-VETERANOS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1354",
+    "nombre": "SIROCO",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000277721_siroco_escudo.jpg"
+  },
+  {
+    "codigo": "1357",
+    "nombre": "RANILLAS-AT.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000459326_escudo_ranillas.jpg"
+  },
+  {
+    "codigo": "1358",
+    "nombre": "ALHAMA-C.F. Alhama De Aragn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043265_alhama.jpg"
+  },
+  {
+    "codigo": "1362",
+    "nombre": "SANTA ANASTASIA-C.F. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000312639_escudo_color.png"
+  },
+  {
+    "codigo": "1365",
+    "nombre": "LUCENI C.F. Luceni",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000056357_luceni_cf.jpg"
+  },
+  {
+    "codigo": "1370",
+    "nombre": "CHIPRANA-C.F. Chiprana",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000037911_chiprana.gif"
+  },
+  {
+    "codigo": "1371",
+    "nombre": "PINA-S.M.D. Pina De Ebro",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "501623",
+    "nombre": "ILLUECA-F.S. Illueca",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000425932_Screenshot_20241129_174810_Chrome.jpg"
+  },
+  {
+    "codigo": "1378",
+    "nombre": "CALASANCIO-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000375795_1.jpg"
+  },
+  {
+    "codigo": "1380",
+    "nombre": "RINCONCICO-VET.BAR",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000182678_rinconcico.png"
+  },
+  {
+    "codigo": "1387",
+    "nombre": "ALEMAN-A.P.A.COL.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000073569_logo_aleman.jpg"
+  },
+  {
+    "codigo": "1391",
+    "nombre": "LA ALMOZARA-C.P.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000314924_20210919_155732.jpg"
+  },
+  {
+    "codigo": "1393",
+    "nombre": "COLO COLO",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000244896_Escudo-fondo-blanco.jpg"
+  },
+  {
+    "codigo": "1404",
+    "nombre": "ANETO-A.C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000316603_IMG_20190803_191454__002_.jpg"
+  },
+  {
+    "codigo": "1407",
+    "nombre": "EL LIMITE-A.D. Utebo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000399932_escudo.png"
+  },
+  {
+    "codigo": "1415",
+    "nombre": "LA SALLE GRAN VIA-C.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1429",
+    "nombre": "LAS DELICIAS DE ZARAGOZA-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000167239_00100_0000075696_deliciascolor.jpg"
+  },
+  {
+    "codigo": "1430",
+    "nombre": "EL TREBOL A.I.S.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000214269_logo_bn.jpg"
+  },
+  {
+    "codigo": "1432",
+    "nombre": "VEDRUNA-A.P.A.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1449",
+    "nombre": "TORRES-C.D. Torres De Berrelln",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000040053_torres.jpg"
+  },
+  {
+    "codigo": "1458",
+    "nombre": "CAMPING BOHALAR",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000210607_logotipo_camping-iloveimg-converted_(1)_(797x800).jpg"
+  },
+  {
+    "codigo": "1459",
+    "nombre": "SAN JUAN A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000169366_escudofed.jpg"
+  },
+  {
+    "codigo": "1463",
+    "nombre": "GALLUR-C.D. Gallur",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000120684_ESCUDO.jpg"
+  },
+  {
+    "codigo": "1465",
+    "nombre": "FUENTES-AYTO. Fuentes De Ebro",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1469",
+    "nombre": "EMBID-C.F. Calatayud",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043264_embid.jpg"
+  },
+  {
+    "codigo": "1477",
+    "nombre": "BIOTA-C.D.E. Biota",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000051409_biota.jpg"
+  },
+  {
+    "codigo": "1483",
+    "nombre": "SABIAN-C.F. Sabin",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000355607_IMG_20220514_230755_782.jpg"
+  },
+  {
+    "codigo": "1501",
+    "nombre": "ACTUR PABLO IGLESIAS-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000197857_escudo_api_2018.jpg"
+  },
+  {
+    "codigo": "1505",
+    "nombre": "EDER-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000494143_Logo_Eder_Rojo.png"
+  },
+  {
+    "codigo": "1520",
+    "nombre": "BARDENA-C.F. Ejea de los Caballeros",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000088797_bardena9.gif"
+  },
+  {
+    "codigo": "1521",
+    "nombre": "MIRALBUENO-CTRO.DEP.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1535",
+    "nombre": "RUEDA- A.C.R. Escatrn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000359492_LogoACR.png"
+  },
+  {
+    "codigo": "1540",
+    "nombre": "ALFAMEN-U.D. Alfamn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1543",
+    "nombre": "USON VETERANOS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000320583_uson.jpg"
+  },
+  {
+    "codigo": "1545",
+    "nombre": "CALATORAO F.S. Calatorao",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000417978_ESCUDO.jpg"
+  },
+  {
+    "codigo": "1550",
+    "nombre": "-AGRUPACION DEP.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000342721_1.png"
+  },
+  {
+    "codigo": "1553",
+    "nombre": "SESTRICA-C.D. Sestrica",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000278010_CD_SESTRICA.jpg"
+  },
+  {
+    "codigo": "1555",
+    "nombre": "MORES-C.D. Mors",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069706_escudo_del_MORES.jpg"
+  },
+  {
+    "codigo": "1566",
+    "nombre": "UNIVERSIDAD-VET.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1568",
+    "nombre": "CORAZONISTAS-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000316627_1.jpg"
+  },
+  {
+    "codigo": "1589",
+    "nombre": "BORJA-E.F.B Borja",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000408180_IMG_20240406_185021.jpg"
+  },
+  {
+    "codigo": "1590",
+    "nombre": "NOVALLAS-C.D. Novallas",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000067247_Escudo_CD_Novallas.jpg"
+  },
+  {
+    "codigo": "1609",
+    "nombre": "ALIERTA AUGUSTO SALAS-A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1624",
+    "nombre": "VILLA DE MAELLA Maella",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000056116_maella_fs.jpg"
+  },
+  {
+    "codigo": "1634",
+    "nombre": "AZUARA-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1651",
+    "nombre": "SARAKOSTA",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000069186_la_foto_(1).JPG"
+  },
+  {
+    "codigo": "1678",
+    "nombre": "SAN ANDRES-ASOCIACION FAMILIAR",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000310297_IMG_0887.jpg"
+  },
+  {
+    "codigo": "1703",
+    "nombre": "AJAX-VETERANOS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000203469_AJAX_VETERANOS_AD.jpg"
+  },
+  {
+    "codigo": "1709",
+    "nombre": "ENRIQUE DE OSSO-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000393656_Escudo_CD_Enrique_de_Oss_.png"
+  },
+  {
+    "codigo": "1718",
+    "nombre": "MARIA AUXILIADORA",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000329261_Zaragoza_MAuxiliadora_vertical.jpg"
+  },
+  {
+    "codigo": "1727",
+    "nombre": "CALATAYUD-AT. Calatayud",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000418735_1_001.png"
+  },
+  {
+    "codigo": "1737",
+    "nombre": "FABARA F.S. Fabara",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000116629_Escudo_Fabara.jpg"
+  },
+  {
+    "codigo": "1754",
+    "nombre": "ALTO LA MUELA-C.F. Muela (La)",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000052612_alto_la_muela.png"
+  },
+  {
+    "codigo": "1775",
+    "nombre": "EPILA-S.M.D. pila",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000476404_Escudo___pila.jpg"
+  },
+  {
+    "codigo": "1782",
+    "nombre": "CHINARROS F.S. Monegrillo",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1787",
+    "nombre": "PIRINEOS SAGRADO CORAZON",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000455070_SCJ_LogoPirineos_Variaciones_Color__4_.jpg"
+  },
+  {
+    "codigo": "1798",
+    "nombre": "ESCALERILLAS DISTRITO 8-AT.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1824",
+    "nombre": "SAN LAZARO-C.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000355554_ESCUDO_SAN_L_ZARO.jpg"
+  },
+  {
+    "codigo": "1866",
+    "nombre": "ZARAGOZA MEDICOS",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000040746_ICOMZ.gif"
+  },
+  {
+    "codigo": "1878",
+    "nombre": "LA JOYOSA-C.D. Joyosa (La)",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000317961_escudo_cd_la_joyosa.png"
+  },
+  {
+    "codigo": "1893",
+    "nombre": "NONASPE-U.D. Nonaspe",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000276384_20200729_095519.jpg"
+  },
+  {
+    "codigo": "1905",
+    "nombre": "CASPE-F.S. Caspe",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1908",
+    "nombre": "AINZON F.S. 2005 Ainzn",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000281414_logo_ainzon_imagen_2.jpg"
+  },
+  {
+    "codigo": "1914",
+    "nombre": "PEA LA UNION-A.D. Calatayud",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1916",
+    "nombre": "SALA 10 A.D.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000463287_WhatsApp_Image_2025_09_25_at_09.31.09.jpeg"
+  },
+  {
+    "codigo": "1944",
+    "nombre": "DOCTOR AZUA-C.P.",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1961",
+    "nombre": "GELSA-AYUNTAMIENTO Gelsa",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1965",
+    "nombre": "QUINTO-AYUNTAMIENTO Quinto",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "1966",
+    "nombre": "SASTAGO-AYTO. Sstago",
+    "localidad": "Zaragoza",
+    "provincia": "Zaragoza",
+    "img": ""
+  },
+  {
+    "codigo": "2001",
+    "nombre": "BINEFAR-C.D. Binfar",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000387459_ESCUDO_CD_BINEFAR_.jpg"
+  },
+  {
+    "codigo": "2002",
+    "nombre": "BARBASTRO-U.D. Barbastro",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000400603_Escudo_02.png"
+  },
+  {
+    "codigo": "2004",
+    "nombre": "BELVER-C.D. Belver De Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043228_belver.jpg"
+  },
+  {
+    "codigo": "2006",
+    "nombre": "TARDIENTA-A.D. Tardienta",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000421666_ESCUDO_CF_TARDIENTA.png"
+  },
+  {
+    "codigo": "2007",
+    "nombre": "SARIENA-C.D. Sariena",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000220903_SARINENA.jpg"
+  },
+  {
+    "codigo": "2008",
+    "nombre": "BINACED-U.D. Binaced",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000416606_Screenshot_20240903_095319_Adobe_Acrobat.jpg"
+  },
+  {
+    "codigo": "2009",
+    "nombre": "ALTORRICON-C.D. Altorricn",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2010",
+    "nombre": "JACETANO-C.F. Jaca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000314482_logo_Jacetano_nuevo.png"
+  },
+  {
+    "codigo": "2011",
+    "nombre": "GURREA-S.D. Gurrea De Gllego",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000110573_gurreasdhu1.png"
+  },
+  {
+    "codigo": "2012",
+    "nombre": "FRAGA-U.D. Fraga",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000065943_UD_Fraga2.png"
+  },
+  {
+    "codigo": "2013",
+    "nombre": "SABIANIGO-A.D. Sabinigo",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000052989_sabinanigo_ad.png"
+  },
+  {
+    "codigo": "2015",
+    "nombre": "LANAJA-C.F. Lanaja",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000314233_WhatsApp_Image_2021_09_14_at_12.36.32.jpeg"
+  },
+  {
+    "codigo": "2016",
+    "nombre": "MONZON-ATLETICO Monzn",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000320588_WhatsApp_Image_2021_10_26_at_21.41.48.jpeg"
+  },
+  {
+    "codigo": "2017",
+    "nombre": "HUESCA-S.D.",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000223477_huesca_sd.png"
+  },
+  {
+    "codigo": "2018",
+    "nombre": "ALMUDEVAR A.D. Almudvar",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2019",
+    "nombre": "TAMARITE-C.D. JUVENIL Tamarite de Litera",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043214_tamarite.png"
+  },
+  {
+    "codigo": "2021",
+    "nombre": "ZAIDIN-C.D. Zaidn",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000274852_escudo_c.d._zaid_n.jpg"
+  },
+  {
+    "codigo": "2024",
+    "nombre": "MONTAESA-U.D. Castejn De Sos",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000369838_EscudoUDMontan_esa_VECTOR_001.png"
+  },
+  {
+    "codigo": "2027",
+    "nombre": "ALCOLEA C.F. Alcolea De Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000169597_escudo_ALCOLEA_C.F..jpg"
+  },
+  {
+    "codigo": "2028",
+    "nombre": "ROBRES-C.D. Robres",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000046368_robres.jpg"
+  },
+  {
+    "codigo": "2032",
+    "nombre": "OSSO DE CINCA-C.F. Osso De Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000173520_escudo_osso.jpg"
+  },
+  {
+    "codigo": "2040",
+    "nombre": "ONTIENA-C.F. Ontiena",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000276334_ONTI_ENAC.F.jpg"
+  },
+  {
+    "codigo": "2046",
+    "nombre": "LALUEZA-C.F. Lalueza",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000038220_Lalueza.jpg"
+  },
+  {
+    "codigo": "2049",
+    "nombre": "BOLEA-C.F. Sotonera (La)",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000248396_escudo.jpg"
+  },
+  {
+    "codigo": "2057",
+    "nombre": "ALBELDA-AT. Albelda",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000386593_LOGO_FUTBOL_AT_ALBELDA.jpg"
+  },
+  {
+    "codigo": "2063",
+    "nombre": "POMAR-C.F. San Miguel Del Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000405496_ESCUDO_POMAR_NUEVO_page_0001.jpg"
+  },
+  {
+    "codigo": "2090",
+    "nombre": "SANTALECINA-U.D. San Miguel Del Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000037125_escudo2.jpg"
+  },
+  {
+    "codigo": "2093",
+    "nombre": "BIESCAS-U.D. Biescas",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000043266_biescas.jpg"
+  },
+  {
+    "codigo": "2094",
+    "nombre": "LA LITERA-ESCUELA DEP. Tamarite de Litera",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000157222_ESCUDO_E.D._LA_LITERA.jpg"
+  },
+  {
+    "codigo": "2100",
+    "nombre": "BOLTAA- C.F. Boltaa",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2101",
+    "nombre": "BENABARRE-U.D. Benabarre",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000382378_IMG_20230510_WA0050.jpg"
+  },
+  {
+    "codigo": "2103",
+    "nombre": "LA FUEVA-U.D. Fueva (La)",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2113",
+    "nombre": "CASTEJON- C.D. Castejn De Monegros",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000357253_1.jpg"
+  },
+  {
+    "codigo": "2114",
+    "nombre": "AYERBE-C.F. Ayerbe",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000466195_Imagen_de_WhatsApp_2025_09_30_a_las_21.42.04_48494bfd.jpg"
+  },
+  {
+    "codigo": "2116",
+    "nombre": "ESTADILLA-C.D. Estadilla",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000394434_CD_ESTADILLA_ESCUDO_BUENO.jpg"
+  },
+  {
+    "codigo": "2118",
+    "nombre": "ALCALA DE GURREA-U.D. Alcal De Gurrea",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2120",
+    "nombre": "SAN ESTEBAN-U.D. San Esteban De Litera",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000088894_san_esteban.jpg"
+  },
+  {
+    "codigo": "2137",
+    "nombre": "SOBRARBE-ESCUELA DEP. Ansa-Sobrarbe",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000315862_logo_escuela.jpg"
+  },
+  {
+    "codigo": "2151",
+    "nombre": "ALBALATE-C.D. Albalate De Cinca",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2152",
+    "nombre": "ESPLUS-C.D. Espls",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000318350_esplus.jpg"
+  },
+  {
+    "codigo": "2153",
+    "nombre": "FRULA-A.D. Gran",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000278615_ADFRULA_20200921_133319.jpg"
+  },
+  {
+    "codigo": "2154",
+    "nombre": "SAN JORGE C.F.",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000401657_escudomini.png"
+  },
+  {
+    "codigo": "2169",
+    "nombre": "GRAUS-C.F. Graus",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2171",
+    "nombre": "PEA FRAGATINA Fraga",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000386847_Logo_Bota_Futbol.jpg"
+  },
+  {
+    "codigo": "2175",
+    "nombre": "PEA LA MURGA Sabinigo",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2182",
+    "nombre": "SIETAMO - C.D. Sitamo",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000495869_Escudo_redondo_Rub__n.png"
+  },
+  {
+    "codigo": "2185",
+    "nombre": "SENA-C.D. Sena",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000040632_TomoXV96.jpg"
+  },
+  {
+    "codigo": "2187",
+    "nombre": "PEAS - AGRUPACION. Sariena",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000089610_escudo_final_2014_penas_sarinena.jpg"
+  },
+  {
+    "codigo": "2191",
+    "nombre": "PEAS OSCENSES-C.D.",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000080862_penas_oscenses_2.jpg"
+  },
+  {
+    "codigo": "2193",
+    "nombre": "ALTO ARA-C.D. Broto",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000052610_alto_ara.png"
+  },
+  {
+    "codigo": "2200",
+    "nombre": "PEA FERRANCA-A.D. Barbastro",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000205161_thumbnail_what_(1).jpg"
+  },
+  {
+    "codigo": "2210",
+    "nombre": "PEALBA-AT. Pealba",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000312223_ecudo_pe_alba.png"
+  },
+  {
+    "codigo": "2216",
+    "nombre": "VALFONDA-C.D. Torres De Barbus",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000071545_Valfonda.jpg"
+  },
+  {
+    "codigo": "508626",
+    "nombre": "MONZON FUTBOL BASE-AT. de Monzn",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000139369_escudocolorfaf.jpg"
+  },
+  {
+    "codigo": "2229",
+    "nombre": "BINEFAR-FUTBOL BASE Binfar",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000460195_Logo_Club.jpg"
+  },
+  {
+    "codigo": "2230",
+    "nombre": "VILLA DE BIESCAS F.C. Biescas",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2239",
+    "nombre": "EL TEMPLE F.C. Gurrea De Gllego",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": ""
+  },
+  {
+    "codigo": "2249",
+    "nombre": "RIVER MONZON-ESC.DEP. Monzn",
+    "localidad": "Huesca",
+    "provincia": "Huesca",
+    "img": "https://files.futbolaragon.com/pnfg/pimg/Clubes/00100_0000496903_RIVER_MONZON.jpeg"
+  }
+];
+
+  function ensureClubesAragonSeeded() {
+    if (!state.directory) state.directory = {};
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.federaciones) state.directory.federaciones = [];
+
+    // 1. Ensure FARGF Federation exists in state
+    let fargf = state.directory.federaciones.find(f => 
+      f && ((f.nombre && f.nombre.toLowerCase().includes('aragonesa')) || (f.federacion && f.federacion.toLowerCase().includes('aragonesa')))
+    );
+    if (!fargf) {
+      fargf = {
+        id: 'fed_fargf',
+        nombre: 'FARGF - Federación Aragonesa de Fútbol',
+        federacion: 'FARGF - Federación Aragonesa de Fútbol',
+        comunidad: 'Aragón',
+        region: 'Aragón',
+        orden: 2,
+        equipos: []
+      };
+      state.directory.federaciones.push(fargf);
+      saveToFirebase('federaciones', fargf);
+    }
+
+    // 2. Add Aragonesa clubs preventing duplicates
+    let addedCount = 0;
+    ARAGON_CLUBS_DATA.forEach(ac => {
+      if (!ac || !ac.nombre) return;
+      const cleanAcName = ac.nombre.toLowerCase().trim();
+      const codeStr = String(ac.codigo || '').trim();
+
+      const exists = state.directory.clubes.some(c => {
+        if (!c) return false;
+        const cName = String(c.nombre || c.equipo || '').toLowerCase().trim();
+        const cCode = String(c.codigo || '').trim();
+        const cId = String(c.id || '').trim();
+
+        return (codeStr && cCode === codeStr) || 
+               (codeStr && cId === 'c_fa_' + codeStr) ||
+               (cName === cleanAcName) ||
+               (cleanAcName.length > 5 && cName.includes(cleanAcName)) ||
+               (cName.length > 5 && cleanAcName.includes(cName));
+      });
+
+      if (!exists) {
+        const newClub = {
+          id: 'c_fa_' + (ac.codigo || Date.now() + Math.floor(Math.random()*100)),
+          codigo: ac.codigo || '',
+          nombre: ac.nombre,
+          equipo: ac.nombre,
+          localidad: ac.localidad || 'Zaragoza',
+          provincia: ac.provincia || 'Zaragoza',
+          comunidad: 'Aragón',
+          federacion: 'FARGF - Federación Aragonesa de Fútbol',
+          logo: ac.img || '',
+          escudo: ac.img || '',
+          colorPrimary: '#2563eb',
+          colorSecondary: '#ffffff',
+          tipo: 'Formador'
+        };
+
+        state.directory.clubes.push(newClub);
+        saveToFirebase('clubes', newClub);
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} clubes de la Federación Aragonesa añadidos con éxito sin duplicar.`);
+      setFirebaseHeaderStatus('synced');
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (tabOverride) {
       if (currentDirectoryTab !== tabOverride) {
@@ -10293,7 +12120,7 @@
     if (currentDirectoryTab === 'federaciones') {
       // ensureFederacionesSeeded();
     } else if (currentDirectoryTab === 'clubes') {
-      // ensureClubesNavarraSeeded();
+      ensureClubesAragonSeeded();
     }
 
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
