@@ -9749,6 +9749,37 @@
   let currentComunidadFilter = 'TODAS';
   const DIR_PAGE_SIZE = 25;
 
+  const FEDERACIONES_AUTONOMICAS_ESPAÑA = [
+    { id: 'fed_rfef', nombre: 'RFEF - Real Federación Española de Fútbol', federacion: 'RFEF - Real Federación Española de Fútbol', ambito: 'Nacional', sede: 'Las Rozas (Madrid)', web: 'https://rfef.es', paginaWeb: 'https://rfef.es', email: 'rfef@rfef.es', telefono: '914 95 98 00', orderIndex: 1 },
+    { id: 'fed_rfaf', nombre: 'RFAF - Real Federación Andaluza de Fútbol', federacion: 'RFAF - Real Federación Andaluza de Fútbol', ambito: 'Andalucía', sede: 'Sevilla', web: 'https://www.rfaf.es', paginaWeb: 'https://www.rfaf.es', email: 'rfaf@rfaf.es', telefono: '954 92 42 42', orderIndex: 2 },
+    { id: 'fed_faf', nombre: 'FAF - Real Federación Aragonesa de Fútbol', federacion: 'FAF - Real Federación Aragonesa de Fútbol', ambito: 'Aragón', sede: 'Zaragoza', web: 'https://www.futbolaragon.org', paginaWeb: 'https://www.futbolaragon.org', email: 'secretaria@futbolaragon.org', telefono: '976 73 09 30', orderIndex: 3 },
+    { id: 'fed_asturias', nombre: 'Real Federación de Fútbol del Principado de Asturias', federacion: 'Real Federación de Fútbol del Principado de Asturias', ambito: 'Asturias', sede: 'Gijón', web: 'https://www.asturfutbol.es', paginaWeb: 'https://www.asturfutbol.es', email: 'asturfutbol@asturfutbol.es', telefono: '985 17 62 00', orderIndex: 4 },
+    { id: 'fed_ffib', nombre: 'FFIB - Federació de Futbol de les Illes Balears', federacion: 'FFIB - Federació de Futbol de les Illes Balears', ambito: 'Baleares', sede: 'Palma de Mallorca', web: 'https://www.ffib.es', paginaWeb: 'https://www.ffib.es', email: 'ffib@ffib.es', telefono: '971 24 84 11', orderIndex: 5 },
+    { id: 'fed_fcf_canarias', nombre: 'FCF - Federación Canaria de Fútbol', federacion: 'FCF - Federación Canaria de Fútbol', ambito: 'Canarias', sede: 'Las Palmas / Tenerife', web: 'https://www.ftf.es', paginaWeb: 'https://www.ftf.es', email: 'fcf@fcfutbol.es', telefono: '928 24 28 80', orderIndex: 6 },
+    { id: 'fed_rfcf', nombre: 'RFCF - Real Federación Cántabra de Fútbol', federacion: 'RFCF - Real Federación Cántabra de Fútbol', ambito: 'Cantabria', sede: 'Santander', web: 'https://www.rfcf.es', paginaWeb: 'https://www.rfcf.es', email: 'rfcf@rfcf.es', telefono: '942 22 28 00', orderIndex: 7 },
+    { id: 'fed_fcylf', nombre: 'FCYLF - Real Federación de Castilla y León de Fútbol', federacion: 'FCYLF - Real Federación de Castilla y León de Fútbol', ambito: 'Castilla y León', sede: 'Valladolid', web: 'https://fcylf.es', paginaWeb: 'https://fcylf.es', email: 'fcylf@fcylf.es', telefono: '983 34 27 00', orderIndex: 8 },
+    { id: 'fed_ffcm', nombre: 'FFCM - Federación de Fútbol de Castilla-La Mancha', federacion: 'FFCM - Federación de Fútbol de Castilla-La Mancha', ambito: 'Castilla-La Mancha', sede: 'Cuenca / Tomelloso', web: 'https://www.ffcm.es', paginaWeb: 'https://www.ffcm.es', email: 'ffcm@ffcm.es', telefono: '926 51 04 04', orderIndex: 9 },
+    { id: 'fed_fcf_catalana', nombre: 'FCF - Federació Catalana de Futbol', federacion: 'FCF - Federació Catalana de Futbol', ambito: 'Cataluña', sede: 'Barcelona', web: 'https://www.fcf.cat', paginaWeb: 'https://www.fcf.cat', email: 'fcf@fcf.cat', telefono: '932 65 24 77', orderIndex: 10 },
+    { id: 'fed_fexf', nombre: 'FEXF - Real Federación Extremadura de Fútbol', federacion: 'FEXF - Real Federación Extremadura de Fútbol', ambito: 'Extremadura', sede: 'Badajoz / Mérida', web: 'https://www.fexfutbol.org', paginaWeb: 'https://www.fexfutbol.org', email: 'fexf@fexfutbol.org', telefono: '924 38 72 00', orderIndex: 11 },
+    { id: 'fed_fgf', nombre: 'FGF - Real Federación Gallega de Fútbol', federacion: 'FGF - Real Federación Gallega de Fútbol', ambito: 'Galicia', sede: 'A Coruña', web: 'https://www.futgal.es', paginaWeb: 'https://www.futgal.es', email: 'futgal@futgal.es', telefono: '981 12 77 10', orderIndex: 12 },
+    { id: 'fed_frf', nombre: 'FRF - Federación Riojana de Fútbol', federacion: 'FRF - Federación Riojana de Fútbol', ambito: 'La Rioja', sede: 'Logroño', web: 'https://www.frfutbol.com', paginaWeb: 'https://www.frfutbol.com', email: 'frf@frfutbol.com', telefono: '941 23 20 44', orderIndex: 13 },
+    { id: 'fed_rffm', nombre: 'RFFM - Real Federación de Fútbol de Madrid', federacion: 'RFFM - Real Federación de Fútbol de Madrid', ambito: 'Madrid', sede: 'Madrid', web: 'https://www.rffm.es', paginaWeb: 'https://www.rffm.es', email: 'rffm@rffm.es', telefono: '915 22 28 00', orderIndex: 14 },
+    { id: 'fed_ffrm', nombre: 'FFRM - Federación de Fútbol de la Región de Murcia', federacion: 'FFRM - Federación de Fútbol de la Región de Murcia', ambito: 'Murcia', sede: 'Murcia', web: 'https://www.ffrm.es', paginaWeb: 'https://www.ffrm.es', email: 'ffrm@ffrm.es', telefono: '968 24 16 11', orderIndex: 15 },
+    { id: 'fed_fnf', nombre: 'FNF - Federación Navarra de Fútbol', federacion: 'FNF - Federación Navarra de Fútbol', ambito: 'Navarra', sede: 'Pamplona', web: 'https://www.futbolnavarro.com', paginaWeb: 'https://www.futbolnavarro.com', email: 'fnf@futbolnavarro.com', telefono: '948 22 75 00', orderIndex: 16 },
+    { id: 'fed_eff_fvf', nombre: 'EFF-FVF - Federación Vasca de Fútbol', federacion: 'EFF-FVF - Federación Vasca de Fútbol', ambito: 'País Vasco', sede: 'Bilbao', web: 'https://euskalfutbol.eus', paginaWeb: 'https://euskalfutbol.eus', email: 'eff@euskalfutbol.eus', telefono: '944 42 41 00', orderIndex: 17 },
+    { id: 'fed_ffcv', nombre: 'FFCV - Federació de Futbol de la Comunitat Valenciana', federacion: 'FFCV - Federació de Futbol de la Comunitat Valenciana', ambito: 'Comunidad Valenciana', sede: 'Valencia', web: 'https://ffcv.es', paginaWeb: 'https://ffcv.es', email: 'info@ffcv.es', telefono: '963 51 00 00', orderIndex: 18 },
+    { id: 'fed_ffce', nombre: 'FFCE - Real Federación de Fútbol de Ceuta', federacion: 'FFCE - Real Federación de Fútbol de Ceuta', ambito: 'Ceuta', sede: 'Ceuta', web: 'https://www.ffce.es', paginaWeb: 'https://www.ffce.es', email: 'ffce@ffce.es', telefono: '956 51 90 00', orderIndex: 19 },
+    { id: 'fed_rfmf', nombre: 'RFMF - Real Federación Melillense de Fútbol', federacion: 'RFMF - Real Federación Melillense de Fútbol', ambito: 'Melilla', sede: 'Melilla', web: 'https://www.rfmf.es', paginaWeb: 'https://www.rfmf.es', email: 'rfmf@rfmf.es', telefono: '952 68 30 00', orderIndex: 20 }
+  ];
+
+  function ensureFederacionesSeeded() {
+    if (!state.directory) state.directory = {};
+    if (!Array.isArray(state.directory.federaciones) || state.directory.federaciones.length === 0) {
+      state.directory.federaciones = JSON.parse(JSON.stringify(FEDERACIONES_AUTONOMICAS_ESPAÑA));
+      saveState();
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (tabOverride) {
       if (currentDirectoryTab !== tabOverride) {
@@ -9760,15 +9791,23 @@
     }
     if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
 
+    if (currentDirectoryTab === 'federaciones') {
+      ensureFederacionesSeeded();
+    }
+
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
     const rawItems = [...(state.directory[currentDirectoryTab] || [])];
 
-    // 1. Universal Alphabetical Sorting (A-Z)
-    rawItems.sort((a, b) => {
-      const nameA = (a.nombre || a.equipo || a.jugador || a.titulo || a.agencia || a.agente || a.federacion || '').toLowerCase().trim();
-      const nameB = (b.nombre || b.equipo || b.jugador || b.titulo || b.agencia || b.agente || b.federacion || '').toLowerCase().trim();
-      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
-    });
+    // 1. Universal Alphabetical Sorting for most entities, Custom OrderIndex for Federaciones
+    if (currentDirectoryTab === 'federaciones') {
+      rawItems.sort((a, b) => (a.orderIndex || 999) - (b.orderIndex || 999));
+    } else {
+      rawItems.sort((a, b) => {
+        const nameA = (a.nombre || a.equipo || a.jugador || a.titulo || a.agencia || a.agente || a.federacion || '').toLowerCase().trim();
+        const nameB = (b.nombre || b.equipo || b.jugador || b.titulo || b.agencia || b.agente || b.federacion || '').toLowerCase().trim();
+        return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+      });
+    }
 
     // 2. Secondary Sub-filtering (Category and Group for Equipos, Federation for Clubes/Selecciones/Convocatorias, Comunidad for Estadios)
     let subFilteredItems = rawItems;
@@ -10178,9 +10217,12 @@
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
             ${pageItems.map(f => `
-              <div class="entity-card">
+              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id}" style="cursor: grab;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
+                      <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+                    </div>
                     <input type="checkbox" class="dir-item-checkbox" data-id="${f.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
                     <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background-color: var(--primary-blue-light); color: var(--primary-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; overflow: hidden; border: 1px solid var(--border-light);">
                       ${f.logo || f.escudo ? `<img src="${f.logo || f.escudo}" style="width: 100%; height: 100%; object-fit: contain;">` : (f.nombre ? f.nombre.charAt(0) : 'F')}
@@ -10224,6 +10266,55 @@
             state.directory.federaciones = state.directory.federaciones.filter(i => i.id !== itemId);
             saveState();
             renderDirectorio();
+          });
+        });
+
+        let draggedFedId = null;
+        container.querySelectorAll('.fed-drag-card').forEach(card => {
+          card.addEventListener('dragstart', (e) => {
+            draggedFedId = card.dataset.id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.id);
+            card.classList.add('dragging');
+          });
+
+          card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            container.querySelectorAll('.fed-drag-card').forEach(c => c.classList.remove('drag-over'));
+          });
+
+          card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            card.classList.add('drag-over');
+          });
+
+          card.addEventListener('dragleave', () => {
+            card.classList.remove('drag-over');
+          });
+
+          card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const targetId = card.dataset.id;
+
+            if (draggedFedId && targetId && draggedFedId !== targetId) {
+              const feds = state.directory.federaciones;
+              const dragIdx = feds.findIndex(f => f.id === draggedFedId);
+              const targetIdx = feds.findIndex(f => f.id === targetId);
+
+              if (dragIdx !== -1 && targetIdx !== -1) {
+                const [moved] = feds.splice(dragIdx, 1);
+                feds.splice(targetIdx, 0, moved);
+
+                feds.forEach((f, idx) => {
+                  f.orderIndex = idx + 1;
+                });
+
+                saveState();
+                renderDirectorio();
+              }
+            }
           });
         });
       } else if (currentDirectoryTab === 'selecciones') {
