@@ -191,8 +191,12 @@
       syncCollection('agenda', state.agenda);
       syncCollection('enlaces', state.links);
 
-      if (state.settings) {
-        db.collection('configuracion').doc('app_settings').set(state.settings, { merge: true })
+      if (state.settings || state.favColumns || state.customTabOrder) {
+        const configToSave = Object.assign({}, state.settings || {}, {
+          favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
+          customTabOrder: state.customTabOrder || []
+        });
+        db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
           .catch(e => console.warn('Error sync configuracion:', e));
       }
     }
@@ -239,9 +243,11 @@
         }
       }
 
-      if (state.settings) {
-        await db.collection('configuracion').doc('app_settings').set(state.settings, { merge: true });
-      }
+      const configToSave = Object.assign({}, state.settings || {}, {
+        favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
+        customTabOrder: state.customTabOrder || []
+      });
+      await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
 
       console.log('✅ Sincronización completa finalizada en Firebase');
       if (showToast) {
@@ -348,6 +354,12 @@
 
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
+          if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) {
+            state.favColumns = configData.favColumns;
+          }
+          if (Array.isArray(configData.customTabOrder)) {
+            state.customTabOrder = configData.customTabOrder;
+          }
         }
 
         try {
@@ -12394,15 +12406,16 @@
     if (btnAddFavCol && !btnAddFavCol.dataset.initialized) {
       btnAddFavCol.dataset.initialized = 'true';
       btnAddFavCol.addEventListener('click', () => {
-        const colName = prompt('Nombre de la nueva columna de favoritos:');
-        if (colName && colName.trim()) {
-          const cleanName = colName.trim();
-          if (!state.favColumns.includes(cleanName)) {
-            state.favColumns.push(cleanName);
-            saveState();
-            renderEnlaces();
+        showCustomPromptModal('Nombre de la nueva columna de favoritos:', '', (colName) => {
+          if (colName && colName.trim()) {
+            const cleanName = colName.trim();
+            if (!state.favColumns.includes(cleanName)) {
+              state.favColumns.push(cleanName);
+              saveState();
+              renderEnlaces();
+            }
           }
-        }
+        });
       });
     }
 
@@ -12818,21 +12831,22 @@
     });
 
     const triggerRenameFavCol = (oldName) => {
-      const newName = prompt(`Nuevo nombre para la columna "${oldName}":`, oldName);
-      if (newName && newName.trim() && newName.trim() !== oldName) {
-        const cleanName = newName.trim();
-        const idx = state.favColumns.indexOf(oldName);
-        if (idx !== -1) {
-          state.favColumns[idx] = cleanName;
-        }
-        state.links.forEach(l => {
-          if (l.favCol === oldName) {
-            l.favCol = cleanName;
+      showCustomPromptModal(`Nuevo nombre para la columna "${oldName}":`, oldName, (newName) => {
+        if (newName && newName.trim() && newName.trim() !== oldName) {
+          const cleanName = newName.trim();
+          const idx = state.favColumns.indexOf(oldName);
+          if (idx !== -1) {
+            state.favColumns[idx] = cleanName;
           }
-        });
-        saveState();
-        renderEnlaces();
-      }
+          state.links.forEach(l => {
+            if (l.favCol === oldName) {
+              l.favCol = cleanName;
+            }
+          });
+          saveState();
+          renderEnlaces();
+        }
+      });
     };
 
     boardContainer.querySelectorAll('.btn-edit-fav-col').forEach(btn => {
@@ -12850,11 +12864,11 @@
     boardContainer.querySelectorAll('.btn-delete-fav-col').forEach(btn => {
       btn.addEventListener('click', () => {
         const colName = btn.dataset.favCol;
-        if (confirm(`¿Eliminar la columna "${colName}"?`)) {
+        showCustomConfirmModal('Eliminar Columna', `¿Estás seguro de que deseas eliminar la columna "${colName}"? Los enlaces asignados volverán a la vista general.`, () => {
           state.favColumns = state.favColumns.filter(c => c !== colName);
           saveState();
           renderEnlaces();
-        }
+        });
       });
     });
 
@@ -13537,6 +13551,86 @@
   document.getElementById('btnSubmitModal')?.addEventListener('click', () => {
     if (currentModalSubmitCallback) currentModalSubmitCallback();
   });
+
+  /**
+   * Ventana emergente modal centrada con la estética de la app para pedir texto (remplaza prompt)
+   */
+  function showCustomPromptModal(title, defaultValue = '', onAccept) {
+    const html = `
+      <div style="text-align: center; padding: 12px 6px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+          <i data-lucide="edit-3" style="width: 26px; height: 26px;"></i>
+        </div>
+        <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 16px 0;">${escapeHtml(title)}</h4>
+        <div class="form-group mb-4" style="text-align: left;">
+          <input type="text" id="customPromptInput" class="form-control" value="${escapeHtml(defaultValue)}" style="font-size: 14px; padding: 10px 14px; font-weight: 600;" autofocus>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700;">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800;">
+            Aceptar
+          </button>
+        </div>
+      </div>
+    `;
+
+    showModal('Editar Columna', html, null);
+
+    setTimeout(() => {
+      const inputEl = document.getElementById('customPromptInput');
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.select();
+      }
+
+      const accept = () => {
+        const val = document.getElementById('customPromptInput')?.value || '';
+        hideModal();
+        if (onAccept && val.trim()) onAccept(val.trim());
+      };
+
+      document.getElementById('btnCustomPromptAccept')?.addEventListener('click', accept);
+      document.getElementById('btnCustomPromptCancel')?.addEventListener('click', hideModal);
+      inputEl?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') accept();
+      });
+    }, 50);
+  }
+
+  /**
+   * Ventana emergente modal centrada con la estética de la app para confirmar acciones (remplaza confirm)
+   */
+  function showCustomConfirmModal(title, message, onConfirm) {
+    const html = `
+      <div style="text-align: center; padding: 12px 6px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+          <i data-lucide="alert-triangle" style="width: 26px; height: 26px;"></i>
+        </div>
+        <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 8px 0;">${escapeHtml(title)}</h4>
+        <p style="font-size: 14px; color: var(--text-muted, #64748b); margin: 0 0 20px 0; line-height: 1.5;">${escapeHtml(message)}</p>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="btnCustomConfirmCancel" style="min-width: 110px; font-weight: 700;">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-danger" id="btnCustomConfirmOk" style="min-width: 120px; font-weight: 800; background: #ef4444; color: white;">
+            Confirmar
+          </button>
+        </div>
+      </div>
+    `;
+
+    showModal('Confirmación del Sistema', html, null);
+
+    setTimeout(() => {
+      document.getElementById('btnCustomConfirmOk')?.addEventListener('click', () => {
+        hideModal();
+        if (onConfirm) onConfirm();
+      });
+      document.getElementById('btnCustomConfirmCancel')?.addEventListener('click', hideModal);
+    }, 50);
+  }
 
   // Sobrescribir avisos del sistema (alerts) para mostrarlos siempre en ventanas emergentes centradas
   window.alert = function (message) {
