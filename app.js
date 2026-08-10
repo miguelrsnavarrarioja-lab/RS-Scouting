@@ -13538,6 +13538,27 @@
     if (currentModalSubmitCallback) currentModalSubmitCallback();
   });
 
+  // Sobrescribir avisos del sistema (alerts) para mostrarlos siempre en ventanas emergentes centradas
+  window.alert = function (message) {
+    const alertModalHTML = `
+      <div style="text-align: center; padding: 12px 6px;">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <i data-lucide="info" style="width: 30px; height: 30px;"></i>
+        </div>
+        <p style="font-size: 15px; font-weight: 700; color: var(--text-main, #1e293b); line-height: 1.5; margin: 0 0 24px 0;">
+          ${escapeHtml(String(message))}
+        </p>
+        <button type="button" class="btn btn-primary" id="btnCustomAlertOk" style="min-width: 140px; font-weight: 800; padding: 10px 24px; border-radius: var(--radius-pill);">
+          Entendido
+        </button>
+      </div>
+    `;
+    showModal('Aviso del Sistema', alertModalHTML, null);
+    setTimeout(() => {
+      document.getElementById('btnCustomAlertOk')?.addEventListener('click', hideModal);
+    }, 50);
+  };
+
   // Utility HTML Escape
   function escapeHtml(str) {
     if (!str) return '';
