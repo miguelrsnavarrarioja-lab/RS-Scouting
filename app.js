@@ -180,6 +180,63 @@
   };
 
   // --------------------------------------------------------------------------
+  // Image Compression Utility (Canvas Base64 Optimizer)
+  // --------------------------------------------------------------------------
+  function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+      if (!file || !(file instanceof File || file instanceof Blob)) {
+        return resolve(null);
+      }
+      const isPngOrTransparent = file.type && (file.type.includes('png') || file.type.includes('svg') || file.type.includes('webp') || file.type.includes('gif'));
+
+      if (file.type && file.type.includes('svg')) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth || height > maxHeight) {
+            if (width / height > maxWidth / maxHeight) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+
+          if (!isPngOrTransparent) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+          } else {
+            ctx.clearRect(0, 0, width, height);
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const exportMime = isPngOrTransparent ? 'image/png' : 'image/jpeg';
+          const compressedDataUrl = canvas.toDataURL(exportMime, isPngOrTransparent ? undefined : quality);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = (err) => reject(err);
+        img.src = e.target.result;
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // --------------------------------------------------------------------------
   // 1. Firebase Cloud Database Integration
   // --------------------------------------------------------------------------
   const firebaseConfig = {
@@ -205,7 +262,7 @@
 
   function deleteFromFirebase(collectionName, docId) {
     if (!db || !docId) return;
-    db.collection(collectionName).doc(docId).delete()
+    db.collection(collectionName).doc(String(docId)).delete()
       .then(() => console.log(`🔥 Documento ${docId} eliminado de '${collectionName}' en Firebase`))
       .catch(err => console.error(`Error al borrar ${docId} de Firebase (${collectionName}):`, err));
   }
@@ -215,7 +272,7 @@
     const batch = db.batch();
     docIdsArray.forEach(id => {
       if (id) {
-        const ref = db.collection(collectionName).doc(id);
+        const ref = db.collection(collectionName).doc(String(id));
         batch.delete(ref);
       }
     });
@@ -248,171 +305,221 @@
 
     // 2. Sincronización automática en la nube con Firebase Cloud Firestore
     if (db) {
-      // Documento principal unificado
-      db.collection('scouting_data').doc('main_state').set(state)
-        .then(() => console.log('☁️ Estado general sincronizado en Firestore'))
-        .catch(err => console.error('Error al guardar en Firebase:', err));
 
-      // Colección 'jugadores' en Firestore
-      if (state.directory && state.directory.jugadores) {
-        state.directory.jugadores.forEach(j => {
-          if (j.id) {
-            db.collection('jugadores').doc(j.id).set(j, { merge: true })
-              .catch(e => console.warn('Error sync jugador:', e));
-          }
-        });
+      // Helper para sincronizar colecciones de arrays
+      const syncCollection = (colName, arrayData) => {
+        if (Array.isArray(arrayData)) {
+          arrayData.forEach(item => {
+            if (item && item.id) {
+              db.collection(colName).doc(String(item.id)).set(item, { merge: true })
+                .catch(e => console.warn(`Error sync ${colName} (${item.id}):`, e));
+            }
+          });
+        }
+      };
+
+      if (state.directory) {
+        syncCollection('jugadores', state.directory.jugadores);
+        syncCollection('clubes', state.directory.clubes);
+        syncCollection('equipos', state.directory.equipos);
+        syncCollection('federaciones', state.directory.federaciones);
+        syncCollection('selecciones', state.directory.selecciones);
+        syncCollection('convocatorias', state.directory.convocatorias);
+        syncCollection('torneos', state.directory.torneos);
+        syncCollection('staff', state.directory.staff);
+        syncCollection('agencias', state.directory.agencias);
+        syncCollection('agentes', state.directory.agentes);
+        syncCollection('estadios', state.directory.estadios);
       }
 
-      // Colección 'clubes' en Firestore
-      if (state.directory && state.directory.clubes) {
-        state.directory.clubes.forEach(c => {
-          if (c.id) {
-            db.collection('clubes').doc(c.id).set(c, { merge: true })
-              .catch(e => console.warn('Error sync club:', e));
+      syncCollection('partidos', state.matches);
+      syncCollection('informes', state.reports);
+      syncCollection('agenda', state.agenda);
+      syncCollection('enlaces', state.links);
+
+      if (state.settings) {
+        db.collection('configuracion').doc('app_settings').set(state.settings, { merge: true })
+          .catch(e => console.warn('Error sync configuracion:', e));
+      }
+    }
+  }
+
+  /**
+   * Fuerza el volcado y sincronización de absolutamente todo el estado actual a Firebase.
+   */
+  async function syncAllToFirebase(showToast = true) {
+    if (!db) {
+      if (showToast) alert('⚠️ Firebase no está inicializado o no hay conexión.');
+      return;
+    }
+
+    try {
+      console.log('🔄 Iniciando sincronización completa con Firebase...');
+      saveState();
+
+      const collectionsMap = {
+        'jugadores': state.directory?.jugadores || [],
+        'clubes': state.directory?.clubes || [],
+        'equipos': state.directory?.equipos || [],
+        'federaciones': state.directory?.federaciones || [],
+        'selecciones': state.directory?.selecciones || [],
+        'convocatorias': state.directory?.convocatorias || [],
+        'torneos': state.directory?.torneos || [],
+        'staff': state.directory?.staff || [],
+        'agencias': state.directory?.agencias || [],
+        'agentes': state.directory?.agentes || [],
+        'estadios': state.directory?.estadios || [],
+        'partidos': state.matches || [],
+        'informes': state.reports || [],
+        'agenda': state.agenda || [],
+        'enlaces': state.links || []
+      };
+
+      for (const [colName, items] of Object.entries(collectionsMap)) {
+        if (Array.isArray(items) && items.length > 0) {
+          for (const item of items) {
+            if (item && item.id) {
+              await db.collection(colName).doc(String(item.id)).set(item, { merge: true });
+            }
           }
-        });
+        }
       }
 
-      // Colección 'equipos' en Firestore
-      if (state.directory && state.directory.equipos) {
-        state.directory.equipos.forEach(eq => {
-          if (eq.id) {
-            db.collection('equipos').doc(eq.id).set(eq, { merge: true })
-              .catch(e => console.warn('Error sync equipo:', e));
-          }
-        });
+      if (state.settings) {
+        await db.collection('configuracion').doc('app_settings').set(state.settings, { merge: true });
       }
 
-      // Colección 'federaciones' en Firestore
-      if (state.directory && state.directory.federaciones) {
-        state.directory.federaciones.forEach(f => {
-          if (f.id) {
-            db.collection('federaciones').doc(f.id).set(f, { merge: true })
-              .catch(e => console.warn('Error sync federación:', e));
-          }
-        });
+      console.log('✅ Sincronización completa finalizada en Firebase');
+      if (showToast) {
+        alert('☁️ ¡Todos los datos (informes, agenda, enlaces, directorio e imágenes) se han guardado con éxito en Firebase!');
       }
+    } catch (err) {
+      console.error('Error durante la sincronización a Firebase:', err);
+      if (showToast) alert('⚠️ Error al sincronizar con Firebase: ' + err.message);
+    }
+  }
 
-      // Colección 'selecciones' en Firestore
-      if (state.directory && state.directory.selecciones) {
-        state.directory.selecciones.forEach(sel => {
-          if (sel.id) {
-            db.collection('selecciones').doc(sel.id).set(sel, { merge: true })
-              .catch(e => console.warn('Error sync selección:', e));
-          }
-        });
-      }
+  /**
+   * Carga la base de datos de Firebase desde todas las colecciones.
+   */
+  async function loadFromFirebase() {
+    if (!db) return false;
+    try {
+      console.log('📡 Consultando colecciones de Firebase Firestore...');
+      
+      const fetchCol = async (colName) => {
+        try {
+          const snap = await db.collection(colName).get();
+          const docs = [];
+          snap.forEach(doc => docs.push(doc.data()));
+          return docs;
+        } catch (e) {
+          console.warn(`Error al consultar ${colName}:`, e);
+          return [];
+        }
+      };
 
-      // Colección 'convocatorias' en Firestore
-      if (state.directory && state.directory.convocatorias) {
-        state.directory.convocatorias.forEach(c => {
-          if (c.id) {
-            db.collection('convocatorias').doc(c.id).set(c, { merge: true })
-              .catch(e => console.warn('Error sync convocatoria:', e));
-          }
-        });
-      }
+      const [
+        jugadores, clubes, equipos, federaciones, selecciones,
+        convocatorias, torneos, staff, agencias, agentes, estadios,
+        partidos, informes, agenda, enlaces
+      ] = await Promise.all([
+        fetchCol('jugadores'),
+        fetchCol('clubes'),
+        fetchCol('equipos'),
+        fetchCol('federaciones'),
+        fetchCol('selecciones'),
+        fetchCol('convocatorias'),
+        fetchCol('torneos'),
+        fetchCol('staff'),
+        fetchCol('agencias'),
+        fetchCol('agentes'),
+        fetchCol('estadios'),
+        fetchCol('partidos'),
+        fetchCol('informes'),
+        fetchCol('agenda'),
+        fetchCol('enlaces')
+      ]);
 
-      // Colección 'torneos' en Firestore
-      if (state.directory && state.directory.torneos) {
-        state.directory.torneos.forEach(t => {
-          if (t.id) {
-            db.collection('torneos').doc(t.id).set(t, { merge: true })
-              .catch(e => console.warn('Error sync torneo:', e));
-          }
-        });
-      }
+      let configData = null;
+      try {
+        const configSnap = await db.collection('configuracion').doc('app_settings').get();
+        if (configSnap.exists) configData = configSnap.data();
+      } catch (e) {}
 
-      // Colección 'staff' en Firestore
-      if (state.directory && state.directory.staff) {
-        state.directory.staff.forEach(st => {
-          if (st.id) {
-            db.collection('staff').doc(st.id).set(st, { merge: true })
-              .catch(e => console.warn('Error sync staff:', e));
-          }
-        });
-      }
+      const totalItemsCloud = jugadores.length + clubes.length + equipos.length + federaciones.length +
+        selecciones.length + convocatorias.length + torneos.length + staff.length + agencias.length +
+        agentes.length + estadios.length + partidos.length + informes.length + agenda.length + enlaces.length;
 
-      // Colección 'agencias' en Firestore
-      if (state.directory && state.directory.agencias) {
-        state.directory.agencias.forEach(ag => {
-          if (ag.id) {
-            db.collection('agencias').doc(ag.id).set(ag, { merge: true })
-              .catch(e => console.warn('Error sync agencia:', e));
-          }
-        });
-      }
+      if (totalItemsCloud > 0) {
+        console.log(`🔥 Se obtuvieron ${totalItemsCloud} registros desde Firebase Cloud Firestore`);
 
-      // Colección 'agentes' en Firestore
-      if (state.directory && state.directory.agentes) {
-        state.directory.agentes.forEach(agt => {
-          if (agt.id) {
-            db.collection('agentes').doc(agt.id).set(agt, { merge: true })
-              .catch(e => console.warn('Error sync agente:', e));
-          }
-        });
-      }
+        // Helper para fusionar y proteger imágenes locales cargadas de Base64
+        const mergeWithLocalImages = (cloudArr, localArr) => {
+          if (!Array.isArray(cloudArr)) return localArr || [];
+          if (!Array.isArray(localArr) || localArr.length === 0) return cloudArr;
+          const imgProps = ['foto', 'escudo', 'logo', 'imagen'];
 
-      // Colección 'estadios' en Firestore
-      if (state.directory && state.directory.estadios) {
-        state.directory.estadios.forEach(est => {
-          if (est.id) {
-            db.collection('estadios').doc(est.id).set(est, { merge: true })
-              .catch(e => console.warn('Error sync estadio:', e));
-          }
-        });
-      }
+          return cloudArr.map(cItem => {
+            if (!cItem || !cItem.id) return cItem;
+            const lItem = localArr.find(l => l && l.id === cItem.id);
+            if (lItem) {
+              imgProps.forEach(prop => {
+                if (lItem[prop] && typeof lItem[prop] === 'string' && lItem[prop].startsWith('data:image') && (!cItem[prop] || cItem[prop].length < 100)) {
+                  cItem[prop] = lItem[prop];
+                }
+              });
+            }
+            return cItem;
+          });
+        };
 
-      // Colección 'partidos' en Firestore
-      if (state.matches) {
-        state.matches.forEach(m => {
-          if (m.id) {
-            db.collection('partidos').doc(m.id).set(m, { merge: true })
-              .catch(e => console.warn('Error sync partido:', e));
-          }
-        });
-      }
+        state.directory = state.directory || {};
+        if (jugadores.length > 0) state.directory.jugadores = mergeWithLocalImages(jugadores, state.directory.jugadores);
+        if (clubes.length > 0) state.directory.clubes = mergeWithLocalImages(clubes, state.directory.clubes);
+        if (equipos.length > 0) state.directory.equipos = mergeWithLocalImages(equipos, state.directory.equipos);
+        if (federaciones.length > 0) state.directory.federaciones = mergeWithLocalImages(federaciones, state.directory.federaciones);
+        if (selecciones.length > 0) state.directory.selecciones = mergeWithLocalImages(selecciones, state.directory.selecciones);
+        if (convocatorias.length > 0) state.directory.convocatorias = mergeWithLocalImages(convocatorias, state.directory.convocatorias);
+        if (torneos.length > 0) state.directory.torneos = mergeWithLocalImages(torneos, state.directory.torneos);
+        if (staff.length > 0) state.directory.staff = mergeWithLocalImages(staff, state.directory.staff);
+        if (agencias.length > 0) state.directory.agencias = mergeWithLocalImages(agencias, state.directory.agencias);
+        if (agentes.length > 0) state.directory.agentes = mergeWithLocalImages(agentes, state.directory.agentes);
+        if (estadios.length > 0) state.directory.estadios = mergeWithLocalImages(estadios, state.directory.estadios);
 
-      // Colección 'informes' en Firestore
-      if (state.reports) {
-        state.reports.forEach(r => {
-          if (r.id) {
-            db.collection('informes').doc(r.id).set(r, { merge: true })
-              .catch(e => console.warn('Error sync informe:', e));
-          }
-        });
-      }
+        if (partidos.length > 0) state.matches = mergeWithLocalImages(partidos, state.matches);
+        if (informes.length > 0) state.reports = mergeWithLocalImages(informes, state.reports);
+        if (agenda.length > 0) state.agenda = agenda;
+        if (enlaces.length > 0) state.links = enlaces;
 
-      // Colección 'enlaces' en Firestore
-      if (state.links) {
-        state.links.forEach(l => {
-          if (l.id) {
-            db.collection('enlaces').doc(l.id).set(l, { merge: true })
-              .catch(e => console.warn('Error sync enlace:', e));
-          }
-        });
+        if (configData) {
+          state.settings = Object.assign({}, state.settings, configData);
+        }
+
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+
+        if (typeof renderAllViews === 'function') {
+          renderAllViews();
+        }
+        return true;
+      } else {
+        console.log('ℹ️ Firebase no contiene colecciones de datos. Sincronizando estado local inicial a Firebase...');
+        await syncAllToFirebase(false);
+        return false;
       }
+    } catch (err) {
+      console.warn('Error al cargar colecciones de Firebase:', err);
+      return false;
     }
   }
 
   function initFirebaseRealtimeListener() {
     if (!db) return;
-    db.collection('scouting_data').doc('main_state').onSnapshot((doc) => {
-      if (doc.exists) {
-        const cloudData = doc.data();
-        if (cloudData && Object.keys(cloudData).length > 0) {
-          state = cloudData;
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          } catch (e) {}
-          if (typeof renderAllViews === 'function') {
-            renderAllViews();
-          }
-        }
-      }
-    }, (error) => {
-      console.warn('Firebase Firestore Listener info:', error);
-    });
+
+    // Ejecutar la carga inicial completa desde las colecciones independientes de Firebase
+    loadFromFirebase();
   }
 
   // --------------------------------------------------------------------------
@@ -521,20 +628,20 @@
   };
 
   const SYSTEM_STARTER_POSITIONS = {
-    '1-4-3-3': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MVD', 'MC', 'MVZ', 'MBD', 'MBZ', 'AC'],
+    '1-4-3-3': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MBZ', 'AC'],
     '1-4-4-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'ACD', 'ACZ'],
     '1-4-4-2 (Rombo)': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
     '1-4-2-3-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MP', 'MBZ', 'AC'],
     '1-4-1-4-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MVD', 'MVZ', 'MBZ', 'AC'],
-    '1-4-3-2-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MVD', 'MC', 'MVZ', 'MPD', 'MPZ', 'AC'],
-    '1-4-3-1-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MVD', 'MC', 'MVZ', 'MP', 'ACD', 'ACZ'],
+    '1-4-3-2-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'AC'],
+    '1-4-3-1-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
     '1-4-5-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MC', 'MCZ', 'MBZ', 'AC'],
-    '1-3-5-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MVD', 'MC', 'MVZ', 'MBZ', 'ACD', 'ACZ'],
+    '1-3-5-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MC', 'MVD', 'MVZ', 'MBZ', 'ACD', 'ACZ'],
     '1-3-4-3': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MBD', 'MBZ', 'AC'],
     '1-3-4-2-1': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MPD', 'MPZ', 'AC'],
     '1-3-4-1-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MP', 'ACD', 'ACZ'],
-    '1-3-3-3-1': ['PO', 'DCD', 'DC', 'DCZ', 'MVD', 'MC', 'MVZ', 'MBD', 'MP', 'MBZ', 'AC'],
-    '1-5-3-2': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MVD', 'MC', 'MVZ', 'ACD', 'ACZ'],
+    '1-3-3-3-1': ['PO', 'DCD', 'DC', 'DCZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MP', 'MBZ', 'AC'],
+    '1-5-3-2': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'ACD', 'ACZ'],
     '1-5-4-1': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'AC'],
     '1-5-2-3': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MBZ', 'AC'],
     // Fútbol 7
@@ -1105,7 +1212,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Competición</label>
-            <input type="text" id="mCompeticion" class="form-control" placeholder="Ej: Liga Juvenil Grupo 5">
+            <input type="text" id="mCompeticion" list="reportCompeticionesDatalistOptions" class="form-control" placeholder="Ej: Amistoso, Liga, Tercera RFEF...">
           </div>
         </div>
         <div class="form-group mb-4">
@@ -1262,30 +1369,36 @@
       repData = state.reports.find(r => r.id === reportId);
       if (!repData) {
         const match = state.matches.find(m => m.reportId === reportId || m.id === reportId);
-        if (match) {
-          if (match.reportId) {
-            repData = state.reports.find(r => r.id === match.reportId);
-          }
-          if (!repData) {
-            prefillMatch = match;
-          }
+        if (match && match.reportId) {
+          repData = state.reports.find(r => r.id === match.reportId);
+        }
+        if (!repData && match) {
+          prefillMatch = match;
         }
       }
-    } else if (prefillMatch) {
-      repData = {
-        localTeam: prefillMatch.local,
-        visitanteTeam: prefillMatch.visitante,
-        date: prefillMatch.fecha,
-        time: prefillMatch.hora,
-        estadio: prefillMatch.estadio,
-        competicion: prefillMatch.competicion,
-        categoria: prefillMatch.categoria,
-        federacion: 'RFEF',
-        localScore: 0,
-        visitanteScore: 0,
-        localFormation: '1-4-3-3',
-        visitanteFormation: '1-4-4-2'
-      };
+    }
+    if (!repData && prefillMatch) {
+      if (prefillMatch.reportId) {
+        repData = state.reports.find(r => r.id === prefillMatch.reportId);
+      }
+      if (repData) {
+        currentEditingReportId = repData.id;
+      } else {
+        repData = {
+          localTeam: prefillMatch.local,
+          visitanteTeam: prefillMatch.visitante,
+          date: prefillMatch.fecha,
+          time: prefillMatch.hora,
+          estadio: prefillMatch.estadio,
+          competicion: prefillMatch.competicion,
+          categoria: prefillMatch.categoria,
+          federacion: 'RFEF',
+          localScore: 0,
+          visitanteScore: 0,
+          localFormation: '1-4-3-3',
+          visitanteFormation: '1-4-4-2'
+        };
+      }
     }
 
     // Default template if empty
@@ -1331,10 +1444,10 @@
 
     const competicionesListOptions = document.getElementById('reportCompeticionesDatalistOptions');
     if (competicionesListOptions) {
-      const compSet = new Set();
+      const compSet = new Set(['Amistoso']);
+      ['Amistoso', 'Liga', 'Copa del Rey', 'Champions League', 'Europa League', 'Supercopa', 'Tercera RFEF', 'Segunda RFEF', 'Primera RFEF', 'División de Honor', 'Liga Nacional'].forEach(c => compSet.add(c));
       (state.directory.equipos || []).forEach(e => { if (e.liga) compSet.add(e.liga); if (e.competicion) compSet.add(e.competicion); });
       (state.directory.torneos || []).forEach(t => { if (t.nombre) compSet.add(t.nombre); if (t.torneo) compSet.add(t.torneo); });
-      ['Liga', 'Copa del Rey', 'Champions League', 'Europa League', 'Supercopa', 'Amistoso'].forEach(c => compSet.add(c));
       competicionesListOptions.innerHTML = Array.from(compSet).map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
     }
 
@@ -1429,27 +1542,6 @@
     document.getElementById('visitanteFormationSelect').value = matchTacticalSystems.visitante.principal.formation;
 
     // Ratings & Evaluation
-  const ABP_KEYS = ['cornerOfensivo', 'cornerDefensivo', 'faltaLatOfensiva', 'faltaLatDefensiva', 'penalti', 'saqueBanda', 'faltaDirecta', 'saqueCentro'];
-  const ABP_LABELS = {
-    cornerOfensivo: 'Córner Ofensivo',
-    cornerDefensivo: 'Córner Defensivo',
-    faltaLatOfensiva: 'Falta Lat. Ofensiva',
-    faltaLatDefensiva: 'Falta Lat. Defensiva',
-    penalti: 'Penalti',
-    saqueBanda: 'Saque de Banda',
-    faltaDirecta: 'Falta Directa',
-    saqueCentro: 'Saque de Centro'
-  };
-
-  function syncTeamStyleToDirectory(teamName, estiloText, abpText) {
-    if (!teamName || !state.directory) return;
-    const teamObj = findTeamInDirectory(teamName);
-    if (teamObj) {
-      if (estiloText) teamObj.estiloJuego = estiloText;
-      if (abpText) teamObj.abp = abpText;
-      saveState();
-    }
-  }
 
   // ABP Tab Click Listeners
   document.querySelectorAll('.abp-tab-btn').forEach(btn => {
@@ -1740,6 +1832,28 @@
     });
   }
 
+  const ABP_KEYS = ['cornerOfensivo', 'cornerDefensivo', 'faltaLatOfensiva', 'faltaLatDefensiva', 'penalti', 'saqueBanda', 'faltaDirecta', 'saqueCentro'];
+  const ABP_LABELS = {
+    cornerOfensivo: 'Córner Ofensivo',
+    cornerDefensivo: 'Córner Defensivo',
+    faltaLatOfensiva: 'Falta Lat. Ofensiva',
+    faltaLatDefensiva: 'Falta Lat. Defensiva',
+    penalti: 'Penalti',
+    saqueBanda: 'Saque de Banda',
+    faltaDirecta: 'Falta Directa',
+    saqueCentro: 'Saque de Centro'
+  };
+
+  function syncTeamStyleToDirectory(teamName, estiloText, abpText) {
+    if (!teamName || !state.directory) return;
+    const teamObj = findTeamInDirectory(teamName);
+    if (teamObj) {
+      if (estiloText) teamObj.estiloJuego = estiloText;
+      if (abpText) teamObj.abp = abpText;
+      saveState();
+    }
+  }
+
   function getDifficultyRating(team) {
     const active = document.querySelector(`#${team}DifficultyButtons .btn-rating.active`);
     return active ? parseInt(active.dataset.val) : 3;
@@ -1782,10 +1896,14 @@
       const rows = document.querySelectorAll(`#${containerId} .lineup-row`);
       const list = [];
       rows.forEach(r => {
+        const numEl = r.querySelector('.num') || r.querySelector('input.num');
+        const nameEl = r.querySelector('.name') || r.querySelector('input.name');
+        const posEl = r.querySelector('.pos') || r.querySelector('select.pos');
+        const parsedNum = numEl && numEl.value.trim() !== '' && !isNaN(numEl.value) ? parseInt(numEl.value, 10) : '';
         list.push({
-          num: parseInt(r.querySelector('.num').value) || 0,
-          name: r.querySelector('.name').value.trim(),
-          pos: r.querySelector('.pos').value
+          num: (parsedNum !== 0 && parsedNum !== '0') ? parsedNum : '',
+          name: nameEl ? (nameEl.value || '').trim() : '',
+          pos: posEl ? (posEl.value || '') : ''
         });
       });
       return list;
@@ -1913,7 +2031,7 @@
     for (let i = 0; i < 11; i++) {
       const defaultPosForIdx = defaultPositions[i] || (i === 0 ? 'PO' : 'MC');
       const p = titulares[i] || { num: '', name: '', pos: defaultPosForIdx };
-      const numVal = (p.num !== undefined && p.num !== null) ? p.num : '';
+      const numVal = (p.num !== undefined && p.num !== null && p.num !== 0 && p.num !== '0') ? p.num : '';
       const currentPos = p.pos || defaultPosForIdx;
       const hasCurrent = posOptions.includes(currentPos);
       titHTML += `
@@ -1929,12 +2047,12 @@
     }
     titContainer.innerHTML = titHTML;
 
-    // Suplentes (9 suplentes) - Default position empty
+    // Suplentes (11 suplentes) - Default position empty
     const supContainer = document.getElementById(`${team}SuplentesRows`);
     let supHTML = '';
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 11; i++) {
       const p = suplentes[i] || { num: '', name: '', pos: '' };
-      const numVal = (p.num !== undefined && p.num !== null) ? p.num : '';
+      const numVal = (p.num !== undefined && p.num !== null && p.num !== 0 && p.num !== '0') ? p.num : '';
       const currentPos = p.pos !== undefined ? p.pos : '';
       const hasCurrent = posOptions.includes(currentPos);
       supHTML += `
@@ -2028,7 +2146,7 @@
       const posSelect = row?.querySelector('select.pos');
       const nameInput = row?.querySelector('input.name');
 
-      const numVal = numInput ? numInput.value.trim() : '';
+      const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
       const posVal = posSelect ? posSelect.value : (defaultStarterPositions[idx] || 'PO');
       const nameVal = nameInput ? nameInput.value.trim() : '';
       const displayText = numVal ? numVal : (posVal || (idx + 1));
@@ -2049,7 +2167,7 @@
         const posSelect = row.querySelector('select.pos');
         const nameInput = row.querySelector('input.name');
 
-        const numVal = numInput ? numInput.value.trim() : '';
+        const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
         const posVal = posSelect ? posSelect.value : '';
         const nameVal = nameInput ? nameInput.value.trim() : '';
         const displayText = numVal ? numVal : (posVal || ('S' + (idx + 1)));
@@ -2661,137 +2779,6 @@
     });
   }
 
-  // Save Report Handler
-  document.getElementById('btnSaveMatchReport')?.addEventListener('click', () => {
-    const localTeam = document.getElementById('reportLocalTeam').value.trim() || 'Equipo Local';
-    const visitanteTeam = document.getElementById('reportVisitanteTeam').value.trim() || 'Equipo Visitante';
-
-    // Ensure active role tab states are saved
-    saveCurrentTacticalRoleState('local');
-    saveCurrentTacticalRoleState('visitante');
-
-    // Auto-fill 90 minutes for un-substituted starters on saving match report & sync to directory
-    const repId = currentEditingReportId || ('rep_' + Date.now());
-    if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
-    ['local', 'visitante'].forEach(t => {
-      const rows = document.querySelectorAll(`#${t}TitularesRows .lineup-row, #${t}SuplentesRows .lineup-row`);
-      rows.forEach((r, idx) => {
-        const pNum = r.querySelector('input.num')?.value;
-        const pName = r.querySelector('input.name')?.value.trim();
-        const evalKey = `${repId}_${t}_${pNum}`;
-        if (state.matchPlayerEvaluations[evalKey]) {
-          if (r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
-            state.matchPlayerEvaluations[evalKey].minutos = 90;
-          }
-          if (pName) {
-            syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
-          }
-        }
-      });
-    });
-
-    const reportObj = {
-      id: repId,
-      localTeam: localTeam,
-      visitanteTeam: visitanteTeam,
-      localScore: parseInt(document.getElementById('reportLocalScore').value) || 0,
-      visitanteScore: parseInt(document.getElementById('reportVisitanteScore').value) || 0,
-      date: document.getElementById('reportDate').value,
-      time: document.getElementById('reportTime').value,
-      estadio: document.getElementById('reportEstadio').value,
-      clima: document.getElementById('reportClima').value,
-      competicion: document.getElementById('reportCompeticion').value,
-      categoria: document.getElementById('reportCategoria').value,
-      federacion: document.getElementById('reportFederacion').value,
-
-      localSystems: matchTacticalSystems.local,
-      visitanteSystems: matchTacticalSystems.visitante,
-
-      localFormation: matchTacticalSystems.local.principal?.formation || document.getElementById('localFormationSelect').value,
-      visitanteFormation: matchTacticalSystems.visitante.principal?.formation || document.getElementById('visitanteFormationSelect').value,
-      localDifficulty: getDifficultyRating('local'),
-      visitanteDifficulty: getDifficultyRating('visitante'),
-      localEstiloJuego: document.getElementById('localEstiloJuego').value,
-      visitanteEstiloJuego: document.getElementById('visitanteEstiloJuego').value,
-      
-      localABPDetails: (function() {
-        const details = {};
-        ABP_KEYS.forEach(k => { details[k] = document.getElementById(`localABP_${k}`)?.value || ''; });
-        return details;
-      })(),
-      visitanteABPDetails: (function() {
-        const details = {};
-        ABP_KEYS.forEach(k => { details[k] = document.getElementById(`visitanteABP_${k}`)?.value || ''; });
-        return details;
-      })(),
-      localABP: (function() {
-        const parts = [];
-        ABP_KEYS.forEach(k => {
-          const val = document.getElementById(`localABP_${k}`)?.value.trim();
-          if (val) parts.push(`${ABP_LABELS[k]}: ${val}`);
-        });
-        return parts.join('\n');
-      })(),
-      visitanteABP: (function() {
-        const parts = [];
-        ABP_KEYS.forEach(k => {
-          const val = document.getElementById(`visitanteABP_${k}`)?.value.trim();
-          if (val) parts.push(`${ABP_LABELS[k]}: ${val}`);
-        });
-        return parts.join('\n');
-      })(),
-      localComentario: document.getElementById('localComentario').value,
-      visitanteComentario: document.getElementById('visitanteComentario').value,
-
-      localEntrenador: document.getElementById('localEntrenador')?.value || '',
-      visitanteEntrenador: document.getElementById('visitanteEntrenador')?.value || '',
-      localCoachRating: getCoachRating('local'),
-      visitanteCoachRating: getCoachRating('visitante'),
-      localComentarioEntrenador: document.getElementById('localComentarioEntrenador')?.value || '',
-      visitanteComentarioEntrenador: document.getElementById('visitanteComentarioEntrenador')?.value || '',
-      localKirolSport: document.getElementById('localBtnKirolSport')?.classList.contains('active') || false,
-      visitanteKirolSport: document.getElementById('visitanteBtnKirolSport')?.classList.contains('active') || false,
-
-      generalAnalysis: document.getElementById('reportGeneralAnalysis').value,
-      localTitulares: matchTacticalSystems.local.principal?.titulares || [],
-      localSuplentes: matchTacticalSystems.local.principal?.suplentes || [],
-      visitanteTitulares: matchTacticalSystems.visitante.principal?.titulares || [],
-      visitanteSuplentes: matchTacticalSystems.visitante.principal?.suplentes || []
-    };
-
-    if (currentEditingReportId) {
-      const idx = state.reports.findIndex(r => r.id === currentEditingReportId);
-      if (idx !== -1) state.reports[idx] = reportObj;
-      else state.reports.push(reportObj);
-    } else {
-      state.reports.unshift(reportObj);
-    }
-
-    // Link reportId to corresponding match in state.matches
-    const matchingMatch = state.matches.find(m => 
-      (m.local.toLowerCase() === reportObj.localTeam.toLowerCase() && m.visitante.toLowerCase() === reportObj.visitanteTeam.toLowerCase()) ||
-      (m.reportId === reportObj.id)
-    );
-    if (matchingMatch) {
-      matchingMatch.reportId = reportObj.id;
-      matchingMatch.estado = 'visto';
-    }
-
-    // Also auto-add/update players into directory!
-    [...reportObj.localTitulares, ...reportObj.visitanteTitulares].forEach(p => {
-      if (p.name && !state.directory.jugadores.some(j => j.nombre.toLowerCase() === p.name.toLowerCase())) {
-        state.directory.jugadores.push({
-          id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
-          nombre: p.name,
-          equipo: reportObj.localTitulares.includes(p) ? reportObj.localTeam : reportObj.visitanteTeam,
-          posicion: p.pos,
-          ano: '2006',
-          categoria: reportObj.categoria || 'Senior',
-          nivel: 'Propecto'
-        });
-      }
-    });
-
   function syncCoachDataToDirectory(coachName, coachRating, coachComentario, kirolSport, teamName, rivalTeam) {
     if (!coachName || !coachName.trim() || !state.directory) return;
     const nameTrim = coachName.trim();
@@ -2862,39 +2849,193 @@
         teamObj.entrenadorKirolSport = kirolSport;
       }
     }
-
-    saveState();
   }
 
-    // Sync team playstyle and ABP to team profiles in directory
-    syncTeamStyleToDirectory(reportObj.localTeam, reportObj.localEstiloJuego, reportObj.localABP);
-    syncTeamStyleToDirectory(reportObj.visitanteTeam, reportObj.visitanteEstiloJuego, reportObj.visitanteABP);
+  // Save Report Handler
+  document.getElementById('btnSaveMatchReport')?.addEventListener('click', () => {
+    try {
+      const localTeam = document.getElementById('reportLocalTeam')?.value.trim() || 'Equipo Local';
+      const visitanteTeam = document.getElementById('reportVisitanteTeam')?.value.trim() || 'Equipo Visitante';
 
-    // Sync coach data to coach staff profile and team profile in directory
-    if (reportObj.localEntrenador) {
-      syncCoachDataToDirectory(
-        reportObj.localEntrenador,
-        reportObj.localCoachRating,
-        reportObj.localComentarioEntrenador,
-        reportObj.localKirolSport,
-        reportObj.localTeam,
-        reportObj.visitanteTeam
-      );
-    }
-    if (reportObj.visitanteEntrenador) {
-      syncCoachDataToDirectory(
-        reportObj.visitanteEntrenador,
-        reportObj.visitanteCoachRating,
-        reportObj.visitanteComentarioEntrenador,
-        reportObj.visitanteKirolSport,
-        reportObj.visitanteTeam,
-        reportObj.localTeam
-      );
-    }
+      // Ensure active role tab states are saved
+      saveCurrentTacticalRoleState('local');
+      saveCurrentTacticalRoleState('visitante');
 
-    saveState();
-    alert('¡Informe Técnico de Partido guardado con éxito!');
-    closeReportEditor();
+      const repId = currentEditingReportId || ('rep_' + Date.now());
+      if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
+
+      ['local', 'visitante'].forEach(t => {
+        const rows = document.querySelectorAll(`#${t}TitularesRows .lineup-row, #${t}SuplentesRows .lineup-row`);
+        rows.forEach((r) => {
+          const pNum = r.querySelector('input.num')?.value || r.querySelector('.num')?.value || '';
+          const pName = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
+          const evalKey = `${repId}_${t}_${pNum}`;
+          if (state.matchPlayerEvaluations[evalKey]) {
+            if (r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
+              state.matchPlayerEvaluations[evalKey].minutos = 90;
+            }
+            if (pName) {
+              syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
+            }
+          }
+        });
+      });
+
+      const reportObj = {
+        id: repId,
+        localTeam: localTeam,
+        visitanteTeam: visitanteTeam,
+        localScore: parseInt(document.getElementById('reportLocalScore')?.value) || 0,
+        visitanteScore: parseInt(document.getElementById('reportVisitanteScore')?.value) || 0,
+        date: document.getElementById('reportDate')?.value || new Date().toISOString().slice(0, 10),
+        time: document.getElementById('reportTime')?.value || '20:00',
+        estadio: document.getElementById('reportEstadio')?.value || '',
+        clima: document.getElementById('reportClima')?.value || '',
+        competicion: document.getElementById('reportCompeticion')?.value || '',
+        categoria: document.getElementById('reportCategoria')?.value || '',
+        federacion: document.getElementById('reportFederacion')?.value || '',
+
+        localSystems: matchTacticalSystems.local,
+        visitanteSystems: matchTacticalSystems.visitante,
+
+        localFormation: matchTacticalSystems.local?.principal?.formation || document.getElementById('localFormationSelect')?.value || '1-4-3-3',
+        visitanteFormation: matchTacticalSystems.visitante?.principal?.formation || document.getElementById('visitanteFormationSelect')?.value || '1-4-4-2',
+        localDifficulty: getDifficultyRating('local'),
+        visitanteDifficulty: getDifficultyRating('visitante'),
+        localEstiloJuego: document.getElementById('localEstiloJuego')?.value || '',
+        visitanteEstiloJuego: document.getElementById('visitanteEstiloJuego')?.value || '',
+
+        localABPDetails: (function() {
+          const details = {};
+          ABP_KEYS.forEach(k => { details[k] = document.getElementById(`localABP_${k}`)?.value || ''; });
+          return details;
+        })(),
+        visitanteABPDetails: (function() {
+          const details = {};
+          ABP_KEYS.forEach(k => { details[k] = document.getElementById(`visitanteABP_${k}`)?.value || ''; });
+          return details;
+        })(),
+        localABP: (function() {
+          const parts = [];
+          ABP_KEYS.forEach(k => {
+            const val = document.getElementById(`localABP_${k}`)?.value?.trim();
+            if (val) parts.push(`${ABP_LABELS[k]}: ${val}`);
+          });
+          return parts.join('\n');
+        })(),
+        visitanteABP: (function() {
+          const parts = [];
+          ABP_KEYS.forEach(k => {
+            const val = document.getElementById(`visitanteABP_${k}`)?.value?.trim();
+            if (val) parts.push(`${ABP_LABELS[k]}: ${val}`);
+          });
+          return parts.join('\n');
+        })(),
+        localComentario: document.getElementById('localComentario')?.value || '',
+        visitanteComentario: document.getElementById('visitanteComentario')?.value || '',
+
+        localEntrenador: document.getElementById('localEntrenador')?.value || '',
+        visitanteEntrenador: document.getElementById('visitanteEntrenador')?.value || '',
+        localCoachRating: getCoachRating('local'),
+        visitanteCoachRating: getCoachRating('visitante'),
+        localComentarioEntrenador: document.getElementById('localComentarioEntrenador')?.value || '',
+        visitanteComentarioEntrenador: document.getElementById('visitanteComentarioEntrenador')?.value || '',
+        localKirolSport: document.getElementById('localBtnKirolSport')?.classList.contains('active') || false,
+        visitanteKirolSport: document.getElementById('visitanteBtnKirolSport')?.classList.contains('active') || false,
+
+        generalAnalysis: document.getElementById('reportGeneralAnalysis')?.value || '',
+        localTitulares: matchTacticalSystems.local?.principal?.titulares || [],
+        localSuplentes: matchTacticalSystems.local?.principal?.suplentes || [],
+        visitanteTitulares: matchTacticalSystems.visitante?.principal?.titulares || [],
+        visitanteSuplentes: matchTacticalSystems.visitante?.principal?.suplentes || []
+      };
+
+      if (!Array.isArray(state.reports)) state.reports = [];
+
+      if (currentEditingReportId) {
+        const idx = state.reports.findIndex(r => r.id === currentEditingReportId);
+        if (idx !== -1) state.reports[idx] = reportObj;
+        else state.reports.unshift(reportObj);
+      } else {
+        state.reports.unshift(reportObj);
+      }
+
+      // Link reportId to corresponding match in state.matches and update match metadata
+      if (Array.isArray(state.matches)) {
+        const matchingMatch = state.matches.find(m => 
+          (m.reportId === reportObj.id) ||
+          (m.local && m.visitante && m.local.toLowerCase() === reportObj.localTeam.toLowerCase() && m.visitante.toLowerCase() === reportObj.visitanteTeam.toLowerCase())
+        );
+        if (matchingMatch) {
+          matchingMatch.reportId = reportObj.id;
+          matchingMatch.competicion = reportObj.competicion;
+          matchingMatch.categoria = reportObj.categoria;
+          matchingMatch.estadio = reportObj.estadio;
+          matchingMatch.fecha = reportObj.date;
+          matchingMatch.hora = reportObj.time;
+          matchingMatch.estado = 'visto';
+        }
+      }
+
+      // Also auto-add/update players into directory
+      if (state.directory && Array.isArray(state.directory.jugadores)) {
+        [...reportObj.localTitulares, ...reportObj.visitanteTitulares].forEach(p => {
+          if (p.name && !state.directory.jugadores.some(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase())) {
+            state.directory.jugadores.push({
+              id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
+              nombre: p.name,
+              equipo: reportObj.localTitulares.includes(p) ? reportObj.localTeam : reportObj.visitanteTeam,
+              posicion: p.pos || '',
+              ano: '2006',
+              categoria: reportObj.categoria || 'Senior',
+              nivel: 'Prospecto'
+            });
+          }
+        });
+      }
+
+      // Sync team playstyle and ABP to team profiles in directory
+      syncTeamStyleToDirectory(reportObj.localTeam, reportObj.localEstiloJuego, reportObj.localABP);
+      syncTeamStyleToDirectory(reportObj.visitanteTeam, reportObj.visitanteEstiloJuego, reportObj.visitanteABP);
+
+      // Sync coach data to coach staff profile and team profile in directory
+      if (reportObj.localEntrenador) {
+        syncCoachDataToDirectory(
+          reportObj.localEntrenador,
+          reportObj.localCoachRating,
+          reportObj.localComentarioEntrenador,
+          reportObj.localKirolSport,
+          reportObj.localTeam,
+          reportObj.visitanteTeam
+        );
+      }
+      if (reportObj.visitanteEntrenador) {
+        syncCoachDataToDirectory(
+          reportObj.visitanteEntrenador,
+          reportObj.visitanteCoachRating,
+          reportObj.visitanteComentarioEntrenador,
+          reportObj.visitanteKirolSport,
+          reportObj.visitanteTeam,
+          reportObj.localTeam
+        );
+      }
+
+      saveState();
+
+      if (typeof showNotification === 'function') {
+        showNotification('¡Informe Técnico de Partido guardado con éxito y sincronizado en la nube!', 'success');
+      } else {
+        alert('¡Informe Técnico de Partido guardado con éxito!');
+      }
+
+      closeReportEditor();
+      if (typeof renderPartidosList === 'function') {
+        renderPartidosList();
+      }
+    } catch (err) {
+      console.error('Error al guardar el informe técnico de partido:', err);
+      alert('Error al guardar el informe: ' + err.message);
+    }
   });
 
   // --------------------------------------------------------------------------
@@ -3047,9 +3188,22 @@
         subtabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentDirectoryTab = tab.dataset.dir;
+        currentSubCategoryFilter = 'TODOS';
+        currentFederationFilter = 'TODAS';
+        currentDirectoryPage = 1;
         renderDirectorio();
       });
     });
+  }
+
+  function calculateSubCategory(anoNac) {
+    if (!anoNac) return '';
+    const y = parseInt(anoNac, 10);
+    if (isNaN(y) || y < 1950 || y > 2030) return String(anoNac);
+    const currentSeasonYear = 2025;
+    const age = currentSeasonYear - y;
+    if (age <= 5) return 'Sub6';
+    return `Sub${age}`;
   }
 
   function openPlayerModal(playerId = null) {
@@ -3064,18 +3218,26 @@
     const equipoSecundario = player.equipoSecundario || '';
     const seleccion = player.seleccion || '';
     const anoNac = player.ano || player.anoNac || '';
+    const subCat = calculateSubCategory(anoNac);
     const fechaNac = player.fechaNac || '';
     const sexo = player.sexo || 'MASCULINO';
-    const pais = player.pais || 'España';
     const comunidad = player.comunidad || 'Navarra';
     const localidad = player.localidad || 'Pamplona';
 
     const pierna = player.pierna || 'DERECHA';
-    const disponibilidad = player.disponibilidad || 'LIBRE (POTENCIAL FICHAJE)';
-    const proyeccion = player.proyeccion || '-';
+    const disponibilidad = player.disponibilidad || '';
+    const proyeccion = player.proyeccion || '';
     const posicionPrincipal = player.posicion || player.posicionPrincipal || '';
     const posicionSecundaria = player.posicionSecundaria || '';
-    const lesiones = player.lesiones || '';
+    const observacionesDeportivas = player.observacionesDeportivas || '';
+
+    let localLesiones = Array.isArray(player.lesiones) 
+      ? [...player.lesiones] 
+      : (player.lesiones ? player.lesiones.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+    let localPaises = Array.isArray(player.paises) 
+      ? [...player.paises] 
+      : (player.pais ? player.pais.split('/').map(s => s.trim()).filter(Boolean) : (player.pais ? [player.pais] : ['España']));
 
     const finContrato = player.finContrato || '';
     const agencia = player.agencia || '';
@@ -3128,7 +3290,6 @@
 
         <datalist id="equiposDatalistOptions">
           ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
         </datalist>
 
         <datalist id="seleccionesDatalistOptions">
@@ -3216,8 +3377,11 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
-                    <label class="form-label">AÑO NAC.</label>
-                    <input type="text" id="pfAnoNac" class="form-control" placeholder="YYYY" value="${escapeHtml(anoNac)}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;" class="mb-1">
+                      <label class="form-label" style="margin: 0;">AÑO NAC.</label>
+                      <span id="pfSubCategoryBadge" class="match-category-tag" style="background-color: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 11px;">${subCat ? escapeHtml(subCat) : 'Sub...'}</span>
+                    </div>
+                    <input type="text" id="pfAnoNac" class="form-control" placeholder="YYYY (ej: 2015)" value="${escapeHtml(anoNac)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">FECHA NAC.</label>
@@ -3233,12 +3397,13 @@
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-                  <div class="form-group">
-                    <label class="form-label">PAÍS</label>
-                    <select id="pfPais" class="form-control">
-                      <option value="">Seleccionar...</option>
-                      ${LISTA_PAISES.map(p => `<option value="${escapeHtml(p)}" ${pais === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
-                      ${!LISTA_PAISES.includes(pais) && pais ? `<option value="${escapeHtml(pais)}" selected>${escapeHtml(pais)}</option>` : ''}
+                  <div class="form-group" style="grid-column: span 3;">
+                    <label class="form-label">PAÍS / NACIONALIDADES (DOBLE NACIONALIDAD)</label>
+                    <div id="pfPaisesTagsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-surface); min-height: 42px; align-items: center;" class="mb-2"></div>
+                    <select id="pfPaisSelect" class="form-control">
+                      <option value="">+ Añadir país / nacionalidad...</option>
+                      ${(state.customPaises || LISTA_PAISES).map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+                      <option value="__NEW_PAIS__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo país...</option>
                     </select>
                   </div>
                   <div class="form-group">
@@ -3319,14 +3484,19 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">LESIONES (HISTORIAL)</label>
-              <select id="pfLesiones" class="form-control">
-                <option value="">Seleccionar o sin lesiones...</option>
-                ${(state.customLesiones || []).map(l => `<option value="${escapeHtml(l)}" ${lesiones === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
-                ${lesiones && !(state.customLesiones || []).includes(lesiones) ? `<option value="${escapeHtml(lesiones)}" selected>${escapeHtml(lesiones)}</option>` : ''}
+            <div class="form-group mb-4">
+              <label class="form-label">LESIONES (HISTORIAL MULTI-SELECCIÓN)</label>
+              <div id="pfLesionesTagsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-surface); min-height: 42px; align-items: center;" class="mb-2"></div>
+              <select id="pfLesionesSelect" class="form-control">
+                <option value="">+ Añadir lesión al historial...</option>
+                ${(state.customLesiones || ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis', 'Contusión / Golpe', 'Sobrecarga muscular']).map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('')}
                 <option value="__NEW_LESION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva lesión...</option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">OBSERVACIONES DEPORTIVAS</label>
+              <textarea id="pfObservacionesDeportivas" class="form-control" rows="4" placeholder="Escribe aquí observaciones deportivas detalladas del jugador...">${escapeHtml(observacionesDeportivas)}</textarea>
             </div>
           </div>
 
@@ -3598,20 +3768,25 @@
       const eqPrincipal = document.getElementById('pfEquipo').value.trim();
       const eqSecundario = document.getElementById('pfEquipoSecundario').value.trim();
       const selecNombre = document.getElementById('pfSeleccion').value.trim();
+      const anoVal = document.getElementById('pfAnoNac').value.trim();
+      const calculatedSub = calculateSubCategory(anoVal);
 
       const updatedPlayer = {
-        id: isEdit ? playerId : 'j_' + Date.now(),
+        id: isEdit ? playerId : ('j_' + Date.now() + '_' + Math.floor(Math.random()*1000)),
         nombre: nameVal,
         dorsal: document.getElementById('pfDorsal').value.trim(),
         estado: selectedEstado,
         equipo: eqPrincipal,
         equipoSecundario: eqSecundario,
         seleccion: selecNombre,
-        anoNac: document.getElementById('pfAnoNac').value.trim(),
-        ano: document.getElementById('pfAnoNac').value.trim() || '2006',
+        anoNac: anoVal,
+        ano: anoVal,
+        sub: calculatedSub,
+        categoria: calculatedSub || 'Senior',
         fechaNac: document.getElementById('pfFechaNac').value,
         sexo: document.getElementById('pfSexo').value,
-        pais: document.getElementById('pfPais').value.trim(),
+        pais: localPaises.join(' / '),
+        paises: localPaises,
         comunidad: document.getElementById('pfComunidad').value.trim(),
         localidad: document.getElementById('pfLocalidad').value.trim(),
 
@@ -3621,7 +3796,8 @@
         posicionPrincipal: document.getElementById('pfPosPrincipal').value.trim(),
         posicion: document.getElementById('pfPosPrincipal').value.trim() || 'DC',
         posicionSecundaria: document.getElementById('pfPosSecundaria').value.trim(),
-        lesiones: document.getElementById('pfLesiones').value.trim(),
+        lesiones: localLesiones,
+        observacionesDeportivas: document.getElementById('pfObservacionesDeportivas').value.trim(),
 
         finContrato: document.getElementById('pfFinContrato').value.trim(),
         agencia: document.getElementById('pfAgencia').value.trim(),
@@ -3654,8 +3830,25 @@
       if (isEdit) {
         const idx = state.directory.jugadores.findIndex(j => j.id === playerId);
         if (idx !== -1) state.directory.jugadores[idx] = updatedPlayer;
+        else state.directory.jugadores.unshift(updatedPlayer);
       } else {
         state.directory.jugadores.unshift(updatedPlayer);
+      }
+
+      // Clean up plantillas of teams: remove player from any team that is NOT eqPrincipal and NOT eqSecundario
+      if (state.directory && Array.isArray(state.directory.equipos)) {
+        state.directory.equipos.forEach(eq => {
+          const eqName = (eq.nombre || eq.equipo || '').trim().toLowerCase();
+          const isPrincipal = eqPrincipal && eqName === eqPrincipal.toLowerCase();
+          const isSecundario = eqSecundario && eqName === eqSecundario.toLowerCase();
+          if (!isPrincipal && !isSecundario && Array.isArray(eq.plantilla)) {
+            eq.plantilla = eq.plantilla.filter(item => {
+              const itemID = typeof item === 'object' ? item.id : null;
+              const itemName = typeof item === 'object' ? item.nombre : item;
+              return itemID !== updatedPlayer.id && itemName?.toLowerCase() !== nameVal.toLowerCase();
+            });
+          }
+        });
       }
 
       // Bidirectional sync: link player to target equipos and selecciones in state.directory
@@ -3707,7 +3900,31 @@
       };
 
       const syncPlayerToAgencia = (agName) => {
-        if (!agName || !state.directory.agencias) return;
+        if (!state.directory.agencias) state.directory.agencias = [];
+
+        // Unlink player from old agencies if changed
+        state.directory.agencias.forEach(ag => {
+          const currentAgName = (ag.nombre || ag.agencia || '').trim().toLowerCase();
+          const matchesNew = agName && currentAgName === agName.toLowerCase();
+          if (!matchesNew) {
+            if (Array.isArray(ag.jugadoresRepresentados)) {
+              ag.jugadoresRepresentados = ag.jugadoresRepresentados.filter(j => {
+                const jID = typeof j === 'object' ? j.id : null;
+                const jName = typeof j === 'object' ? j.nombre : j;
+                return jID !== updatedPlayer.id && jName?.toLowerCase() !== nameVal.toLowerCase();
+              });
+            }
+            if (Array.isArray(ag.jugadores)) {
+              ag.jugadores = ag.jugadores.filter(j => {
+                const jID = typeof j === 'object' ? j.id : null;
+                const jName = typeof j === 'object' ? j.nombre : j;
+                return jID !== updatedPlayer.id && jName?.toLowerCase() !== nameVal.toLowerCase();
+              });
+            }
+          }
+        });
+
+        if (!agName) return;
         let targetAg = state.directory.agencias.find(a => 
           (a.nombre && a.nombre.toLowerCase() === agName.toLowerCase()) ||
           (a.agencia && a.agencia.toLowerCase() === agName.toLowerCase())
@@ -3717,19 +3934,34 @@
             id: 'ag_' + Date.now() + Math.floor(Math.random()*100),
             nombre: agName,
             agencia: agName,
-            jugadores: []
+            jugadoresRepresentados: []
           };
           state.directory.agencias.unshift(targetAg);
         }
-        if (!targetAg.jugadores) targetAg.jugadores = [];
-        const exists = targetAg.jugadores.some(j => (typeof j === 'string' ? j : j.nombre) === nameVal);
+        if (!targetAg.jugadoresRepresentados) targetAg.jugadoresRepresentados = [];
+        const exists = targetAg.jugadoresRepresentados.some(j => (typeof j === 'string' ? j : j.nombre)?.toLowerCase() === nameVal.toLowerCase());
         if (!exists) {
-          targetAg.jugadores.push({ id: updatedPlayer.id, nombre: nameVal });
+          targetAg.jugadoresRepresentados.push({ id: updatedPlayer.id, nombre: nameVal });
         }
       };
 
       const syncPlayerToAgente = (agtName) => {
-        if (!agtName || !state.directory.agentes) return;
+        if (!state.directory.agentes) state.directory.agentes = [];
+
+        // Unlink player from old agents if changed
+        state.directory.agentes.forEach(agt => {
+          const currentAgtName = (agt.nombre || agt.agente || '').trim().toLowerCase();
+          const matchesNew = agtName && currentAgtName === agtName.toLowerCase();
+          if (!matchesNew && Array.isArray(agt.jugadoresRepresentados)) {
+            agt.jugadoresRepresentados = agt.jugadoresRepresentados.filter(j => {
+              const jID = typeof j === 'object' ? j.id : null;
+              const jName = typeof j === 'object' ? j.nombre : j;
+              return jID !== updatedPlayer.id && jName?.toLowerCase() !== nameVal.toLowerCase();
+            });
+          }
+        });
+
+        if (!agtName) return;
         let targetAgt = state.directory.agentes.find(a => 
           (a.nombre && a.nombre.toLowerCase() === agtName.toLowerCase()) ||
           (a.agente && a.agente.toLowerCase() === agtName.toLowerCase())
@@ -3744,7 +3976,7 @@
           state.directory.agentes.unshift(targetAgt);
         }
         if (!targetAgt.jugadoresRepresentados) targetAgt.jugadoresRepresentados = [];
-        const exists = targetAgt.jugadoresRepresentados.some(j => (typeof j === 'string' ? j : j.nombre) === nameVal);
+        const exists = targetAgt.jugadoresRepresentados.some(j => (typeof j === 'string' ? j : j.nombre)?.toLowerCase() === nameVal.toLowerCase());
         if (!exists) {
           targetAgt.jugadoresRepresentados.push({ id: updatedPlayer.id, nombre: nameVal });
         }
@@ -4191,15 +4423,15 @@
     // Photo Upload Handler
     const inputPhoto = document.getElementById('inputPlayerPhoto');
     document.getElementById('btnUploadPhoto')?.addEventListener('click', () => inputPhoto.click());
-    inputPhoto?.addEventListener('change', (e) => {
+    inputPhoto?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          photoData = ev.target.result;
+        try {
+          photoData = await compressImage(file);
           document.getElementById('btnUploadPhoto').innerHTML = `<img src="${photoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir foto:', err);
+        }
       }
     });
 
@@ -4251,27 +4483,116 @@
       }
     });
 
-    // Handle creation of new custom lesión
-    const lesSelect = document.getElementById('pfLesiones');
-    lesSelect?.addEventListener('change', (e) => {
-      if (e.target.value === '__NEW_LESION__') {
-        const newLesName = prompt('Introduce la especificación de la nueva lesión:');
-        if (newLesName && newLesName.trim()) {
-          const trimmed = newLesName.trim();
-          if (!state.customLesiones) state.customLesiones = [];
+    // --------------------------------------------------------------------------
+    // Multi-Select Tags Setup: Países & Lesiones + Dynamic Sub-Category Update
+    // --------------------------------------------------------------------------
+    function renderLesionesTags() {
+      const container = document.getElementById('pfLesionesTagsContainer');
+      if (!container) return;
+      if (localLesiones.length === 0) {
+        container.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">Sin lesiones registradas. Haz clic abajo para añadir.</span>`;
+        return;
+      }
+      container.innerHTML = localLesiones.map((l, idx) => `
+        <span class="match-category-tag" style="background: var(--bg-subtle); color: var(--text-dark); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-light);">
+          💉 ${escapeHtml(l)}
+          <i data-lucide="x" class="btn-remove-lesion cursor-pointer" data-idx="${idx}" style="width: 14px; height: 14px; color: var(--accent-red, #ef4444);"></i>
+        </span>
+      `).join('');
+      if (window.lucide) window.lucide.createIcons();
+
+      container.querySelectorAll('.btn-remove-lesion').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const i = parseInt(btn.dataset.idx, 10);
+          localLesiones.splice(i, 1);
+          renderLesionesTags();
+        });
+      });
+    }
+
+    function renderPaisesTags() {
+      const container = document.getElementById('pfPaisesTagsContainer');
+      if (!container) return;
+      if (localPaises.length === 0) {
+        container.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">Sin país asignado.</span>`;
+        return;
+      }
+      container.innerHTML = localPaises.map((p, idx) => `
+        <span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--primary-blue); font-weight: 700;">
+          🌍 ${escapeHtml(p)}
+          <i data-lucide="x" class="btn-remove-pais cursor-pointer" data-idx="${idx}" style="width: 14px; height: 14px; color: var(--primary-blue);"></i>
+        </span>
+      `).join('');
+      if (window.lucide) window.lucide.createIcons();
+
+      container.querySelectorAll('.btn-remove-pais').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const i = parseInt(btn.dataset.idx, 10);
+          localPaises.splice(i, 1);
+          renderPaisesTags();
+        });
+      });
+    }
+
+    renderLesionesTags();
+    renderPaisesTags();
+
+    // Listeners for adding Países & Lesiones
+    const paisSelect = document.getElementById('pfPaisSelect');
+    paisSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (!val) return;
+      if (val === '__NEW_PAIS__') {
+        const newP = prompt('Introduce el nombre del nuevo país / nacionalidad:');
+        if (newP && newP.trim()) {
+          const trimmed = newP.trim();
+          if (!state.customPaises) state.customPaises = [...LISTA_PAISES];
+          if (!state.customPaises.includes(trimmed)) {
+            state.customPaises.push(trimmed);
+            saveState();
+          }
+          if (!localPaises.includes(trimmed)) localPaises.push(trimmed);
+          renderPaisesTags();
+        }
+      } else {
+        if (!localPaises.includes(val)) localPaises.push(val);
+        renderPaisesTags();
+      }
+      e.target.value = '';
+    });
+
+    const lesionesSelect = document.getElementById('pfLesionesSelect');
+    lesionesSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (!val) return;
+      if (val === '__NEW_LESION__') {
+        const newL = prompt('Introduce el nombre de la nueva lesión:');
+        if (newL && newL.trim()) {
+          const trimmed = newL.trim();
+          if (!state.customLesiones) state.customLesiones = ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis'];
           if (!state.customLesiones.includes(trimmed)) {
             state.customLesiones.push(trimmed);
             saveState();
           }
-          const opt = document.createElement('option');
-          opt.value = trimmed;
-          opt.textContent = trimmed;
-          opt.selected = true;
-          lesSelect.insertBefore(opt, lesSelect.lastElementChild);
-          lesSelect.value = trimmed;
-        } else {
-          lesSelect.value = '';
+          if (!localLesiones.includes(trimmed)) localLesiones.push(trimmed);
+          renderLesionesTags();
         }
+      } else {
+        if (!localLesiones.includes(val)) localLesiones.push(val);
+        renderLesionesTags();
+      }
+      e.target.value = '';
+    });
+
+    // Dynamic Sub-Category Update on Año Nac. Change
+    const anoInput = document.getElementById('pfAnoNac');
+    anoInput?.addEventListener('input', () => {
+      const subBadge = document.getElementById('pfSubCategoryBadge');
+      if (subBadge) {
+        const sub = calculateSubCategory(anoInput.value.trim());
+        subBadge.textContent = sub ? sub : 'Sub...';
       }
     });
 
@@ -4682,6 +5003,28 @@
         state.directory.clubes.unshift(updatedClub);
       }
 
+      // Auto-sync logo/escudo and colors to all linked teams in state.directory.equipos
+      if (state.directory.equipos && Array.isArray(state.directory.equipos)) {
+        state.directory.equipos.forEach(eq => {
+          const eqClubName = (eq.clubVinculado || eq.club || '').trim().toLowerCase();
+          const clubNameLower = (nameVal || nombre || '').trim().toLowerCase();
+          const isLinked = (eqClubName && eqClubName === clubNameLower) || (eq.nombre && clubNameLower && eq.nombre.toLowerCase().startsWith(clubNameLower));
+          if (isLinked) {
+            if (logoData) {
+              eq.escudo = logoData;
+              eq.logo = logoData;
+            }
+            if (updatedClub.colorPrimary) {
+              eq.colorPrimary = updatedClub.colorPrimary;
+            }
+            if (updatedClub.colorSecondary) {
+              eq.colorSecondary = updatedClub.colorSecondary;
+            }
+            saveToFirebase('equipos', eq);
+          }
+        });
+      }
+
       // Bidirectional sync for Federación, Estadio, Convenidos & Patrocinador
       const fedVal = updatedClub.federacion;
       const estVal = updatedClub.estadio;
@@ -4965,15 +5308,15 @@
     // Logo Upload Handler
     const inputLogo = document.getElementById('inputClubLogo');
     document.getElementById('btnUploadClubLogo')?.addEventListener('click', () => inputLogo.click());
-    inputLogo?.addEventListener('change', (e) => {
+    inputLogo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          logoData = ev.target.result;
+        try {
+          logoData = await compressImage(file);
           document.getElementById('btnUploadClubLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
+        }
       }
     });
 
@@ -5070,6 +5413,38 @@
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
+  // Helper to flexibly match a team to its parent club even with spelling typos (e.g. Obereno / Oberena)
+  function findParentClub(teamObj) {
+    if (!teamObj || !state.directory.clubes || !state.directory.clubes.length) return null;
+    const clubName = (teamObj.clubVinculado || teamObj.club || '').trim();
+    const teamName = (teamObj.nombre || teamObj.equipo || '').trim();
+
+    const clean = (str) => (str || '').toLowerCase()
+      .replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/gi, '')
+      .replace(/[^a-z0-9]/gi, '');
+
+    const cleanClub = clean(clubName);
+    const cleanTeam = clean(teamName);
+
+    // 1. Exact match
+    let found = state.directory.clubes.find(c => {
+      const cClean = clean(c.nombre || c.equipo || '');
+      return (cleanClub && cClean === cleanClub) || (cleanTeam && cClean === cleanTeam);
+    });
+    if (found) return found;
+
+    // 2. Prefix / Substring match (handles Oberena vs Obereno)
+    found = state.directory.clubes.find(c => {
+      const cClean = clean(c.nombre || c.equipo || '');
+      if (!cClean || cClean.length < 3) return false;
+      const prefix = cClean.substring(0, Math.min(5, cClean.length));
+      return (cleanClub && (cleanClub.includes(prefix) || cClean.includes(cleanClub.substring(0, 5)))) ||
+             (cleanTeam && (cleanTeam.includes(prefix) || cClean.includes(cleanTeam.substring(0, 5))));
+    });
+
+    return found || null;
+  }
+
   function openTeamModal(teamId = null) {
     const isEdit = !!teamId;
     const team = isEdit ? (state.directory.equipos.find(eq => eq.id === teamId) || {}) : {};
@@ -5077,6 +5452,7 @@
     const nombre = team.nombre || team.equipo || '';
     let clubVinculado = team.clubVinculado || team.club || '';
     const categoria = team.categoria || '';
+    const grupoVal = team.grupo || '';
     const temporada = team.temporada || '26/27';
     const competicionVal = team.competicion || '';
     const torneoVal = team.torneo || '';
@@ -5122,20 +5498,58 @@
     const notasTacticas = team.notasTacticas || team.notas || '';
 
     let escudoData = team.escudo || team.logo || '';
-    let colorPrimary = team.colorPrimary || '#2563eb';
-    let colorSecondary = team.colorSecondary || '#ffffff';
+    let colorPrimary = team.colorPrimary || team.colorPrimario || team.color1 || '';
+    let colorSecondary = team.colorSecondary || team.colorSecundario || team.color2 || '';
+
+    // Auto-detect colors and escudo from Club Vinculado using flexible matching (handles Oberena vs Obereno)
+    const parentClubForColors = findParentClub({ clubVinculado, nombre });
+
+    if (parentClubForColors) {
+      const clubLogo = parentClubForColors.logo || parentClubForColors.escudo || '';
+      if (clubLogo) {
+        escudoData = clubLogo;
+        team.escudo = clubLogo;
+        team.logo = clubLogo;
+      }
+      if (!colorPrimary || colorPrimary === '#2563eb') {
+        colorPrimary = parentClubForColors.colorPrimary || parentClubForColors.colorPrimario || parentClubForColors.color1 || parentClubForColors.colorCamiseta || parentClubForColors.color || '#2563eb';
+      }
+      if (!colorSecondary || colorSecondary === '#ffffff') {
+        colorSecondary = parentClubForColors.colorSecondary || parentClubForColors.colorSecundario || parentClubForColors.color2 || '#ffffff';
+      }
+    }
+
+    if (!colorPrimary) colorPrimary = '#2563eb';
+    if (!colorSecondary) colorSecondary = '#ffffff';
 
     const titleText = isEdit ? `👥 Ficha de ${escapeHtml(nombre)}` : '👥 Nuevo Equipo';
 
     const modalHTML = `
-      <div class="team-modal-wrapper">
-        <p class="modal-subtitle mb-2" style="font-size: 12px; color: var(--text-muted);">Configura la identidad y estructura técnica profesional</p>
+      <div class="team-modal-wrapper" style="border-top: 6px solid ${colorPrimary}; box-shadow: 0 -3px 12px ${colorPrimary}33;">
+        <div id="teamModalHeaderBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, ${colorPrimary}22 0%, ${colorSecondary}22 100%); border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid ${colorPrimary}40;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              ${escudoData ? `<img src="${escudoData}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
+            </div>
+            <div>
+              <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">${escapeHtml(nombre || 'Equipo')}</h2>
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(categoria || 'General')} • Temp ${escapeHtml(temporada || '26/27')} • ${escapeHtml(competicionVal || 'Competición N/A')}</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-light);">
+              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPrimary}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${colorPrimary}"></span>
+              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${colorSecondary}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${colorSecondary}"></span>
+            </div>
+          </div>
+        </div>
 
         <div class="player-modal-subtabs mb-4">
           <button type="button" class="player-subtab active" data-ttab="tecnica">FICHA TÉCNICA</button>
           <button type="button" class="player-subtab" data-ttab="cuerpo">CUERPO TÉCNICO</button>
           <button type="button" class="player-subtab" data-ttab="estilo">ESTILO Y COMP.</button>
           <button type="button" class="player-subtab" data-ttab="plantilla">PLANTILLA</button>
+          <button type="button" class="player-subtab" data-ttab="campograma">CAMPOGRAMA</button>
         </div>
 
         <datalist id="clubesDatalistOptions">
@@ -5186,7 +5600,7 @@
                   <input type="text" id="tfClubVinculado" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club del directorio..." value="${escapeHtml(clubVinculado)}">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">CATEGORÍA</label>
                     <select id="tfCategoria" class="form-control">
@@ -5194,6 +5608,10 @@
                       ${LISTA_CATEGORIAS_EQUIPO.map(cat => `<option value="${escapeHtml(cat)}" ${categoria === cat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
                       ${categoria && !LISTA_CATEGORIAS_EQUIPO.includes(categoria) ? `<option value="${escapeHtml(categoria)}" selected>${escapeHtml(categoria)}</option>` : ''}
                     </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">GRUPO</label>
+                    <input type="text" id="tfGrupo" class="form-control" placeholder="Ej. Grupo 2, Grupo XV..." value="${escapeHtml(grupoVal)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">TEMPORADA</label>
@@ -5214,7 +5632,7 @@
                     <label class="form-label">COMPETICIÓN</label>
                     <select id="tfCompeticion" class="form-control">
                       <option value="">Seleccionar competición...</option>
-                      ${(state.customCompeticiones || ['Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeHtml(c)}" ${competicionVal === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeHtml(c)}" ${competicionVal === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
                       ${competicionVal && !(state.customCompeticiones || []).includes(competicionVal) ? `<option value="${escapeHtml(competicionVal)}" selected>${escapeHtml(competicionVal)}</option>` : ''}
                       <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
                     </select>
@@ -5292,7 +5710,7 @@
           <div class="team-tab-pane hidden" id="ttab-plantilla">
             <div class="player-section-title mb-2" style="display: flex; justify-content: space-between; align-items: center;">
               <span><i data-lucide="user-check"></i> JUGADORES DE LA PLANTILLA</span>
-              <span style="font-size: 12px; color: var(--primary-blue); font-weight: 700;" id="lblSelectedPlayersCount">0 en plantilla</span>
+              <span style="font-size: 12px; color: var(--primary-blue); font-weight: 800; background: var(--primary-blue-light); padding: 2px 10px; border-radius: 12px;" id="lblSelectedPlayersCount">0 en plantilla</span>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 140px; gap: 8px;" class="mb-4">
@@ -5315,6 +5733,33 @@
               </table>
             </div>
           </div>
+
+          <!-- TAB 5: CAMPOGRAMA -->
+          <div class="team-tab-pane hidden" id="ttab-campograma">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);" class="mb-3">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <label class="form-label" style="margin: 0; white-space: nowrap; font-weight: 800;">SISTEMA TÁCTICO:</label>
+                <select id="tfCampogramaSistema" class="form-control" style="width: auto; min-width: 150px; font-weight: 700;">
+                  ${Object.keys(FORMATION_POSITIONS).map(sys => `<option value="${sys}" ${sistemaHabitual === sys ? 'selected' : ''}>${sys}</option>`).join('')}
+                </select>
+              </div>
+              <button type="button" class="btn btn-secondary" id="btnExportTeamCampogramaPdf" style="font-size: 11px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: var(--primary-blue);">
+                <i data-lucide="file-text"></i> Exportar Campograma (PDF 2 Páginas)
+              </button>
+            </div>
+
+            <div style="position: relative; width: 100%; height: 480px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: var(--radius-md); border: 2px solid #22c55e; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.4);" id="teamCampogramaPitch">
+              <!-- Pitch Lines -->
+              <div style="position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2px solid rgba(255,255,255,0.4); pointer-events: none;"></div>
+              <div style="position: absolute; top: 50%; left: 10px; right: 10px; height: 2px; background: rgba(255,255,255,0.4); transform: translateY(-50%); pointer-events: none;"></div>
+              <div style="position: absolute; top: 50%; left: 50%; width: 100px; height: 100px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none;"></div>
+              <div style="position: absolute; top: 10px; left: 50%; width: 160px; height: 60px; border: 2px solid rgba(255,255,255,0.4); border-top: none; transform: translateX(-50%); pointer-events: none;"></div>
+              <div style="position: absolute; bottom: 10px; left: 50%; width: 160px; height: 60px; border: 2px solid rgba(255,255,255,0.4); border-bottom: none; transform: translateX(-50%); pointer-events: none;"></div>
+
+              <!-- Pins Container -->
+              <div id="teamCampogramaPins" style="position: absolute; inset: 0;"></div>
+            </div>
+          </div>
         </form>
       </div>
     `;
@@ -5326,13 +5771,24 @@
       const nameVal = document.getElementById('tfNombre').value.trim();
       if (!nameVal) return alert('Por favor ingresa el nombre del equipo');
 
+      const targetClubName = document.getElementById('tfClubVinculado').value.trim();
+      let parentClub = (targetClubName || nameVal) && state.directory.clubes ? state.directory.clubes.find(c => 
+        (c.nombre && c.nombre.toLowerCase() === (targetClubName || nameVal).toLowerCase()) ||
+        (c.nombre && nameVal && nameVal.toLowerCase().startsWith(c.nombre.toLowerCase()))
+      ) : null;
+
+      const finalEscudo = escudoData || (parentClub ? (parentClub.logo || parentClub.escudo) : '');
+      const finalColorPri = document.getElementById('tfColorPrimary')?.value || (parentClub ? parentClub.colorPrimary || parentClub.colorPrimario || parentClub.color1 : '#2563eb');
+      const finalColorSec = document.getElementById('tfColorSecondary')?.value || (parentClub ? parentClub.colorSecondary || parentClub.colorSecundario || parentClub.color2 : '#ffffff');
+
       const updatedTeam = {
         id: isEdit ? teamId : 'eq_' + Date.now(),
         nombre: nameVal,
         equipo: nameVal,
-        clubVinculado: document.getElementById('tfClubVinculado').value.trim(),
-        club: document.getElementById('tfClubVinculado').value.trim(),
+        clubVinculado: targetClubName || (parentClub ? parentClub.nombre : ''),
+        club: targetClubName || (parentClub ? parentClub.nombre : ''),
         categoria: document.getElementById('tfCategoria').value.trim(),
+        grupo: document.getElementById('tfGrupo').value.trim(),
         temporada: document.getElementById('tfTemporada').value.trim(),
         competicion: document.getElementById('tfCompeticion').value.trim(),
         torneo: document.getElementById('tfTorneo').value.trim(),
@@ -5347,10 +5803,10 @@
         notasTacticas: document.getElementById('tfNotasTacticas').value.trim(),
         notas: document.getElementById('tfNotasTacticas').value.trim(),
 
-        escudo: escudoData,
-        logo: escudoData,
-        colorPrimary: document.getElementById('tfColorPrimary')?.value || '#2563eb',
-        colorSecondary: document.getElementById('tfColorSecondary')?.value || '#ffffff'
+        escudo: finalEscudo,
+        logo: finalEscudo,
+        colorPrimary: finalColorPri,
+        colorSecondary: finalColorSec
       };
 
       if (!state.directory.equipos) state.directory.equipos = [];
@@ -5362,11 +5818,11 @@
       }
 
       // Bidirectional sync for Club Vinculado
-      const targetClubName = updatedTeam.clubVinculado;
-      if (targetClubName && state.directory.clubes) {
+      const syncClubName = updatedTeam.clubVinculado;
+      if (syncClubName && state.directory.clubes) {
         let parentC = state.directory.clubes.find(c => 
-          (c.nombre && c.nombre.toLowerCase() === targetClubName.toLowerCase()) ||
-          (c.equipo && c.equipo.toLowerCase() === targetClubName.toLowerCase())
+          (c.nombre && c.nombre.toLowerCase() === syncClubName.toLowerCase()) ||
+          (c.equipo && c.equipo.toLowerCase() === syncClubName.toLowerCase())
         );
         if (!parentC) {
           parentC = {
@@ -5483,7 +5939,29 @@
       renderDirectorio();
     });
 
-    // Auto sync escudo and colors when Club Vinculado is selected
+    // Auto sync escudo and colors when Club Vinculado is selected + Live Header Color Update
+    const applyTeamColorsHeader = (pri, sec) => {
+      if (!pri) pri = '#2563eb';
+      if (!sec) sec = '#ffffff';
+      const wrapper = document.querySelector('.team-modal-wrapper');
+      const headerBanner = document.getElementById('teamModalHeaderBanner');
+      const dotPri = document.getElementById('teamColorPrimaryDot');
+      const dotSec = document.getElementById('teamColorSecondaryDot');
+      const fallbackBadge = document.getElementById('teamHeaderFallbackBadge');
+
+      if (wrapper) {
+        wrapper.style.borderTop = `6px solid ${pri}`;
+        wrapper.style.boxShadow = `0 -3px 12px ${pri}33`;
+      }
+      if (headerBanner) {
+        headerBanner.style.background = `linear-gradient(135deg, ${pri}22 0%, ${sec}22 100%)`;
+        headerBanner.style.borderColor = `${pri}40`;
+      }
+      if (dotPri) dotPri.style.background = pri;
+      if (dotSec) dotSec.style.background = sec;
+      if (fallbackBadge) fallbackBadge.style.background = pri;
+    };
+
     const inputClubVinc = document.getElementById('tfClubVinculado');
     const inputColorPri = document.getElementById('tfColorPrimary');
     const inputColorSec = document.getElementById('tfColorSecondary');
@@ -5491,12 +5969,9 @@
 
     const updateFromClub = () => {
       const selectedClubName = inputClubVinc?.value.trim() || '';
-      if (!selectedClubName || !state.directory.clubes) return;
+      if (!state.directory.clubes) return;
 
-      const foundClub = state.directory.clubes.find(c => 
-        (c.nombre && c.nombre.toLowerCase() === selectedClubName.toLowerCase()) ||
-        (c.equipo && c.equipo.toLowerCase() === selectedClubName.toLowerCase())
-      );
+      const foundClub = findParentClub({ clubVinculado: selectedClubName, nombre: inputNombre?.value || nombre });
 
       if (foundClub) {
         const clubLogo = foundClub.logo || foundClub.escudo;
@@ -5505,15 +5980,24 @@
           if (boxEscudo) {
             boxEscudo.innerHTML = `<img src="${clubLogo}" class="photo-upload-preview"><input type="file" id="inputTeamEscudo" accept="image/*" class="hidden">`;
           }
+          const headerBox = document.getElementById('teamHeaderEscudoBox');
+          if (headerBox) {
+            headerBox.innerHTML = `<img src="${clubLogo}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">`;
+          }
         }
-        if (foundClub.colorPrimary && inputColorPri) {
-          inputColorPri.value = foundClub.colorPrimary;
-        }
-        if (foundClub.colorSecondary && inputColorSec) {
-          inputColorSec.value = foundClub.colorSecondary;
-        }
+        const clubPri = foundClub.colorPrimary || foundClub.colorPrimario || foundClub.color1 || foundClub.colorCamiseta;
+        const clubSec = foundClub.colorSecondary || foundClub.colorSecundario || foundClub.color2;
+
+        if (clubPri && inputColorPri) inputColorPri.value = clubPri;
+        if (clubSec && inputColorSec) inputColorSec.value = clubSec;
+        applyTeamColorsHeader(inputColorPri?.value, inputColorSec?.value);
       }
     };
+
+    inputColorPri?.addEventListener('input', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
+    inputColorPri?.addEventListener('change', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
+    inputColorSec?.addEventListener('input', (e) => applyTeamColorsHeader(inputColorPri?.value, e.target.value));
+    inputColorSec?.addEventListener('change', (e) => applyTeamColorsHeader(inputColorPri?.value, e.target.value));
 
     // Auto-generate Team Name from Club, Categoría and Temporada
     const inputNombre = document.getElementById('tfNombre');
@@ -5800,8 +6284,252 @@
           });
         });
       }
+
+      const countLabel = document.getElementById('lblSelectedPlayersCount');
+      if (countLabel) {
+        countLabel.textContent = `${localPlantillaList.length} en plantilla`;
+      }
+
       if (window.lucide) window.lucide.createIcons();
     }
+    renderPlantillaTable();
+
+    document.getElementById('btnAddJugadorRow')?.addEventListener('click', () => {
+      const val = document.getElementById('tfJugadorSearchInput').value.trim();
+      if (!val) return alert('Ingresa o selecciona el nombre del jugador');
+      if (!localPlantillaList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === val.toLowerCase())) {
+        localPlantillaList.push(val);
+      }
+      document.getElementById('tfJugadorSearchInput').value = '';
+      renderPlantillaTable();
+      renderTeamCampogramaPins();
+    });
+
+    // --------------------------------------------------------------------------
+    // CAMPOGRAMA TAB LOGIC & PDF EXPORT
+    // --------------------------------------------------------------------------
+    function renderTeamCampogramaPins() {
+      const container = document.getElementById('teamCampogramaPins');
+      const sysSelect = document.getElementById('tfCampogramaSistema');
+      if (!container || !sysSelect) return;
+
+      const formation = sysSelect.value || '1-4-3-3';
+      const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+
+      // Resolve full player objects for squad
+      const squadPlayers = localPlantillaList.map(item => {
+        const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+        return playersPool.find(p => (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase()) || { nombre: pName, posicionPrincipal: 'MC' };
+      });
+
+      // Map squad players to formation slots
+      const assignedSlots = positions.map((posCoords, slotIdx) => {
+        const targetPosCode = defaultPositions[slotIdx] || 'MC';
+        const matchingPlayer = squadPlayers.find(p => !p._assignedToCampograma && (
+          (p.posicionPrincipal && p.posicionPrincipal.toLowerCase() === targetPosCode.toLowerCase()) ||
+          (p.posicion && p.posicion.toLowerCase() === targetPosCode.toLowerCase())
+        )) || squadPlayers.find(p => !p._assignedToCampograma);
+
+        if (matchingPlayer) matchingPlayer._assignedToCampograma = true;
+
+        return {
+          coords: posCoords,
+          targetPosCode: targetPosCode,
+          player: matchingPlayer || null
+        };
+      });
+
+      squadPlayers.forEach(p => delete p._assignedToCampograma);
+
+      const curPrimaryColor = document.getElementById('tfColorPrimary')?.value || colorPrimary || '#2563eb';
+      const curTextColor = getContrastColor(curPrimaryColor);
+
+      container.innerHTML = assignedSlots.map((slot, idx) => {
+        const p = slot.player;
+        const displayName = p ? (p.nombre || p.jugador || '') : `Vacío (${slot.targetPosCode})`;
+        const posTag = p ? (p.posicionPrincipal || p.posicion || slot.targetPosCode) : slot.targetPosCode;
+        const numVal = p && p.dorsal ? p.dorsal : (posTag || (idx + 1));
+
+        return `
+          <div style="position: absolute; left: ${slot.coords.x}%; top: ${slot.coords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; cursor: pointer; z-index: 10;" title="${escapeHtml(displayName)}" class="campograma-player-pin" data-playerid="${p ? (p.id || '') : ''}">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">
+              ${escapeHtml(String(numVal))}
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.85); color: #ffffff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.2);">
+              ${escapeHtml(displayName)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.campograma-player-pin').forEach(pin => {
+        pin.addEventListener('click', () => {
+          const pId = pin.dataset.playerid;
+          if (pId) {
+            card.classList.remove('large');
+            hideModal();
+            openPlayerModal(pId);
+          }
+        });
+      });
+    }
+
+    renderTeamCampogramaPins();
+    document.getElementById('tfCampogramaSistema')?.addEventListener('change', renderTeamCampogramaPins);
+
+    // PDF Export for Team Campograma (2 Pages)
+    document.getElementById('btnExportTeamCampogramaPdf')?.addEventListener('click', () => {
+      const curPrimaryColor = document.getElementById('tfColorPrimary')?.value || colorPrimary || '#2563eb';
+      const curSecondaryColor = document.getElementById('tfColorSecondary')?.value || colorSecondary || '#ffffff';
+      const curNombre = document.getElementById('tfNombre')?.value.trim() || nombre || 'Equipo';
+      const curCat = document.getElementById('tfCategoria')?.value.trim() || categoria || '';
+      const curTemp = document.getElementById('tfTemporada')?.value.trim() || temporada || '';
+      const curComp = document.getElementById('tfCompeticion')?.value.trim() || competicionVal || '';
+      const curSys = document.getElementById('tfCampogramaSistema')?.value || sistemaHabitual || '1-4-3-3';
+
+      const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+
+      const squadPlayers = localPlantillaList.map(item => {
+        const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+        return playersPool.find(p => (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase()) || { nombre: pName, posicionPrincipal: 'MC', anoNac: '', pierna: '', rendimientoRS: '' };
+      });
+
+      const assignedSlots = positions.map((posCoords, slotIdx) => {
+        const targetPosCode = defaultPositions[slotIdx] || 'MC';
+        const matchingPlayer = squadPlayers.find(p => !p._assignedToCampograma && (
+          (p.posicionPrincipal && p.posicionPrincipal.toLowerCase() === targetPosCode.toLowerCase()) ||
+          (p.posicion && p.posicion.toLowerCase() === targetPosCode.toLowerCase())
+        )) || squadPlayers.find(p => !p._assignedToCampograma);
+
+        if (matchingPlayer) matchingPlayer._assignedToCampograma = true;
+
+        return {
+          coords: posCoords,
+          targetPosCode: targetPosCode,
+          player: matchingPlayer || null
+        };
+      });
+
+      squadPlayers.forEach(p => delete p._assignedToCampograma);
+
+      const printWin = window.open('', '_blank');
+      if (!printWin) return alert('Por favor permite las ventanas emergentes para exportar el PDF');
+
+      const pitchPinsHTML = assignedSlots.map((slot, idx) => {
+        const p = slot.player;
+        const displayName = p ? (p.nombre || p.jugador || '') : `Vacío (${slot.targetPosCode})`;
+        const posTag = p ? (p.posicionPrincipal || p.posicion || slot.targetPosCode) : slot.targetPosCode;
+        const numVal = p && p.dorsal ? p.dorsal : (posTag || (idx + 1));
+        const txtColor = getContrastColor(curPrimaryColor);
+
+        return `
+          <div style="position: absolute; left: ${slot.coords.x}%; top: ${slot.coords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background-color: ${curPrimaryColor}; color: ${txtColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px;">
+              ${escapeHtml(String(numVal))}
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.9); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3);">
+              ${escapeHtml(displayName)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const squadTableRowsHTML = squadPlayers.map((p) => `
+        <tr>
+          <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
+          <td style="font-weight: 700; text-align: center; color: ${curPrimaryColor};">${escapeHtml(p.dorsal || '-')}</td>
+          <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
+          <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
+          <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
+          <td>${escapeHtml(p.pierna || '-')}</td>
+          <td><span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(p.rendimientoRS || p.rendimiento || 'A')}</span></td>
+        </tr>
+      `).join('');
+
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Campograma • ${escapeHtml(curNombre)}</title>
+          <style>
+            @media print {
+              @page { size: A4 portrait; margin: 10mm; }
+              .page-break { page-break-after: always; break-after: page; }
+              .page-break:last-child { page-break-after: avoid; break-after: avoid; }
+            }
+            body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 15px; background: #fff; line-height: 1.3; }
+            .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid ${curPrimaryColor}; padding-bottom: 10px; margin-bottom: 15px; }
+            .header-title { font-size: 20px; font-weight: 800; color: #1e293b; }
+            .header-sub { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+            .page-tag { background: ${curPrimaryColor}; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; }
+            
+            .pitch-wrapper { position: relative; width: 100%; height: 680px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: 8px; border: 3px solid #15803d; overflow: hidden; margin-bottom: 10px; }
+            .pitch-line { position: absolute; border: 2px solid rgba(255,255,255,0.4); pointer-events: none; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+            th { background: #f1f5f9; padding: 8px 10px; border-bottom: 2px solid #cbd5e1; text-align: left; font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; }
+            td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <!-- HOJA 1: CAMPOGRAMA TÁCTICO -->
+          <div class="page-break">
+            <div class="header-bar">
+              <div>
+                <div class="header-title">${escapeHtml(curNombre)}</div>
+                <div class="header-sub">RS Scouting • Campograma Táctico | Sistema: ${escapeHtml(curSys)} | ${escapeHtml(curCat)} (${escapeHtml(curTemp)})</div>
+              </div>
+              <span class="page-tag">Hoja 1 • Disposición Táctica</span>
+            </div>
+
+            <div class="pitch-wrapper">
+              <div class="pitch-line" style="top: 10px; left: 10px; right: 10px; bottom: 10px;"></div>
+              <div class="pitch-line" style="top: 50%; left: 10px; right: 10px; height: 0;"></div>
+              <div class="pitch-line" style="top: 50%; left: 50%; width: 120px; height: 120px; border-radius: 50%; transform: translate(-50%, -50%);"></div>
+              <div class="pitch-line" style="top: 10px; left: 50%; width: 180px; height: 70px; border-top: none; transform: translateX(-50%);"></div>
+              <div class="pitch-line" style="bottom: 10px; left: 50%; width: 180px; height: 70px; border-bottom: none; transform: translateX(-50%);"></div>
+              ${pitchPinsHTML}
+            </div>
+          </div>
+
+          <!-- HOJA 2: LISTADO DE PLANTILLA -->
+          <div class="page-break">
+            <div class="header-bar">
+              <div>
+                <div class="header-title">${escapeHtml(curNombre)} • Plantilla Oficial</div>
+                <div class="header-sub">Detalle de jugadores (${squadPlayers.length} efectivos) | Categoría ${escapeHtml(curCat)} | Temp ${escapeHtml(curTemp)}</div>
+              </div>
+              <span class="page-tag">Hoja 2 • Fichas Deportivas</span>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>JUGADOR / NOMBRE</th>
+                  <th style="text-align: center;">DORSAL</th>
+                  <th>POS. PRINCIPAL</th>
+                  <th>POS. SECUNDARIA</th>
+                  <th>SUB / AÑO</th>
+                  <th>LATERALIDAD</th>
+                  <th>NIVEL RS</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${squadTableRowsHTML.length ? squadTableRowsHTML : '<tr><td colspan="7" style="text-align:center; padding:16px; color:#94a3b8;">Sin jugadores registrados en la plantilla</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+        </html>
+      `);
+      printWin.document.close();
+    });
     renderPlantillaTable();
     renderPlantillaCheckboxes();
 
@@ -5816,15 +6544,15 @@
     // Escudo Upload Handler
     const inputEscudo = document.getElementById('inputTeamEscudo');
     document.getElementById('btnUploadTeamEscudo')?.addEventListener('click', () => inputEscudo.click());
-    inputEscudo?.addEventListener('change', (e) => {
+    inputEscudo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          escudoData = ev.target.result;
+        try {
+          escudoData = await compressImage(file);
           document.getElementById('btnUploadTeamEscudo').innerHTML = `<img src="${escudoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir escudo:', err);
+        }
       }
     });
 
@@ -6230,15 +6958,15 @@
     // Logo Upload Handler
     const inputLogo = document.getElementById('inputFedLogo');
     document.getElementById('btnUploadFedLogo')?.addEventListener('click', () => inputLogo.click());
-    inputLogo?.addEventListener('change', (e) => {
+    inputLogo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          logoData = ev.target.result;
+        try {
+          logoData = await compressImage(file);
           document.getElementById('btnUploadFedLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
+        }
       }
     });
 
@@ -6761,15 +7489,15 @@
     // Logo Upload Handler
     const inputLogo = document.getElementById('inputSelLogo');
     document.getElementById('btnUploadSelLogo')?.addEventListener('click', () => inputLogo.click());
-    inputLogo?.addEventListener('change', (e) => {
+    inputLogo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          logoData = ev.target.result;
+        try {
+          logoData = await compressImage(file);
           document.getElementById('btnUploadSelLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
+        }
       }
     });
 
@@ -7683,15 +8411,15 @@
     // Logo Upload Handler
     const inputLogo = document.getElementById('inputTrnLogo');
     document.getElementById('btnUploadTrnLogo')?.addEventListener('click', () => inputLogo.click());
-    inputLogo?.addEventListener('change', (e) => {
+    inputLogo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          logoData = ev.target.result;
+        try {
+          logoData = await compressImage(file);
           document.getElementById('btnUploadTrnLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
+        }
       }
     });
 
@@ -8055,15 +8783,15 @@
     // Photo Upload Handler
     const inputFoto = document.getElementById('inputStaffFoto');
     document.getElementById('btnUploadStaffFoto')?.addEventListener('click', () => inputFoto.click());
-    inputFoto?.addEventListener('change', (e) => {
+    inputFoto?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          fotoData = ev.target.result;
+        try {
+          fotoData = await compressImage(file);
           document.getElementById('btnUploadStaffFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir foto:', err);
+        }
       }
     });
 
@@ -8371,17 +9099,82 @@
     function renderAgJugadores() {
       const ul = document.getElementById('agJugadoresList');
       if (!ul) return;
-      ul.innerHTML = localJugadoresList.map((j, idx) => `
-        <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
-          <span>${escapeHtml(typeof j === 'string' ? j : j.nombre)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-ag-jugador" data-idx="${idx}" style="width: 22px; height: 22px;">
+
+      const agNameLower = (nombre || ag.nombre || ag.agencia || '').trim().toLowerCase();
+      const allLinkedPlayersMap = new Map();
+
+      // 1. From localJugadoresList
+      localJugadoresList.forEach(item => {
+        const jName = typeof item === 'object' ? item.nombre : item;
+        if (jName) {
+          const matchPlayer = (state.directory.jugadores || []).find(p => p.nombre?.toLowerCase() === jName.toLowerCase());
+          allLinkedPlayersMap.set(jName.toLowerCase(), {
+            id: matchPlayer ? matchPlayer.id : (typeof item === 'object' ? item.id : null),
+            nombre: jName,
+            posicion: matchPlayer ? (matchPlayer.posicion || matchPlayer.posicionPrincipal || '') : '',
+            equipo: matchPlayer ? matchPlayer.equipo : ''
+          });
+        }
+      });
+
+      // 2. From state.directory.jugadores
+      if (agNameLower && state.directory.jugadores) {
+        state.directory.jugadores.forEach(p => {
+          if (p.agencia && p.agencia.trim().toLowerCase() === agNameLower) {
+            if (!allLinkedPlayersMap.has(p.nombre.toLowerCase())) {
+              allLinkedPlayersMap.set(p.nombre.toLowerCase(), {
+                id: p.id,
+                nombre: p.nombre,
+                posicion: p.posicion || p.posicionPrincipal || '',
+                equipo: p.equipo || ''
+              });
+            }
+          }
+        });
+      }
+
+      const combinedList = Array.from(allLinkedPlayersMap.values());
+
+      if (combinedList.length === 0) {
+        ul.innerHTML = `<li style="padding: 8px; color: var(--text-muted); font-size: 12px; font-style: italic;">Sin jugadores representados vinculados</li>`;
+        return;
+      }
+
+      ul.innerHTML = combinedList.map((j) => `
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${j.posicion ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 10px; padding: 2px 6px;">${escapeHtml(j.posicion)}</span>` : ''}
+            <span class="btn-open-player-from-agency cursor-pointer" data-playerid="${j.id || ''}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
+              ${escapeHtml(j.nombre)}
+            </span>
+            ${j.equipo ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.equipo)})</span>` : ''}
+          </div>
+          <button type="button" class="btn-action-icon danger btn-del-ag-jugador" data-jname="${escapeHtml(j.nombre)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
       `).join('');
+
+      ul.querySelectorAll('.btn-open-player-from-agency').forEach(span => {
+        span.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const pId = span.dataset.playerid;
+          if (pId) {
+            card.classList.remove('large');
+            hideModal();
+            openPlayerModal(pId);
+          }
+        });
+      });
+
       ul.querySelectorAll('.btn-del-ag-jugador').forEach(btn => {
         btn.addEventListener('click', () => {
-          localJugadoresList.splice(parseInt(btn.dataset.idx, 10), 1);
+          const jNameDel = btn.dataset.jname;
+          localJugadoresList = localJugadoresList.filter(item => (typeof item === 'object' ? item.nombre : item).toLowerCase() !== jNameDel.toLowerCase());
+          if (state.directory.jugadores) {
+            const pObj = state.directory.jugadores.find(p => p.nombre.toLowerCase() === jNameDel.toLowerCase());
+            if (pObj) { pObj.agencia = ''; saveState(); }
+          }
           renderAgJugadores();
         });
       });
@@ -8402,15 +9195,15 @@
     // Logo Upload Handler
     const inputLogo = document.getElementById('inputAgencyLogo');
     document.getElementById('btnUploadAgencyLogo')?.addEventListener('click', () => inputLogo.click());
-    inputLogo?.addEventListener('change', (e) => {
+    inputLogo?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          logoData = ev.target.result;
+        try {
+          logoData = await compressImage(file);
           document.getElementById('btnUploadAgencyLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
+        }
       }
     });
 
@@ -8688,17 +9481,82 @@
     function renderAgtJugadores() {
       const ul = document.getElementById('agtJugadoresList');
       if (!ul) return;
-      ul.innerHTML = localJugadoresList.map((j, idx) => `
-        <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
-          <span>${escapeHtml(typeof j === 'string' ? j : j.nombre)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-agt-jugador" data-idx="${idx}" style="width: 22px; height: 22px;">
+
+      const agtNameLower = (nombre || agt.nombre || agt.nombreCompleto || '').trim().toLowerCase();
+      const allLinkedPlayersMap = new Map();
+
+      // 1. From localJugadoresList
+      localJugadoresList.forEach(item => {
+        const jName = typeof item === 'object' ? item.nombre : item;
+        if (jName) {
+          const matchPlayer = (state.directory.jugadores || []).find(p => p.nombre?.toLowerCase() === jName.toLowerCase());
+          allLinkedPlayersMap.set(jName.toLowerCase(), {
+            id: matchPlayer ? matchPlayer.id : (typeof item === 'object' ? item.id : null),
+            nombre: jName,
+            posicion: matchPlayer ? (matchPlayer.posicion || matchPlayer.posicionPrincipal || '') : '',
+            equipo: matchPlayer ? matchPlayer.equipo : ''
+          });
+        }
+      });
+
+      // 2. From state.directory.jugadores
+      if (agtNameLower && state.directory.jugadores) {
+        state.directory.jugadores.forEach(p => {
+          if (p.agente && p.agente.trim().toLowerCase() === agtNameLower) {
+            if (!allLinkedPlayersMap.has(p.nombre.toLowerCase())) {
+              allLinkedPlayersMap.set(p.nombre.toLowerCase(), {
+                id: p.id,
+                nombre: p.nombre,
+                posicion: p.posicion || p.posicionPrincipal || '',
+                equipo: p.equipo || ''
+              });
+            }
+          }
+        });
+      }
+
+      const combinedList = Array.from(allLinkedPlayersMap.values());
+
+      if (combinedList.length === 0) {
+        ul.innerHTML = `<li style="padding: 8px; color: var(--text-muted); font-size: 12px; font-style: italic;">Sin jugadores representados vinculados</li>`;
+        return;
+      }
+
+      ul.innerHTML = combinedList.map((j) => `
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${j.posicion ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 10px; padding: 2px 6px;">${escapeHtml(j.posicion)}</span>` : ''}
+            <span class="btn-open-player-from-agent cursor-pointer" data-playerid="${j.id || ''}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
+              ${escapeHtml(j.nombre)}
+            </span>
+            ${j.equipo ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.equipo)})</span>` : ''}
+          </div>
+          <button type="button" class="btn-action-icon danger btn-del-agt-jugador" data-jname="${escapeHtml(j.nombre)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
       `).join('');
+
+      ul.querySelectorAll('.btn-open-player-from-agent').forEach(span => {
+        span.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const pId = span.dataset.playerid;
+          if (pId) {
+            card.classList.remove('large');
+            hideModal();
+            openPlayerModal(pId);
+          }
+        });
+      });
+
       ul.querySelectorAll('.btn-del-agt-jugador').forEach(btn => {
         btn.addEventListener('click', () => {
-          localJugadoresList.splice(parseInt(btn.dataset.idx, 10), 1);
+          const jNameDel = btn.dataset.jname;
+          localJugadoresList = localJugadoresList.filter(item => (typeof item === 'object' ? item.nombre : item).toLowerCase() !== jNameDel.toLowerCase());
+          if (state.directory.jugadores) {
+            const pObj = state.directory.jugadores.find(p => p.nombre.toLowerCase() === jNameDel.toLowerCase());
+            if (pObj) { pObj.agente = ''; saveState(); }
+          }
           renderAgtJugadores();
         });
       });
@@ -8719,15 +9577,15 @@
     // Photo Upload Handler
     const inputFoto = document.getElementById('inputAgentFoto');
     document.getElementById('btnUploadAgentFoto')?.addEventListener('click', () => inputFoto.click());
-    inputFoto?.addEventListener('change', (e) => {
+    inputFoto?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          fotoData = ev.target.result;
+        try {
+          fotoData = await compressImage(file);
           document.getElementById('btnUploadAgentFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir foto:', err);
+        }
       }
     });
 
@@ -8746,6 +9604,7 @@
     const dimensiones = est.dimensiones || '';
 
     const localidad = est.localidad || est.ciudad || '';
+    const comunidad = est.comunidad || est.comunidadAutonoma || '';
     const telefono = est.telefono || est.telefonoContacto || '';
     const gmaps = est.gmaps || est.googleMaps || '';
     const direccion = est.direccion || est.direccionCompleta || '';
@@ -8821,10 +9680,18 @@
 
           <!-- TAB 2: UBICACIÓN -->
           <div class="est-tab-pane hidden" id="esttab-ubicacion">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">LOCALIDAD</label>
-                <input type="text" id="estLocalidad" class="form-control" placeholder="Ej: Madrid" value="${escapeHtml(localidad)}">
+                <input type="text" id="estLocalidad" class="form-control" placeholder="Ej: Madrid, Pamplona..." value="${escapeHtml(localidad)}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">COMUNIDAD AUTÓNOMA</label>
+                <select id="estComunidad" class="form-control">
+                  <option value="">Seleccionar comunidad...</option>
+                  ${['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].map(c => `<option value="${escapeHtml(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                  ${comunidad && !['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].includes(comunidad) ? `<option value="${escapeHtml(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
+                </select>
               </div>
               <div class="form-group">
                 <label class="form-label">TELÉFONO CONTACTO</label>
@@ -8894,6 +9761,7 @@
         dimensiones: document.getElementById('estDimensiones').value.trim(),
 
         localidad: document.getElementById('estLocalidad').value.trim(),
+        comunidad: document.getElementById('estComunidad').value.trim(),
         telefono: document.getElementById('estTelefono').value.trim(),
         gmaps: document.getElementById('estGmaps').value.trim(),
         direccion: document.getElementById('estDireccion').value.trim(),
@@ -8991,15 +9859,15 @@
     // Photo Upload Handler
     const inputFoto = document.getElementById('inputStadiumFoto');
     document.getElementById('btnUploadStadiumFoto')?.addEventListener('click', () => inputFoto.click());
-    inputFoto?.addEventListener('change', (e) => {
+    inputFoto?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          fotoData = ev.target.result;
+        try {
+          fotoData = await compressImage(file);
           document.getElementById('btnUploadStadiumFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Error al comprimir foto:', err);
+        }
       }
     });
 
@@ -9008,9 +9876,136 @@
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function renderDirectorio() {
+  let currentDirectoryPage = 1;
+  let currentSubCategoryFilter = 'TODOS';
+  let currentSubGroupFilter = 'TODOS';
+  let currentFederationFilter = 'TODAS';
+  let currentComunidadFilter = 'TODAS';
+  const DIR_PAGE_SIZE = 25;
+
+  function renderDirectorio(tabOverride = null, pageOverride = null) {
+    if (tabOverride) {
+      if (currentDirectoryTab !== tabOverride) {
+        currentDirectoryTab = tabOverride;
+        currentSubCategoryFilter = 'TODOS';
+        currentFederationFilter = 'TODAS';
+        currentDirectoryPage = 1;
+      }
+    }
+    if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
+
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
-    const items = state.directory[currentDirectoryTab] || [];
+    const rawItems = [...(state.directory[currentDirectoryTab] || [])];
+
+    // 1. Universal Alphabetical Sorting (A-Z)
+    rawItems.sort((a, b) => {
+      const nameA = (a.nombre || a.equipo || a.jugador || a.titulo || a.agencia || a.agente || a.federacion || '').toLowerCase().trim();
+      const nameB = (b.nombre || b.equipo || b.jugador || b.titulo || b.agencia || b.agente || b.federacion || '').toLowerCase().trim();
+      return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+    });
+
+    // 2. Secondary Sub-filtering (Category and Group for Equipos, Federation for Clubes/Selecciones/Convocatorias, Comunidad for Estadios)
+    let subFilteredItems = rawItems;
+    if (currentDirectoryTab === 'equipos') {
+      if (currentSubCategoryFilter !== 'TODOS') {
+        subFilteredItems = subFilteredItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
+      }
+      if (currentSubGroupFilter !== 'TODOS') {
+        subFilteredItems = subFilteredItems.filter(eq => (eq.grupo || 'Sin Grupo').toUpperCase().trim() === currentSubGroupFilter.toUpperCase().trim());
+      }
+    } else if (currentDirectoryTab === 'estadios' && currentComunidadFilter !== 'TODAS') {
+      subFilteredItems = subFilteredItems.filter(est => (est.comunidad || 'Sin Comunidad').toUpperCase().trim() === currentComunidadFilter.toUpperCase().trim());
+    } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab) && currentFederationFilter !== 'TODAS') {
+      subFilteredItems = subFilteredItems.filter(item => {
+        const itemFed = (item.federacion || item.federacionVinculada || item.ambito || 'Sin Federación').toUpperCase().trim();
+        return itemFed.includes(currentFederationFilter.toUpperCase().trim()) || currentFederationFilter.toUpperCase().trim().includes(itemFed);
+      });
+    }
+
+    // 3. Search Filter
+    const filtered = subFilteredItems.filter(item => {
+      const text = Object.values(item).join(' ').toLowerCase();
+      return !searchVal || text.includes(searchVal);
+    });
+
+    // 4. Sub-filter Pills Bar Generation
+    let subFilterBarHTML = '';
+    if (currentDirectoryTab === 'equipos') {
+      const categoriesSet = new Set(rawItems.map(eq => (eq.categoria || 'Sin Categoría').trim()).filter(Boolean));
+      const categories = Array.from(categoriesSet).sort((a, b) => a.localeCompare(b, 'es'));
+      const allCats = ['TODOS', ...categories];
+
+      const teamsForGroups = currentSubCategoryFilter === 'TODOS' ? rawItems : rawItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
+      const groupsSet = new Set(teamsForGroups.map(eq => (eq.grupo || 'Sin Grupo').trim()).filter(Boolean));
+      const groups = Array.from(groupsSet).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+      const allGroups = ['TODOS', ...groups];
+
+      subFilterBarHTML = `
+        <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="filter" style="width: 14px;"></i> Categoría:
+            </span>
+            ${allCats.map(cat => `
+              <button type="button" class="btn-dir-subfilter ${currentSubCategoryFilter === cat ? 'active' : ''}" data-type="categoria" data-val="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentSubCategoryFilter === cat ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentSubCategoryFilter === cat ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentSubCategoryFilter === cat ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
+                ${escapeHtml(cat)}
+              </button>
+            `).join('')}
+          </div>
+
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed var(--border-light); padding-top: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="layers" style="width: 14px;"></i> Grupo:
+            </span>
+            ${allGroups.map(grp => `
+              <button type="button" class="btn-dir-subfilter ${currentSubGroupFilter === grp ? 'active' : ''}" data-type="grupo" data-val="${escapeHtml(grp)}" style="padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${currentSubGroupFilter === grp ? '#059669' : 'var(--border-light)'}; background: ${currentSubGroupFilter === grp ? '#059669' : '#ffffff'}; color: ${currentSubGroupFilter === grp ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
+                ${escapeHtml(grp)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab)) {
+      const fedsSet = new Set(rawItems.map(item => (item.federacion || item.federacionVinculada || 'Sin Federación').trim()).filter(Boolean));
+      if (state.directory.federaciones && state.directory.federaciones.length) {
+        state.directory.federaciones.forEach(f => {
+          const fName = (f.nombre || f.federacion || '').trim();
+          if (fName) fedsSet.add(fName);
+        });
+      }
+      const feds = Array.from(fedsSet).sort((a, b) => a.localeCompare(b, 'es'));
+      const allFeds = ['TODAS', ...feds];
+      subFilterBarHTML = `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
+          </span>
+          ${allFeds.map(fed => `
+            <button type="button" class="btn-dir-subfilter ${currentFederationFilter === fed ? 'active' : ''}" data-type="federacion" data-val="${escapeHtml(fed)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentFederationFilter === fed ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
+              ${escapeHtml(fed)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    } else if (currentDirectoryTab === 'estadios') {
+      const comunidadesSet = new Set(rawItems.map(est => (est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
+      ['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid'].forEach(c => comunidadesSet.add(c));
+      const comunidades = Array.from(comunidadesSet).sort((a, b) => a.localeCompare(b, 'es'));
+      const allComunidades = ['TODAS', ...comunidades];
+
+      subFilterBarHTML = `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="map-pin" style="width: 14px;"></i> Comunidad:
+          </span>
+          ${allComunidades.map(com => `
+            <button type="button" class="btn-dir-subfilter ${currentComunidadFilter === com ? 'active' : ''}" data-type="comunidad" data-val="${escapeHtml(com)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentComunidadFilter === com ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentComunidadFilter === com ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentComunidadFilter === com ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
+              ${escapeHtml(com)}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
 
     // Dynamically update main header create button text
     const headerBtn = document.getElementById('btnAddNewPlayerHeader');
@@ -9042,10 +10037,32 @@
       }
     }
 
-    const filtered = items.filter(item => {
-      const text = Object.values(item).join(' ').toLowerCase();
-      return !searchVal || text.includes(searchVal);
-    });
+    const totalPages = Math.ceil(filtered.length / DIR_PAGE_SIZE) || 1;
+    if (currentDirectoryPage > totalPages) currentDirectoryPage = totalPages;
+    if (currentDirectoryPage < 1) currentDirectoryPage = 1;
+
+    const startIdx = (currentDirectoryPage - 1) * DIR_PAGE_SIZE;
+    const endIdx = startIdx + DIR_PAGE_SIZE;
+    const pageItems = filtered.slice(startIdx, endIdx);
+
+    const paginationBarHTML = filtered.length > DIR_PAGE_SIZE ? `
+      <div class="directory-pagination-bar" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-top: 20px;">
+        <span style="font-size: 13px; color: var(--text-muted); font-weight: 700;">
+          Mostrando ${filtered.length ? startIdx + 1 : 0} - ${Math.min(endIdx, filtered.length)} de ${filtered.length} registros (Página ${currentDirectoryPage} de ${totalPages})
+        </span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn btn-secondary btn-dir-prev-page" ${currentDirectoryPage <= 1 ? 'disabled' : ''} style="padding: 6px 14px; font-size: 12px; font-weight: 800;">
+            ‹ Anterior
+          </button>
+          <span style="font-size: 13px; font-weight: 800; color: var(--text-main); padding: 0 8px;">
+            ${currentDirectoryPage} / ${totalPages}
+          </span>
+          <button type="button" class="btn btn-secondary btn-dir-next-page" ${currentDirectoryPage >= totalPages ? 'disabled' : ''} style="padding: 6px 14px; font-size: 12px; font-weight: 800;">
+            Siguiente ›
+          </button>
+        </div>
+      </div>
+    ` : '';
 
     const bulkToolbarHTML = `
       <div class="directory-bulk-toolbar mb-3">
@@ -9076,7 +10093,7 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(j => `
+            ${pageItems.map(j => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9098,7 +10115,7 @@
 
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
                   <div><strong>Estado:</strong> <span class="match-category-tag" style="background-color: var(--bg-subtle); color: var(--text-muted);">${escapeHtml(j.estado || 'ALTA')}</span></div>
-                  <div><strong>Año / Cat:</strong> ${escapeHtml(j.ano || j.anoNac || '2006')} (${escapeHtml(j.categoria || 'Senior')})</div>
+                  <div><strong>Sub:</strong> <span class="match-category-tag" style="background-color: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(calculateSubCategory(j.ano || j.anoNac) || j.sub || 'Sub19')}</span> ${j.ano ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.ano)})</span>` : ''}</div>
                   ${j.disponibilidad ? `<div><strong>Disponibilidad:</strong> ${escapeHtml(j.disponibilidad)}</div>` : ''}
                 </div>
 
@@ -9108,6 +10125,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.player-name-link, .btn-open-player-modal').forEach(el => {
@@ -9126,9 +10144,10 @@
         });
       } else if (currentDirectoryTab === 'clubes') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(c => `
+            ${pageItems.map(c => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9169,6 +10188,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.club-name-link, .btn-open-club-modal').forEach(el => {
@@ -9187,21 +10207,69 @@
         });
       } else if (currentDirectoryTab === 'equipos') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(eq => `
-              <div class="entity-card">
+            ${pageItems.map(eq => {
+              const parentC = findParentClub(eq);
+
+              if (parentC) {
+                const parentLogo = parentC.logo || parentC.escudo;
+                if (parentLogo && !eq.escudo) {
+                  eq.escudo = parentLogo;
+                  eq.logo = parentLogo;
+                }
+                if (parentC.colorPrimary && (!eq.colorPrimary || eq.colorPrimary === '#2563eb')) {
+                  eq.colorPrimary = parentC.colorPrimary;
+                }
+                if (parentC.colorSecondary && (!eq.colorSecondary || eq.colorSecondary === '#ffffff')) {
+                  eq.colorSecondary = parentC.colorSecondary;
+                }
+              }
+
+              const eqPriColor = (eq.colorPrimary && eq.colorPrimary !== '#2563eb') ? eq.colorPrimary : (parentC ? (parentC.colorPrimary || parentC.colorPrimario || parentC.color1 || parentC.colorCamiseta) : null) || eq.colorPrimary || '#2563eb';
+              const eqSecColor = (eq.colorSecondary && eq.colorSecondary !== '#ffffff') ? eq.colorSecondary : (parentC ? (parentC.colorSecondary || parentC.colorSecundario || parentC.color2) : null) || eq.colorSecondary || '#ffffff';
+              
+              const eqLogo = eq.escudo || eq.logo || (parentC ? parentC.logo || parentC.escudo : '');
+              const clubCodigo = parentC ? (parentC.codigo || '') : (eq.codigo || '');
+              const targetNameForEscudo = parentC ? (parentC.nombre || parentC.equipo || eq.nombre) : (eq.clubVinculado || eq.nombre);
+              const cleanName = (targetNameForEscudo || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_');
+              const localEscudoPath = `./escudos/${cleanName}.png`;
+              const finalImgSrc = eqLogo || (clubCodigo ? `./escudos/${clubCodigo}.png` : localEscudoPath);
+
+              return `
+              <div class="entity-card" style="border-top: 5px solid ${eqPriColor} !important;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
-                    <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background-color: var(--primary-blue-light); color: var(--primary-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; overflow: hidden; border: 1px solid var(--border-light);">
-                      ${eq.escudo || eq.logo ? `<img src="${eq.escudo || eq.logo}" style="width: 100%; height: 100%; object-fit: contain;">` : (eq.nombre ? eq.nombre.charAt(0) : 'E')}
+                    <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: transparent; color: ${eqPriColor}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; padding: 2px;">
+                      ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain; background: transparent !important;">` : `
+                        <img src="${finalImgSrc}" data-tried="0" onerror="
+                          if (this.dataset.tried === '0' && '${clubCodigo}') {
+                            this.dataset.tried = '1';
+                            this.src = 'https://www.futnavarra.es/images/escudos/${clubCodigo}.png';
+                          } else if (this.dataset.tried === '0' || this.dataset.tried === '1') {
+                            this.dataset.tried = '2';
+                            this.src = 'https://www.futnavarra.es/images/escudos/${cleanName}.png';
+                          } else {
+                            this.style.display = 'none';
+                            if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
+                          }
+                        " style="width: 100%; height: 100%; object-fit: contain; background: transparent !important;">
+                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; background: ${eqPriColor}; color: #ffffff; border-radius: 4px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
+                      `}
                     </div>
                     <div>
                       <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id}" title="Ver Ficha de ${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px;">
                         ${escapeHtml(eq.nombre)} <i data-lucide="external-link" style="width: 12px; opacity: 0.7;"></i>
                       </h3>
-                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(eq.categoria || 'Sin Cat.')} | ${escapeHtml(eq.temporada || '26/27')}</span>
+                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">
+                        ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
+                        <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
+                          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqPriColor}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${eqPriColor}"></span>
+                          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqSecColor}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${eqSecColor}"></span>
+                        </span>
+                      </span>
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id}" style="width: 28px; height: 28px;">
@@ -9210,7 +10278,7 @@
                 </div>
 
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
-                  <div><strong>Club:</strong> ${escapeHtml(eq.clubVinculado || eq.club || 'N/A')}</div>
+                  <div><strong>Club:</strong> ${escapeHtml(eq.clubVinculado || eq.club || (parentC ? parentC.nombre : 'N/A'))}</div>
                   <div><strong>Competición:</strong> ${escapeHtml(eq.competicion || 'N/A')}</div>
                   <div><strong>Federación:</strong> ${escapeHtml(eq.federacion || 'N/A')}</div>
                 </div>
@@ -9219,8 +10287,10 @@
                   <i data-lucide="users"></i> Ver / Editar Ficha de Equipo
                 </button>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.team-name-link, .btn-open-team-modal').forEach(el => {
@@ -9241,7 +10311,7 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(f => `
+            ${pageItems.map(f => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9273,6 +10343,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.fed-name-link, .btn-open-fed-modal').forEach(el => {
@@ -9291,9 +10362,10 @@
         });
       } else if (currentDirectoryTab === 'selecciones') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(s => `
+            ${pageItems.map(s => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9325,6 +10397,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.selection-name-link, .btn-open-selection-modal').forEach(el => {
@@ -9343,9 +10416,10 @@
         });
       } else if (currentDirectoryTab === 'convocatorias') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(c => `
+            ${pageItems.map(c => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9377,6 +10451,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.conv-name-link, .btn-open-conv-modal').forEach(el => {
@@ -9397,7 +10472,7 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(t => `
+            ${pageItems.map(t => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9428,6 +10503,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.trn-name-link, .btn-open-trn-modal').forEach(el => {
@@ -9448,7 +10524,7 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(s => `
+            ${pageItems.map(s => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9480,6 +10556,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.staff-name-link, .btn-open-staff-modal').forEach(el => {
@@ -9500,7 +10577,18 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(ag => `
+            ${pageItems.map(ag => {
+              const agNameLower = (ag.nombre || ag.agencia || '').trim().toLowerCase();
+              const linkedCountMap = new Set();
+              (ag.jugadoresRepresentados || []).forEach(j => linkedCountMap.add((typeof j === 'object' ? j.nombre : j).toLowerCase()));
+              (state.directory.jugadores || []).forEach(p => {
+                if (p.agencia && p.agencia.trim().toLowerCase() === agNameLower) {
+                  linkedCountMap.add(p.nombre.toLowerCase());
+                }
+              });
+              const totalCount = linkedCountMap.size;
+
+              return `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9523,15 +10611,16 @@
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
                   <div><strong>Email:</strong> ${escapeHtml(ag.email || 'N/A')}</div>
                   <div><strong>Teléfono:</strong> ${escapeHtml(ag.telefono || 'N/A')}</div>
-                  <div><strong>Representados:</strong> ${(ag.jugadoresRepresentados && ag.jugadoresRepresentados.length) ? ag.jugadoresRepresentados.length + ' jugador(es)' : 'Sin representados'}</div>
+                  <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
                 <button type="button" class="btn btn-secondary btn-open-agency-modal" data-id="${ag.id}" style="width: 100%; padding: 6px 12px; font-size: 12px;">
                   <i data-lucide="briefcase"></i> Ver / Editar Ficha de Agencia
                 </button>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.agency-name-link, .btn-open-agency-modal').forEach(el => {
@@ -9552,7 +10641,18 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(agt => `
+            ${pageItems.map(agt => {
+              const agtNameLower = (agt.nombre || agt.agente || '').trim().toLowerCase();
+              const linkedCountMap = new Set();
+              (agt.jugadoresRepresentados || []).forEach(j => linkedCountMap.add((typeof j === 'object' ? j.nombre : j).toLowerCase()));
+              (state.directory.jugadores || []).forEach(p => {
+                if (p.agente && p.agente.trim().toLowerCase() === agtNameLower) {
+                  linkedCountMap.add(p.nombre.toLowerCase());
+                }
+              });
+              const totalCount = linkedCountMap.size;
+
+              return `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9575,15 +10675,16 @@
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
                   <div><strong>Email:</strong> ${escapeHtml(agt.email || 'N/A')}</div>
                   <div><strong>Teléfono:</strong> ${escapeHtml(agt.telefono || 'N/A')}</div>
-                  <div><strong>Representados:</strong> ${(agt.jugadoresRepresentados && agt.jugadoresRepresentados.length) ? agt.jugadoresRepresentados.length + ' jugador(es)' : 'Sin representados'}</div>
+                  <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
                 <button type="button" class="btn btn-secondary btn-open-agent-modal" data-id="${agt.id}" style="width: 100%; padding: 6px 12px; font-size: 12px;">
                   <i data-lucide="user-cog"></i> Ver / Editar Ficha de Agente
                 </button>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.agent-name-link, .btn-open-agent-modal').forEach(el => {
@@ -9602,9 +10703,10 @@
         });
       } else if (currentDirectoryTab === 'estadios') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(est => `
+            ${pageItems.map(est => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -9616,7 +10718,7 @@
                       <h3 class="entity-card-title stadium-name-link cursor-pointer" data-id="${est.id}" title="Ver Ficha de ${escapeHtml(est.nombre)}" style="margin: 0; font-size: 15px;">
                         ${escapeHtml(est.nombre)} <i data-lucide="external-link" style="width: 12px; opacity: 0.7;"></i>
                       </h3>
-                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(est.localidad || 'N/A')} | ${escapeHtml(est.superficie || 'Superficie N/A')}</span>
+                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(est.localidad || 'Localidad N/A')} ${est.comunidad ? `(${escapeHtml(est.comunidad)})` : ''} | ${escapeHtml(est.superficie || 'Superficie N/A')}</span>
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${est.id}" style="width: 28px; height: 28px;">
@@ -9636,6 +10738,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.stadium-name-link, .btn-open-stadium-modal').forEach(el => {
@@ -9656,7 +10759,7 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${filtered.map(item => `
+            ${pageItems.map(item => `
               <div class="entity-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                   <div style="display: flex; align-items: center; gap: 8px;">
@@ -9675,6 +10778,7 @@
               </div>
             `).join('')}
           </div>
+          ${paginationBarHTML}
         `;
 
         container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
@@ -9739,10 +10843,43 @@
       });
     }
 
+    container.querySelectorAll('.btn-dir-subfilter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const val = btn.dataset.val;
+        if (type === 'categoria') {
+          currentSubCategoryFilter = val;
+          currentSubGroupFilter = 'TODOS';
+        } else if (type === 'grupo') {
+          currentSubGroupFilter = val;
+        } else if (type === 'federacion') {
+          currentFederationFilter = val;
+        } else if (type === 'comunidad') {
+          currentComunidadFilter = val;
+        }
+        currentDirectoryPage = 1;
+        renderDirectorio();
+      });
+    });
+
+    container.querySelectorAll('.btn-dir-prev-page').forEach(btn => {
+      btn.addEventListener('click', () => {
+        renderDirectorio(null, currentDirectoryPage - 1);
+      });
+    });
+    container.querySelectorAll('.btn-dir-next-page').forEach(btn => {
+      btn.addEventListener('click', () => {
+        renderDirectorio(null, currentDirectoryPage + 1);
+      });
+    });
+
     if (window.lucide) window.lucide.createIcons();
   }
 
-  document.getElementById('dirSearchInput')?.addEventListener('input', renderDirectorio);
+  document.getElementById('dirSearchInput')?.addEventListener('input', () => {
+    currentDirectoryPage = 1;
+    renderDirectorio();
+  });
   document.getElementById('btnResetDirFilters')?.addEventListener('click', () => {
     const input = document.getElementById('dirSearchInput');
     if (input) input.value = '';
@@ -12195,18 +13332,15 @@
 
     const logoFileInput = document.getElementById('lLogoFile');
     document.getElementById('btnUploadLogoFile')?.addEventListener('click', () => logoFileInput.click());
-    logoFileInput?.addEventListener('change', (e) => {
+    logoFileInput?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        if (file.size > 2 * 1024 * 1024) {
-          alert('La imagen no debe superar los 2MB');
-          return;
+        try {
+          const comp = await compressImage(file);
+          document.getElementById('lLogo').value = comp;
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
         }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          document.getElementById('lLogo').value = ev.target.result;
-        };
-        reader.readAsDataURL(file);
       }
     });
   });
@@ -12323,18 +13457,15 @@
 
     const editLogoFileInput = document.getElementById('elLogoFile');
     document.getElementById('btnEditUploadLogoFile')?.addEventListener('click', () => editLogoFileInput.click());
-    editLogoFileInput?.addEventListener('change', (e) => {
+    editLogoFileInput?.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        if (file.size > 2 * 1024 * 1024) {
-          alert('La imagen no debe superar los 2MB');
-          return;
+        try {
+          const comp = await compressImage(file);
+          document.getElementById('elLogo').value = comp;
+        } catch (err) {
+          console.error('Error al comprimir logo:', err);
         }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          document.getElementById('elLogo').value = ev.target.result;
-        };
-        reader.readAsDataURL(file);
       }
     });
   }
@@ -12370,39 +13501,73 @@
     saveState();
   });
 
-  // Backup Export JSON
-  document.getElementById('btnExportBackup')?.addEventListener('click', () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `RS_Scouting_CopiaSeguridad_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  });
+  // Helper de Exportación JSON seguro usando Blob
+  function exportBackupJSON() {
+    try {
+      const dataStr = JSON.stringify(state, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.href = url;
+      downloadAnchor.download = `RS_Scouting_CopiaSeguridad_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      URL.revokeObjectURL(url);
+      if (typeof showNotification === 'function') {
+        showNotification('💾 Copia de seguridad exportada con éxito.', 'success');
+      } else {
+        alert('💾 Copia de seguridad exportada con éxito en tu directorio local.');
+      }
+    } catch (e) {
+      console.error('Error export JSON:', e);
+      alert('Error al exportar la copia de seguridad: ' + e.message);
+    }
+  }
 
-  // Backup Import JSON
-  document.getElementById('inputImportBackup')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
+  // Backup Export JSON Listeners
+  document.getElementById('btnExportBackup')?.addEventListener('click', exportBackupJSON);
+  document.getElementById('btnHeaderExportBackup')?.addEventListener('click', exportBackupJSON);
+
+  // Backup Import JSON Listener
+  const handleImportBackup = (file) => {
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const imported = JSON.parse(event.target.result);
-        if (imported.matches && imported.reports && imported.directory) {
-          state = imported;
-          saveState();
-          alert('¡Copia de seguridad restaurada correctamente!');
-          window.location.reload();
+        if (imported && typeof imported === 'object') {
+          if (confirm('⚠️ ¿Deseas restaurar esta copia de seguridad?\n\nSe actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.')) {
+            state = imported;
+            saveState();
+            if (db) {
+              await syncAllToFirebase(false);
+            }
+            if (typeof renderAllViews === 'function') {
+              renderAllViews();
+            }
+            alert('📂 ¡Copia de seguridad restaurada correctamente y sincronizada con Firebase!');
+          }
         } else {
-          alert('El archivo JSON no tiene la estructura adecuada de RS Scouting');
+          alert('El archivo JSON no tiene el formato adecuado.');
         }
       } catch (err) {
         alert('Error al leer el archivo JSON: ' + err.message);
       }
     };
     reader.readAsText(file);
+  };
+
+  document.getElementById('inputImportBackup')?.addEventListener('change', (e) => {
+    handleImportBackup(e.target.files[0]);
+  });
+
+  // Botón manual de sincronización con Firebase
+  document.getElementById('btnSyncFirebase')?.addEventListener('click', () => {
+    syncAllToFirebase(true);
+  });
+  document.getElementById('btnHeaderSyncFirebase')?.addEventListener('click', () => {
+    syncAllToFirebase(true);
   });
 
   async function clearAllFirebaseData() {
@@ -12531,6 +13696,110 @@
   }
 
   // --------------------------------------------------------------------------
+  // Global Smart Option-Search & Datalist Auto-Select Handler
+  // --------------------------------------------------------------------------
+  document.addEventListener('focusin', (e) => {
+    const input = e.target;
+    if (!input || input.tagName !== 'INPUT') return;
+
+    if (input.getAttribute('list') || input.id.toLowerCase().includes('search') || (input.placeholder && input.placeholder.toLowerCase().includes('buscar'))) {
+      setTimeout(() => {
+        try { input.select(); } catch (err) {}
+      }, 50);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const input = e.target;
+    if (!input || input.tagName !== 'INPUT') return;
+
+    if (input.getAttribute('list')) {
+      setTimeout(() => {
+        try { input.select(); } catch (err) {}
+      }, 50);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!input || input.tagName !== 'INPUT') return;
+
+    if (e.key === 'Escape') {
+      if (input.getAttribute('list') || input.id.toLowerCase().includes('search') || (input.placeholder && input.placeholder.toLowerCase().includes('buscar'))) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.blur();
+      }
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Global Search Input Clear Button (X) Setup
+  // --------------------------------------------------------------------------
+  function setupInputClearButtons() {
+    const attachClearBtn = (inputEl) => {
+      if (!inputEl || inputEl._hasClearBtn) return;
+      if (inputEl.tagName !== 'INPUT') return;
+      const type = inputEl.type || 'text';
+      if (['hidden', 'checkbox', 'radio', 'color', 'file', 'submit', 'button', 'date'].includes(type)) return;
+
+      const idLower = (inputEl.id || '').toLowerCase();
+      const phLower = (inputEl.placeholder || '').toLowerCase();
+      const isSearchOrDatalist = inputEl.hasAttribute('list') || idLower.includes('search') || phLower.includes('buscar') || type === 'search' || inputEl.classList.contains('form-control');
+
+      if (!isSearchOrDatalist) return;
+
+      inputEl._hasClearBtn = true;
+      const parent = inputEl.parentNode;
+      if (parent && getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+      }
+
+      const clearBtn = document.createElement('span');
+      clearBtn.className = 'input-clear-btn';
+      clearBtn.innerHTML = '✕';
+      clearBtn.title = 'Borrar lo anotado';
+      clearBtn.style.display = 'none';
+
+      if (parent) {
+        parent.appendChild(clearBtn);
+      }
+
+      const updateBtnVisibility = () => {
+        if (inputEl.value && inputEl.value.trim() !== '') {
+          clearBtn.style.display = 'flex';
+        } else {
+          clearBtn.style.display = 'none';
+        }
+      };
+
+      inputEl.addEventListener('input', updateBtnVisibility);
+      inputEl.addEventListener('keyup', updateBtnVisibility);
+      inputEl.addEventListener('change', updateBtnVisibility);
+      inputEl.addEventListener('focus', updateBtnVisibility);
+
+      clearBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        inputEl.value = '';
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        inputEl.focus();
+        clearBtn.style.display = 'none';
+      });
+
+      updateBtnVisibility();
+    };
+
+    document.querySelectorAll('input').forEach(attachClearBtn);
+
+    const observer = new MutationObserver(() => {
+      document.querySelectorAll('input').forEach(attachClearBtn);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  // --------------------------------------------------------------------------
   // 12. App Initialization
   // --------------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
@@ -12540,6 +13809,7 @@
     initAgendaFilters();
     initNotificationsSystem();
     initFirebaseRealtimeListener();
+    setupInputClearButtons();
     
     // Apply saved brand name & theme
     if (state.settings.appName) {

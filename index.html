@@ -65,7 +65,13 @@
           <i data-lucide="settings"></i>
           <span>Configuración</span>
         </button>
-        <div class="notifications-nav-wrapper" style="position: relative; display: inline-flex; align-items: center;">
+        <div class="notifications-nav-wrapper" style="position: relative; display: inline-flex; align-items: center; gap: 6px;">
+          <button class="nav-icon-btn" id="btnHeaderSyncFirebase" title="Sincronizar Todo con Firebase">
+            <i data-lucide="cloud"></i>
+          </button>
+          <button class="nav-icon-btn" id="btnHeaderExportBackup" title="Guardar Copia de Seguridad Local (JSON)">
+            <i data-lucide="download"></i>
+          </button>
           <button class="nav-icon-btn" id="btnNotifications" title="Notificaciones de Agenda">
             <i data-lucide="bell"></i>
             <span id="notifBadgeCount" class="notif-badge hidden">0</span>
@@ -557,7 +563,7 @@
                 <!-- Suplentes Header & Rows -->
                 <div class="suplentes-divider">SUPLENTES</div>
                 <div class="lineup-rows" id="localSuplentesRows">
-                  <!-- 5 Suplentes rows rendered by JS -->
+                  <!-- 11 Suplentes rows rendered by JS -->
                 </div>
               </div>
 
@@ -742,7 +748,7 @@
                 <!-- Suplentes Header & Rows -->
                 <div class="suplentes-divider">SUPLENTES</div>
                 <div class="lineup-rows" id="visitanteSuplentesRows">
-                  <!-- 5 Suplentes rows rendered by JS -->
+                  <!-- 11 Suplentes rows rendered by JS -->
                 </div>
               </div>
 
@@ -1141,16 +1147,19 @@
         <div class="config-card">
           <div class="config-card-title">
             <i data-lucide="database"></i>
-            <h3>Copia de Seguridad y Datos</h3>
+            <h3>Nube Firebase y Copias de Seguridad Locales</h3>
           </div>
           <div class="config-card-body">
-            <p class="text-sm text-muted mb-4">Exporta o importa todos tus informes, jugadores, partidos, agenda y enlaces en un archivo JSON seguro.</p>
+            <p class="text-sm text-muted mb-4">Guarda y sincroniza todos tus datos (informes, agenda, enlaces, directorio e imágenes optimizadas) en la nube de Firebase o expórtalos a tu directorio local en un archivo JSON.</p>
             <div class="btn-group-vertical">
+              <button type="button" class="btn btn-primary" id="btnSyncFirebase" style="font-weight: 700;">
+                <i data-lucide="cloud"></i> ☁️ Sincronizar Todo con Firebase Ahora
+              </button>
               <button type="button" class="btn btn-secondary" id="btnExportBackup">
-                <i data-lucide="download"></i> Exportar Copia de Seguridad (JSON)
+                <i data-lucide="download"></i> 💾 Guardar Copia en Archivo Local (JSON)
               </button>
               <label class="btn btn-outline cursor-pointer">
-                <i data-lucide="upload"></i> Importar Copia de Seguridad (JSON)
+                <i data-lucide="upload"></i> 📂 Cargar Copia desde Archivo Local (JSON)
                 <input type="file" id="inputImportBackup" accept=".json" class="hidden">
               </label>
               <button type="button" class="btn btn-danger" id="btnClearAllData" style="background-color: var(--accent-red); color: white; border: none;">
