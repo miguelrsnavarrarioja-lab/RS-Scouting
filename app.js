@@ -10449,17 +10449,20 @@
       }
       if (selComp) {
         const cur = selComp.value;
-        const opts = getUniques(i => i.competicion || i.torneo || i.liga);
+        const opts = getUniques(i => {
+          const teamComp = getPlayerLinkedTeamCompetition(i);
+          return teamComp || i.competicion || i.torneo || i.liga;
+        });
         selComp.innerHTML = `<option value="">Competición...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
       }
       if (selCat) {
         const cur = selCat.value;
-        const opts = getUniques(i => i.categoria || i.sub || i.grupo);
-        selCat.innerHTML = `<option value="">Categoría...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+        const opts = getUniques(i => i.sub || i.categoria || i.grupo);
+        selCat.innerHTML = `<option value="">Sub...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
       }
       if (selNivel) {
         const cur = selNivel.value;
-        const opts = getUniques(i => i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
+        const opts = getUniques(i => i.rendimientoRS || i.rendimiento || i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
         selNivel.innerHTML = `<option value="">Nivel...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
       }
       if (selPos) {
@@ -10497,15 +10500,16 @@
         if (!itemVal.includes(filterValEquipo)) return false;
       }
       if (filterValComp) {
-        const itemVal = String(item.competicion || item.torneo || item.liga || '').toLowerCase();
+        const teamComp = getPlayerLinkedTeamCompetition(item);
+        const itemVal = String(teamComp || item.competicion || item.torneo || item.liga || '').toLowerCase();
         if (!itemVal.includes(filterValComp)) return false;
       }
       if (filterValCat) {
-        const itemVal = String(item.categoria || item.sub || item.grupo || '').toLowerCase();
+        const itemVal = String(item.sub || item.categoria || item.grupo || '').toLowerCase();
         if (!itemVal.includes(filterValCat)) return false;
       }
       if (filterValNivel) {
-        const itemVal = String(item.nivel || item.nivelCompetitividad || item.tipo || item.comunidad || '').toLowerCase();
+        const itemVal = String(item.rendimientoRS || item.rendimiento || item.nivel || item.nivelCompetitividad || item.tipo || item.comunidad || '').toLowerCase();
         if (!itemVal.includes(filterValNivel)) return false;
       }
       if (filterValPos) {
