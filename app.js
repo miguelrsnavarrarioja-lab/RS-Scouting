@@ -157,9 +157,16 @@
 
     function saveToFirebase(collectionName, item) {
     if (!db || !item || !item.id) return;
+    setFirebaseHeaderStatus('syncing');
     db.collection(collectionName).doc(String(item.id)).set(item, { merge: true })
-      .then(() => console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`))
-      .catch(err => console.error(`Error al guardar ${item.id} en Firebase (${collectionName}):`, err));
+      .then(() => {
+        console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
+        setFirebaseHeaderStatus('synced');
+      })
+      .catch(err => {
+        console.error(`Error al guardar ${item.id} en Firebase (${collectionName}):`, err);
+        setFirebaseHeaderStatus('error');
+      });
   }
 
   function deleteMultipleFromFirebase(collectionName, docIdsArray) {
@@ -253,12 +260,20 @@
         'enlaces': state.links || []
       };
 
+      setFirebaseHeaderStatus('syncing');
       for (const [colName, items] of Object.entries(collectionsMap)) {
         if (Array.isArray(items) && items.length > 0) {
-          for (const item of items) {
-            if (item && item.id) {
-              await db.collection(colName).doc(String(item.id)).set(item, { merge: true });
-            }
+          // Batch write in chunks of 450 to stay well under 500 limit
+          for (let i = 0; i < items.length; i += 450) {
+            const chunk = items.slice(i, i + 450);
+            const batch = db.batch();
+            chunk.forEach(item => {
+              if (item && item.id) {
+                const ref = db.collection(colName).doc(String(item.id));
+                batch.set(ref, item, { merge: true });
+              }
+            });
+            await batch.commit();
           }
         }
       }
@@ -10377,12 +10392,14 @@
 
       filterContainer.querySelectorAll('.dir-dynamic-select').forEach(sel => {
         sel.addEventListener('change', (e) => {
-          const key = sel.dataset.filter-key;
+          const key = sel.getAttribute('data-filter-key');
           const val = e.target.value;
-          if (val) activeFilters[key] = val;
-          else delete activeFilters[key];
-          currentDirectoryPage = 1;
-          renderDirectorio();
+          if (key) {
+            if (val) activeFilters[key] = val;
+            else delete activeFilters[key];
+            currentDirectoryPage = 1;
+            renderDirectorio();
+          }
         });
       });
     };
@@ -10400,8 +10417,31 @@
       });
     }
 
-    // 2. Secondary Sub-filtering (Category and Group for Equipos, Federation for Clubes/Selecciones/Convocatorias, Comunidad for Estadios)
-    let subFilteredItems = rawItems;
+    // 2. Secondary Sub-filtering & Dynamic Section Filters
+    let subFilteredItems = rawItems.filter(item => {
+      if (!item) return false;
+
+      // Filter by active dynamic section dropdowns
+      for (const [fKey, fVal] of Object.entries(activeFilters)) {
+        if (!fVal) continue;
+        const valDirect = item[fKey];
+        const valFallback = fKey === 'posicion' ? (item.posicionPrincipal || item.posicion) :
+                             fKey === 'perfil' ? (item.perfil || item.pieDominante) :
+                             fKey === 'comunidad' ? (item.comunidad || item.provincia || item.region) :
+                             fKey === 'cargo' ? (item.cargo || item.rol) :
+                             fKey === 'localidad' ? (item.localidad || item.pais) :
+                             fKey === 'cesped' ? (item.cesped || item.tipoCesped) :
+                             fKey === 'seleccion' ? (item.seleccion || item.equipo) : null;
+        
+        const itemStr = String(valDirect || valFallback || '').toLowerCase().trim();
+        const targetStr = String(fVal).toLowerCase().trim();
+        if (!itemStr.includes(targetStr)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     if (currentDirectoryTab === 'equipos') {
       if (currentSubCategoryFilter !== 'TODOS') {
         subFilteredItems = subFilteredItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
