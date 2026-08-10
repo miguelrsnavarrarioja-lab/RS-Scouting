@@ -12115,10 +12115,7 @@
         currentSubCategoryFilter = 'TODOS';
         currentFederationFilter = 'TODAS';
         currentDirectoryPage = 1;
-        ['dirFilterAno', 'dirFilterEquipo', 'dirFilterCompeticion', 'dirFilterCategoria', 'dirFilterNivel', 'dirFilterPosicion', 'dirFilterOtro'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.options.length = 0;
-        });
+
       }
     }
     if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
@@ -12137,107 +12134,7 @@
     const rawItems = [...(state.directory[currentDirectoryTab] || [])];
 
     // Helper to render dynamic filter selects for current directory section
-    const renderSectionFiltersUI = () => {
-      const filterContainer = document.getElementById('dirDynamicSectionFilters');
-      if (!filterContainer) return;
-
-      const getUniqueVals = (key, fallbackKey = null) => {
-        const vals = new Set();
-        rawItems.forEach(item => {
-          if (!item) return;
-          const v = item[key] || (fallbackKey ? item[fallbackKey] : null);
-          if (v && typeof v === 'string' && v.trim() !== '') {
-            vals.add(v.trim());
-          }
-        });
-        return Array.from(vals).sort((a, b) => a.localeCompare(b, 'es'));
-      };
-
-      let filterConfigs = [];
-
-      if (currentDirectoryTab === 'jugadores') {
-        filterConfigs = [
-          { key: 'posicion', label: 'Posición', options: getUniqueVals('posicionPrincipal', 'posicion') },
-          { key: 'perfil', label: 'Perfil/Pie', options: getUniqueVals('perfil', 'pieDominante') },
-          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') }
-        ];
-      } else if (currentDirectoryTab === 'clubes') {
-        filterConfigs = [
-          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion', 'delegacion') },
-          { key: 'comunidad', label: 'Comunidad/Prov.', options: getUniqueVals('comunidad', 'provincia') },
-          { key: 'tipo', label: 'Tipo de Club', options: state.customClubTypes || getUniqueVals('tipo') }
-        ];
-      } else if (currentDirectoryTab === 'equipos') {
-        filterConfigs = [
-          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') },
-          { key: 'grupo', label: 'Grupo', options: getUniqueVals('grupo') },
-          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion') }
-        ];
-      } else if (currentDirectoryTab === 'federaciones') {
-        filterConfigs = [
-          { key: 'comunidad', label: 'Comunidad', options: getUniqueVals('comunidad', 'region') }
-        ];
-      } else if (currentDirectoryTab === 'selecciones') {
-        filterConfigs = [
-          { key: 'federacion', label: 'Federación', options: getUniqueVals('federacion') },
-          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') }
-        ];
-      } else if (currentDirectoryTab === 'convocatorias') {
-        filterConfigs = [
-          { key: 'seleccion', label: 'Selección', options: getUniqueVals('seleccion', 'equipo') },
-          { key: 'temporada', label: 'Temporada', options: getUniqueVals('temporada') }
-        ];
-      } else if (currentDirectoryTab === 'torneos') {
-        filterConfigs = [
-          { key: 'categoria', label: 'Categoría', options: getUniqueVals('categoria') },
-          { key: 'tipo', label: 'Tipo', options: getUniqueVals('tipo') }
-        ];
-      } else if (currentDirectoryTab === 'staff') {
-        filterConfigs = [
-          { key: 'cargo', label: 'Cargo', options: getUniqueVals('cargo', 'rol') },
-          { key: 'club', label: 'Club/Equipo', options: getUniqueVals('club', 'equipo') }
-        ];
-      } else if (currentDirectoryTab === 'agencias') {
-        filterConfigs = [
-          { key: 'localidad', label: 'País/Ciudad', options: getUniqueVals('localidad', 'pais') }
-        ];
-      } else if (currentDirectoryTab === 'agentes') {
-        filterConfigs = [
-          { key: 'agencia', label: 'Agencia', options: getUniqueVals('agencia') },
-          { key: 'licencia', label: 'Licencia', options: getUniqueVals('licencia') }
-        ];
-      } else if (currentDirectoryTab === 'estadios') {
-        filterConfigs = [
-          { key: 'comunidad', label: 'Comunidad/Prov.', options: getUniqueVals('comunidad', 'provincia') },
-          { key: 'cesped', label: 'Tipo Césped', options: getUniqueVals('cesped', 'tipoCesped') }
-        ];
-      }
-
-      filterContainer.innerHTML = filterConfigs.map(cfg => {
-        const curVal = activeFilters[cfg.key] || '';
-        return `
-          <select class="dir-dynamic-select" data-filter-key="${cfg.key}">
-            <option value="">${cfg.label}: Todos</option>
-            ${cfg.options.map(opt => `<option value="${escapeHtml(opt)}" ${curVal === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
-          </select>
-        `;
-      }).join('');
-
-      filterContainer.querySelectorAll('.dir-dynamic-select').forEach(sel => {
-        sel.addEventListener('change', (e) => {
-          const key = sel.getAttribute('data-filter-key');
-          const val = e.target.value;
-          if (key) {
-            if (val) activeFilters[key] = val;
-            else delete activeFilters[key];
-            currentDirectoryPage = 1;
-            renderDirectorio();
-          }
-        });
-      });
-    };
-
-    renderSectionFiltersUI();
+    // Section filters removed per user request
 
     // 1. Universal Alphabetical Sorting for most entities, Custom OrderIndex for Federaciones
     if (currentDirectoryTab === 'federaciones') {
@@ -12251,42 +12148,9 @@
     }
 
     // Populate top 7 filter dropdowns with unique values from current tab items (only if options changed)
-    const populateTop7FilterDropdowns = (itemsList) => {
-      const getUniques = (fn) => {
-        const s = new Set();
-        itemsList.forEach(i => {
-          if (!i) return;
-          const v = fn(i);
-          if (v && typeof v === 'string' && v.trim()) s.add(v.trim());
-        });
-        return Array.from(s).sort((a, b) => a.localeCompare(b, 'es'));
-      };
+    // Top filter dropdowns removed per user request
 
-      const populateIfEmpty = (id, defaultLabel, getFn) => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const curVal = sel.value;
-        const opts = getUniques(getFn);
-        // Only rebuild innerHTML if options count changed or selector is empty
-        if (sel.options.length <= 1 || sel.dataset.lastTab !== currentDirectoryTab) {
-          sel.dataset.lastTab = currentDirectoryTab;
-          sel.innerHTML = `<option value="">${defaultLabel}</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${curVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-          sel.value = curVal;
-        }
-      };
-
-      populateIfEmpty('dirFilterAno', 'Año...', i => i.ano || i.anoFundacion || i.nacimiento || (i.temporada ? String(i.temporada).substr(0,4) : ''));
-      populateIfEmpty('dirFilterEquipo', 'Equipo...', i => i.equipo || i.club || i.clubVinculado);
-      populateIfEmpty('dirFilterCompeticion', 'Competición...', i => getPlayerLinkedTeamCompetition(i) || i.competicion || i.torneo || i.liga);
-      populateIfEmpty('dirFilterCategoria', 'Sub...', i => i.sub || i.categoria || i.grupo);
-      populateIfEmpty('dirFilterNivel', 'Nivel...', i => i.rendimientoRS || i.rendimiento || i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
-      populateIfEmpty('dirFilterPosicion', 'Posición...', i => i.posicionPrincipal || i.posicion || i.perfil || i.cargo || i.cesped);
-      populateIfEmpty('dirFilterOtro', 'Filtrar por...', i => i.estado || i.situacion || i.federacion || i.licencia);
-    };
-
-    populateTop7FilterDropdowns(rawItems);
-
-    const filterValAno = document.getElementById('dirFilterAno')?.value.toLowerCase().trim() || '';
+    // Filter vals removed per user request
     const filterValEquipo = document.getElementById('dirFilterEquipo')?.value.toLowerCase().trim() || '';
     const filterValComp = document.getElementById('dirFilterCompeticion')?.value.toLowerCase().trim() || '';
     const filterValCat = document.getElementById('dirFilterCategoria')?.value.toLowerCase().trim() || '';
@@ -12294,60 +12158,8 @@
     const filterValPos = document.getElementById('dirFilterPosicion')?.value.toLowerCase().trim() || '';
     const filterValOtro = document.getElementById('dirFilterOtro')?.value.toLowerCase().trim() || '';
 
-    // 2. Secondary Sub-filtering & Top Filter Bar Evaluation
-    let subFilteredItems = rawItems.filter(item => {
-      if (!item) return false;
-
-      if (filterValAno && !filterValAno.startsWith('año')) {
-        const itemVal = String(item.ano || item.anoFundacion || item.nacimiento || item.temporada || '').toLowerCase();
-        if (!itemVal.includes(filterValAno)) return false;
-      }
-      if (filterValEquipo && !filterValEquipo.startsWith('equipo')) {
-        const itemVal = String(item.equipo || item.club || item.clubVinculado || '').toLowerCase();
-        if (!itemVal.includes(filterValEquipo)) return false;
-      }
-      if (filterValComp && !filterValComp.startsWith('competic')) {
-        const teamComp = typeof getPlayerLinkedTeamCompetition === 'function' ? getPlayerLinkedTeamCompetition(item) : '';
-        const itemVal = String(teamComp || item.competicion || item.torneo || item.liga || '').toLowerCase();
-        if (!itemVal.includes(filterValComp)) return false;
-      }
-      if (filterValCat && !filterValCat.startsWith('sub')) {
-        const itemVal = String(item.sub || item.categoria || item.grupo || '').toLowerCase();
-        if (!itemVal.includes(filterValCat)) return false;
-      }
-      if (filterValNivel && !filterValNivel.startsWith('nivel')) {
-        const itemVal = String(item.rendimientoRS || item.rendimiento || item.nivel || item.nivelCompetitividad || item.tipo || item.comunidad || '').toLowerCase();
-        if (!itemVal.includes(filterValNivel)) return false;
-      }
-      if (filterValPos && !filterValPos.startsWith('posici')) {
-        const itemVal = String(item.posicionPrincipal || item.posicion || item.perfil || item.cargo || item.cesped || '').toLowerCase();
-        if (!itemVal.includes(filterValPos)) return false;
-      }
-      if (filterValOtro && !filterValOtro.startsWith('filtrar')) {
-        const itemVal = String(item.estado || item.situacion || item.federacion || item.licencia || '').toLowerCase();
-        if (!itemVal.includes(filterValOtro)) return false;
-      }
-
-      // Filter by active dynamic section dropdowns
-      for (const [fKey, fVal] of Object.entries(activeFilters)) {
-        if (!fVal) continue;
-        const valDirect = item[fKey];
-        const valFallback = fKey === 'posicion' ? (item.posicionPrincipal || item.posicion) :
-                             fKey === 'perfil' ? (item.perfil || item.pieDominante) :
-                             fKey === 'comunidad' ? (item.comunidad || item.provincia || item.region) :
-                             fKey === 'cargo' ? (item.cargo || item.rol) :
-                             fKey === 'localidad' ? (item.localidad || item.pais) :
-                             fKey === 'cesped' ? (item.cesped || item.tipoCesped) :
-                             fKey === 'seleccion' ? (item.seleccion || item.equipo) : null;
-        
-        const itemStr = String(valDirect || valFallback || '').toLowerCase().trim();
-        const targetStr = String(fVal).toLowerCase().trim();
-        if (!itemStr.includes(targetStr)) {
-          return false;
-        }
-      }
-      return true;
-    });
+    // All items returned cleanly without filter interference
+    let subFilteredItems = rawItems;
 
     if (currentDirectoryTab === 'equipos') {
       if (currentSubCategoryFilter !== 'TODOS') {
