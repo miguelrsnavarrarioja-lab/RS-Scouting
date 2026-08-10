@@ -3589,5 +3589,229 @@ a {
   accent-color: var(--primary-blue, #2563eb);
 }
 
+/* ==========================================================================
+   RESPONSIVE DESIGN SYSTEM: IPAD MINI, IPAD 11", IPHONE 17 & TOUCH DEVICES
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. TABLETS (iPad Mini & iPad 11" / 768px to 1194px)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 1194px) {
+  .header-container {
+    padding: 10px 20px;
+    gap: 12px;
+  }
+
+  .main-nav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-tab {
+    padding: 7px 14px;
+    font-size: 12.5px;
+    flex-shrink: 0;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px;
+  }
+
+  .directory-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px;
+  }
+
+  .dashboard-widgets-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  .links-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. SMARTPHONES & SMALL TABLETS (iPhone 17 & Mobile / < 768px)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  .app-header {
+    position: relative;
+  }
+
+  .header-container {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-badge {
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .brand-logo-img {
+    max-height: 44px;
+    max-width: 120px;
+  }
+
+  .brand-name {
+    font-size: 16px;
+  }
+
+  .main-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding: 4px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-tab {
+    padding: 6px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .nav-tab-logo-img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .app-main {
+    padding: 12px 10px;
+  }
+
+  .dashboard-banner {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .dashboard-welcome h2 {
+    font-size: 18px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+
+  .kpi-card {
+    padding: 12px;
+  }
+
+  .kpi-value {
+    font-size: 20px;
+  }
+
+  .directory-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .dir-subfilter-container,
+  .dir-subfilter-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 8px 10px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dir-subfilter-container::-webkit-scrollbar,
+  .dir-subfilter-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-dir-subfilter {
+    flex-shrink: 0;
+  }
+
+  /* Modales optimizados para móvil */
+  .modal-card {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 8px auto !important;
+    padding: 14px !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    border-radius: 12px !important;
+  }
+
+  /* Formularios en columna única en móvil */
+  .modal-card form div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .player-modal-subtabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .player-modal-subtabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .player-subtab {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .links-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #teamCampogramaPitch {
+    height: 380px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. EXTRA SMALL SCREENS (< 480px / iPhone Compact)
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .btn-action-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 
 
