@@ -244,6 +244,19 @@ a {
   height: 16px;
 }
 
+.nav-tab-logo-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+
+.nav-tab:hover .nav-tab-logo-img,
+.nav-tab.active .nav-tab-logo-img {
+  transform: scale(1.15);
+}
+
 .nav-tab:hover {
   color: var(--text-main);
   background-color: rgba(0, 0, 0, 0.03);

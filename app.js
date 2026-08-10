@@ -15,168 +15,24 @@
       appName: 'RS Scouting',
       theme: 'light'
     },
-    matches: [
-      {
-        id: 'm1',
-        local: 'Real Madrid Juvenil A',
-        visitante: 'Atlético de Madrid Juvenil A',
-        categoria: 'División de Honor',
-        competicion: 'Liga Juvenil Grupo 5',
-        fecha: '2026-08-08',
-        hora: '17:00',
-        estadio: 'Ciudad Real Madrid (Campo 7)',
-        estado: 'programado', // 'visto', 'programado', 'directo'
-        reportId: 'rep1'
-      },
-      {
-        id: 'm2',
-        local: 'FC Barcelona Juvenil A',
-        visitante: 'RCD Espanyol Juvenil A',
-        categoria: 'División de Honor',
-        competicion: 'Liga Juvenil Grupo 3',
-        fecha: '2026-08-04',
-        hora: '18:00',
-        estadio: 'Ciutat Esportiva Joan Gamper',
-        estado: 'visto',
-        reportId: null
-      },
-      {
-        id: 'm3',
-        local: 'Valencia CF Mestalla',
-        visitante: 'Villarreal CF B',
-        categoria: 'Senior',
-        competicion: 'Segunda RFEF',
-        fecha: '2026-08-09',
-        hora: '12:00',
-        estadio: 'Antonio Puchades',
-        estado: 'programado',
-        reportId: null
-      }
-    ],
-    reports: [
-      {
-        id: 'rep1',
-        localTeam: 'Real Madrid Juvenil A',
-        visitanteTeam: 'Atlético de Madrid Juvenil A',
-        localScore: 2,
-        visitanteScore: 1,
-        date: '2026-08-04',
-        time: '17:00',
-        estadio: 'Ciudad Real Madrid',
-        clima: 'Soleado, 26°C',
-        competicion: 'División de Honor Juvenil',
-        categoria: 'Juvenil A',
-        federacion: 'RFFM',
-        localFormation: '1-4-3-3',
-        visitanteFormation: '1-4-4-2',
-        localDifficulty: 4,
-        visitanteDifficulty: 3,
-        localEstiloJuego: 'Presión alta, posesión rápida',
-        visitanteEstiloJuego: 'Bloque medio, contraataque directo',
-        localABP: 'Saques de esquina en corto',
-        visitanteABP: 'Faltas laterales al segundo palo',
-        localComentario: 'Equipo muy organizado en salida de balón.',
-        visitanteComentario: 'Peligrosos en transiciones rápidas.',
-        generalAnalysis: 'Partido de alto nivel táctico. Destacaron los extremos interiores y el mediocentro defensivo local en la recuperación de balones.',
-        localTitulares: [
-          { num: 1, name: 'Hugo Álvaro', pos: 'POR' },
-          { num: 2, name: 'Marcos Rubio', pos: 'LD' },
-          { num: 4, name: 'David Alonso', pos: 'DFC' },
-          { num: 5, name: 'Gabriel Torres', pos: 'DFC' },
-          { num: 3, name: 'Pablo Soria', pos: 'LI' },
-          { num: 6, name: 'Lucas Vega', pos: 'MCD' },
-          { num: 8, name: 'Mateo Gil', pos: 'MC' },
-          { num: 10, name: 'Adrián Serrano', pos: 'MCO' },
-          { num: 7, name: 'Iker Martín', pos: 'ED' },
-          { num: 11, name: 'Gonzalo Fernández', pos: 'EI' },
-          { num: 9, name: 'Álvaro Leiva', pos: 'DC' }
-        ],
-        localSuplentes: [
-          { num: 13, name: 'Jaime Rivas', pos: 'POR' },
-          { num: 14, name: 'Carlos Blanco', pos: 'DFC' },
-          { num: 15, name: 'Enrique Santos', pos: 'MC' },
-          { num: 16, name: 'Sergio Cano', pos: 'DC' }
-        ],
-        visitanteTitulares: [
-          { num: 1, name: 'Daniel Prieto', pos: 'POR' },
-          { num: 2, name: 'Javier Roca', pos: 'LD' },
-          { num: 4, name: 'Alejandro Ramos', pos: 'DFC' },
-          { num: 5, name: 'Mario Navarro', pos: 'DFC' },
-          { num: 3, name: 'Nicolás Ortíz', pos: 'LI' },
-          { num: 8, name: 'Samuel Molina', pos: 'MC' },
-          { num: 6, name: 'Tomás Crespo', pos: 'MC' },
-          { num: 7, name: 'Raúl Benítez', pos: 'ED' },
-          { num: 11, name: 'Diego Guerrero', pos: 'EI' },
-          { num: 9, name: 'Rodrigo Sanz', pos: 'DC' },
-          { num: 10, name: 'Christian Mora', pos: 'DC' }
-        ],
-        visitanteSuplentes: [
-          { num: 12, name: 'Óscar Iglesias', pos: 'POR' },
-          { num: 14, name: 'Manuel Marín', pos: 'LD' },
-          { num: 15, name: 'Felipe Domínguez', pos: 'MC' }
-        ]
-      }
-    ],
+    matches: [],
+    reports: [],
     directory: {
-      jugadores: [
-        { id: 'j1', nombre: 'Álvaro Leiva', equipo: 'Real Madrid Juvenil A', posicion: 'DC', ano: '2007', categoria: 'Juvenil', nivel: 'Élite', nacio: 'España' },
-        { id: 'j2', nombre: 'Adrián Serrano', equipo: 'Real Madrid Juvenil A', posicion: 'MCO', ano: '2007', categoria: 'Juvenil', nivel: 'Élite', nacio: 'España' },
-        { id: 'j3', nombre: 'Rodrigo Sanz', equipo: 'Atlético de Madrid Juvenil A', posicion: 'DC', ano: '2006', categoria: 'Juvenil', nivel: 'Élite', nacio: 'España' },
-        { id: 'j4', nombre: 'Pau Cubarsí Jr.', equipo: 'FC Barcelona Juvenil A', posicion: 'DFC', ano: '2007', categoria: 'Juvenil', nivel: 'Élite', nacio: 'España' }
-      ],
-      clubes: [
-        { id: 'c1', nombre: 'Real Madrid CF', ciudad: 'Madrid', estadio: 'Santiago Bernabéu / Valdebebas', fundado: '1902' },
-        { id: 'c2', nombre: 'Club Atlético de Madrid', ciudad: 'Madrid', estadio: 'Cívitas Metropolitano', fundado: '1903' },
-        { id: 'c3', nombre: 'FC Barcelona', ciudad: 'Barcelona', estadio: 'Spotify Camp Nou', fundado: '1899' }
-      ],
-      equipos: [
-        { id: 'eq1', nombre: 'Real Madrid Juvenil A', club: 'Real Madrid CF', categoria: 'División de Honor', grupo: 'Grupo 5' },
-        { id: 'eq2', nombre: 'Atlético de Madrid Juvenil A', club: 'Club Atlético de Madrid', categoria: 'División de Honor', grupo: 'Grupo 5' }
-      ],
-      federaciones: [
-        { id: 'f1', nombre: 'RFEF - Real Federación Española de Fútbol', sede: 'Las Rozas, Madrid' },
-        { id: 'f2', nombre: 'RFFM - Real Federación de Fútbol de Madrid', sede: 'Madrid' },
-        { id: 'f3', nombre: 'FCF - Federació Catalana de Futbol', sede: 'Barcelona' }
-      ],
-      selecciones: [
-        { id: 'sel1', nombre: 'España Sub-19', entrenador: 'José Lana', categoria: 'Sub-19' },
-        { id: 'sel2', nombre: 'España Sub-17', entrenador: 'Hernán Pérez', categoria: 'Sub-17' }
-      ],
-      convocatorias: [
-        { id: 'conv1', titulo: 'Convocatoria Sub-19 Minitorneo Elite', fecha: '2026-09-15', seleccion: 'España Sub-19' }
-      ],
-      torneos: [
-        { id: 't1', nombre: 'División de Honor Juvenil Grupo 5', temporada: '2025/2026' },
-        { id: 't2', nombre: 'UEFA Youth League', temporada: '2025/2026' }
-      ],
-      staff: [
-        { id: 'st1', nombre: 'Álvaro Arbeloa', rol: 'Entrenador Principal', equipo: 'Real Madrid Juvenil A' }
-      ],
-      agencias: [
-        { id: 'ag1', nombre: 'Stellar Group Sports', sede: 'Madrid / Londres', agentesCount: 15 }
-      ],
-      agentes: [
-        { id: 'agente1', nombre: 'Carlos García', agencia: 'Stellar Group', contacto: 'carlos@stellargroup.com' }
-      ],
-      estadios: [
-        { id: 'est1', nombre: 'Ciudad Real Madrid Campo 7', capacidad: '3.000', césped: 'Natural' },
-        { id: 'est2', nombre: 'Centro de Alto Rendimiento Alcalá', capacidad: '2.500', césped: 'Natural' }
-      ],
+      jugadores: [],
+      clubes: [],
+      equipos: [],
+      federaciones: [],
+      selecciones: [],
+      convocatorias: [],
+      torneos: [],
+      staff: [],
+      agencias: [],
+      agentes: [],
+      estadios: [],
       informes: []
     },
-    agenda: [
-      { id: 'ag_t1', titulo: 'Ver partido Real Madrid vs Atlético Juvenil A', fecha: '2026-08-08', hora: '17:00', categoria: 'partido', prioridad: 'Alta', completada: false },
-      { id: 'ag_t2', titulo: 'Reunión con agente de Álvaro Leiva', fecha: '2026-08-10', hora: '11:30', categoria: 'contacto', prioridad: 'Media', completada: false },
-      { id: 'ag_t3', titulo: 'Redactar informe consolidado de la jornada 1', fecha: '2026-08-11', hora: '16:00', categoria: 'nota', prioridad: 'Baja', completada: false }
-    ],
-    links: [
-      { id: 'l1', titulo: 'RFEF - Real Federación Española de Fútbol', url: 'https://rfef.es', region: 'Nacional', etiqueta: 'Federaciones', logo: 'https://rfef.es/sites/default/files/rfef-logo.png', favorito: true },
-      { id: 'l2', titulo: 'RFFM - Real Federación de Fútbol de Madrid', url: 'https://www.rffm.es', region: 'Madrid', etiqueta: 'Federaciones', logo: '🏛️', favorito: true },
-      { id: 'l3', titulo: 'FCF - Federació Catalana de Futbol', url: 'https://www.fcf.cat', region: 'Cataluña', etiqueta: 'Federaciones', logo: '🟡', favorito: false },
-      { id: 'l4', titulo: 'FFCV - Federació de Futbol Comunitat Valenciana', url: 'https://ffcv.es', region: 'C. Valenciana', etiqueta: 'Federaciones', logo: '🦇', favorito: false },
-      { id: 'l5', titulo: 'RFAF - Real Federación Andaluza de Fútbol', url: 'https://www.rfaf.es', region: 'Andalucía', etiqueta: 'Federaciones', logo: '🌴', favorito: false },
-      { id: 'l6', titulo: 'EFF-FVF - Federación Vasca de Fútbol', url: 'https://euskalfutbol.eus', region: 'País Vasco', etiqueta: 'Federaciones', logo: '🟢', favorito: false }
-    ]
+    agenda: [],
+    links: []
   };
 
   // --------------------------------------------------------------------------
@@ -296,14 +152,12 @@
   let state = loadState();
 
   function saveState() {
-    // 1. Guardado rápido local en localStorage
+    // Purga limpia de localStorage para que la persistencia sea 100% exclusiva en Firebase Firestore
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      console.error('Error saving state to localStorage:', e);
-    }
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
 
-    // 2. Sincronización automática en la nube con Firebase Cloud Firestore
+    // Sincronización automática directa en la nube con Firebase Cloud Firestore
     if (db) {
 
       // Helper para sincronizar colecciones de arrays

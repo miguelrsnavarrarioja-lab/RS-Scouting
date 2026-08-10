@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RS Scouting | Pro Football Scouting System</title>
+  <title>MS Fútbol Scout | Pro Football Scouting System</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,17 +28,17 @@
       <!-- Brand Logo -->
       <div class="brand">
         <div class="brand-badge">
-          <img src="Logo MS.png" alt="RS Scouting Logo" class="brand-logo-img">
+          <img src="Logo MS.png" alt="MS Fútbol Scout Logo" class="brand-logo-img">
         </div>
         <div class="brand-text">
-          <span class="brand-name" id="appBrandName">RS Scouting</span>
+          <span class="brand-name" id="appBrandName">MS Fútbol Scout</span>
         </div>
       </div>
 
       <!-- Main Navigation Menu Tabs -->
       <nav class="main-nav">
         <button class="nav-tab active" data-tab="dashboard">
-          <i data-lucide="home"></i>
+          <img src="Logo MS.png" alt="MS Fútbol Scout" class="nav-tab-logo-img">
           <span>Inicio</span>
         </button>
         <button class="nav-tab" data-tab="calendario">
@@ -54,7 +55,7 @@
         </button>
         <button class="nav-tab" data-tab="importador">
           <i data-lucide="wand-2"></i>
-          <span>Importador</span>
+          <span>Importador IA</span>
         </button>
         <button class="nav-tab" data-tab="agenda">
           <i data-lucide="check-square"></i>
@@ -68,35 +69,39 @@
           <i data-lucide="settings"></i>
           <span>Configuración</span>
         </button>
-        <div class="notifications-nav-wrapper" style="position: relative; display: inline-flex; align-items: center; gap: 6px;">
-          <button class="nav-icon-btn" id="btnHeaderSyncFirebase" title="Sincronizar Todo con Firebase">
-            <i data-lucide="cloud"></i>
-          </button>
-          <button class="nav-icon-btn" id="btnHeaderExportBackup" title="Guardar Copia de Seguridad Local (JSON)">
-            <i data-lucide="download"></i>
-          </button>
-          <button class="nav-icon-btn" id="btnNotifications" title="Notificaciones de Agenda">
+      </nav>
+
+      <div class="header-right">
+        <button class="btn-action-icon" id="btnHeaderThemeToggle" title="Cambiar tema (Oscuro/Claro)">
+          <i data-lucide="moon" id="headerThemeIcon"></i>
+        </button>
+        <button class="btn-action-icon" id="btnHeaderDownloadBackup" title="Exportar Copia de Seguridad JSON">
+          <i data-lucide="download"></i>
+        </button>
+        <div class="user-badge" id="headerUserBadge">
+          <div class="avatar" id="headerUserAvatar">MS</div>
+          <div class="user-info">
+            <span class="user-name" id="headerUserName">Scout Principal</span>
+            <span class="user-role">Administrador</span>
+          </div>
+        </div>
+
+        <div class="notifications-dropdown-container">
+          <button class="btn-action-icon" id="btnHeaderNotifications" title="Notificaciones del sistema">
             <i data-lucide="bell"></i>
-            <span id="notifBadgeCount" class="notif-badge hidden">0</span>
+            <span class="notification-dot hidden" id="headerNotificationDot"></span>
           </button>
-          
-          <!-- Notifications Dropdown Panel -->
-          <div class="notifications-dropdown hidden" id="notificationsDropdown">
-            <div class="notif-dropdown-header">
-              <div>
-                <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-main);">🔔 Notificaciones</h4>
-                <span id="notifUnreadSubtext" style="font-size: 11px; color: var(--text-muted);">0 sin leer</span>
-              </div>
-              <button class="btn-text-sm" id="btnMarkAllNotifsRead" style="font-size: 11px; font-weight: 700; color: var(--primary-blue); background: none; border: none; cursor: pointer;">
-                Marcar leídas
-              </button>
+          <div class="dropdown-menu hidden" id="notificationsDropdown">
+            <div class="dropdown-header">
+              <span>Notificaciones y Alertas</span>
+              <button class="btn-text-sm" id="btnMarkAllNotifsRead">Marcar leídas</button>
             </div>
-            <div class="notif-dropdown-body" id="notificationsListContainer">
+            <div class="dropdown-body" id="notificationsList">
               <!-- Rendered notifications list -->
             </div>
           </div>
         </div>
-      </nav>
+      </div>
     </div>
   </header>
 
@@ -107,8 +112,8 @@
     <section class="tab-view active" id="view-dashboard">
       <div class="dashboard-banner">
         <div class="dashboard-welcome">
-          <h2>🏠 Panel de Inicio - RS Scouting</h2>
-          <p>Resumen general del sistema de scouting, métricas clave y accesos directos</p>
+          <h2>⚽ Panel de Inicio - MS Fútbol Scout</h2>
+          <p>Resumen general del sistema de scouting y métricas clave</p>
         </div>
         <div class="dashboard-date-badge">
           <i data-lucide="clock"></i>
@@ -169,84 +174,6 @@
             <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
           </div>
         </div>
-      </div>
-
-      <!-- ACCESOS DIRECTOS GRID -->
-      <div class="dashboard-section-title">
-        <h3><i data-lucide="zap"></i> Accesos Directos</h3>
-      </div>
-      <div class="shortcuts-grid">
-        <button class="shortcut-card" data-action="nav" data-target="calendario">
-          <div class="shortcut-icon"><i data-lucide="calendar"></i></div>
-          <div class="shortcut-content">
-            <h4>Calendario</h4>
-            <p>Planificación de partidos y fechas</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="partidos">
-          <div class="shortcut-icon"><i data-lucide="trophy"></i></div>
-          <div class="shortcut-content">
-            <h4>Gestión de Partidos</h4>
-            <p>Lista de partidos e informes</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="modal" data-target="modalNuevoPartido">
-          <div class="shortcut-icon highlight"><i data-lucide="plus-circle"></i></div>
-          <div class="shortcut-content">
-            <h4>Nuevo Partido</h4>
-            <p>Programar un nuevo encuentro</p>
-          </div>
-          <i data-lucide="plus" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="directorio">
-          <div class="shortcut-icon"><i data-lucide="folder-open"></i></div>
-          <div class="shortcut-content">
-            <h4>Directorio</h4>
-            <p>Jugadores, clubes y scouting</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="importador">
-          <div class="shortcut-icon"><i data-lucide="wand-2"></i></div>
-          <div class="shortcut-content">
-            <h4>Importador IA</h4>
-            <p>Importar partidos mediante IA</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="agenda">
-          <div class="shortcut-icon"><i data-lucide="check-square"></i></div>
-          <div class="shortcut-content">
-            <h4>Agenda de Tareas</h4>
-            <p>Gestión de notas y recordatorios</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="enlaces">
-          <div class="shortcut-icon"><i data-lucide="link"></i></div>
-          <div class="shortcut-content">
-            <h4>Enlaces Útiles</h4>
-            <p>Federaciones y recursos web</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
-
-        <button class="shortcut-card" data-action="nav" data-target="configuracion">
-          <div class="shortcut-icon"><i data-lucide="settings"></i></div>
-          <div class="shortcut-content">
-            <h4>Configuración</h4>
-            <p>Ajustes de la aplicación y tema</p>
-          </div>
-          <i data-lucide="chevron-right" class="shortcut-arrow"></i>
-        </button>
       </div>
 
       <!-- WIDGETS DUAL GRID -->
