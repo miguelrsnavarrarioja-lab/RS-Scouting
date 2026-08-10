@@ -9750,26 +9750,26 @@
   const DIR_PAGE_SIZE = 25;
 
   const FEDERACIONES_AUTONOMICAS_ESPAÑA = [
-    { id: 'fed_rfef', nombre: 'RFEF - Real Federación Española de Fútbol', federacion: 'RFEF - Real Federación Española de Fútbol', ambito: 'Nacional', sede: 'Las Rozas (Madrid)', web: 'https://rfef.es', paginaWeb: 'https://rfef.es', email: 'rfef@rfef.es', telefono: '914 95 98 00', orderIndex: 1 },
-    { id: 'fed_rfaf', nombre: 'RFAF - Real Federación Andaluza de Fútbol', federacion: 'RFAF - Real Federación Andaluza de Fútbol', ambito: 'Andalucía', sede: 'Sevilla', web: 'https://www.rfaf.es', paginaWeb: 'https://www.rfaf.es', email: 'rfaf@rfaf.es', telefono: '954 92 42 42', orderIndex: 2 },
-    { id: 'fed_faf', nombre: 'FAF - Real Federación Aragonesa de Fútbol', federacion: 'FAF - Real Federación Aragonesa de Fútbol', ambito: 'Aragón', sede: 'Zaragoza', web: 'https://www.futbolaragon.org', paginaWeb: 'https://www.futbolaragon.org', email: 'secretaria@futbolaragon.org', telefono: '976 73 09 30', orderIndex: 3 },
-    { id: 'fed_asturias', nombre: 'Real Federación de Fútbol del Principado de Asturias', federacion: 'Real Federación de Fútbol del Principado de Asturias', ambito: 'Asturias', sede: 'Gijón', web: 'https://www.asturfutbol.es', paginaWeb: 'https://www.asturfutbol.es', email: 'asturfutbol@asturfutbol.es', telefono: '985 17 62 00', orderIndex: 4 },
-    { id: 'fed_ffib', nombre: 'FFIB - Federació de Futbol de les Illes Balears', federacion: 'FFIB - Federació de Futbol de les Illes Balears', ambito: 'Baleares', sede: 'Palma de Mallorca', web: 'https://www.ffib.es', paginaWeb: 'https://www.ffib.es', email: 'ffib@ffib.es', telefono: '971 24 84 11', orderIndex: 5 },
-    { id: 'fed_fcf_canarias', nombre: 'FCF - Federación Canaria de Fútbol', federacion: 'FCF - Federación Canaria de Fútbol', ambito: 'Canarias', sede: 'Las Palmas / Tenerife', web: 'https://www.ftf.es', paginaWeb: 'https://www.ftf.es', email: 'fcf@fcfutbol.es', telefono: '928 24 28 80', orderIndex: 6 },
-    { id: 'fed_rfcf', nombre: 'RFCF - Real Federación Cántabra de Fútbol', federacion: 'RFCF - Real Federación Cántabra de Fútbol', ambito: 'Cantabria', sede: 'Santander', web: 'https://www.rfcf.es', paginaWeb: 'https://www.rfcf.es', email: 'rfcf@rfcf.es', telefono: '942 22 28 00', orderIndex: 7 },
-    { id: 'fed_fcylf', nombre: 'FCYLF - Real Federación de Castilla y León de Fútbol', federacion: 'FCYLF - Real Federación de Castilla y León de Fútbol', ambito: 'Castilla y León', sede: 'Valladolid', web: 'https://fcylf.es', paginaWeb: 'https://fcylf.es', email: 'fcylf@fcylf.es', telefono: '983 34 27 00', orderIndex: 8 },
-    { id: 'fed_ffcm', nombre: 'FFCM - Federación de Fútbol de Castilla-La Mancha', federacion: 'FFCM - Federación de Fútbol de Castilla-La Mancha', ambito: 'Castilla-La Mancha', sede: 'Cuenca / Tomelloso', web: 'https://www.ffcm.es', paginaWeb: 'https://www.ffcm.es', email: 'ffcm@ffcm.es', telefono: '926 51 04 04', orderIndex: 9 },
-    { id: 'fed_fcf_catalana', nombre: 'FCF - Federació Catalana de Futbol', federacion: 'FCF - Federació Catalana de Futbol', ambito: 'Cataluña', sede: 'Barcelona', web: 'https://www.fcf.cat', paginaWeb: 'https://www.fcf.cat', email: 'fcf@fcf.cat', telefono: '932 65 24 77', orderIndex: 10 },
-    { id: 'fed_fexf', nombre: 'FEXF - Real Federación Extremadura de Fútbol', federacion: 'FEXF - Real Federación Extremadura de Fútbol', ambito: 'Extremadura', sede: 'Badajoz / Mérida', web: 'https://www.fexfutbol.org', paginaWeb: 'https://www.fexfutbol.org', email: 'fexf@fexfutbol.org', telefono: '924 38 72 00', orderIndex: 11 },
-    { id: 'fed_fgf', nombre: 'FGF - Real Federación Gallega de Fútbol', federacion: 'FGF - Real Federación Gallega de Fútbol', ambito: 'Galicia', sede: 'A Coruña', web: 'https://www.futgal.es', paginaWeb: 'https://www.futgal.es', email: 'futgal@futgal.es', telefono: '981 12 77 10', orderIndex: 12 },
-    { id: 'fed_frf', nombre: 'FRF - Federación Riojana de Fútbol', federacion: 'FRF - Federación Riojana de Fútbol', ambito: 'La Rioja', sede: 'Logroño', web: 'https://www.frfutbol.com', paginaWeb: 'https://www.frfutbol.com', email: 'frf@frfutbol.com', telefono: '941 23 20 44', orderIndex: 13 },
-    { id: 'fed_rffm', nombre: 'RFFM - Real Federación de Fútbol de Madrid', federacion: 'RFFM - Real Federación de Fútbol de Madrid', ambito: 'Madrid', sede: 'Madrid', web: 'https://www.rffm.es', paginaWeb: 'https://www.rffm.es', email: 'rffm@rffm.es', telefono: '915 22 28 00', orderIndex: 14 },
-    { id: 'fed_ffrm', nombre: 'FFRM - Federación de Fútbol de la Región de Murcia', federacion: 'FFRM - Federación de Fútbol de la Región de Murcia', ambito: 'Murcia', sede: 'Murcia', web: 'https://www.ffrm.es', paginaWeb: 'https://www.ffrm.es', email: 'ffrm@ffrm.es', telefono: '968 24 16 11', orderIndex: 15 },
-    { id: 'fed_fnf', nombre: 'FNF - Federación Navarra de Fútbol', federacion: 'FNF - Federación Navarra de Fútbol', ambito: 'Navarra', sede: 'Pamplona', web: 'https://www.futbolnavarro.com', paginaWeb: 'https://www.futbolnavarro.com', email: 'fnf@futbolnavarro.com', telefono: '948 22 75 00', orderIndex: 16 },
-    { id: 'fed_eff_fvf', nombre: 'EFF-FVF - Federación Vasca de Fútbol', federacion: 'EFF-FVF - Federación Vasca de Fútbol', ambito: 'País Vasco', sede: 'Bilbao', web: 'https://euskalfutbol.eus', paginaWeb: 'https://euskalfutbol.eus', email: 'eff@euskalfutbol.eus', telefono: '944 42 41 00', orderIndex: 17 },
-    { id: 'fed_ffcv', nombre: 'FFCV - Federació de Futbol de la Comunitat Valenciana', federacion: 'FFCV - Federació de Futbol de la Comunitat Valenciana', ambito: 'Comunidad Valenciana', sede: 'Valencia', web: 'https://ffcv.es', paginaWeb: 'https://ffcv.es', email: 'info@ffcv.es', telefono: '963 51 00 00', orderIndex: 18 },
-    { id: 'fed_ffce', nombre: 'FFCE - Real Federación de Fútbol de Ceuta', federacion: 'FFCE - Real Federación de Fútbol de Ceuta', ambito: 'Ceuta', sede: 'Ceuta', web: 'https://www.ffce.es', paginaWeb: 'https://www.ffce.es', email: 'ffce@ffce.es', telefono: '956 51 90 00', orderIndex: 19 },
-    { id: 'fed_rfmf', nombre: 'RFMF - Real Federación Melillense de Fútbol', federacion: 'RFMF - Real Federación Melillense de Fútbol', ambito: 'Melilla', sede: 'Melilla', web: 'https://www.rfmf.es', paginaWeb: 'https://www.rfmf.es', email: 'rfmf@rfmf.es', telefono: '952 68 30 00', orderIndex: 20 }
+    { id: 'fed_rfef', nombre: 'RFEF - Real Federación Española de Fútbol', federacion: 'RFEF - Real Federación Española de Fútbol', ambito: 'Nacional', sede: 'Las Rozas (Madrid)', web: 'https://rfef.es', paginaWeb: 'https://rfef.es', email: 'rfef@rfef.es', telefono: '914 95 98 00', orderIndex: 1, logo: 'https://upload.wikimedia.org/wikipedia/commons/4/47/RFEF_logo.svg', escudo: 'https://upload.wikimedia.org/wikipedia/commons/4/47/RFEF_logo.svg', colorPrimary: '#dc2626', colorSecondary: '#eab308' },
+    { id: 'fed_rfaf', nombre: 'RFAF - Real Federación Andaluza de Fútbol', federacion: 'RFAF - Real Federación Andaluza de Fútbol', ambito: 'Andalucía', sede: 'Sevilla', web: 'https://www.rfaf.es', paginaWeb: 'https://www.rfaf.es', email: 'rfaf@rfaf.es', telefono: '954 92 42 42', orderIndex: 2, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png/360px-Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png/360px-Logo_Real_Federaci%C3%B3n_Andaluza_de_F%C3%Batbol.png', colorPrimary: '#059669', colorSecondary: '#ffffff' },
+    { id: 'fed_faf', nombre: 'FAF - Real Federación Aragonesa de Fútbol', federacion: 'FAF - Real Federación Aragonesa de Fútbol', ambito: 'Aragón', sede: 'Zaragoza', web: 'https://www.futbolaragon.org', paginaWeb: 'https://www.futbolaragon.org', email: 'secretaria@futbolaragon.org', telefono: '976 73 09 30', orderIndex: 3, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png/360px-Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png/360px-Escudo_Real_Federaci%C3%B3n_Aragonesa_de_F%C3%Batbol.png', colorPrimary: '#d97706', colorSecondary: '#2563eb' },
+    { id: 'fed_asturias', nombre: 'Real Federación de Fútbol del Principado de Asturias', federacion: 'Real Federación de Fútbol del Principado de Asturias', ambito: 'Asturias', sede: 'Gijón', web: 'https://www.asturfutbol.es', paginaWeb: 'https://www.asturfutbol.es', email: 'asturfutbol@asturfutbol.es', telefono: '985 17 62 00', orderIndex: 4, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Logo_RFFPA.png/360px-Logo_RFFPA.png', colorPrimary: '#2563eb', colorSecondary: '#eab308' },
+    { id: 'fed_ffib', nombre: 'FFIB - Federació de Futbol de les Illes Balears', federacion: 'FFIB - Federació de Futbol de les Illes Balears', ambito: 'Baleares', sede: 'Palma de Mallorca', web: 'https://www.ffib.es', paginaWeb: 'https://www.ffib.es', email: 'ffib@ffib.es', telefono: '971 24 84 11', orderIndex: 5, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Escudo_FFIB.png/360px-Escudo_FFIB.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Escudo_FFIB.png/360px-Escudo_FFIB.png', colorPrimary: '#1d4ed8', colorSecondary: '#eab308' },
+    { id: 'fed_fcf_canarias', nombre: 'FCF - Federación Canaria de Fútbol', federacion: 'FCF - Federación Canaria de Fútbol', ambito: 'Canarias', sede: 'Las Palmas / Tenerife', web: 'https://www.ftf.es', paginaWeb: 'https://www.ftf.es', email: 'fcf@fcfutbol.es', telefono: '928 24 28 80', orderIndex: 6, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Logo_FCF_Canarias.png/360px-Logo_FCF_Canarias.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Logo_FCF_Canarias.png/360px-Logo_FCF_Canarias.png', colorPrimary: '#0284c7', colorSecondary: '#eab308' },
+    { id: 'fed_rfcf', nombre: 'RFCF - Real Federación Cántabra de Fútbol', federacion: 'RFCF - Real Federación Cántabra de Fútbol', ambito: 'Cantabria', sede: 'Santander', web: 'https://www.rfcf.es', paginaWeb: 'https://www.rfcf.es', email: 'rfcf@rfcf.es', telefono: '942 22 28 00', orderIndex: 7, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_RFCF.png/360px-Logo_RFCF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_RFCF.png/360px-Logo_RFCF.png', colorPrimary: '#e11d48', colorSecondary: '#ffffff' },
+    { id: 'fed_fcylf', nombre: 'FCYLF - Real Federación de Castilla y León de Fútbol', federacion: 'FCYLF - Real Federación de Castilla y León de Fútbol', ambito: 'Castilla y León', sede: 'Valladolid', web: 'https://fcylf.es', paginaWeb: 'https://fcylf.es', email: 'fcylf@fcylf.es', telefono: '983 34 27 00', orderIndex: 8, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Logo_FCYLF.png/360px-Logo_FCYLF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Logo_FCYLF.png/360px-Logo_FCYLF.png', colorPrimary: '#9f1239', colorSecondary: '#d97706' },
+    { id: 'fed_ffcm', nombre: 'FFCM - Federación de Fútbol de Castilla-La Mancha', federacion: 'FFCM - Federación de Fútbol de Castilla-La Mancha', ambito: 'Castilla-La Mancha', sede: 'Cuenca / Tomelloso', web: 'https://www.ffcm.es', paginaWeb: 'https://www.ffcm.es', email: 'ffcm@ffcm.es', telefono: '926 51 04 04', orderIndex: 9, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Logo_FFCM.png/360px-Logo_FFCM.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Logo_FFCM.png/360px-Logo_FFCM.png', colorPrimary: '#be123c', colorSecondary: '#ffffff' },
+    { id: 'fed_fcf_catalana', nombre: 'FCF - Federació Catalana de Futbol', federacion: 'FCF - Federació Catalana de Futbol', ambito: 'Cataluña', sede: 'Barcelona', web: 'https://www.fcf.cat', paginaWeb: 'https://www.fcf.cat', email: 'fcf@fcf.cat', telefono: '932 65 24 77', orderIndex: 10, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Federaci%C3%B3_Catalana_de_Futbol_logo.svg/360px-Federaci%C3%B3_Catalana_de_Futbol_logo.svg.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Federaci%C3%B3_Catalana_de_Futbol_logo.svg/360px-Federaci%C3%B3_Catalana_de_Futbol_logo.svg.png', colorPrimary: '#ca8a04', colorSecondary: '#dc2626' },
+    { id: 'fed_fexf', nombre: 'FEXF - Real Federación Extremadura de Fútbol', federacion: 'FEXF - Real Federación Extremadura de Fútbol', ambito: 'Extremadura', sede: 'Badajoz / Mérida', web: 'https://www.fexfutbol.org', paginaWeb: 'https://www.fexfutbol.org', email: 'fexf@fexfutbol.org', telefono: '924 38 72 00', orderIndex: 11, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Escudo_FEXF.png/360px-Escudo_FEXF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Escudo_FEXF.png/360px-Escudo_FEXF.png', colorPrimary: '#15803d', colorSecondary: '#ffffff' },
+    { id: 'fed_fgf', nombre: 'FGF - Real Federación Gallega de Fútbol', federacion: 'FGF - Real Federación Gallega de Fútbol', ambito: 'Galicia', sede: 'A Coruña', web: 'https://www.futgal.es', paginaWeb: 'https://www.futgal.es', email: 'futgal@futgal.es', telefono: '981 12 77 10', orderIndex: 12, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Logo_Futgal.png/360px-Logo_Futgal.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Logo_Futgal.png/360px-Logo_Futgal.png', colorPrimary: '#0284c7', colorSecondary: '#ffffff' },
+    { id: 'fed_frf', nombre: 'FRF - Federación Riojana de Fútbol', federacion: 'FRF - Federación Riojana de Fútbol', ambito: 'La Rioja', sede: 'Logroño', web: 'https://www.frfutbol.com', paginaWeb: 'https://www.frfutbol.com', email: 'frf@frfutbol.com', telefono: '941 23 20 44', orderIndex: 13, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Logo_FRF.png/360px-Logo_FRF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Logo_FRF.png/360px-Logo_FRF.png', colorPrimary: '#dc2626', colorSecondary: '#16a34a' },
+    { id: 'fed_rffm', nombre: 'RFFM - Real Federación de Fútbol de Madrid', federacion: 'RFFM - Real Federación de Fútbol de Madrid', ambito: 'Madrid', sede: 'Madrid', web: 'https://www.rffm.es', paginaWeb: 'https://www.rffm.es', email: 'rffm@rffm.es', telefono: '915 22 28 00', orderIndex: 14, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Logo_RFFM.png/360px-Logo_RFFM.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Logo_RFFM.png/360px-Logo_RFFM.png', colorPrimary: '#dc2626', colorSecondary: '#ffffff' },
+    { id: 'fed_ffrm', nombre: 'FFRM - Federación de Fútbol de la Región de Murcia', federacion: 'FFRM - Federación de Fútbol de la Región de Murcia', ambito: 'Murcia', sede: 'Murcia', web: 'https://www.ffrm.es', paginaWeb: 'https://www.ffrm.es', email: 'ffrm@ffrm.es', telefono: '968 24 16 11', orderIndex: 15, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Logo_FFRM.png/360px-Logo_FFRM.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Logo_FFRM.png/360px-Logo_FFRM.png', colorPrimary: '#b91c1c', colorSecondary: '#eab308' },
+    { id: 'fed_fnf', nombre: 'FNF - Federación Navarra de Fútbol', federacion: 'FNF - Federación Navarra de Fútbol', ambito: 'Navarra', sede: 'Pamplona', web: 'https://www.futbolnavarro.com', paginaWeb: 'https://www.futbolnavarro.com', email: 'fnf@futbolnavarro.com', telefono: '948 22 75 00', orderIndex: 16, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Logo_FNF.png/360px-Logo_FNF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Logo_FNF.png/360px-Logo_FNF.png', colorPrimary: '#cc1100', colorSecondary: '#d97706' },
+    { id: 'fed_eff_fvf', nombre: 'EFF-FVF - Federación Vasca de Fútbol', federacion: 'EFF-FVF - Federación Vasca de Fútbol', ambito: 'País Vasco', sede: 'Bilbao', web: 'https://euskalfutbol.eus', paginaWeb: 'https://euskalfutbol.eus', email: 'eff@euskalfutbol.eus', telefono: '944 42 41 00', orderIndex: 17, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Logo_EFF_FVF.png/360px-Logo_EFF_FVF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Logo_EFF_FVF.png/360px-Logo_EFF_FVF.png', colorPrimary: '#16a34a', colorSecondary: '#dc2626' },
+    { id: 'fed_ffcv', nombre: 'FFCV - Federació de Futbol de la Comunitat Valenciana', federacion: 'FFCV - Federació de Futbol de la Comunitat Valenciana', ambito: 'Comunidad Valenciana', sede: 'Valencia', web: 'https://ffcv.es', paginaWeb: 'https://ffcv.es', email: 'info@ffcv.es', telefono: '963 51 00 00', orderIndex: 18, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Logo_FFCV.png/360px-Logo_FFCV.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Logo_FFCV.png/360px-Logo_FFCV.png', colorPrimary: '#0284c7', colorSecondary: '#dc2626' },
+    { id: 'fed_ffce', nombre: 'FFCE - Real Federación de Fútbol de Ceuta', federacion: 'FFCE - Real Federación de Fútbol de Ceuta', ambito: 'Ceuta', sede: 'Ceuta', web: 'https://www.ffce.es', paginaWeb: 'https://www.ffce.es', email: 'ffce@ffce.es', telefono: '956 51 90 00', orderIndex: 19, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Escudo_FFCE.png/360px-Escudo_FFCE.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Escudo_FFCE.png/360px-Escudo_FFCE.png', colorPrimary: '#1e293b', colorSecondary: '#0284c7' },
+    { id: 'fed_rfmf', nombre: 'RFMF - Real Federación Melillense de Fútbol', federacion: 'RFMF - Real Federación Melillense de Fútbol', ambito: 'Melilla', sede: 'Melilla', web: 'https://www.rfmf.es', paginaWeb: 'https://www.rfmf.es', email: 'rfmf@rfmf.es', telefono: '952 68 30 00', orderIndex: 20, logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Escudo_RFMF.png/360px-Escudo_RFMF.png', escudo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Escudo_RFMF.png/360px-Escudo_RFMF.png', colorPrimary: '#1d4ed8', colorSecondary: '#ffffff' }
   ];
 
   function ensureFederacionesSeeded() {
@@ -9777,6 +9777,28 @@
     if (!Array.isArray(state.directory.federaciones) || state.directory.federaciones.length === 0) {
       state.directory.federaciones = JSON.parse(JSON.stringify(FEDERACIONES_AUTONOMICAS_ESPAÑA));
       saveState();
+    } else {
+      let updatedCount = 0;
+      state.directory.federaciones.forEach(f => {
+        const match = FEDERACIONES_AUTONOMICAS_ESPAÑA.find(def => 
+          def.id === f.id || 
+          (def.nombre && f.nombre && def.nombre.toLowerCase().trim() === f.nombre.toLowerCase().trim()) ||
+          (def.ambito && f.ambito && def.ambito.toLowerCase().trim() === f.ambito.toLowerCase().trim())
+        );
+        if (match) {
+          if (match.logo && (!f.logo || f.logo === '')) {
+            f.logo = match.logo;
+            f.escudo = match.logo;
+            updatedCount++;
+          }
+          if (match.colorPrimary && (!f.colorPrimary || f.colorPrimary === '#2563eb')) {
+            f.colorPrimary = match.colorPrimary;
+            f.colorSecondary = match.colorSecondary || '#ffffff';
+            updatedCount++;
+          }
+        }
+      });
+      if (updatedCount > 0) saveState();
     }
   }
 
@@ -10052,13 +10074,18 @@
           ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${pageItems.map(c => `
-              <div class="entity-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
+            ${pageItems.map(c => {
+              const clubPriColor = c.colorPrimary || c.colorPrincipal || c.color1 || '#2563eb';
+              const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${c.codigo}.png` : `./escudos/${(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
+
+              return `
+              <div class="entity-card" style="border-top: 5px solid ${clubPriColor} !important; background: linear-gradient(180deg, ${clubPriColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+                <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
-                    <div style="width: 42px; height: 42px; border-radius: var(--radius-md); background-color: var(--primary-blue-light); color: var(--primary-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; position: relative;">
-                      <img src="${c.logo || c.escudo || (c.codigo ? `./escudos/${c.codigo}.png` : `./escudos/${(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`)}" data-tried="0" onerror="
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${clubPriColor};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${clubPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                      <img src="${clubLogo}" data-tried="0" onerror="
                         if (this.dataset.tried === '0' && '${c.codigo}') {
                           this.dataset.tried = '1';
                           this.src = 'https://www.futnavarra.es/images/escudos/${c.codigo}.png';
@@ -10067,31 +10094,38 @@
                           if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                         }
                       " style="width: 100%; height: 100%; object-fit: contain;">
-                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
-                    </div>
-                    <div>
-                      <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${c.id}" title="Ver Ficha de ${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px;">
-                        ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; opacity: 0.7;"></i>
-                      </h3>
-                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(c.localidad || 'Localidad N/A')} (${escapeHtml(c.comunidad || 'Comunidad N/A')})</span>
+                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${clubPriColor}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id}" style="width: 28px; height: 28px;">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
-                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
-                  <div><strong>Estadio:</strong> ${escapeHtml(c.estadio || 'N/A')}</div>
-                  <div><strong>Federación:</strong> ${escapeHtml(c.federacion || 'N/A')}</div>
-                  ${c.web ? `<div><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: var(--primary-blue);">${escapeHtml(c.web)}</a></div>` : ''}
+                <!-- LÍNEA 2: NOMBRE DEL CLUB EN UNA SOLA LÍNEA -->
+                <div style="width: 100%; overflow: hidden; margin-top: 4px;">
+                  <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${c.id}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                    ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
+                  </h3>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id}" style="width: 100%; padding: 6px 12px; font-size: 12px;">
+                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
+                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
+                  ${escapeHtml(c.localidad || 'Localidad N/A')} (${escapeHtml(c.comunidad || 'Comunidad N/A')})
+                </div>
+
+                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
+                  <div><strong>Estadio:</strong> ${escapeHtml(c.estadio || 'N/A')}</div>
+                  <div><strong>Federación:</strong> ${escapeHtml(c.federacion || 'N/A')}</div>
+                  ${c.web ? `<div><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600;">${escapeHtml(c.web)}</a></div>` : ''}
+                </div>
+
+                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${clubPriColor}40;">
                   <i data-lucide="shield-check"></i> Ver / Editar Ficha de Club
                 </button>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
           ${paginationBarHTML}
         `;
@@ -10132,7 +10166,7 @@
                 }
               }
 
-              const eqPriColor = (eq.colorPrimary && eq.colorPrimary !== '#2563eb') ? eq.colorPrimary : (parentC ? (parentC.colorPrimary || parentC.colorPrimario || parentC.color1 || parentC.colorCamiseta) : null) || eq.colorPrimary || '#2563eb';
+              const eqPriColor = (eq.colorPrimary && eq.colorPrimary !== '#2563eb') ? eq.colorPrimary : (parentC ? (parentC.colorPrimary || parentC.colorPrincipal || parentC.color1 || parentC.colorCamiseta) : null) || eq.colorPrimary || '#2563eb';
               const eqSecColor = (eq.colorSecondary && eq.colorSecondary !== '#ffffff') ? eq.colorSecondary : (parentC ? (parentC.colorSecondary || parentC.colorSecundario || parentC.color2) : null) || eq.colorSecondary || '#ffffff';
               
               const eqLogo = eq.escudo || eq.logo || (parentC ? parentC.logo || parentC.escudo : '');
@@ -10143,12 +10177,13 @@
               const finalImgSrc = eqLogo || (clubCodigo ? `./escudos/${clubCodigo}.png` : localEscudoPath);
 
               return `
-              <div class="entity-card" style="border-top: 5px solid ${eqPriColor} !important;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
+              <div class="entity-card" style="border-top: 5px solid ${eqPriColor} !important; background: linear-gradient(180deg, ${eqPriColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+                <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
-                    <div style="width: 44px; height: 44px; border-radius: var(--radius-md); background: transparent; color: ${eqPriColor}; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; overflow: hidden; flex-shrink: 0; position: relative; padding: 2px;">
-                      ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain; background: transparent !important;">` : `
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${eqPriColor};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${eqPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                      ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `
                         <img src="${finalImgSrc}" data-tried="0" onerror="
                           if (this.dataset.tried === '0' && '${clubCodigo}') {
                             this.dataset.tried = '1';
@@ -10160,35 +10195,39 @@
                             this.style.display = 'none';
                             if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                           }
-                        " style="width: 100%; height: 100%; object-fit: contain; background: transparent !important;">
-                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; background: ${eqPriColor}; color: #ffffff; border-radius: 4px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
+                        " style="width: 100%; height: 100%; object-fit: contain;">
+                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${eqPriColor}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
                       `}
                     </div>
-                    <div>
-                      <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id}" title="Ver Ficha de ${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px;">
-                        ${escapeHtml(eq.nombre)} <i data-lucide="external-link" style="width: 12px; opacity: 0.7;"></i>
-                      </h3>
-                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">
-                        ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
-                        <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
-                          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqPriColor}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${eqPriColor}"></span>
-                          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqSecColor}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${eqSecColor}"></span>
-                        </span>
-                      </span>
-                    </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id}" style="width: 28px; height: 28px;">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
-                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
+                <!-- LÍNEA 2: NOMBRE DEL EQUIPO EN UNA SOLA LÍNEA -->
+                <div style="width: 100%; overflow: hidden; margin-top: 4px;">
+                  <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id}" title="${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                    ${escapeHtml(eq.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
+                  </h3>
+                </div>
+
+                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
+                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
+                  ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
+                  <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqPriColor}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${eqPriColor}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqSecColor}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${eqSecColor}"></span>
+                  </span>
+                </div>
+
+                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Club:</strong> ${escapeHtml(eq.clubVinculado || eq.club || (parentC ? parentC.nombre : 'N/A'))}</div>
                   <div><strong>Competición:</strong> ${escapeHtml(eq.competicion || 'N/A')}</div>
                   <div><strong>Federación:</strong> ${escapeHtml(eq.federacion || 'N/A')}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id}" style="width: 100%; padding: 6px 12px; font-size: 12px;">
+                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
                   <i data-lucide="users"></i> Ver / Editar Ficha de Equipo
                 </button>
               </div>
@@ -10216,40 +10255,52 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
-            ${pageItems.map(f => `
-              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id}" style="cursor: grab;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;" class="mb-2">
+            ${pageItems.map(f => {
+              const fedColorPrimary = f.colorPrimary || f.colorPrincipal || '#2563eb';
+              const fedLogo = f.logo || f.escudo || f.imagen;
+
+              return `
+              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id}" style="border-top: 5px solid ${fedColorPrimary} !important; background: linear-gradient(180deg, ${fedColorPrimary}12 0%, var(--bg-card, #ffffff) 35%); cursor: grab; padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+                <!-- LÍNEA 1: Grip + Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
-                      <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
+                      <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${f.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
-                    <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background-color: var(--primary-blue-light); color: var(--primary-blue); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; overflow: hidden; border: 1px solid var(--border-light);">
-                      ${f.logo || f.escudo ? `<img src="${f.logo || f.escudo}" style="width: 100%; height: 100%; object-fit: contain;">` : (f.nombre ? f.nombre.charAt(0) : 'F')}
-                    </div>
-                    <div>
-                      <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${f.id}" title="Ver Ficha de ${escapeHtml(f.nombre)}" style="margin: 0; font-size: 15px;">
-                        ${escapeHtml(f.nombre)} <i data-lucide="external-link" style="width: 12px; opacity: 0.7;"></i>
-                      </h3>
-                      <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(f.ambito || 'Ámbito N/A')} | ${escapeHtml(f.sede || 'Sede N/A')}</span>
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${f.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${fedColorPrimary};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${fedColorPrimary}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${fedLogo ? `<img src="${escapeHtml(fedLogo)}" alt="${escapeHtml(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${f.id}" style="width: 28px; height: 28px;">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${f.id}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
-                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-3">
-                  <div><strong>Email:</strong> ${escapeHtml(f.email || f.correo || 'N/A')}</div>
-                  <div><strong>Teléfono:</strong> ${escapeHtml(f.telefono || 'N/A')}</div>
-                  ${f.web || f.paginaWeb ? `<div><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: var(--primary-blue);">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
+                <!-- LÍNEA 2: NOMBRE DE LA FEDERACIÓN EN UNA SOLA LÍNEA -->
+                <div style="width: 100%; overflow: hidden; margin-top: 4px;">
+                  <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${f.id}" title="${escapeHtml(f.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                    ${escapeHtml(f.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
+                  </h3>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id}" style="width: 100%; padding: 6px 12px; font-size: 12px;">
+                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
+                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
+                  ${escapeHtml(f.ambito || 'Ámbito N/A')} | ${escapeHtml(f.sede || 'Sede N/A')}
+                </div>
+
+                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
+                  <div><strong>Email:</strong> ${escapeHtml(f.email || f.correo || 'N/A')}</div>
+                  <div><strong>Teléfono:</strong> ${escapeHtml(f.telefono || 'N/A')}</div>
+                  ${f.web || f.paginaWeb ? `<div><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600;">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
+                </div>
+
+                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${fedColorPrimary}40;">
                   <i data-lucide="globe"></i> Ver / Editar Ficha de Federación
                 </button>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
           ${paginationBarHTML}
         `;
