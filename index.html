@@ -71,33 +71,38 @@
         </button>
       </nav>
 
-      <div class="header-right">
-        <button class="btn-action-icon" id="btnHeaderThemeToggle" title="Cambiar tema (Oscuro/Claro)">
-          <i data-lucide="moon" id="headerThemeIcon"></i>
-        </button>
-        <button class="btn-action-icon" id="btnHeaderDownloadBackup" title="Exportar Copia de Seguridad JSON">
-          <i data-lucide="download"></i>
-        </button>
-        <div class="user-badge" id="headerUserBadge">
-          <div class="avatar" id="headerUserAvatar">MS</div>
-          <div class="user-info">
-            <span class="user-name" id="headerUserName">Scout Principal</span>
-            <span class="user-role">Administrador</span>
-          </div>
-        </div>
-
-        <div class="notifications-dropdown-container">
-          <button class="btn-action-icon" id="btnHeaderNotifications" title="Notificaciones del sistema">
-            <i data-lucide="bell"></i>
-            <span class="notification-dot hidden" id="headerNotificationDot"></span>
+      <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
+        <!-- Grupo de Botones de Acción de Cabecera en la Misma Fila -->
+        <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-subtle, #f8fafc); padding: 4px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
+          <!-- 1. Sincronizar con Firebase -->
+          <button class="btn-action-icon" id="btnHeaderSyncFirebase" title="Sincronizar todo con Firebase (Nube)">
+            <i data-lucide="cloud"></i>
           </button>
-          <div class="dropdown-menu hidden" id="notificationsDropdown">
-            <div class="dropdown-header">
-              <span>Notificaciones y Alertas</span>
-              <button class="btn-text-sm" id="btnMarkAllNotifsRead">Marcar leídas</button>
-            </div>
-            <div class="dropdown-body" id="notificationsList">
-              <!-- Rendered notifications list -->
+
+          <!-- 2. Descargar Copia de Seguridad -->
+          <button class="btn-action-icon" id="btnHeaderExportBackup" title="Descargar Copia de Seguridad (JSON)">
+            <i data-lucide="download"></i>
+          </button>
+
+          <!-- 3. Tema Oscuro / Claro -->
+          <button class="btn-action-icon" id="btnHeaderThemeToggle" title="Cambiar tema (Oscuro/Claro)">
+            <i data-lucide="moon" id="headerThemeIcon"></i>
+          </button>
+
+          <!-- 4. Notificaciones del Sistema (Último a la derecha) -->
+          <div class="notifications-dropdown-container" style="position: relative; display: inline-flex; align-items: center;">
+            <button class="btn-action-icon" id="btnHeaderNotifications" title="Notificaciones del sistema">
+              <i data-lucide="bell"></i>
+              <span class="notification-dot hidden" id="headerNotificationDot"></span>
+            </button>
+            <div class="dropdown-menu hidden" id="notificationsDropdown" style="position: absolute; top: calc(100% + 8px); right: 0; z-index: 1000;">
+              <div class="dropdown-header">
+                <span>Notificaciones y Alertas</span>
+                <button class="btn-text-sm" id="btnMarkAllNotifsRead">Marcar leídas</button>
+              </div>
+              <div class="dropdown-body" id="notificationsList">
+                <!-- Rendered notifications list -->
+              </div>
             </div>
           </div>
         </div>
@@ -112,7 +117,10 @@
     <section class="tab-view active" id="view-dashboard">
       <div class="dashboard-banner">
         <div class="dashboard-welcome">
-          <h2>⚽ Panel de Inicio - MS Fútbol Scout</h2>
+          <h2 style="display: flex; align-items: center; gap: 10px;">
+            <img src="Logo MS.png" alt="MS Fútbol Scout Logo" style="height: 32px; width: auto; object-fit: contain;">
+            <span>MS Fútbol Scout</span>
+          </h2>
           <p>Resumen general del sistema de scouting y métricas clave</p>
         </div>
         <div class="dashboard-date-badge">
