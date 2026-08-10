@@ -12113,6 +12113,10 @@
         currentSubCategoryFilter = 'TODOS';
         currentFederationFilter = 'TODAS';
         currentDirectoryPage = 1;
+        ['dirFilterAno', 'dirFilterEquipo', 'dirFilterCompeticion', 'dirFilterCategoria', 'dirFilterNivel', 'dirFilterPosicion', 'dirFilterOtro'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.options.length = 0;
+        });
       }
     }
     if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
@@ -12244,7 +12248,7 @@
       });
     }
 
-    // Populate top 7 filter dropdowns with unique values from current tab items
+    // Populate top 7 filter dropdowns with unique values from current tab items (only if options changed)
     const populateTop7FilterDropdowns = (itemsList) => {
       const getUniques = (fn) => {
         const s = new Set();
@@ -12256,52 +12260,26 @@
         return Array.from(s).sort((a, b) => a.localeCompare(b, 'es'));
       };
 
-      const selAno = document.getElementById('dirFilterAno');
-      const selEquipo = document.getElementById('dirFilterEquipo');
-      const selComp = document.getElementById('dirFilterCompeticion');
-      const selCat = document.getElementById('dirFilterCategoria');
-      const selNivel = document.getElementById('dirFilterNivel');
-      const selPos = document.getElementById('dirFilterPosicion');
-      const selOtro = document.getElementById('dirFilterOtro');
+      const populateIfEmpty = (id, defaultLabel, getFn) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const curVal = sel.value;
+        const opts = getUniques(getFn);
+        // Only rebuild innerHTML if options count changed or selector is empty
+        if (sel.options.length <= 1 || sel.dataset.lastTab !== currentDirectoryTab) {
+          sel.dataset.lastTab = currentDirectoryTab;
+          sel.innerHTML = `<option value="">${defaultLabel}</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${curVal === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+          sel.value = curVal;
+        }
+      };
 
-      if (selAno) {
-        const cur = selAno.value;
-        const opts = getUniques(i => i.ano || i.anoFundacion || i.nacimiento || (i.temporada ? String(i.temporada).substr(0,4) : ''));
-        selAno.innerHTML = `<option value="">Año...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selEquipo) {
-        const cur = selEquipo.value;
-        const opts = getUniques(i => i.equipo || i.club || i.clubVinculado);
-        selEquipo.innerHTML = `<option value="">Equipo...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selComp) {
-        const cur = selComp.value;
-        const opts = getUniques(i => {
-          const teamComp = getPlayerLinkedTeamCompetition(i);
-          return teamComp || i.competicion || i.torneo || i.liga;
-        });
-        selComp.innerHTML = `<option value="">Competición...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selCat) {
-        const cur = selCat.value;
-        const opts = getUniques(i => i.sub || i.categoria || i.grupo);
-        selCat.innerHTML = `<option value="">Sub...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selNivel) {
-        const cur = selNivel.value;
-        const opts = getUniques(i => i.rendimientoRS || i.rendimiento || i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
-        selNivel.innerHTML = `<option value="">Nivel...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selPos) {
-        const cur = selPos.value;
-        const opts = getUniques(i => i.posicionPrincipal || i.posicion || i.perfil || i.cargo || i.cesped);
-        selPos.innerHTML = `<option value="">Posición...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
-      if (selOtro) {
-        const cur = selOtro.value;
-        const opts = getUniques(i => i.estado || i.situacion || i.federacion || i.licencia);
-        selOtro.innerHTML = `<option value="">Filtrar por...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
-      }
+      populateIfEmpty('dirFilterAno', 'Año...', i => i.ano || i.anoFundacion || i.nacimiento || (i.temporada ? String(i.temporada).substr(0,4) : ''));
+      populateIfEmpty('dirFilterEquipo', 'Equipo...', i => i.equipo || i.club || i.clubVinculado);
+      populateIfEmpty('dirFilterCompeticion', 'Competición...', i => getPlayerLinkedTeamCompetition(i) || i.competicion || i.torneo || i.liga);
+      populateIfEmpty('dirFilterCategoria', 'Sub...', i => i.sub || i.categoria || i.grupo);
+      populateIfEmpty('dirFilterNivel', 'Nivel...', i => i.rendimientoRS || i.rendimiento || i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
+      populateIfEmpty('dirFilterPosicion', 'Posición...', i => i.posicionPrincipal || i.posicion || i.perfil || i.cargo || i.cesped);
+      populateIfEmpty('dirFilterOtro', 'Filtrar por...', i => i.estado || i.situacion || i.federacion || i.licencia);
     };
 
     populateTop7FilterDropdowns(rawItems);
