@@ -3627,6 +3627,68 @@
     card.classList.add('large');
 
     showModal(titleText, modalHTML, () => {
+      // Render Club Type Chips (DOM element exists now)
+      const renderClubTypeChips = () => {
+        const container = document.getElementById('clubTypeChipsContainer');
+        if (!container) return;
+        container.innerHTML = state.customClubTypes.map(t => {
+          const isSelected = selectedClubTypes.includes(t);
+          return `
+            <span class="club-type-chip ${isSelected ? 'selected' : ''}" data-type="${escapeHtml(t)}" style="padding: 2px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; user-select: none;">
+              ${isSelected ? '✓ ' : ''}${escapeHtml(t)}
+            </span>
+          `;
+        }).join('');
+
+        container.querySelectorAll('.club-type-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const tVal = chip.dataset.type;
+            if (selectedClubTypes.includes(tVal)) {
+              selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
+            } else {
+              selectedClubTypes.push(tVal);
+            }
+            renderClubTypeChips();
+          });
+        });
+      };
+
+      renderClubTypeChips();
+
+      const btnShowInput = document.getElementById('btnShowAddClubTypeInput');
+      const inputRow = document.getElementById('newClubTypeInputRow');
+      const inputNewType = document.getElementById('inputNewCustomClubType');
+      const btnConfirmAdd = document.getElementById('btnConfirmAddClubType');
+
+      btnShowInput?.addEventListener('click', () => {
+        if (inputRow) {
+          inputRow.style.display = inputRow.style.display === 'none' ? 'flex' : 'none';
+          if (inputRow.style.display === 'flex') inputNewType?.focus();
+        }
+      });
+
+      const handleAddNewType = () => {
+        const val = inputNewType?.value.trim();
+        if (!val) return;
+        if (!state.customClubTypes.includes(val)) {
+          state.customClubTypes.push(val);
+        }
+        if (!selectedClubTypes.includes(val)) {
+          selectedClubTypes.push(val);
+        }
+        if (inputNewType) inputNewType.value = '';
+        if (inputRow) inputRow.style.display = 'none';
+        saveState();
+        renderClubTypeChips();
+      };
+
+      btnConfirmAdd?.addEventListener('click', handleAddNewType);
+      inputNewType?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAddNewType();
+        }
+      });
       const nameVal = document.getElementById('pfNombre').value.trim();
       if (!nameVal) return alert('Por favor ingresa el nombre del jugador');
 
@@ -4492,13 +4554,14 @@
     const club = isEdit ? (state.directory.clubes.find(c => c.id === clubId) || {}) : {};
 
     const nombre = club.nombre || club.equipo || '';
-    if (!state.customClubTypes) {
-      state.customClubTypes = ['Profesional', 'Formador', 'Escuela', 'Juvenil+Senior', 'Solo Senior', 'Captador', 'Fútbol Base', 'Cantera', 'Convenio', 'Filial', 'Fundación'];
-    }
+    const DEFAULT_CLUB_TYPES_LIST = ['Profesional', 'Formador', 'Escuela', 'Juvenil+Senior', 'Solo Senior', 'Captador', 'Nivel Bajo', 'Nivel Medio', 'Nivel Alto', 'Fútbol Base', 'Cantera', 'Convenio', 'Filial', 'Fundación'];
+    state.customClubTypes = Array.from(new Set([
+      ...DEFAULT_CLUB_TYPES_LIST,
+      ...(state.customClubTypes || [])
+    ]));
+
     const tipoStr = club.tipo || '';
     let selectedClubTypes = Array.isArray(club.tiposArray) ? [...club.tiposArray] : (tipoStr ? tipoStr.split(',').map(s => s.trim()).filter(Boolean) : []);
-    
-    // Ensure any custom types from existing club are in state.customClubTypes
     selectedClubTypes.forEach(t => {
       if (t && !state.customClubTypes.includes(t)) state.customClubTypes.push(t);
     });
@@ -4588,20 +4651,21 @@
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-                  <div class="form-group" style="grid-column: span 2;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                      <label class="form-label" style="margin: 0; font-weight: 800;">TIPO(S) DE CLUB (Selección Múltiple)</label>
-                      <button type="button" id="btnShowAddClubTypeInput" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px; font-weight: 800;">+ Crear Nuevo Tipo</button>
+                  <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label class="form-label" style="margin: 0; font-weight: 800;">TIPO DE CLUB</label>
+                      <button type="button" id="btnShowAddClubTypeInput" style="background: none; border: none; font-size: 11px; color: var(--primary-blue, #2563eb); font-weight: 800; cursor: pointer; padding: 0;">+ Crear Tipo</button>
                     </div>
 
-                    <div id="newClubTypeInputRow" style="display: none; gap: 6px; margin-bottom: 8px; align-items: center;">
-                      <input type="text" id="inputNewCustomClubType" class="form-control" placeholder="Escribe el nombre del nuevo tipo de club..." style="font-size: 12px; padding: 5px 10px;">
-                      <button type="button" id="btnConfirmAddClubType" class="btn btn-primary" style="padding: 5px 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">Añadir</button>
+                    <div id="newClubTypeInputRow" style="display: none; gap: 4px; margin-bottom: 4px;">
+                      <input type="text" id="inputNewCustomClubType" class="form-control" placeholder="Nombre nuevo tipo..." style="font-size: 11px; padding: 4px 8px; height: 32px;">
+                      <button type="button" id="btnConfirmAddClubType" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px; font-weight: 800; height: 32px; white-space: nowrap;">Añadir</button>
                     </div>
 
-                    <div id="clubTypeChipsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border: 1.5px solid var(--border-medium, #cbd5e1); border-radius: var(--radius-md, 8px); background: var(--bg-subtle, #f8fafc); min-height: 48px; align-items: center;">
+                    <div id="clubTypeChipsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border: 1px solid var(--border-medium, #cbd5e1); border-radius: var(--radius-md, 8px); background: #ffffff; min-height: 38px; max-height: 95px; overflow-y: auto; align-items: center;">
                     </div>
                   </div>
+
                   <div class="form-group">
                     <label class="form-label">AÑO FUNDACIÓN</label>
                     <input type="text" id="cfAnoFundacion" class="form-control" placeholder="Ej: 1902" value="${escapeHtml(anoFundacion)}">
