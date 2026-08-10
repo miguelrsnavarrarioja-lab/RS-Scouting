@@ -10417,9 +10417,105 @@
       });
     }
 
-    // 2. Secondary Sub-filtering & Dynamic Section Filters
+    // Populate top 7 filter dropdowns with unique values from current tab items
+    const populateTop7FilterDropdowns = (itemsList) => {
+      const getUniques = (fn) => {
+        const s = new Set();
+        itemsList.forEach(i => {
+          if (!i) return;
+          const v = fn(i);
+          if (v && typeof v === 'string' && v.trim()) s.add(v.trim());
+        });
+        return Array.from(s).sort((a, b) => a.localeCompare(b, 'es'));
+      };
+
+      const selAno = document.getElementById('dirFilterAno');
+      const selEquipo = document.getElementById('dirFilterEquipo');
+      const selComp = document.getElementById('dirFilterCompeticion');
+      const selCat = document.getElementById('dirFilterCategoria');
+      const selNivel = document.getElementById('dirFilterNivel');
+      const selPos = document.getElementById('dirFilterPosicion');
+      const selOtro = document.getElementById('dirFilterOtro');
+
+      if (selAno) {
+        const cur = selAno.value;
+        const opts = getUniques(i => i.ano || i.anoFundacion || i.nacimiento || (i.temporada ? String(i.temporada).substr(0,4) : ''));
+        selAno.innerHTML = `<option value="">Año...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selEquipo) {
+        const cur = selEquipo.value;
+        const opts = getUniques(i => i.equipo || i.club || i.clubVinculado);
+        selEquipo.innerHTML = `<option value="">Equipo...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selComp) {
+        const cur = selComp.value;
+        const opts = getUniques(i => i.competicion || i.torneo || i.liga);
+        selComp.innerHTML = `<option value="">Competición...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selCat) {
+        const cur = selCat.value;
+        const opts = getUniques(i => i.categoria || i.sub || i.grupo);
+        selCat.innerHTML = `<option value="">Categoría...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selNivel) {
+        const cur = selNivel.value;
+        const opts = getUniques(i => i.nivel || i.nivelCompetitividad || i.tipo || i.comunidad);
+        selNivel.innerHTML = `<option value="">Nivel...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selPos) {
+        const cur = selPos.value;
+        const opts = getUniques(i => i.posicionPrincipal || i.posicion || i.perfil || i.cargo || i.cesped);
+        selPos.innerHTML = `<option value="">Posición...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+      if (selOtro) {
+        const cur = selOtro.value;
+        const opts = getUniques(i => i.estado || i.situacion || i.federacion || i.licencia);
+        selOtro.innerHTML = `<option value="">Filtrar por...</option>` + opts.map(o => `<option value="${escapeHtml(o)}" ${cur === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+      }
+    };
+
+    populateTop7FilterDropdowns(rawItems);
+
+    const filterValAno = document.getElementById('dirFilterAno')?.value.toLowerCase().trim() || '';
+    const filterValEquipo = document.getElementById('dirFilterEquipo')?.value.toLowerCase().trim() || '';
+    const filterValComp = document.getElementById('dirFilterCompeticion')?.value.toLowerCase().trim() || '';
+    const filterValCat = document.getElementById('dirFilterCategoria')?.value.toLowerCase().trim() || '';
+    const filterValNivel = document.getElementById('dirFilterNivel')?.value.toLowerCase().trim() || '';
+    const filterValPos = document.getElementById('dirFilterPosicion')?.value.toLowerCase().trim() || '';
+    const filterValOtro = document.getElementById('dirFilterOtro')?.value.toLowerCase().trim() || '';
+
+    // 2. Secondary Sub-filtering & Top Filter Bar Evaluation
     let subFilteredItems = rawItems.filter(item => {
       if (!item) return false;
+
+      if (filterValAno) {
+        const itemVal = String(item.ano || item.anoFundacion || item.nacimiento || item.temporada || '').toLowerCase();
+        if (!itemVal.includes(filterValAno)) return false;
+      }
+      if (filterValEquipo) {
+        const itemVal = String(item.equipo || item.club || item.clubVinculado || '').toLowerCase();
+        if (!itemVal.includes(filterValEquipo)) return false;
+      }
+      if (filterValComp) {
+        const itemVal = String(item.competicion || item.torneo || item.liga || '').toLowerCase();
+        if (!itemVal.includes(filterValComp)) return false;
+      }
+      if (filterValCat) {
+        const itemVal = String(item.categoria || item.sub || item.grupo || '').toLowerCase();
+        if (!itemVal.includes(filterValCat)) return false;
+      }
+      if (filterValNivel) {
+        const itemVal = String(item.nivel || item.nivelCompetitividad || item.tipo || item.comunidad || '').toLowerCase();
+        if (!itemVal.includes(filterValNivel)) return false;
+      }
+      if (filterValPos) {
+        const itemVal = String(item.posicionPrincipal || item.posicion || item.perfil || item.cargo || item.cesped || '').toLowerCase();
+        if (!itemVal.includes(filterValPos)) return false;
+      }
+      if (filterValOtro) {
+        const itemVal = String(item.estado || item.situacion || item.federacion || item.licencia || '').toLowerCase();
+        if (!itemVal.includes(filterValOtro)) return false;
+      }
 
       // Filter by active dynamic section dropdowns
       for (const [fKey, fVal] of Object.entries(activeFilters)) {
@@ -11797,10 +11893,27 @@
   document.getElementById('btnResetDirFilters')?.addEventListener('click', () => {
     const input = document.getElementById('dirSearchInput');
     if (input) input.value = '';
+    ['dirFilterAno', 'dirFilterEquipo', 'dirFilterCompeticion', 'dirFilterCategoria', 'dirFilterNivel', 'dirFilterPosicion', 'dirFilterOtro'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     if (state.dirActiveFilters) {
       state.dirActiveFilters[currentDirectoryTab] = {};
     }
+    currentDirectoryPage = 1;
     renderDirectorio();
+  });
+
+  // Attach change listeners to top 7 filter dropdowns
+  ['dirFilterAno', 'dirFilterEquipo', 'dirFilterCompeticion', 'dirFilterCategoria', 'dirFilterNivel', 'dirFilterPosicion', 'dirFilterOtro'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.filterBound) {
+      el.dataset.filterBound = 'true';
+      el.addEventListener('change', () => {
+        currentDirectoryPage = 1;
+        renderDirectorio();
+      });
+    }
   });
   document.getElementById('btnAddNewDirectoryItem')?.addEventListener('click', () => openAddDirectoryItemModal());
   document.getElementById('btnAddNewPlayerHeader')?.addEventListener('click', () => {
