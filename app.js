@@ -5064,9 +5064,9 @@
       title: `¿Eliminar Ficha de ${nombre || 'Club'}?`,
       message: `¿Estás seguro de que deseas eliminar permanentemente el club "${nombre}" de la base de datos?`,
       action: () => {
-        deleteClubPermanently(clubId);
+        deleteDirectoryItem('clubes', clubId);
         hideModal();
-        showCustomAlertModal('Club Eliminado', `El club "${nombre}" ha sido eliminado permanentemente de la app y de Firebase.`);
+        showToast('Club eliminado con éxito', 'danger');
         renderDirectorio();
       }
     } : null);
@@ -11282,29 +11282,6 @@
         container.querySelectorAll('.stadium-name-link, .btn-open-stadium-modal').forEach(el => {
           el.addEventListener('click', () => openStadiumModal(el.dataset.id));
         });
-
-        container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const itemId = btn.dataset.id;
-            const itemObj = (state.directory.estadios || []).find(i => i && (String(i.id) === String(itemId) || (i.codigo && String(i.codigo) === String(itemId))));
-            const itemName = itemObj ? (itemObj.nombre || itemObj.equipo || 'este registro') : 'este registro';
-
-            showCustomConfirmModal(
-              `¿Eliminar ${itemName}?`,
-              `¿Estás seguro de que deseas eliminar permanentemente a "${escapeHtml(itemName)}" del directorio y de Firebase?`,
-              () => {
-                if ('estadios' === 'clubes') {
-                  deleteClubPermanently(itemId);
-                } else {
-                  deleteDirectoryItem('estadios', itemId);
-                }
-                showCustomAlertModal('Registro Eliminado', `El registro "${escapeHtml(itemName)}" ha sido eliminado con éxito.`);
-                renderDirectorio();
-              }
-            );
-          });
-        });
       } else {
         container.innerHTML = `
           ${bulkToolbarHTML}
@@ -11315,7 +11292,6 @@
 
               return `
               <div class="entity-card" style="border-top: 5px solid ${itemColor} !important; background: linear-gradient(180deg, ${itemColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
-                <!-- LÍNEA 1: Checkbox + Icono 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${item.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${itemColor};">
@@ -11327,15 +11303,11 @@
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
-
-                <!-- LÍNEA 2: NOMBRE EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
                   <h3 class="entity-card-title" title="${escapeHtml(itemName)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(itemName)}
                   </h3>
                 </div>
-
-                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   ${Object.entries(item).filter(([k]) => k !== 'id' && k !== 'nombre' && k !== 'titulo').slice(0, 4).map(([k, v]) => `
                     <div><strong style="text-transform: capitalize;">${escapeHtml(k)}:</strong> ${escapeHtml(String(v))}</div>
@@ -11347,36 +11319,55 @@
           </div>
           ${paginationBarHTML}
         `;
-
-        container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const itemId = btn.dataset.id;
-            deleteFromFirebase(currentDirectoryTab, itemId);
-            state.directory[currentDirectoryTab] = state.directory[currentDirectoryTab].filter(i => i.id !== itemId);
-            saveState();
-            renderDirectorio();
-          });
-        });
+}
       }
 
-      // Attach Bulk Selection & Deletion Logic
-      const selectAllCb = document.getElementById('dirSelectAllCheckbox');
-      const itemCbs = container.querySelectorAll('.dir-item-checkbox');
-      const bulkDeleteBtn = document.getElementById('btnBulkDeleteDir');
-      const selectedCountSpan = document.getElementById('dirSelectedCount');
-      const bulkDeleteBadge = document.getElementById('dirBulkDeleteBadge');
+        // Attach Card Delete Listener for ALL tabs
+    container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const itemId = btn.dataset.id;
+        const itemObj = (state.directory[currentDirectoryTab] || []).find(i => i && (String(i.id) === String(itemId) || (i.codigo && String(i.codigo) === String(itemId))));
+        const itemName = itemObj ? (itemObj.nombre || itemObj.equipo || itemObj.jugador || itemObj.titulo || 'este registro') : 'este registro';
 
+        showCustomConfirmModal(
+          `¿Eliminar ${itemName}?`,
+          `¿Estás seguro de que deseas eliminar permanentemente a "${escapeHtml(itemName)}" del directorio y de Firebase?`,
+          () => {
+            const card = btn.closest('.entity-card');
+            if (card) {
+              card.style.transition = 'all 0.2s ease-out';
+              card.style.opacity = '0';
+              card.style.transform = 'scale(0.9)';
+            }
+            deleteDirectoryItem(currentDirectoryTab, itemId);
+            showToast(`"${itemName}" eliminado con éxito`, 'danger');
+            renderDirectorio();
+          }
+        );
+      });
+    });
+
+    // Attach Bulk Selection & Deletion Logic for ALL tabs
+    const selectAllCb = container.querySelector('#dirSelectAllCheckbox') || document.getElementById('dirSelectAllCheckbox');
+    const itemCbs = container.querySelectorAll('.dir-item-checkbox');
+    const bulkDeleteBtn = container.querySelector('#btnBulkDeleteDir') || document.getElementById('btnBulkDeleteDir');
+    const selectedCountSpan = container.querySelector('#dirSelectedCount') || document.getElementById('dirSelectedCount');
+    const bulkDeleteBadge = container.querySelector('#dirBulkDeleteBadge') || document.getElementById('dirBulkDeleteBadge');
+
+    if (bulkDeleteBtn) {
       const updateBulkUI = () => {
         const checkedCbs = container.querySelectorAll('.dir-item-checkbox:checked');
         const count = checkedCbs.length;
         if (selectedCountSpan) selectedCountSpan.textContent = count;
         if (bulkDeleteBadge) bulkDeleteBadge.textContent = count;
-        
+
         if (count > 0) {
-          bulkDeleteBtn?.classList.remove('hidden');
+          bulkDeleteBtn.classList.remove('hidden');
+          bulkDeleteBtn.style.display = 'inline-flex';
         } else {
-          bulkDeleteBtn?.classList.add('hidden');
+          bulkDeleteBtn.classList.add('hidden');
+          bulkDeleteBtn.style.display = 'none';
         }
 
         if (selectAllCb) {
@@ -11393,7 +11384,9 @@
         cb.addEventListener('change', updateBulkUI);
       });
 
-      bulkDeleteBtn?.addEventListener('click', () => {
+      bulkDeleteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const checkedCbs = container.querySelectorAll('.dir-item-checkbox:checked');
         const idsToDelete = Array.from(checkedCbs).map(cb => cb.dataset.id);
         if (idsToDelete.length === 0) return;
@@ -11403,11 +11396,9 @@
           `¿Eliminar ${idsToDelete.length} Registros?`,
           `¿Estás seguro de que deseas eliminar permanentemente los ${idsToDelete.length} registros seleccionados de la sección ${tabNameDisplay} tanto en la aplicación como en Firebase?`,
           () => {
-            if (state.directory && Array.isArray(state.directory[currentDirectoryTab])) {
-              idsToDelete.forEach(id => deleteDirectoryItem(currentDirectoryTab, id));
-              showCustomAlertModal('Registros Eliminados', `¡Se han eliminado ${idsToDelete.length} registros de ${tabNameDisplay} y de Firebase con éxito!`);
-              renderDirectorio();
-            }
+            idsToDelete.forEach(id => deleteDirectoryItem(currentDirectoryTab, id));
+            showToast(`Se han eliminado ${idsToDelete.length} registros con éxito`, 'danger');
+            renderDirectorio();
           }
         );
       });
@@ -14342,7 +14333,61 @@
   /**
    * Ventana emergente modal centrada con la estética de la app para confirmar acciones (remplaza confirm)
    */
-    function showCustomConfirmModal(title, message, onConfirm) {
+      function showToast(message, type = 'success') {
+    let container = document.getElementById('globalToastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'globalToastContainer';
+      container.style.position = 'fixed';
+      container.style.bottom = '24px';
+      container.style.right = '24px';
+      container.style.zIndex = '100000';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.gap = '10px';
+      container.style.pointerEvents = 'none';
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.pointerEvents = 'auto';
+    toast.style.background = type === 'danger' ? '#ef4444' : '#10b981';
+    toast.style.color = '#ffffff';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '10px';
+    toast.style.fontSize = '14px';
+    toast.style.fontWeight = '700';
+    toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.2)';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.gap = '10px';
+    toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.opacity = '0';
+
+    toast.innerHTML = `
+      <i data-lucide="${type === 'danger' ? 'trash-2' : 'check-circle'}" style="width: 18px; height: 18px;"></i>
+      <span>${escapeHtml(message)}</span>
+    `;
+
+    container.appendChild(toast);
+    if (window.lucide) window.lucide.createIcons();
+
+    requestAnimationFrame(() => {
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+    });
+
+    setTimeout(() => {
+      toast.style.transform = 'translateY(-10px)';
+      toast.style.opacity = '0';
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 300);
+    }, 2500);
+  }
+
+  function showCustomConfirmModal(title, message, onConfirm) {
     const html = `
       <div style="text-align: center; padding: 12px 6px;">
         <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
