@@ -433,6 +433,11 @@
         }
 
         setFirebaseHeaderStatus('synced');
+        
+        // Run one-time migrations and cleanup immediately after loading data
+        if (typeof wipeAragonData === 'function') wipeAragonData();
+        if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
+
         if (typeof renderAllViews === 'function') {
           renderAllViews();
         }
