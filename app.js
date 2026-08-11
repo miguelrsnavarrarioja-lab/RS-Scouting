@@ -20223,6 +20223,22 @@
         hideModal();
       };
     }
+
+    // Allow Enter to confirm and Escape to cancel
+    const _confirmKeyHandler = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.removeEventListener('keydown', _confirmKeyHandler);
+        resetFooter();
+        hideModal();
+        if (onConfirm) onConfirm();
+      } else if (e.key === 'Escape') {
+        document.removeEventListener('keydown', _confirmKeyHandler);
+        resetFooter();
+        hideModal();
+      }
+    };
+    document.addEventListener('keydown', _confirmKeyHandler);
   }
 
   // Sobrescribir avisos del sistema (alerts) para mostrarlos siempre en ventanas emergentes centradas
