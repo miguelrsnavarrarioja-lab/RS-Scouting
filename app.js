@@ -3171,7 +3171,7 @@
     const historialEntrenadores = player.historialEntrenadores || '';
     const opinionTecnica = player.opinionTecnica || '';
 
-    let photoData = player.foto || '';
+    let photoData = player.foto || 'Foto Jugador General.png';
 
     const titleText = isEdit ? `🏃 Ficha de ${escapeHtml(nombre)}` : '🏃 Nuevo Jugador';
 
@@ -5574,7 +5574,7 @@
         plantilla: localPlantillaList,
 
         estiloJuego: document.getElementById('tfEstiloJuego').value.trim(),
-        sistemaHabitual: document.getElementById('tfSistemaHabitual').value.trim(),
+        sistemaHabitual: document.getElementById('tfCampogramaSistema')?.value || document.getElementById('tfSistemaHabitual')?.value.trim() || '1-4-3-3',
         nivelCompetitividad: document.getElementById('tfNivelCompetitividad').value.trim(),
         notasTacticas: document.getElementById('tfNotasTacticas').value.trim(),
         notas: document.getElementById('tfNotasTacticas').value.trim(),
@@ -6164,7 +6164,21 @@
     }
 
     renderTeamCampogramaPins();
-    document.getElementById('tfCampogramaSistema')?.addEventListener('change', renderTeamCampogramaPins);
+    document.getElementById('tfCampogramaSistema')?.addEventListener('change', (e) => {
+      const selectedSys = e.target.value;
+      const estiloSysInput = document.getElementById('tfSistemaHabitual');
+      if (estiloSysInput) estiloSysInput.value = selectedSys;
+
+      if (isEdit && teamId && state.directory && Array.isArray(state.directory.equipos)) {
+        const teamObj = state.directory.equipos.find(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
+        if (teamObj) {
+          teamObj.sistemaHabitual = selectedSys;
+          saveToFirebase('equipos', teamObj);
+          saveState();
+        }
+      }
+      renderTeamCampogramaPins();
+    });
 
     // PDF Export for Team Campograma (2 Pages)
     document.getElementById('btnExportTeamCampogramaPdf')?.addEventListener('click', () => {
@@ -15227,6 +15241,117 @@
     return cleanedCount;
   }
 
+  function getFederationSelectionBaseName(fedName) {
+    if (!fedName) return 'Regional';
+    const nameLower = fedName.toLowerCase();
+
+    if (nameLower.includes('rfef') || nameLower.includes('española')) return 'España';
+    if (nameLower.includes('navarr')) return 'Navarra';
+    if (nameLower.includes('aragon') || nameLower.includes('aragón')) return 'Aragón';
+    if (nameLower.includes('rioja')) return 'La Rioja';
+    if (nameLower.includes('vasca') || nameLower.includes('euskadi')) return 'País Vasco';
+    if (nameLower.includes('madrid')) return 'Madrid';
+    if (nameLower.includes('catalana') || nameLower.includes('cataluña')) return 'Cataluña';
+    if (nameLower.includes('valencian') || nameLower.includes('ffcv')) return 'C. Valenciana';
+    if (nameLower.includes('andaluz') || nameLower.includes('andalucía')) return 'Andalucía';
+    if (nameLower.includes('galleg') || nameLower.includes('galicia')) return 'Galicia';
+    if (nameLower.includes('asturia')) return 'Asturias';
+    if (nameLower.includes('canta')) return 'Cantabria';
+    if (nameLower.includes('castilla y león') || nameLower.includes('castellano-leonesa')) return 'Castilla y León';
+    if (nameLower.includes('castilla-la mancha')) return 'Castilla-La Mancha';
+    if (nameLower.includes('extremad')) return 'Extremadura';
+    if (nameLower.includes('murcia')) return 'Murcia';
+    if (nameLower.includes('balear')) return 'Baleares';
+    if (nameLower.includes('canaria')) return 'Canarias';
+
+    return fedName.replace(/^(real\s+|federación\s+(de\s+fútbol\s+de\s+la\s+|de\s+fútbol\s+de\s+|de\s+|del\s+)?|federació\s+)/i, '').trim();
+  }
+
+  function ensureFederacionesSeleccionesSeeded() {
+    if (!state || !state.directory) return;
+    if (!state.directory.selecciones) state.directory.selecciones = [];
+
+    const federaciones = state.directory.federaciones || [];
+    if (federaciones.length === 0) return;
+
+    const requestedCategories = [
+      { cat: 'Sub16', sexo: 'Masculino', label: 'Sub16 Masculina' },
+      { cat: 'Sub14', sexo: 'Masculino', label: 'Sub14 Masculina' },
+      { cat: 'Sub12', sexo: 'Masculino', label: 'Sub12 Masculina' },
+      { cat: 'Sub12', sexo: 'Femenino', label: 'Sub12 Femenina' },
+      { cat: 'Sub15', sexo: 'Femenino', label: 'Sub15 Femenina' },
+      { cat: 'Sub17', sexo: 'Femenino', label: 'Sub17 Femenina' }
+    ];
+
+    let newCount = 0;
+    let updatedCount = 0;
+
+    // First update existing selecciones names to append 26/27 and remove prefix if needed
+    state.directory.selecciones.forEach(s => {
+      if (s && s.nombre) {
+        let nameStr = s.nombre.trim();
+        if (nameStr.startsWith('Selección ')) {
+          nameStr = nameStr.replace(/^Selección\s+/, '');
+        }
+        if (!nameStr.includes('26/27')) {
+          nameStr = `${nameStr} 26/27`;
+        }
+        if (s.nombre !== nameStr) {
+          s.nombre = nameStr;
+          s.seleccion = nameStr;
+          s.temporada = '26/27';
+          saveToFirebase('selecciones', s);
+          updatedCount++;
+        }
+      }
+    });
+
+    federaciones.forEach(fed => {
+      const fedFullName = fed.nombre || fed.federacion;
+      if (!fedFullName) return;
+      const baseName = getFederationSelectionBaseName(fedFullName);
+
+      requestedCategories.forEach(req => {
+        const selFullName = `${baseName} ${req.label} 26/27`;
+        const selFullNameClean = selFullName.toLowerCase().trim();
+
+        const exists = state.directory.selecciones.some(s => 
+          s && ((s.nombre || s.seleccion || '').toLowerCase().trim() === selFullNameClean ||
+                ((s.federacion || '').toLowerCase().trim() === fedFullName.toLowerCase().trim() && 
+                 (s.categoria || '').toLowerCase().trim() === req.cat.toLowerCase() && 
+                 (s.sexo || '').toLowerCase().trim() === req.sexo.toLowerCase() &&
+                 (s.temporada || '').includes('26/27')))
+        );
+
+        if (!exists) {
+          const newSel = {
+            id: 'sel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            nombre: selFullName,
+            seleccion: selFullName,
+            federacion: fedFullName,
+            categoria: req.cat,
+            sexo: req.sexo,
+            temporada: '26/27',
+            escudo: fed.escudo || fed.logo || '',
+            logo: fed.escudo || fed.logo || '',
+            colorPrimary: fed.colorPrimary || fed.colorPrimario || '#2563eb',
+            colorSecondary: fed.colorSecondary || fed.colorSecundario || '#ffffff',
+            jugadores: [],
+            staff: []
+          };
+          state.directory.selecciones.push(newSel);
+          saveToFirebase('selecciones', newSel);
+          newCount++;
+        }
+      });
+    });
+
+    if (newCount > 0 || updatedCount > 0) {
+      saveState();
+      console.log(`🌍 Actualizadas/Creadas selecciones autonómicas con formato '[Comunidad] [Categoría] 26/27' (${newCount} creadas, ${updatedCount} actualizadas).`);
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
@@ -15241,9 +15366,10 @@
     }
     if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
 
-    // Always ensure Aragonesa clubs, teams, and players are seeded
+    // Always ensure Aragonesa clubs, teams, players and Federaciones Selecciones are seeded
     ensureClubesAragonSeeded();
     ensureEquiposAragonSeeded();
+    ensureFederacionesSeleccionesSeeded();
 
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
     if (!state.dirActiveFilters) state.dirActiveFilters = {};
@@ -15371,7 +15497,7 @@
             <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
           </span>
           ${allFeds.map(fed => {
-            const acronym = getFedAcronym(fed);
+            const acronym = fed === 'TODAS' ? 'TODAS' : getFedAcronym(fed);
             return `
             <button type="button" class="btn-dir-subfilter ${currentFederationFilter === fed ? 'active' : ''}" data-type="federacion" data-val="${escapeHtml(fed)}" title="${escapeHtml(fed)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentFederationFilter === fed ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               ${escapeHtml(acronym)}
