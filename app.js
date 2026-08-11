@@ -359,7 +359,8 @@
         console.log(`🔥 Se obtuvieron ${totalItemsCloud} registros desde Firebase Cloud Firestore`);
 
         state.directory = state.directory || {};
-        state.directory.jugadores = jugadores;
+        state.directory.jugadores = jugadores || [];
+        state.players = [];
         state.directory.clubes = clubes;
         state.directory.equipos = equipos;
         state.directory.federaciones = federaciones;
@@ -402,6 +403,8 @@
         return true;
       } else {
         console.log('ℹ️ Firebase no contiene colecciones de datos. Sincronizando estado local inicial a Firebase...');
+        if (state.directory) state.directory.jugadores = [];
+        state.players = [];
         // no auto re-upload
         return false;
       }
@@ -5233,7 +5236,7 @@
       if (parentFed) federacion = parentFed.nombre || parentFed.federacion || '';
     }
 
-    const allPlayersList = (state.directory && state.directory.jugadores && state.directory.jugadores.length) ? state.directory.jugadores : (state.players || []);
+    const allPlayersList = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
 
     let localTecnicosList = team.tecnicos ? JSON.parse(JSON.stringify(team.tecnicos)) : [];
     let localPlantillaList = team.plantilla ? JSON.parse(JSON.stringify(team.plantilla)) : [];
@@ -5670,7 +5673,7 @@
         });
       }
 
-      // Bidirectional sync for Plantilla (Players)
+      // Bidirectional sync for Plantilla (Players) - only update existing players in directory
       if (Array.isArray(localPlantillaList)) {
         if (!state.directory.jugadores) state.directory.jugadores = [];
         const playersStore = state.directory.jugadores;
@@ -5685,33 +5688,9 @@
             (p.name && p.name.toLowerCase() === playerName.toLowerCase())
           );
 
-          if (!targetPlayer) {
-            targetPlayer = {
-              id: 'pl_' + Date.now() + Math.floor(Math.random()*100),
-              nombre: playerName,
-              jugador: playerName,
-              equipoPrincipal: nameVal,
-              equipo: nameVal
-            };
-            playersStore.unshift(targetPlayer);
-          } else {
+          if (targetPlayer) {
             targetPlayer.equipoPrincipal = nameVal;
             targetPlayer.equipo = nameVal;
-          }
-
-          // Also sync with state.players if present
-          if (state.players && Array.isArray(state.players)) {
-            let pInPlayers = state.players.find(p => 
-              (p.nombre && p.nombre.toLowerCase() === playerName.toLowerCase()) ||
-              (p.jugador && p.jugador.toLowerCase() === playerName.toLowerCase()) ||
-              (p.name && p.name.toLowerCase() === playerName.toLowerCase())
-            );
-            if (pInPlayers) {
-              pInPlayers.equipoPrincipal = nameVal;
-              pInPlayers.equipo = nameVal;
-            } else {
-              state.players.unshift(JSON.parse(JSON.stringify(targetPlayer)));
-            }
           }
         });
       }
@@ -5961,7 +5940,7 @@
       const countLabel = document.getElementById('lblSelectedPlayersCount');
       if (!container) return;
 
-      const playersPool = (state.directory && state.directory.jugadores && state.directory.jugadores.length) ? state.directory.jugadores : (state.players || []);
+      const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const filterLower = filterText.toLowerCase().trim();
 
       const filteredPlayers = playersPool.filter(p => {
@@ -6015,7 +5994,7 @@
     function renderPlantillaTable() {
       const tbody = document.getElementById('tfPlantillaTableBody');
       if (!tbody) return;
-      const playersPool = (state.directory && state.directory.jugadores && state.directory.jugadores.length) ? state.directory.jugadores : (state.players || []);
+      const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
 
       if (localPlantillaList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted);">Sin jugadores vinculados en la plantilla</td></tr>`;
@@ -6825,7 +6804,7 @@
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || state.players || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="selectionForm">
@@ -7028,7 +7007,7 @@
       }
       saveToFirebase('selecciones', updatedSel);
 
-      // Bidirectional sync for Jugadores
+      // Bidirectional sync for Jugadores - only update existing players in directory
       if (Array.isArray(localJugadoresList)) {
         if (!state.directory.jugadores) state.directory.jugadores = [];
         localJugadoresList.forEach(j => {
@@ -7041,16 +7020,7 @@
             (p.name && p.name.toLowerCase() === playerName.toLowerCase())
           );
 
-          if (!targetPlayer) {
-            targetPlayer = {
-              id: 'p_' + Date.now() + Math.floor(Math.random()*100),
-              nombre: playerName,
-              jugador: playerName,
-              seleccion: nameVal,
-              equipoPrincipal: nameVal
-            };
-            state.directory.jugadores.unshift(targetPlayer);
-          } else {
+          if (targetPlayer) {
             targetPlayer.seleccion = nameVal;
           }
         });
@@ -7196,7 +7166,7 @@
       if (localJugadoresList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: var(--text-muted);">No hay jugadores convocados vinculados a esta selección.</td></tr>`;
       } else {
-        const allPlayers = (state.directory && state.directory.jugadores) || state.players || [];
+        const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           const jName = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
@@ -7372,7 +7342,7 @@
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || state.players || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="convocatoriaForm">
@@ -7577,7 +7547,7 @@
       }
       saveToFirebase('convocatorias', updatedConv);
 
-      // Bidirectional sync for Jugadores
+      // Bidirectional sync for Jugadores - only update existing players in directory
       if (Array.isArray(localJugadoresList)) {
         if (!state.directory.jugadores) state.directory.jugadores = [];
         localJugadoresList.forEach(j => {
@@ -7590,16 +7560,7 @@
             (p.name && p.name.toLowerCase() === playerName.toLowerCase())
           );
 
-          if (!targetPlayer) {
-            targetPlayer = {
-              id: 'p_' + Date.now() + Math.floor(Math.random()*100),
-              nombre: playerName,
-              jugador: playerName,
-              convocatoria: nameVal,
-              seleccion: updatedConv.seleccionVinculada || ''
-            };
-            state.directory.jugadores.unshift(targetPlayer);
-          } else {
+          if (targetPlayer) {
             targetPlayer.convocatoria = nameVal;
             if (updatedConv.seleccionVinculada) targetPlayer.seleccion = updatedConv.seleccionVinculada;
           }
@@ -7872,7 +7833,7 @@
       if (localJugadoresList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
       } else {
-        const allPlayers = (state.directory && state.directory.jugadores) || state.players || [];
+        const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           const jName = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
@@ -8693,7 +8654,7 @@
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || state.players || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="agencyForm">
@@ -8875,7 +8836,7 @@
         });
       }
 
-      // Bidirectional sync for Jugadores
+      // Bidirectional sync for Jugadores - only update existing players in directory
       if (Array.isArray(localJugadoresList)) {
         if (!state.directory.jugadores) state.directory.jugadores = [];
         localJugadoresList.forEach(jItem => {
@@ -8888,16 +8849,7 @@
             (p.name && p.name.toLowerCase() === jName.toLowerCase())
           );
 
-          if (!targetPl) {
-            targetPl = {
-              id: 'p_' + Date.now() + Math.floor(Math.random()*100),
-              nombre: jName,
-              jugador: jName,
-              agencia: nameVal,
-              agenciaVinculada: nameVal
-            };
-            state.directory.jugadores.unshift(targetPl);
-          } else {
+          if (targetPl) {
             targetPl.agencia = nameVal;
             targetPl.agenciaVinculada = nameVal;
           }
@@ -9119,7 +9071,7 @@
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || state.players || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="agentForm">
@@ -9295,7 +9247,7 @@
         }
       }
 
-      // Bidirectional sync for Jugadores
+      // Bidirectional sync for Jugadores - only update existing players in directory
       if (Array.isArray(localJugadoresList)) {
         if (!state.directory.jugadores) state.directory.jugadores = [];
         localJugadoresList.forEach(jItem => {
@@ -9308,16 +9260,7 @@
             (p.name && p.name.toLowerCase() === jName.toLowerCase())
           );
 
-          if (!targetPl) {
-            targetPl = {
-              id: 'p_' + Date.now() + Math.floor(Math.random()*100),
-              nombre: jName,
-              jugador: jName,
-              agente: nameVal,
-              agencia: updatedAgent.agencia || ''
-            };
-            state.directory.jugadores.unshift(targetPl);
-          } else {
+          if (targetPl) {
             targetPl.agente = nameVal;
             if (updatedAgent.agencia) targetPl.agencia = updatedAgent.agencia;
           }
@@ -15184,6 +15127,7 @@
   function cleanUpAragonGeneratedPlayersFromFirebase() {
     if (!state.directory) state.directory = {};
     if (!Array.isArray(state.directory.jugadores)) state.directory.jugadores = [];
+    state.players = [];
 
     const isGeneratedAragonPlayer = (p) => {
       if (!p) return false;
@@ -16774,408 +16718,20 @@
 
       if (!state.directory[currentDirectoryTab]) state.directory[currentDirectoryTab] = [];
       state.directory[currentDirectoryTab].unshift(newItem);
-      saveToFirebase('jugadores', updatedPlayer);
+      saveToFirebase(currentDirectoryTab, newItem);
       saveState();
       hideModal();
-      showToast(`Ficha de "${nameVal}" guardada con éxito`, 'success');
+      showToast(`Ficha de "${nombre}" guardada con éxito`, 'success');
       renderDirectorio();
     });
   }
 
   // --------------------------------------------------------------------------
-  // 7. SECTION 4: IMPORTADOR DE PLANTILLAS FEDERATIVAS
+  // 7. SECTION 4: IMPORTADOR DE PLANTILLAS FEDERATIVAS (MÓDULO VACÍO)
   // --------------------------------------------------------------------------
   const DEFAULT_PLAYER_PHOTO_PATH = "Foto Jugador General.png";
-
-  function populateImporterTeamSelect() {
-    const sel = document.getElementById('importerTargetEquipo');
-    if (!sel || !state.directory) return;
-
-    const equipos = state.directory.equipos || [];
-    let html = `<option value="" disabled selected>-- Selecciona un Equipo del Directorio --</option>`;
-    equipos.forEach(eq => {
-      const label = `${eq.nombre} (${eq.categoria || 'Senior'})`;
-      html += `<option value="${escapeHtml(eq.id)}" data-nombre="${escapeHtml(eq.nombre)}" data-categoria="${escapeHtml(eq.categoria || 'Senior')}" data-temporada="${escapeHtml(eq.temporada || '2026/2027')}">${escapeHtml(label)}</option>`;
-    });
-    html += `<option value="MANUAL">✍️ Escribir otro equipo manualmente...</option>`;
-    sel.innerHTML = html;
-  }
-
-  document.getElementById('importerTargetEquipo')?.addEventListener('change', (e) => {
-    const manualInput = document.getElementById('importerManualEquipoInput');
-    if (e.target.value === 'MANUAL') {
-      manualInput?.classList.remove('hidden');
-      manualInput?.focus();
-    } else {
-      manualInput?.classList.add('hidden');
-    }
-  });
-
-  function updateImporterContextVisibility() {
-    const entityType = document.getElementById('importerEntityType')?.value;
-    const contextBox = document.getElementById('importerContextOptions');
-    if (!contextBox) return;
-
-    if (entityType === 'plantilla') {
-      contextBox.classList.remove('hidden');
-      populateImporterTeamSelect();
-    } else {
-      contextBox.classList.add('hidden');
-    }
-  }
-
-  document.getElementById('importerEntityType')?.addEventListener('change', updateImporterContextVisibility);
-
   let stagedImportItems = [];
 
-  document.getElementById('btnRunImporter')?.addEventListener('click', () => {
-    const rawText = document.getElementById('importerRawContent')?.value.trim();
-    const entityType = document.getElementById('importerEntityType')?.value || 'plantilla';
-
-    if (!rawText) return alert('Pega primero la lista de jugadores copiada de la web federativa');
-
-    let defaultEquipo = 'Sin equipo';
-    const targetEquipoSel = document.getElementById('importerTargetEquipo');
-    const manualEquipoInput = document.getElementById('importerManualEquipoInput');
-
-    if (entityType === 'plantilla') {
-      if (targetEquipoSel && targetEquipoSel.value && targetEquipoSel.value !== 'MANUAL') {
-        const opt = targetEquipoSel.options[targetEquipoSel.selectedIndex];
-        defaultEquipo = opt.dataset.nombre || opt.text;
-      } else if (targetEquipoSel && targetEquipoSel.value === 'MANUAL' && manualEquipoInput && manualEquipoInput.value.trim()) {
-        defaultEquipo = manualEquipoInput.value.trim();
-      } else if (targetEquipoSel && targetEquipoSel.value === 'MANUAL') {
-        return alert('Por favor escribe el nombre del equipo manual');
-      } else {
-        return alert('Por favor selecciona primero el Equipo de Destino');
-      }
-    }
-
-    const defaultAno = document.getElementById('importerAnoNacimiento')?.value.trim() || '2006';
-    const defaultPosicion = document.getElementById('importerPosicion')?.value || 'Por definir';
-    const defaultEstado = document.getElementById('importerEstadoJugador')?.value || 'ALTA';
-    const defaultProyeccion = document.getElementById('importerProyeccion')?.value || 'Proyección Alta';
-    const defaultPierna = document.getElementById('importerPierna')?.value || 'Diestra';
-
-    const lines = rawText.split('\n');
-    stagedImportItems = [];
-
-    lines.forEach((line, idx) => {
-      let trimmed = line.trim();
-      if (!trimmed) return;
-
-      if (/^(nombre|apellidos|dorsal|posición|licencia|posicion)/i.test(trimmed)) return;
-
-      let formattedName = trimmed;
-      if (trimmed.includes(',')) {
-        const parts = trimmed.split(',').map(p => p.trim());
-        if (parts.length === 2 && parts[0] && parts[1]) {
-          formattedName = `${parts[1]} ${parts[0]}`;
-        }
-      }
-
-      formattedName = formattedName.toLowerCase().replace(/(?:^|\s)\S/g, a => a.toUpperCase()).trim();
-
-      if (formattedName.length < 2) return;
-
-      let existing = state.directory.jugadores?.find(item => 
-        (item.nombre || '').toLowerCase().trim() === formattedName.toLowerCase().trim()
-      );
-
-      stagedImportItems.push({
-        id: 'j_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        nombre: formattedName,
-        equipo: defaultEquipo,
-        club: defaultEquipo.split(' ')[0] || defaultEquipo,
-        anoNacimiento: defaultAno,
-        ano: defaultAno,
-        sub: defaultAno ? `SUB${2026 - (parseInt(defaultAno) || 2006)}` : 'SUB20',
-        posicion: defaultPosicion,
-        posicionPrincipal: defaultPosicion,
-        estado: defaultEstado,
-        rendimientoRS: defaultProyeccion,
-        proyeccion: defaultProyeccion,
-        piernaDominante: defaultPierna,
-        foto: DEFAULT_PLAYER_PHOTO_PATH,
-        escudo: DEFAULT_PLAYER_PHOTO_PATH,
-        comunidad: 'Navarra',
-        federacion: 'FNF - Federación Navarra de Fútbol',
-        isDuplicate: !!existing
-      });
-    });
-
-    if (stagedImportItems.length === 0) {
-      return alert('No se pudieron extraer nombres de la lista. Revisa el texto pegado.');
-    }
-
-    renderStagedImporterModal();
-  });
-
-  function renderStagedImporterModal() {
-    const resultsContainer = document.getElementById('importerResultsContainer');
-    if (!resultsContainer) return;
-    resultsContainer.classList.remove('hidden');
-
-    const countNew = stagedImportItems.filter(i => !i.isDuplicate).length;
-    const countExisting = stagedImportItems.filter(i => i.isDuplicate).length;
-
-    let tableRowsHtml = '';
-    stagedImportItems.forEach((item, idx) => {
-      tableRowsHtml += `
-        <tr style="border-bottom: 1px solid var(--border-light, #e2e8f0); background: ${item.isDuplicate ? '#fffbeb' : '#ffffff'};">
-          <td style="padding: 8px; text-align: center;">
-            <input type="checkbox" class="staged-item-cb" data-idx="${idx}" checked style="width: 16px; height: 16px; cursor: pointer;">
-          </td>
-          <td style="padding: 8px;">
-            <input type="text" class="form-control staged-name-input" data-idx="${idx}" value="${escapeHtml(item.nombre)}" style="font-weight: 700; font-size: 13px; padding: 4px 8px;">
-          </td>
-          <td style="padding: 8px;">
-            <input type="text" class="form-control staged-equipo-input" data-idx="${idx}" value="${escapeHtml(item.equipo)}" style="font-size: 12px; padding: 4px 8px;">
-          </td>
-          <td style="padding: 8px;">
-            <input type="text" class="form-control staged-ano-input" data-idx="${idx}" value="${escapeHtml(item.anoNacimiento)}" style="font-size: 12px; padding: 4px 8px; width: 70px; text-align: center;">
-          </td>
-          <td style="padding: 8px;">
-            <select class="form-control staged-posicion-select" data-idx="${idx}" style="font-size: 12px; padding: 4px 8px;">
-              ${['Por definir', 'Portero', 'Defensa Central', 'Lateral Derecho', 'Lateral Izquierdo', 'Pivote', 'Mediocentro', 'Mediapunta', 'Extremo Derecho', 'Extremo Izquierdo', 'Delantero Centro'].map(p => `
-                <option value="${p}" ${item.posicion === p ? 'selected' : ''}>${p}</option>
-              `).join('')}
-            </select>
-          </td>
-          <td style="padding: 8px;">
-            <select class="form-control staged-estado-select" data-idx="${idx}" style="font-size: 12px; padding: 4px 8px;">
-              ${['ALTA', 'RENOVACIÓN', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA'].map(e => `
-                <option value="${e}" ${item.estado === e ? 'selected' : ''}>${e}</option>
-              `).join('')}
-            </select>
-          </td>
-          <td style="padding: 8px;">
-            <select class="form-control staged-proyeccion-select" data-idx="${idx}" style="font-size: 12px; padding: 4px 8px;">
-              ${['Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'].map(pr => `
-                <option value="${pr}" ${item.rendimientoRS === pr ? 'selected' : ''}>${pr}</option>
-              `).join('')}
-            </select>
-          </td>
-          <td style="padding: 8px;">
-            <select class="form-control staged-pierna-select" data-idx="${idx}" style="font-size: 12px; padding: 4px 8px;">
-              ${['Diestra', 'Zurda', 'Ambidextra'].map(pi => `
-                <option value="${pi}" ${item.piernaDominante === pi ? 'selected' : ''}>${pi}</option>
-              `).join('')}
-            </select>
-          </td>
-        </tr>
-      `;
-    });
-
-    resultsContainer.innerHTML = `
-      <div class="importador-card" style="border: 2px solid var(--primary-blue, #2563eb); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); background: #ffffff; padding: 20px; border-radius: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-          <div>
-            <h3 style="font-size: 18px; font-weight: 800; margin: 0; color: var(--primary-blue, #2563eb); display: flex; align-items: center; gap: 8px;">
-              📋 Ventana de Edición Previa a la Importación (${stagedImportItems.length} Jugadores Extraídos)
-            </h3>
-            <p style="font-size: 12px; color: var(--text-muted, #64748b); margin: 4px 0 0 0;">
-              Puedes modificar los datos de cada jugador individualmente o usar la barra de cambio masivo antes de guardar en el Directorio.
-            </p>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <span style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800;">
-              ✨ ${countNew} Nuevos
-            </span>
-            ${countExisting > 0 ? `
-              <span style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800;">
-                ⚠️ ${countExisting} Ya en base de datos
-              </span>
-            ` : ''}
-          </div>
-        </div>
-
-        <div style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 14px; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <span style="font-size: 12px; font-weight: 800; color: #334155; white-space: nowrap;">⚡ Edición Masiva (Marcados):</span>
-          
-          <select id="bulkPosicion" class="form-control" style="width: auto; font-size: 11px; height: 32px; padding: 2px 8px;">
-            <option value="">-- Cambiar Posición --</option>
-            ${['Portero', 'Defensa Central', 'Lateral Derecho', 'Lateral Izquierdo', 'Pivote', 'Mediocentro', 'Mediapunta', 'Extremo Derecho', 'Extremo Izquierdo', 'Delantero Centro'].map(p => `<option value="${p}">${p}</option>`).join('')}
-          </select>
-
-          <select id="bulkEstado" class="form-control" style="width: auto; font-size: 11px; height: 32px; padding: 2px 8px;">
-            <option value="">-- Cambiar Estado --</option>
-            ${['ALTA', 'RENOVACIÓN', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA'].map(e => `<option value="${e}">${e}</option>`).join('')}
-          </select>
-
-          <select id="bulkProyeccion" class="form-control" style="width: auto; font-size: 11px; height: 32px; padding: 2px 8px;">
-            <option value="">-- Cambiar Proyección --</option>
-            ${['Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'].map(pr => `<option value="${pr}">${pr}</option>`).join('')}
-          </select>
-
-          <button type="button" id="btnApplyBulkEdit" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px; font-weight: 800; height: 32px;">
-            Aplicar Cambios a Seleccionados
-          </button>
-        </div>
-
-        <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-light, #e2e8f0); border-radius: var(--radius-md, 8px); margin-bottom: 16px;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-            <thead>
-              <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; text-align: left;">
-                <th style="padding: 8px; text-align: center; width: 40px;">
-                  <input type="checkbox" id="stagedSelectAllCb" checked style="width: 16px; height: 16px; cursor: pointer;">
-                </th>
-                <th style="padding: 8px; min-width: 180px;">JUGADOR (NOMBRE Y APELLIDOS)</th>
-                <th style="padding: 8px; min-width: 140px;">EQUIPO</th>
-                <th style="padding: 8px; width: 80px; text-align: center;">AÑO</th>
-                <th style="padding: 8px; min-width: 130px;">POSICIÓN</th>
-                <th style="padding: 8px; min-width: 110px;">ESTADO</th>
-                <th style="padding: 8px; min-width: 130px;">PROYECCIÓN / RS</th>
-                <th style="padding: 8px; min-width: 100px;">PIERNA</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRowsHtml}
-            </tbody>
-          </table>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-          <button type="button" class="btn btn-outline-danger" id="btnCancelStagedImporter" style="font-weight: 700; padding: 10px 18px;">
-            ✕ Cancelar / Descartar
-          </button>
-          <button type="button" class="btn btn-success btn-lg" id="btnConfirmStagedImporter" style="font-weight: 800; padding: 12px 28px; background: #16a34a; border-color: #16a34a;">
-            💾 Confirmar e Importar Jugadores al Directorio
-          </button>
-        </div>
-      </div>
-    `;
-
-    const container = resultsContainer;
-
-    container.querySelectorAll('.staged-name-input').forEach(inp => {
-      inp.addEventListener('input', () => { stagedImportItems[parseInt(inp.dataset.idx)].nombre = inp.value.trim(); });
-    });
-    container.querySelectorAll('.staged-equipo-input').forEach(inp => {
-      inp.addEventListener('input', () => { stagedImportItems[parseInt(inp.dataset.idx)].equipo = inp.value.trim(); });
-    });
-    container.querySelectorAll('.staged-ano-input').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const val = inp.value.trim();
-        const item = stagedImportItems[parseInt(inp.dataset.idx)];
-        item.anoNacimiento = val;
-        item.ano = val;
-        item.sub = val ? `SUB${2026 - (parseInt(val) || 2006)}` : 'SUB20';
-      });
-    });
-    container.querySelectorAll('.staged-posicion-select').forEach(sel => {
-      sel.addEventListener('change', () => {
-        const item = stagedImportItems[parseInt(sel.dataset.idx)];
-        item.posicion = sel.value;
-        item.posicionPrincipal = sel.value;
-      });
-    });
-    container.querySelectorAll('.staged-estado-select').forEach(sel => {
-      sel.addEventListener('change', () => { stagedImportItems[parseInt(sel.dataset.idx)].estado = sel.value; });
-    });
-    container.querySelectorAll('.staged-proyeccion-select').forEach(sel => {
-      sel.addEventListener('change', () => {
-        const item = stagedImportItems[parseInt(sel.dataset.idx)];
-        item.rendimientoRS = sel.value;
-        item.proyeccion = sel.value;
-      });
-    });
-    container.querySelectorAll('.staged-pierna-select').forEach(sel => {
-      sel.addEventListener('change', () => { stagedImportItems[parseInt(sel.dataset.idx)].piernaDominante = sel.value; });
-    });
-
-    const selectAllCb = container.querySelector('#stagedSelectAllCb');
-    const itemCbs = container.querySelectorAll('.staged-item-cb');
-    selectAllCb?.addEventListener('change', (e) => {
-      itemCbs.forEach(cb => cb.checked = e.target.checked);
-    });
-
-    container.querySelector('#btnApplyBulkEdit')?.addEventListener('click', () => {
-      const bulkPos = container.querySelector('#bulkPosicion')?.value;
-      const bulkEst = container.querySelector('#bulkEstado')?.value;
-      const bulkProy = container.querySelector('#bulkProyeccion')?.value;
-
-      itemCbs.forEach(cb => {
-        if (cb.checked) {
-          const idx = parseInt(cb.dataset.idx);
-          const item = stagedImportItems[idx];
-          if (bulkPos) {
-            item.posicion = bulkPos;
-            item.posicionPrincipal = bulkPos;
-            const sel = container.querySelector(`.staged-posicion-select[data-idx="${idx}"]`);
-            if (sel) sel.value = bulkPos;
-          }
-          if (bulkEst) {
-            item.estado = bulkEst;
-            const sel = container.querySelector(`.staged-estado-select[data-idx="${idx}"]`);
-            if (sel) sel.value = bulkEst;
-          }
-          if (bulkProy) {
-            item.rendimientoRS = bulkProy;
-            item.proyeccion = bulkProy;
-            const sel = container.querySelector(`.staged-proyeccion-select[data-idx="${idx}"]`);
-            if (sel) sel.value = bulkProy;
-          }
-        }
-      });
-      showToast('Cambios masivos aplicados a las filas seleccionadas', 'info');
-    });
-
-    container.querySelector('#btnCancelStagedImporter')?.addEventListener('click', () => {
-      stagedImportItems = [];
-      resultsContainer.classList.add('hidden');
-    });
-
-    container.querySelector('#btnConfirmStagedImporter')?.addEventListener('click', () => {
-      const checkedIndices = Array.from(itemCbs).filter(cb => cb.checked).map(cb => parseInt(cb.dataset.idx));
-      if (checkedIndices.length === 0) return alert('Selecciona al menos un jugador para importar');
-
-      const itemsToSave = checkedIndices.map(idx => stagedImportItems[idx]);
-
-      if (!state.directory) state.directory = {};
-      if (!state.directory.jugadores) state.directory.jugadores = [];
-
-      let savedNew = 0;
-      let updatedExisting = 0;
-
-      itemsToSave.forEach(p => {
-        const photoPath = DEFAULT_PLAYER_PHOTO_PATH;
-        p.foto = photoPath;
-        p.escudo = photoPath;
-        p.imagen = photoPath;
-
-        let existingIdx = state.directory.jugadores.findIndex(item => 
-          item && (item.nombre || '').toLowerCase().trim() === p.nombre.toLowerCase().trim()
-        );
-
-        if (existingIdx !== -1) {
-          state.directory.jugadores[existingIdx] = Object.assign({}, state.directory.jugadores[existingIdx], p);
-          saveToFirebase('jugadores', state.directory.jugadores[existingIdx]);
-          updatedExisting++;
-        } else {
-          state.directory.jugadores.unshift(p);
-          saveToFirebase('jugadores', p);
-          savedNew++;
-        }
-      });
-
-      saveState();
-
-      resultsContainer.innerHTML = `
-        <div class="importador-card" style="border-color: #10b981; background: #f0fdf4; text-align: center; padding: 28px; border-radius: 12px;">
-          <h3 style="font-size: 20px; font-weight: 800; color: #15803d; margin-bottom: 8px;">
-            🎉 ¡Plantilla Importada con Éxito!
-          </h3>
-          <p style="font-size: 14px; color: #166534; margin-bottom: 20px;">
-            Se han guardado y sincronizado con Firebase <strong>${itemsToSave.length} jugadores</strong> (${savedNew} nuevos, ${updatedExisting} actualizados) con la foto oficial predeterminada.
-          </p>
-          <button type="button" class="btn btn-primary btn-lg" onclick="navigateToDirectoryTab('jugadores')" style="font-weight: 800; padding: 12px 28px; cursor: pointer;">
-            📁 Ir al Directorio de Jugadores
-          </button>
-        </div>
-      `;
-    });
-  }
 
   // --------------------------------------------------------------------------
   // 8. SECTION 5: AGENDA
