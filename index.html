@@ -874,10 +874,231 @@
 
     <!-- ==================== 4. IMPORTADOR DE PLANTILLAS FEDERATIVAS VIEW ==================== -->
     <section class="tab-view" id="view-importador">
-      <div class="importador-card" id="importadorContainer" style="padding: 40px; text-align: center; background: var(--bg-surface, #ffffff); border-radius: var(--radius-lg, 12px); border: 1px dashed var(--border-medium, #cbd5e1);">
-        <i data-lucide="wand-2" style="width: 48px; height: 48px; color: var(--primary-blue, #2563eb); opacity: 0.4; margin-bottom: 12px;"></i>
-        <h3 style="font-size: 18px; font-weight: 800; color: var(--text-dark, #1e293b); margin: 0 0 8px 0;">Importador IA / Federativo</h3>
-        <p style="font-size: 13px; color: var(--text-muted, #64748b); margin: 0;">Módulo preparado para construir desde cero.</p>
+      <div class="importador-card" style="max-width: 100%; width: 100%; margin: 0 auto; padding: 24px;">
+        <!-- Header -->
+        <div class="importador-header" style="margin-bottom: 20px;">
+          <div class="importador-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <i data-lucide="wand-2" class="title-icon" style="color: var(--primary-blue, #2563eb); width: 28px; height: 28px;"></i>
+              <h2 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-dark, #1e293b);">Importador de Jugadores y Staff</h2>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <span class="badge" style="background: var(--primary-blue-light, #eff6ff); color: var(--primary-blue, #2563eb); border: 1px solid var(--primary-blue, #2563eb); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">
+                🏃 Jugadores + 👔 Staff
+              </span>
+            </div>
+          </div>
+          <p class="importador-subtitle" style="margin-top: 6px; font-size: 13px; color: var(--text-muted, #64748b);">
+            Pega directamente el listado copiado de las webs federativas. El sistema procesará los nombres y generará una <strong>hoja de cálculo tipo Excel interactiva</strong> donde podrás editar, arrastrar y rellenar columnas libremente antes de importar a la app y Firebase.
+          </p>
+        </div>
+
+        <!-- PASO 1: PEGAR DATOS Y VALORES POR DEFECTO -->
+        <div id="importerStep1Container">
+          <form id="importerForm" onsubmit="return false;">
+            <!-- Valores Predeterminados Rápidos -->
+            <div class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
+              <h4 style="font-size: 13px; font-weight: 800; margin: 0 0 14px 0; color: var(--primary-blue, #2563eb); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                ⚡ Valores por Defecto Iniciales (Se aplicarán automáticamente a las filas extraídas)
+              </h4>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">EQUIPO PRINCIPAL</label>
+                  <input type="text" id="importerDefaultEquipo" list="importerEquiposDatalist" class="form-control font-bold" placeholder="Seleccionar o escribir equipo...">
+                  <datalist id="importerEquiposDatalist"></datalist>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">AÑO NACIMIENTO</label>
+                  <input type="text" id="importerDefaultAno" class="form-control font-bold" placeholder="Ej: 2006" value="2006">
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">PAÍS</label>
+                  <input type="text" id="importerDefaultPais" class="form-control font-bold" placeholder="Ej: España" value="España">
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">SEXO</label>
+                  <select id="importerDefaultSexo" class="form-control font-bold">
+                    <option value="MASCULINO" selected>Masculino</option>
+                    <option value="FEMENINO">Femenino</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">COMUNIDAD</label>
+                  <input type="text" id="importerDefaultComunidad" class="form-control font-bold" placeholder="Ej: Navarra" value="Navarra">
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">LOCALIDAD</label>
+                  <input type="text" id="importerDefaultLocalidad" class="form-control font-bold" placeholder="Ej: Pamplona" value="Pamplona">
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">ESTADO JUGADOR</label>
+                  <select id="importerDefaultEstado" class="form-control font-bold">
+                    <option value="ALTA" selected>ALTA</option>
+                    <option value="RENOVACIÓN">RENOVACIÓN</option>
+                    <option value="SEGUIMIENTO">SEGUIMIENTO</option>
+                    <option value="PRUEBA">PRUEBA</option>
+                    <option value="DILIGENCIA">DILIGENCIA</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">PIERNA DOMINANTE</label>
+                  <select id="importerDefaultPierna" class="form-control font-bold">
+                    <option value="Diestra" selected>Diestra</option>
+                    <option value="Zurda">Zurda</option>
+                    <option value="Ambidextra">Ambidextra</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">PROYECCIÓN / RS</label>
+                  <select id="importerDefaultProyeccion" class="form-control font-bold">
+                    <option value="Proyección Alta" selected>Proyección Alta</option>
+                    <option value="Proyección Media">Proyección Media</option>
+                    <option value="Nivel A">Nivel A</option>
+                    <option value="Nivel B">Nivel B</option>
+                    <option value="Nivel C">Nivel C</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">POSICIÓN PRINCIPAL</label>
+                  <select id="importerDefaultPosicion" class="form-control font-bold">
+                    <option value="Por definir" selected>Por definir</option>
+                    <option value="Portero">Portero</option>
+                    <option value="Defensa Central">Defensa Central</option>
+                    <option value="Lateral Derecho">Lateral Derecho</option>
+                    <option value="Lateral Izquierdo">Lateral Izquierdo</option>
+                    <option value="Pivote">Pivote</option>
+                    <option value="Mediocentro">Mediocentro</option>
+                    <option value="Mediapunta">Mediapunta</option>
+                    <option value="Extremo Derecho">Extremo Derecho</option>
+                    <option value="Extremo Izquierdo">Extremo Izquierdo</option>
+                    <option value="Delantero Centro">Delantero Centro</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Textarea -->
+            <div class="form-group mb-4">
+              <label class="form-label font-bold text-uppercase text-xs">LISTADO COPIADO DE LA WEB DE LA FEDERACIÓN (JUGADORES Y STAFF)</label>
+              <textarea id="importerRawText" class="form-control importer-textarea" rows="10" placeholder="Pega aquí la lista de la federación. Ejemplo:
+Albisu Muñoz, Unai
+Astrain Perez, Ander
+Fuentes Bacáicoa, Martín Javier
+Galvete Vilar, Alvaro
+
+   Delegados (1)
+ECHARTE ESPINAL, MIGUEL"></textarea>
+            </div>
+
+            <!-- Action Button -->
+            <button type="button" class="btn btn-primary btn-lg" id="btnProcessImporterText" style="font-weight: 800; padding: 14px 28px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; border-radius: 10px;">
+              <i data-lucide="table"></i> Procesar y Abrir Hoja de Cálculo Interactiva
+            </button>
+          </form>
+        </div>
+
+        <!-- PASO 2: HOJA DE CÁLCULO ESTILO EXCEL (OCULTA INICIALMENTE) -->
+        <div id="importerStep2ExcelContainer" class="hidden mt-4">
+          <!-- Excel Controls Toolbar -->
+          <div style="background: var(--bg-card, #ffffff); border: 2px solid var(--primary-blue, #2563eb); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <h3 style="font-size: 16px; font-weight: 800; margin: 0; color: var(--primary-blue, #2563eb); display: flex; align-items: center; gap: 8px;">
+                  📊 Edición Estilo Excel (<span id="lblExcelTotalRows">0</span> registros extraídos)
+                </h3>
+                <span id="lblExcelCountBadges" style="display: flex; gap: 6px;"></span>
+              </div>
+
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="btnExcelSelectAllRows" style="font-size: 11px; font-weight: 800; padding: 6px 12px;">
+                  ☑️ Marcar Todos
+                </button>
+                <button type="button" class="btn btn-secondary" id="btnExcelDeselectAllRows" style="font-size: 11px; font-weight: 800; padding: 6px 12px;">
+                  ☐ Desmarcar Todos
+                </button>
+              </div>
+            </div>
+
+            <!-- Toolbar de Cambio Masivo & Relleno Excel -->
+            <div style="background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-light, #e2e8f0); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span style="font-size: 12px; font-weight: 800; color: var(--text-dark, #1e293b); white-space: nowrap;">⚡ Relleno Masivo (Filas marcadas):</span>
+              
+              <select id="bulkExcelColumn" class="form-control" style="width: auto; font-size: 12px; padding: 4px 8px; height: 32px; font-weight: 700;">
+                <option value="">-- Seleccionar Columna a Modificar --</option>
+                <option value="tipo">Rol / Tipo (Jugador / Staff)</option>
+                <option value="equipo">Equipo Principal</option>
+                <option value="ano">Año Nacimiento</option>
+                <option value="pais">País</option>
+                <option value="sexo">Sexo</option>
+                <option value="comunidad">Comunidad</option>
+                <option value="localidad">Localidad</option>
+                <option value="estado">Estado Jugador</option>
+                <option value="pierna">Pierna Dominante</option>
+                <option value="proyeccion">Proyección / Nivel</option>
+                <option value="posicion">Posición Principal</option>
+                <option value="posicionSecundaria">Posición Secundaria</option>
+              </select>
+
+              <input type="text" id="bulkExcelValueInput" class="form-control" style="width: 200px; font-size: 12px; padding: 4px 8px; height: 32px;" placeholder="Valor a aplicar...">
+
+              <button type="button" id="btnExcelApplyBulk" class="btn btn-primary" style="padding: 4px 14px; font-size: 11px; font-weight: 800; height: 32px;">
+                Aplicar a Marcados
+              </button>
+            </div>
+          </div>
+
+          <!-- Excel Scrollable Table Wrapper -->
+          <div class="excel-table-container" style="max-height: 520px; overflow-x: auto; overflow-y: auto; border: 1px solid var(--border-medium, #cbd5e1); border-radius: 10px; background: #ffffff; box-shadow: var(--shadow-sm);">
+            <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto;">
+              <thead>
+                <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1; position: sticky; top: 0; z-index: 10; font-weight: 800; color: #334155; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px;">
+                  <th style="padding: 8px; width: 36px; text-align: center; border-right: 1px solid #e2e8f0;">
+                    <input type="checkbox" id="excelHeaderMasterCheckbox" checked style="width: 16px; height: 16px; cursor: pointer;">
+                  </th>
+                  <th style="padding: 8px; width: 40px; text-align: center; border-right: 1px solid #e2e8f0;">#</th>
+                  <th style="padding: 8px; min-width: 110px; border-right: 1px solid #e2e8f0;">ROL</th>
+                  <th style="padding: 8px; min-width: 200px; border-right: 1px solid #e2e8f0;">NOMBRE Y APELLIDOS</th>
+                  <th style="padding: 8px; width: 70px; border-right: 1px solid #e2e8f0;">AÑO</th>
+                  <th style="padding: 8px; min-width: 100px; border-right: 1px solid #e2e8f0;">PAÍS</th>
+                  <th style="padding: 8px; min-width: 100px; border-right: 1px solid #e2e8f0;">SEXO</th>
+                  <th style="padding: 8px; min-width: 160px; border-right: 1px solid #e2e8f0;">EQUIPO PRINCIPAL</th>
+                  <th style="padding: 8px; min-width: 120px; border-right: 1px solid #e2e8f0;">ESTADO</th>
+                  <th style="padding: 8px; min-width: 110px; border-right: 1px solid #e2e8f0;">COMUNIDAD</th>
+                  <th style="padding: 8px; min-width: 110px; border-right: 1px solid #e2e8f0;">LOCALIDAD</th>
+                  <th style="padding: 8px; min-width: 110px; border-right: 1px solid #e2e8f0;">PIERNA</th>
+                  <th style="padding: 8px; min-width: 130px; border-right: 1px solid #e2e8f0;">PROYECCIÓN</th>
+                  <th style="padding: 8px; min-width: 140px; border-right: 1px solid #e2e8f0;">POSICIÓN 1ª</th>
+                  <th style="padding: 8px; min-width: 140px; border-right: 1px solid #e2e8f0;">POSICIÓN 2ª</th>
+                  <th style="padding: 8px; width: 44px; text-align: center;">DEL</th>
+                </tr>
+              </thead>
+              <tbody id="excelTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px;">
+            <button type="button" class="btn btn-outline-danger" id="btnExcelCancelImport" style="font-weight: 700; padding: 10px 20px;">
+              ✕ Cancelar y Volver a Empezar
+            </button>
+            
+            <button type="button" class="btn btn-success btn-lg" id="btnExcelConfirmSave" style="font-weight: 800; padding: 12px 28px; background: #16a34a; border-color: #16a34a; font-size: 15px; display: inline-flex; align-items: center; gap: 8px;">
+              <i data-lucide="check-circle-2"></i> Confirmar e Importar Filas a la App y Firebase
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 

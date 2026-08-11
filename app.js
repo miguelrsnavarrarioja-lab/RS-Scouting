@@ -589,6 +589,9 @@
     else if (tabName === 'directorio') renderDirectorio();
     else if (tabName === 'agenda') renderAgenda();
     else if (tabName === 'enlaces') renderEnlaces();
+    else if (tabName === 'importador') {
+      if (typeof populateImporterEquiposDatalist === 'function') populateImporterEquiposDatalist();
+    }
     else if (tabName === 'configuracion') renderConfiguracion();
     
     // Refresh lucide icons
@@ -16731,10 +16734,464 @@
   }
 
   // --------------------------------------------------------------------------
-  // 7. SECTION 4: IMPORTADOR DE PLANTILLAS FEDERATIVAS (MÓDULO VACÍO)
+  // 7. SECTION 4: IMPORTADOR DE PLANTILLAS FEDERATIVAS (JUGADORES & STAFF ESTILO EXCEL)
   // --------------------------------------------------------------------------
   const DEFAULT_PLAYER_PHOTO_PATH = "Foto Jugador General.png";
-  let stagedImportItems = [];
+  let stagedExcelRows = [];
+
+  function populateImporterEquiposDatalist() {
+    const datalist = document.getElementById('importerEquiposDatalist');
+    if (!datalist || !state.directory) return;
+    const equipos = state.directory.equipos || [];
+    datalist.innerHTML = equipos.map(eq => `<option value="${escapeHtml(eq.nombre || eq.equipo)}"></option>`).join('');
+  }
+
+  // Populate datalist on tab navigation / initialization
+  if (typeof populateImporterEquiposDatalist === 'function') {
+    populateImporterEquiposDatalist();
+  }
+
+  function formatFederationName(rawLine) {
+    let nameStr = rawLine.trim();
+    if (!nameStr) return '';
+
+    // Handle "ALBISU MUÑOZ, UNAI" or "Albisu Muñoz, Unai" -> "Unai Albisu Muñoz"
+    if (nameStr.includes(',')) {
+      const parts = nameStr.split(',').map(p => p.trim());
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        nameStr = `${parts[1]} ${parts[0]}`;
+      }
+    }
+
+    // Convert to clean Title Case (e.g., "MIGUEL ECHARTE" -> "Miguel Echarte")
+    return nameStr.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
+  }
+
+  function processImporterText() {
+    const rawText = document.getElementById('importerRawText')?.value.trim();
+    if (!rawText) {
+      alert('Por favor pega primero la lista de la federación en el campo de texto.');
+      return;
+    }
+
+    // Default presets
+    const defaultEquipo = document.getElementById('importerDefaultEquipo')?.value.trim() || 'Sin equipo';
+    const defaultAno = document.getElementById('importerDefaultAno')?.value.trim() || '2006';
+    const defaultPais = document.getElementById('importerDefaultPais')?.value.trim() || 'España';
+    const defaultSexo = document.getElementById('importerDefaultSexo')?.value || 'MASCULINO';
+    const defaultComunidad = document.getElementById('importerDefaultComunidad')?.value.trim() || 'Navarra';
+    const defaultLocalidad = document.getElementById('importerDefaultLocalidad')?.value.trim() || 'Pamplona';
+    const defaultEstado = document.getElementById('importerDefaultEstado')?.value || 'ALTA';
+    const defaultPierna = document.getElementById('importerDefaultPierna')?.value || 'Diestra';
+    const defaultProyeccion = document.getElementById('importerDefaultProyeccion')?.value || 'Proyección Alta';
+    const defaultPosicion = document.getElementById('importerDefaultPosicion')?.value || 'Por definir';
+
+    const lines = rawText.split('\n');
+    stagedExcelRows = [];
+    let currentRole = 'JUGADOR';
+
+    lines.forEach((line, index) => {
+      let trimmed = line.trim();
+      if (!trimmed) return;
+
+      // Detect Staff Headers (e.g. "Delegados (1)", "Entrenadores", "Cuerpo Técnico", "Staff", "Técnicos", "Directiva")
+      if (/^(delegados|entrenadores|cuerpo\s+técnico|staff|técnicos|tecnicos|directiva|entrenador)/i.test(trimmed)) {
+        currentRole = 'STAFF';
+        return;
+      }
+      if (/^(jugadores|plantilla|futbolistas|jugador)/i.test(trimmed)) {
+        currentRole = 'JUGADOR';
+        return;
+      }
+      // Skip generic table header lines
+      if (/^(nombre|apellidos|dorsal|posición|licencia|posicion|demarcación)/i.test(trimmed)) {
+        return;
+      }
+
+      const formattedName = formatFederationName(trimmed);
+      if (formattedName.length < 2) return;
+
+      const isStaff = currentRole === 'STAFF';
+      
+      stagedExcelRows.push({
+        id: (isStaff ? 'st_' : 'j_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        checked: true,
+        tipo: currentRole, // 'JUGADOR' o 'STAFF'
+        nombre: formattedName,
+        ano: defaultAno,
+        pais: defaultPais,
+        sexo: defaultSexo,
+        equipo: defaultEquipo,
+        estado: defaultEstado,
+        comunidad: defaultComunidad,
+        localidad: defaultLocalidad,
+        pierna: defaultPierna,
+        proyeccion: defaultProyeccion,
+        posicion: isStaff ? 'Delegado / Técnico' : defaultPosicion,
+        posicionSecundaria: ''
+      });
+    });
+
+    if (stagedExcelRows.length === 0) {
+      alert('No se pudieron extraer nombres válidos del texto pegado. Revisa la lista.');
+      return;
+    }
+
+    // Switch step view
+    document.getElementById('importerStep1Container')?.classList.add('hidden');
+    document.getElementById('importerStep2ExcelContainer')?.classList.remove('hidden');
+
+    renderExcelTable();
+  }
+
+  function renderExcelTable() {
+    const tbody = document.getElementById('excelTableBody');
+    if (!tbody) return;
+
+    const totalRows = stagedExcelRows.length;
+    const countJugadores = stagedExcelRows.filter(r => r.tipo === 'JUGADOR').length;
+    const countStaff = stagedExcelRows.filter(r => r.tipo === 'STAFF').length;
+
+    document.getElementById('lblExcelTotalRows').textContent = totalRows;
+    const badgesContainer = document.getElementById('lblExcelCountBadges');
+    if (badgesContainer) {
+      badgesContainer.innerHTML = `
+        <span style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">
+          🏃 ${countJugadores} Jugadores
+        </span>
+        <span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">
+          👔 ${countStaff} Staff
+        </span>
+      `;
+    }
+
+    const posOptions = ['Por definir', 'Portero', 'Defensa Central', 'Lateral Derecho', 'Lateral Izquierdo', 'Pivote', 'Mediocentro', 'Mediapunta', 'Extremo Derecho', 'Extremo Izquierdo', 'Delantero Centro', 'Entrenador', 'Segundo Entrenador', 'Delegado / Técnico', 'Preparador Físico', 'Fisioterapeuta'];
+    const estadoOptions = ['ALTA', 'RENOVACIÓN', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA'];
+    const proyeccionOptions = ['Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
+    const piernaOptions = ['Diestra', 'Zurda', 'Ambidextra'];
+
+    let html = '';
+    stagedExcelRows.forEach((row, idx) => {
+      const isStaff = row.tipo === 'STAFF';
+      const rowBg = isStaff ? '#fffbeb' : '#ffffff';
+
+      html += `
+        <tr data-idx="${idx}" style="border-bottom: 1px solid #e2e8f0; background: ${rowBg}; transition: background 0.15s ease;">
+          <td style="padding: 6px; text-align: center; border-right: 1px solid #f1f5f9;">
+            <input type="checkbox" class="excel-row-cb" data-idx="${idx}" ${row.checked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
+          </td>
+
+          <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid #f1f5f9;">
+            ${idx + 1}
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="tipo" style="font-size: 11px; font-weight: 800; padding: 3px 6px; height: 28px; background: ${isStaff ? '#fef3c7' : '#dbeafe'}; color: ${isStaff ? '#92400e' : '#1e40af'}; border-radius: 6px;">
+              <option value="JUGADOR" ${row.tipo === 'JUGADOR' ? 'selected' : ''}>🏃 JUGADOR</option>
+              <option value="STAFF" ${row.tipo === 'STAFF' ? 'selected' : ''}>👔 STAFF</option>
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="nombre" value="${escapeHtml(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px;" placeholder="Nombre...">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="ano" value="${escapeHtml(row.ano)}" style="font-size: 11px; font-weight: 700; text-align: center; padding: 3px 4px; height: 28px; width: 60px;" placeholder="Año">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="pais" value="${escapeHtml(row.pais)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="País">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="sexo" style="font-size: 11px; padding: 3px 6px; height: 28px;">
+              <option value="MASCULINO" ${row.sexo === 'MASCULINO' ? 'selected' : ''}>Masculino</option>
+              <option value="FEMENINO" ${row.sexo === 'FEMENINO' ? 'selected' : ''}>Femenino</option>
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="equipo" value="${escapeHtml(row.equipo)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Equipo principal">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="estado" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+              ${estadoOptions.map(e => `<option value="${e}" ${row.estado === e ? 'selected' : ''}>${e}</option>`).join('')}
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="comunidad" value="${escapeHtml(row.comunidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Comunidad">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="localidad" value="${escapeHtml(row.localidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Localidad">
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="pierna" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+              ${piernaOptions.map(p => `<option value="${p}" ${row.pierna === p ? 'selected' : ''}>${p}</option>`).join('')}
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+              ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr}</option>`).join('')}
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+              ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p}</option>`).join('')}
+            </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+              <option value="">(Ninguna)</option>
+              ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
+            </select>
+          </td>
+
+          <td style="padding: 4px; text-align: center;">
+            <button type="button" class="btn-action-icon danger btn-delete-excel-row" data-idx="${idx}" style="width: 24px; height: 24px;" title="Eliminar fila">
+              <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+    if (window.lucide) window.lucide.createIcons();
+
+    // Event listeners for cell field updates
+    tbody.querySelectorAll('.excel-cell-field').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const rowIdx = parseInt(e.target.dataset.idx, 10);
+        const fieldName = e.target.dataset.field;
+        if (stagedExcelRows[rowIdx]) {
+          stagedExcelRows[rowIdx][fieldName] = e.target.value;
+          if (fieldName === 'tipo') {
+            renderExcelTable(); // Re-render for color badge update
+          }
+        }
+      });
+    });
+
+    // Row checkbox listener
+    tbody.querySelectorAll('.excel-row-cb').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const rowIdx = parseInt(e.target.dataset.idx, 10);
+        if (stagedExcelRows[rowIdx]) {
+          stagedExcelRows[rowIdx].checked = e.target.checked;
+        }
+      });
+    });
+
+    // Delete row listener
+    tbody.querySelectorAll('.btn-delete-excel-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const rowIdx = parseInt(btn.dataset.idx, 10);
+        stagedExcelRows.splice(rowIdx, 1);
+        renderExcelTable();
+      });
+    });
+  }
+
+  // Master header checkbox
+  document.getElementById('excelHeaderMasterCheckbox')?.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    stagedExcelRows.forEach(r => r.checked = isChecked);
+    document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = isChecked);
+  });
+
+  document.getElementById('btnExcelSelectAllRows')?.addEventListener('click', () => {
+    stagedExcelRows.forEach(r => r.checked = true);
+    document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = true);
+    const masterCb = document.getElementById('excelHeaderMasterCheckbox');
+    if (masterCb) masterCb.checked = true;
+  });
+
+  document.getElementById('btnExcelDeselectAllRows')?.addEventListener('click', () => {
+    stagedExcelRows.forEach(r => r.checked = false);
+    document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = false);
+    const masterCb = document.getElementById('excelHeaderMasterCheckbox');
+    if (masterCb) masterCb.checked = false;
+  });
+
+  // Bulk edit / Fill down to checked rows
+  document.getElementById('btnExcelApplyBulk')?.addEventListener('click', () => {
+    const colName = document.getElementById('bulkExcelColumn')?.value;
+    const val = document.getElementById('bulkExcelValueInput')?.value;
+
+    if (!colName) {
+      alert('Por favor selecciona una columna a modificar.');
+      return;
+    }
+
+    let modifiedCount = 0;
+    stagedExcelRows.forEach(row => {
+      if (row.checked) {
+        row[colName] = val;
+        modifiedCount++;
+      }
+    });
+
+    renderExcelTable();
+    showToast(`Se ha aplicado el valor a ${modifiedCount} filas seleccionadas`, 'info');
+  });
+
+  // Process text button click listener
+  document.getElementById('btnProcessImporterText')?.addEventListener('click', processImporterText);
+
+  // Cancel import button
+  document.getElementById('btnExcelCancelImport')?.addEventListener('click', () => {
+    stagedExcelRows = [];
+    document.getElementById('importerStep2ExcelContainer')?.classList.add('hidden');
+    document.getElementById('importerStep1Container')?.classList.remove('hidden');
+  });
+
+  // Confirm and Save to app state & Firebase
+  document.getElementById('btnExcelConfirmSave')?.addEventListener('click', () => {
+    const itemsToSave = stagedExcelRows.filter(r => r.checked);
+    if (itemsToSave.length === 0) {
+      alert('Por favor marca al menos una fila para importar.');
+      return;
+    }
+
+    if (!state.directory) state.directory = {};
+    if (!Array.isArray(state.directory.jugadores)) state.directory.jugadores = [];
+    if (!Array.isArray(state.directory.staff)) state.directory.staff = [];
+
+    let countJugadoresNew = 0;
+    let countJugadoresUpd = 0;
+    let countStaffNew = 0;
+    let countStaffUpd = 0;
+
+    itemsToSave.forEach(row => {
+      const isStaff = row.tipo === 'STAFF';
+
+      if (isStaff) {
+        // Staff object construction
+        const staffObj = {
+          id: 'staff_' + Date.now() + Math.floor(Math.random() * 1000),
+          nombre: row.nombre,
+          staff: row.nombre,
+          cargo: row.posicion || 'Delegado / Técnico',
+          equipo: row.equipo,
+          club: row.equipo ? (row.equipo.split(' ')[0] || row.equipo) : '',
+          ano: row.ano,
+          pais: row.pais,
+          sexo: row.sexo,
+          comunidad: row.comunidad,
+          localidad: row.localidad,
+          estado: row.estado,
+          federacion: row.comunidad ? `Federación de ${row.comunidad}` : 'FNF'
+        };
+
+        const existingIdx = state.directory.staff.findIndex(s => 
+          s && (s.nombre || s.staff || '').toLowerCase().trim() === row.nombre.toLowerCase().trim()
+        );
+
+        if (existingIdx !== -1) {
+          state.directory.staff[existingIdx] = Object.assign({}, state.directory.staff[existingIdx], staffObj);
+          saveToFirebase('staff', state.directory.staff[existingIdx]);
+          countStaffUpd++;
+        } else {
+          state.directory.staff.unshift(staffObj);
+          saveToFirebase('staff', staffObj);
+          countStaffNew++;
+        }
+      } else {
+        // Player object construction
+        const playerObj = {
+          id: 'j_' + Date.now() + Math.floor(Math.random() * 1000),
+          nombre: row.nombre,
+          jugador: row.nombre,
+          equipo: row.equipo,
+          equipoPrincipal: row.equipo,
+          club: row.equipo ? (row.equipo.split(' ')[0] || row.equipo) : '',
+          ano: row.ano,
+          anoNacimiento: row.ano,
+          sub: row.ano ? `SUB${2026 - (parseInt(row.ano) || 2006)}` : 'SUB20',
+          pais: row.pais,
+          sexo: row.sexo,
+          comunidad: row.comunidad,
+          localidad: row.localidad,
+          estado: row.estado,
+          pierna: row.pierna,
+          piernaDominante: row.pierna,
+          proyeccion: row.proyeccion,
+          rendimientoRS: row.proyeccion,
+          posicion: row.posicion,
+          posicionPrincipal: row.posicion,
+          posicionSecundaria: row.posicionSecundaria,
+          foto: DEFAULT_PLAYER_PHOTO_PATH,
+          escudo: DEFAULT_PLAYER_PHOTO_PATH,
+          imagen: DEFAULT_PLAYER_PHOTO_PATH
+        };
+
+        const existingIdx = state.directory.jugadores.findIndex(j => 
+          j && (j.nombre || j.jugador || '').toLowerCase().trim() === row.nombre.toLowerCase().trim()
+        );
+
+        if (existingIdx !== -1) {
+          state.directory.jugadores[existingIdx] = Object.assign({}, state.directory.jugadores[existingIdx], playerObj);
+          saveToFirebase('jugadores', state.directory.jugadores[existingIdx]);
+          countJugadoresUpd++;
+        } else {
+          state.directory.jugadores.unshift(playerObj);
+          saveToFirebase('jugadores', playerObj);
+          countJugadoresNew++;
+        }
+      }
+    });
+
+    saveState();
+
+    const totalJugadores = countJugadoresNew + countJugadoresUpd;
+    const totalStaff = countStaffNew + countStaffUpd;
+
+    // Show success view
+    const step2Container = document.getElementById('importerStep2ExcelContainer');
+    if (step2Container) {
+      step2Container.innerHTML = `
+        <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 36px; text-align: center; box-shadow: 0 10px 25px -5px rgba(22,163,74,0.15);">
+          <div style="width: 56px; height: 56px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
+          </div>
+          
+          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
+            🎉 ¡Importación Completada con Éxito!
+          </h3>
+          
+          <p style="font-size: 14px; color: #166534; margin: 0 0 24px 0; max-width: 600px; margin-left: auto; margin-right: auto;">
+            Se han guardado y sincronizado en <strong>Firebase Cloud Firestore</strong> y en el directorio local:
+            <br>
+            <strong>🏃 ${totalJugadores} Jugadores</strong> (${countJugadoresNew} nuevos, ${countJugadoresUpd} actualizados)
+            <br>
+            <strong>👔 ${totalStaff} Staff</strong> (${countStaffNew} nuevos, ${countStaffUpd} actualizados)
+          </p>
+
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="location.reload()" style="font-weight: 800; padding: 12px 24px; cursor: pointer;">
+              🔄 Nueva Importación
+            </button>
+            
+            <button type="button" class="btn btn-primary btn-lg" onclick="navigateToDirectoryTab('jugadores')" style="font-weight: 800; padding: 12px 28px; cursor: pointer;">
+              📁 Ir al Directorio de Jugadores
+            </button>
+          </div>
+        </div>
+      `;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    showToast(`☁️ ${itemsToSave.length} registros guardados en la app y en Firebase`, 'success');
+  });
+
 
 
   // --------------------------------------------------------------------------
