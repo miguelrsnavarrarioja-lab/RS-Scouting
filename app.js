@@ -16741,10 +16741,32 @@
 
   function populateImporterEquiposDatalist() {
     const datalist = document.getElementById('importerEquiposDatalist');
-    if (!datalist || !state.directory) return;
+    const select = document.getElementById('importerDefaultEquipoSelect');
+    if (!state.directory) return;
     const equipos = state.directory.equipos || [];
-    datalist.innerHTML = equipos.map(eq => `<option value="${escapeHtml(eq.nombre || eq.equipo)}"></option>`).join('');
+    
+    if (datalist) {
+      datalist.innerHTML = equipos.map(eq => `<option value="${escapeHtml(eq.nombre || eq.equipo)}"></option>`).join('');
+    }
+    
+    if (select) {
+      let html = `<option value="">-- Seleccionar de los Equipos del Directorio --</option>`;
+      equipos.forEach(eq => {
+        const name = eq.nombre || eq.equipo;
+        const meta = eq.categoria ? ` (${eq.categoria})` : '';
+        html += `<option value="${escapeHtml(name)}">${escapeHtml(name + meta)}</option>`;
+      });
+      select.innerHTML = html;
+    }
   }
+
+  // Sync team select change to text input
+  document.getElementById('importerDefaultEquipoSelect')?.addEventListener('change', (e) => {
+    const input = document.getElementById('importerDefaultEquipo');
+    if (input && e.target.value) {
+      input.value = e.target.value;
+    }
+  });
 
   // Populate datalist on tab navigation / initialization
   if (typeof populateImporterEquiposDatalist === 'function') {
@@ -16774,17 +16796,20 @@
       return;
     }
 
-    // Default presets
-    const defaultEquipo = document.getElementById('importerDefaultEquipo')?.value.trim() || 'Sin equipo';
-    const defaultAno = document.getElementById('importerDefaultAno')?.value.trim() || '2006';
-    const defaultPais = document.getElementById('importerDefaultPais')?.value.trim() || 'España';
-    const defaultSexo = document.getElementById('importerDefaultSexo')?.value || 'MASCULINO';
-    const defaultComunidad = document.getElementById('importerDefaultComunidad')?.value.trim() || 'Navarra';
-    const defaultLocalidad = document.getElementById('importerDefaultLocalidad')?.value.trim() || 'Pamplona';
-    const defaultEstado = document.getElementById('importerDefaultEstado')?.value || 'ALTA';
-    const defaultPierna = document.getElementById('importerDefaultPierna')?.value || 'Diestra';
-    const defaultProyeccion = document.getElementById('importerDefaultProyeccion')?.value || 'Proyección Alta';
-    const defaultPosicion = document.getElementById('importerDefaultPosicion')?.value || 'Por definir';
+    // Default team choice
+    const selectVal = document.getElementById('importerDefaultEquipoSelect')?.value;
+    const inputVal = document.getElementById('importerDefaultEquipo')?.value.trim();
+    const defaultEquipo = selectVal || inputVal || 'Sin equipo';
+
+    const defaultAno = '2006';
+    const defaultPais = 'España';
+    const defaultSexo = 'MASCULINO';
+    const defaultComunidad = 'Navarra';
+    const defaultLocalidad = 'Pamplona';
+    const defaultEstado = 'ALTA';
+    const defaultPierna = 'Diestra';
+    const defaultProyeccion = 'Proyección Alta';
+    const defaultPosicion = 'Por definir';
 
     const lines = rawText.split('\n');
     stagedExcelRows = [];

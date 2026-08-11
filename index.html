@@ -896,93 +896,23 @@
         <!-- PASO 1: PEGAR DATOS Y VALORES POR DEFECTO -->
         <div id="importerStep1Container">
           <form id="importerForm" onsubmit="return false;">
-            <!-- Valores Predeterminados Rápidos -->
+            <!-- Equipo Principal de Destino -->
             <div class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
-              <h4 style="font-size: 13px; font-weight: 800; margin: 0 0 14px 0; color: var(--primary-blue, #2563eb); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                ⚡ Valores por Defecto Iniciales (Se aplicarán automáticamente a las filas extraídas)
-              </h4>
-              
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">EQUIPO PRINCIPAL</label>
-                  <input type="text" id="importerDefaultEquipo" list="importerEquiposDatalist" class="form-control font-bold" placeholder="Seleccionar o escribir equipo...">
-                  <datalist id="importerEquiposDatalist"></datalist>
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">AÑO NACIMIENTO</label>
-                  <input type="text" id="importerDefaultAno" class="form-control font-bold" placeholder="Ej: 2006" value="2006">
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">PAÍS</label>
-                  <input type="text" id="importerDefaultPais" class="form-control font-bold" placeholder="Ej: España" value="España">
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">SEXO</label>
-                  <select id="importerDefaultSexo" class="form-control font-bold">
-                    <option value="MASCULINO" selected>Masculino</option>
-                    <option value="FEMENINO">Femenino</option>
-                  </select>
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">COMUNIDAD</label>
-                  <input type="text" id="importerDefaultComunidad" class="form-control font-bold" placeholder="Ej: Navarra" value="Navarra">
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">LOCALIDAD</label>
-                  <input type="text" id="importerDefaultLocalidad" class="form-control font-bold" placeholder="Ej: Pamplona" value="Pamplona">
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">ESTADO JUGADOR</label>
-                  <select id="importerDefaultEstado" class="form-control font-bold">
-                    <option value="ALTA" selected>ALTA</option>
-                    <option value="RENOVACIÓN">RENOVACIÓN</option>
-                    <option value="SEGUIMIENTO">SEGUIMIENTO</option>
-                    <option value="PRUEBA">PRUEBA</option>
-                    <option value="DILIGENCIA">DILIGENCIA</option>
-                  </select>
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">PIERNA DOMINANTE</label>
-                  <select id="importerDefaultPierna" class="form-control font-bold">
-                    <option value="Diestra" selected>Diestra</option>
-                    <option value="Zurda">Zurda</option>
-                    <option value="Ambidextra">Ambidextra</option>
-                  </select>
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">PROYECCIÓN / RS</label>
-                  <select id="importerDefaultProyeccion" class="form-control font-bold">
-                    <option value="Proyección Alta" selected>Proyección Alta</option>
-                    <option value="Proyección Media">Proyección Media</option>
-                    <option value="Nivel A">Nivel A</option>
-                    <option value="Nivel B">Nivel B</option>
-                    <option value="Nivel C">Nivel C</option>
-                  </select>
-                </div>
-
-                <div class="form-group mb-0">
-                  <label class="form-label font-bold text-uppercase text-xs">POSICIÓN PRINCIPAL</label>
-                  <select id="importerDefaultPosicion" class="form-control font-bold">
-                    <option value="Por definir" selected>Por definir</option>
-                    <option value="Portero">Portero</option>
-                    <option value="Defensa Central">Defensa Central</option>
-                    <option value="Lateral Derecho">Lateral Derecho</option>
-                    <option value="Lateral Izquierdo">Lateral Izquierdo</option>
-                    <option value="Pivote">Pivote</option>
-                    <option value="Mediocentro">Mediocentro</option>
-                    <option value="Mediapunta">Mediapunta</option>
-                    <option value="Extremo Derecho">Extremo Derecho</option>
-                    <option value="Extremo Izquierdo">Extremo Izquierdo</option>
-                    <option value="Delantero Centro">Delantero Centro</option>
-                  </select>
+              <div class="form-group mb-0">
+                <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                  👕 EQUIPO PRINCIPAL DE DESTINO (Opcional - se asignará a todos los registros extraídos)
+                </label>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px;">
+                  <div>
+                    <select id="importerDefaultEquipoSelect" class="form-control font-bold" style="font-size: 14px; padding: 10px;">
+                      <option value="" selected>-- Seleccionar de los Equipos del Directorio --</option>
+                    </select>
+                  </div>
+                  <div>
+                    <input type="text" id="importerDefaultEquipo" list="importerEquiposDatalist" class="form-control font-bold" style="font-size: 14px; padding: 10px;" placeholder="O escribir nombre de equipo manualmente...">
+                    <datalist id="importerEquiposDatalist"></datalist>
+                  </div>
                 </div>
               </div>
             </div>
