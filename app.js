@@ -162,9 +162,9 @@
       .then(() => {
         console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
         setFirebaseHeaderStatus('synced');
-      if (typeof cleanUpAragonGeneratedPlayersFromFirebase === 'function') cleanUpAragonGeneratedPlayersFromFirebase();
+      if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
       setTimeout(() => {
-        if (typeof cleanUpAragonGeneratedPlayersFromFirebase === 'function') cleanUpAragonGeneratedPlayersFromFirebase();
+        if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
       }, 1500);
                   })
       .catch(err => {
@@ -10629,7 +10629,7 @@
   }
 
   function renderDirectorio(tabOverride = null, pageOverride = null) {
-    cleanUpAragonGeneratedPlayersFromFirebase();
+    if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
     if (tabOverride) {
       if (currentDirectoryTab !== tabOverride) {
@@ -10660,7 +10660,7 @@
     if (!state.dirActiveFilters[currentDirectoryTab]) state.dirActiveFilters[currentDirectoryTab] = {};
     const activeFilters = state.dirActiveFilters[currentDirectoryTab];
 
-    cleanUpAragonGeneratedPlayersFromFirebase();
+    if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     const rawItems = [...(state.directory[currentDirectoryTab] || [])];
 
     // Helper to render dynamic filter selects for current directory section
