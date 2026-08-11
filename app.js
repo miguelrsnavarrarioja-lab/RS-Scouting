@@ -237,6 +237,7 @@
       federacionesSeleccionesSeeded: !!state.directory?.federacionesSeleccionesSeeded,
       federacionesClubsMigrated: !!state.directory?.federacionesClubsMigrated,
       aragonWiped: !!state.directory?.aragonWiped,
+      navarraLnjSeeded: !!state.directory?.navarraLnjSeeded,
       deletedTombstones: state.deletedTombstones
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
@@ -430,13 +431,17 @@
           if (configData.aragonWiped) {
             state.directory.aragonWiped = true;
           }
+          if (configData.navarraLnjSeeded) {
+            state.directory.navarraLnjSeeded = true;
+          }
         }
 
         setFirebaseHeaderStatus('synced');
         
         // Run one-time migrations and cleanup immediately after loading data
-        if (typeof wipeAragonData === 'function') wipeAragonData();
+        if (typeof wipeAragonData === 'function') // wipeAragonData();
         if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
+        if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -10628,6 +10633,84 @@
     }
   }
 
+  function seedNavarraLNJTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraLnjSeeded) return;
+    if (!db) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. San Juan",
+      "C.A. Cirbonero",
+      "C.D. Amigo",
+      "C.D. Beti Onak",
+      "C.D. Huarte",
+      "C.D. Oberena \"B\"",
+      "C.D. Pamplona",
+      "C.D. Tudelano",
+      "C.D.Kirol Sport",
+      "C.F. Gazte Berriak Ansoain",
+      "Club Atlético Osasuna \"B\"",
+      "Rotxapea C.D.",
+      "S.D. Lagunak",
+      "U.C.D. Burlades",
+      "U.D. Mutilvera",
+      "U.D.C. Txantrea K.K.E."
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists
+      let teamMatch = state.directory.equipos.find(e => e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'LNJ',
+          competicion: 'Liga Nacional Juvenil',
+          grupo: '16',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraLnjSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos LNJ Navarra creados`);
+      saveState();
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
@@ -10645,7 +10728,7 @@
     // Always ensure Aragonesa clubs, teams, players and Federaciones Selecciones are seeded
             ensureFederacionesSeleccionesSeeded();
     // Wipe all auto-seeded Aragon data one time
-    wipeAragonData();
+    // wipeAragonData();
     migrateFederacionesClubs();
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
@@ -10916,7 +10999,8 @@
     const container = document.getElementById('directoryContentBox');
     if (filtered.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
+        ${subFilterBarHTML}
+        <div class="empty-state" style="margin-top: 16px;">
           <p class="empty-state-text">No se encontraron registros de ${currentDirectoryTab}.</p>
           <button class="btn btn-primary" id="btnEmptyCreateDirItem">Crear Primero</button>
         </div>
