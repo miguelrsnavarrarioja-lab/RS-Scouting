@@ -6809,6 +6809,7 @@
           <button type="button" class="player-subtab active" data-sestab="institucional">INSTITUCIONAL</button>
           <button type="button" class="player-subtab" data-sestab="staff">STAFF</button>
           <button type="button" class="player-subtab" data-sestab="estilo">ESTILO Y JUEGO</button>
+          <button type="button" class="player-subtab" data-sestab="campograma">CAMPOGRAMA</button>
           <button type="button" class="player-subtab" data-sestab="notas">NOTAS Y ARCHIVOS</button>
         </div>
 
@@ -6963,7 +6964,44 @@
             </div>
           </div>
 
-          <!-- TAB 4: NOTAS Y ARCHIVOS -->
+          <!-- TAB 4: CAMPOGRAMA -->
+          <div class="sel-tab-pane hidden" id="sestab-campograma">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);" class="mb-3">
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <label class="form-label" style="margin: 0; white-space: nowrap; font-weight: 800;">CONVOCATORIA:</label>
+                  <select id="selCampogramaConvocatoria" class="form-control" style="width: auto; min-width: 200px; font-weight: 700;">
+                    <!-- Populated dynamically with convocatorias for THIS selección -->
+                  </select>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <label class="form-label" style="margin: 0; white-space: nowrap; font-weight: 800;">SISTEMA TÁCTICO:</label>
+                  <select id="selCampogramaSistema" class="form-control" style="width: auto; min-width: 140px; font-weight: 700;">
+                    ${Object.keys(FORMATION_POSITIONS).map(sys => `<option value="${sys}" ${sistemaTactico === sys ? 'selected' : ''}>${sys}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-secondary" id="btnExportSelCampogramaPdf" style="font-size: 11px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: var(--primary-blue);">
+                <i data-lucide="file-text"></i> Exportar Campograma (PDF 2 Páginas)
+              </button>
+            </div>
+
+            <div style="position: relative; width: 100%; height: 500px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: var(--radius-md); border: 2px solid #22c55e; overflow: hidden; box-shadow: inset 0 0 20px rgba(0,0,0,0.4);" id="seleccionCampogramaPitch">
+              <!-- Pitch Lines -->
+              <div style="position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2px solid rgba(255,255,255,0.4); pointer-events: none;"></div>
+              <div style="position: absolute; top: 50%; left: 10px; right: 10px; height: 2px; background: rgba(255,255,255,0.4); transform: translateY(-50%); pointer-events: none;"></div>
+              <div style="position: absolute; top: 50%; left: 50%; width: 100px; height: 100px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none;"></div>
+              <div style="position: absolute; top: 10px; left: 50%; width: 160px; height: 60px; border: 2px solid rgba(255,255,255,0.4); border-top: none; transform: translateX(-50%); pointer-events: none;"></div>
+              <div style="position: absolute; bottom: 10px; left: 50%; width: 160px; height: 60px; border: 2px solid rgba(255,255,255,0.4); border-bottom: none; transform: translateX(-50%); pointer-events: none;"></div>
+
+              <!-- Pins Container -->
+              <div id="seleccionCampogramaPins" style="position: absolute; inset: 0;"></div>
+            </div>
+          </div>
+
+          <!-- TAB 5: NOTAS Y ARCHIVOS -->
           <div class="sel-tab-pane hidden" id="sestab-notas">
             <div class="form-group mb-6">
               <label class="form-label">NOTAS INTERNAS</label>
@@ -7304,6 +7342,274 @@
           console.error('Error al comprimir logo:', err);
         }
       }
+    });
+
+    // --------------------------------------------------------------------------
+    // SELECCIÓN CAMPOGRAMA TAB LOGIC & PDF EXPORT
+    // --------------------------------------------------------------------------
+    function renderSelectionCampogramaPins() {
+      const container = document.getElementById('seleccionCampogramaPins');
+      const sysSelect = document.getElementById('selCampogramaSistema');
+      const convSelect = document.getElementById('selCampogramaConvocatoria');
+      if (!container || !sysSelect || !convSelect) return;
+
+      const formation = sysSelect.value || '1-4-3-3';
+      const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+
+      // Filter convocatorias belonging ONLY to THIS selección
+      const allConvocatorias = state.directory.convocatorias || [];
+      const currentSelName = (document.getElementById('sfNombre')?.value || nombre || '').toLowerCase().trim();
+
+      const selectionConvocatorias = allConvocatorias.filter(c => {
+        if (!c) return false;
+        const cSelId = String(c.seleccionId || c.seleccion_id || '');
+        const cSelName = String(c.seleccion || c.nombreSeleccion || c.equipo || '').toLowerCase().trim();
+        const curSelId = String(selectionId || '');
+
+        return (curSelId && cSelId === curSelId) || 
+               (currentSelName && cSelName && (cSelName === currentSelName || cSelName.includes(currentSelName) || currentSelName.includes(cSelName)));
+      });
+
+      // Maintain select options for convocatorias if not populated
+      const currentConvVal = convSelect.value;
+      convSelect.innerHTML = selectionConvocatorias.length === 0
+        ? `<option value="">Sin Convocatorias para esta selección</option>`
+        : selectionConvocatorias.map(c => `
+            <option value="${c.id}" ${currentConvVal === c.id || (!currentConvVal && selectionConvocatorias[0].id === c.id) ? 'selected' : ''}>
+              ${escapeHtml(c.nombre || c.titulo || c.convocatoria || ('Convocatoria ' + (c.fecha || '')))}
+            </option>
+          `).join('');
+
+      const activeConvId = convSelect.value;
+      const selectedConv = selectionConvocatorias.find(c => String(c.id) === String(activeConvId)) || selectionConvocatorias[0];
+
+      // Extract player names for this convocatoria (or fallback to localJugadoresList)
+      let convocadosList = [];
+      if (selectedConv) {
+        convocadosList = selectedConv.jugadores || selectedConv.convocados || selectedConv.plantilla || [];
+      } else {
+        convocadosList = localJugadoresList;
+      }
+
+      const allPlayers = (state.directory && state.directory.jugadores) || [];
+      const squadPlayers = convocadosList.map(item => {
+        const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+        return allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+      }).filter(Boolean);
+
+      const curPrimaryColor = document.getElementById('sfColorPrimary')?.value || colorPrimary || '#2563eb';
+      const curTextColor = getContrastColor(curPrimaryColor);
+
+      // Render pitch position cards with player names underneath
+      container.innerHTML = positions.map((posCoords, slotIdx) => {
+        const posCode = defaultPositions[slotIdx] || 'MC';
+
+        const matchingPlayers = squadPlayers.filter(p => {
+          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
+          const codeUpper = posCode.toUpperCase().trim();
+          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+        });
+
+        let playersHTML = '';
+        if (matchingPlayers.length > 0) {
+          playersHTML = matchingPlayers.map(p => `
+            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+              ${escapeHtml(p.nombre || p.jugador)}
+            </div>
+          `).join('');
+        } else {
+          playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
+        }
+
+        return `
+          <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+              ${escapeHtml(posCode)}
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+              ${playersHTML}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.campograma-player-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const pId = link.dataset.playerid;
+          if (pId) {
+            card.classList.remove('large');
+            hideModal();
+            openPlayerModal(pId);
+          }
+        });
+      });
+    }
+
+    renderSelectionCampogramaPins();
+
+    document.getElementById('selCampogramaConvocatoria')?.addEventListener('change', renderSelectionCampogramaPins);
+
+    document.getElementById('selCampogramaSistema')?.addEventListener('change', (e) => {
+      const selectedSys = e.target.value;
+      const estiloSysInput = document.getElementById('sfSistemaTactico');
+      if (estiloSysInput) estiloSysInput.value = selectedSys;
+
+      if (isEdit && selectionId && state.directory && Array.isArray(state.directory.selecciones)) {
+        const selObj = state.directory.selecciones.find(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
+        if (selObj) {
+          selObj.sistemaTactico = selectedSys;
+          selObj.sistemaHabitual = selectedSys;
+          saveToFirebase('selecciones', selObj);
+          saveState();
+        }
+      }
+      renderSelectionCampogramaPins();
+    });
+
+    // PDF Export for Selección Campograma (2 Pages)
+    document.getElementById('btnExportSelCampogramaPdf')?.addEventListener('click', () => {
+      const curPrimaryColor = document.getElementById('sfColorPrimary')?.value || colorPrimary || '#2563eb';
+      const curNombre = document.getElementById('sfNombre')?.value.trim() || nombre || 'Selección';
+      const curCat = document.getElementById('sfCategoria')?.value.trim() || categoria || '';
+      const curTemp = document.getElementById('sfTemporada')?.value.trim() || temporada || '';
+      const curSys = document.getElementById('selCampogramaSistema')?.value || sistemaTactico || '1-4-3-3';
+      const convSelect = document.getElementById('selCampogramaConvocatoria');
+      const convText = convSelect && convSelect.options[convSelect.selectedIndex] ? convSelect.options[convSelect.selectedIndex].text : '';
+
+      const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+
+      // Active convocatoria players
+      const allConvocatorias = state.directory.convocatorias || [];
+      const activeConvId = convSelect?.value;
+      const selectedConv = allConvocatorias.find(c => String(c.id) === String(activeConvId));
+      let convocadosList = selectedConv ? (selectedConv.jugadores || selectedConv.convocados || selectedConv.plantilla || []) : localJugadoresList;
+
+      const allPlayers = (state.directory && state.directory.jugadores) || [];
+      const squadPlayers = convocadosList.map(item => {
+        const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+        return allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+      }).filter(Boolean);
+
+      const printWin = window.open('', '_blank');
+      if (!printWin) return alert('Por favor permite las ventanas emergentes para exportar el PDF');
+
+      const pitchPinsHTML = positions.map((posCoords, slotIdx) => {
+        const posCode = defaultPositions[slotIdx] || 'MC';
+
+        const matchingPlayers = squadPlayers.filter(p => {
+          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
+          const codeUpper = posCode.toUpperCase().trim();
+          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+        });
+
+        let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
+        const txtColor = getContrastColor(curPrimaryColor);
+
+        return `
+          <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${txtColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">
+              ${escapeHtml(posCode)}
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.9); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3);">
+              ${namesText}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const squadTableRowsHTML = squadPlayers.map((p) => `
+        <tr>
+          <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
+          <td style="font-weight: 700; text-align: center; color: ${curPrimaryColor};">${escapeHtml(p.dorsal || '-')}</td>
+          <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
+          <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
+          <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
+          <td>${escapeHtml(p.pierna || '-')}</td>
+          <td><span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(p.rendimientoRS || p.rendimiento || 'A')}</span></td>
+        </tr>
+      `).join('');
+
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Campograma • ${escapeHtml(curNombre)}</title>
+          <style>
+            @media print {
+              @page { size: A4 portrait; margin: 10mm; }
+              .page-break { page-break-after: always; break-after: page; }
+              .page-break:last-child { page-break-after: avoid; break-after: avoid; }
+            }
+            body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #1e293b; background: #ffffff; }
+            .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid ${curPrimaryColor}; padding-bottom: 12px; margin-bottom: 16px; }
+            .title { font-size: 20px; font-weight: 900; color: #0f172a; }
+            .meta { font-size: 12px; color: #64748b; font-weight: 600; }
+            .pitch-container { position: relative; width: 100%; height: 680px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: 12px; border: 3px solid #22c55e; overflow: hidden; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+            th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+          </style>
+        </head>
+        <body>
+          <!-- PAGE 1: PITCH CAMPOGRAMA -->
+          <div class="page-break">
+            <div class="header">
+              <div>
+                <div class="title">🌍 ${escapeHtml(curNombre)}</div>
+                <div class="meta">Categoría: ${escapeHtml(curCat)} | Temporada: ${escapeHtml(curTemp)} ${convText ? '| Convocatoria: ' + escapeHtml(convText) : ''}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 13px; font-weight: 900; color: ${curPrimaryColor};">SISTEMA: ${escapeHtml(curSys)}</div>
+                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">RS Scouting Report</div>
+              </div>
+            </div>
+            <div class="pitch-container">
+              <div style="position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2px solid rgba(255,255,255,0.4);"></div>
+              <div style="position: absolute; top: 50%; left: 10px; right: 10px; height: 2px; background: rgba(255,255,255,0.4); transform: translateY(-50%);"></div>
+              <div style="position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+              <div style="position: absolute; top: 10px; left: 50%; width: 200px; height: 80px; border: 2px solid rgba(255,255,255,0.4); border-top: none; transform: translateX(-50%);"></div>
+              <div style="position: absolute; bottom: 10px; left: 50%; width: 200px; height: 80px; border: 2px solid rgba(255,255,255,0.4); border-bottom: none; transform: translateX(-50%);"></div>
+              ${pitchPinsHTML}
+            </div>
+          </div>
+
+          <!-- PAGE 2: CONVOCATORIA ROSTER TABLE -->
+          <div>
+            <div class="header">
+              <div>
+                <div class="title">📋 Jugadores Convocados • ${escapeHtml(curNombre)}</div>
+                <div class="meta">${convText ? 'Convocatoria: ' + escapeHtml(convText) : 'Plantilla General'} (${squadPlayers.length} Convocados)</div>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>NOMBRE JUGADOR</th>
+                  <th style="text-align: center;">DORSAL</th>
+                  <th>POSICIÓN PRI.</th>
+                  <th>POSICIÓN SEC.</th>
+                  <th>CATEGORÍA</th>
+                  <th>PIERNA</th>
+                  <th>RS LEVEL</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${squadTableRowsHTML.length > 0 ? squadTableRowsHTML : '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Sin jugadores registrados en esta convocatoria</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+        </html>
+      `);
+      printWin.document.close();
     });
 
     const removeLargeClass = () => card.classList.remove('large');
@@ -15554,7 +15860,7 @@
                     data-type="federacion" 
                     data-val="${escapeHtml(comName)}" 
                     draggable="${isDraggable}" 
-                    title="${escapeHtml(fullName)} (Arrastra para reordenar)" 
+                    title="${escapeHtml(comName)} (Arrastra para reordenar)" 
                     style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(comName)}
             </button>
@@ -15644,20 +15950,7 @@
       </div>
     ` : '';
 
-    const bulkToolbarHTML = `
-      <div class="directory-bulk-toolbar mb-3">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <input type="checkbox" id="dirSelectAllCheckbox" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
-          <label for="dirSelectAllCheckbox" style="font-size: 13px; font-weight: 700; cursor: pointer; margin: 0; color: var(--text-dark, #1e293b);">
-            Seleccionar todo (<span id="dirSelectedCount">0</span> de ${filtered.length})
-          </label>
-        </div>
-        
-        <button type="button" class="btn btn-danger hidden" id="btnBulkDeleteDir" style="padding: 6px 14px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px;">
-          <i data-lucide="trash-2" style="width: 14px;"></i> Borrar Seleccionados (<span id="dirBulkDeleteBadge">0</span>)
-        </button>
-      </div>
-    `;
+    const bulkToolbarHTML = '';
 
     const container = document.getElementById('directoryContentBox');
     if (filtered.length === 0) {
@@ -15685,7 +15978,6 @@
                 <!-- LÍNEA 1: Checkbox + Avatar/Foto amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${j.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${jPriColor};">
                     <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${jPriColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${j.foto ? `<img src="${j.foto}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${jPriColor}; font-size: 16px;">${j.nombre ? j.nombre.charAt(0) : 'J'}</span>`}
                     </div>
@@ -15763,7 +16055,6 @@
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${clubPriColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${clubPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       <img src="${clubLogo}" data-tried="0" onerror="
                         if (this.dataset.tried === '0' && '${c.codigo}') {
@@ -15892,7 +16183,6 @@
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${eqPriColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${eqPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `
                         <img src="${finalImgSrc}" data-tried="0" onerror="
@@ -15990,7 +16280,6 @@
                     <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
                       <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${f.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${fedColorPrimary};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${fedColorPrimary}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${fedLogo ? `<img src="${escapeHtml(fedLogo)}" alt="${escapeHtml(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
@@ -16117,7 +16406,6 @@
                 <!-- LÍNEA 1: Checkbox + Logo/Escudo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${s.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${selColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${selColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${selLogo ? `<img src="${selLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
@@ -16194,7 +16482,6 @@
                 <!-- LÍNEA 1: Checkbox + Icono Megáfono amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${convColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${convColor}; padding: 3px; flex-shrink: 0; color: ${convColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       <i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>
                     </div>
@@ -16271,7 +16558,6 @@
                 <!-- LÍNEA 1: Checkbox + Logo/Icono Trofeo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${t.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${trnColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${trnColor}; padding: 3px; flex-shrink: 0; color: ${trnColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${trnLogo ? `<img src="${trnLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
                     </div>
@@ -16346,7 +16632,6 @@
                 <!-- LÍNEA 1: Checkbox + Foto/Avatar 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${s.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${staffColor};">
                     <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${staffColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${s.foto || s.imagen ? `<img src="${s.foto || s.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${staffColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
@@ -16431,7 +16716,6 @@
                 <!-- LÍNEA 1: Checkbox + Logo/Icono Maletín 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${ag.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${agColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${agColor}; padding: 3px; flex-shrink: 0; color: ${agColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${ag.logo || ag.escudo ? `<img src="${ag.logo || ag.escudo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
                     </div>
@@ -16516,7 +16800,6 @@
                 <!-- LÍNEA 1: Checkbox + Foto/Avatar 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${agt.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${agtColor};">
                     <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${agtColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${agt.foto || agt.imagen ? `<img src="${agt.foto || agt.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${agtColor}; font-size: 16px;">${agt.nombre ? agt.nombre.charAt(0) : 'A'}</span>`}
                     </div>
@@ -16593,7 +16876,6 @@
                 <!-- LÍNEA 1: Checkbox + Foto/Icono Mapa amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${est.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${estColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${estColor}; padding: 3px; flex-shrink: 0; color: ${estColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${est.foto || est.imagen ? `<img src="${est.foto || est.imagen}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
                     </div>
@@ -16646,7 +16928,6 @@
               <div class="entity-card" style="border-top: 5px solid ${itemColor} !important; background: linear-gradient(180deg, ${itemColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${item.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: ${itemColor};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${itemColor}; padding: 3px; flex-shrink: 0; color: ${itemColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       <span style="font-weight: 800; font-size: 16px;">${itemName.charAt(0)}</span>
                     </div>
