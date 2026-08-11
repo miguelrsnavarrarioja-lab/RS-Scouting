@@ -238,6 +238,8 @@
       federacionesClubsMigrated: !!state.directory?.federacionesClubsMigrated,
       aragonWiped: !!state.directory?.aragonWiped,
       navarraLnjSeeded: !!state.directory?.navarraLnjSeeded,
+      navarraTerceraSeeded: !!state.directory?.navarraTerceraSeeded,
+      navarraAutonomicaSeeded: !!state.directory?.navarraAutonomicaSeeded,
       deletedTombstones: state.deletedTombstones
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
@@ -434,6 +436,12 @@
           if (configData.navarraLnjSeeded) {
             state.directory.navarraLnjSeeded = true;
           }
+          if (configData.navarraTerceraSeeded) {
+            state.directory.navarraTerceraSeeded = true;
+          }
+          if (configData.navarraAutonomicaSeeded) {
+            state.directory.navarraAutonomicaSeeded = true;
+          }
         }
 
         setFirebaseHeaderStatus('synced');
@@ -442,6 +450,8 @@
         if (typeof wipeAragonData === 'function') // wipeAragonData();
         if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
         if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
+        if (typeof seedNavarraTerceraRFEFTeams === 'function') seedNavarraTerceraRFEFTeams();
+        if (typeof seedNavarraAutonomicaTeams === 'function') seedNavarraAutonomicaTeams();
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -10707,6 +10717,175 @@
     state.directory.navarraLnjSeeded = true;
     if (addedCount > 0) {
       console.log(`✅ ${addedCount} equipos LNJ Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraTerceraRFEFTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraTerceraSeeded) return;
+    if (!db) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. San Juan",
+      "Beti Kozkor K.E.",
+      "C.A. Cirbonero",
+      "C.D. Aoiz",
+      "C.D. Avance Ezkabarte",
+      "C.D. Beti Onak",
+      "C.D. Cantolagua",
+      "C.D. Cortes",
+      "C.D. Huarte",
+      "C.D. Izarra",
+      "C.D. Pamplona",
+      "C.D. Subiza Cendea de Galar",
+      "C.D. Valle de Egües",
+      "C.F. Gazte Berriak Ansoain",
+      "Doneztebe F.T.",
+      "F.C. Bidezarra",
+      "U.D. Mutilvera",
+      "U.D.C. Txantrea K.K.E."
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (exactly this name + Tercera RFEF + Group XV, to avoid collision with LNJ team if they have the exact same name)
+      // Usually team names for the senior team don't have "Juvenil" in them.
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === 'tercera rfef'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: '3 RFEF',
+          competicion: 'Tercera RFEF',
+          grupo: 'XV',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraTerceraSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Tercera RFEF Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraAutonomicaTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraAutonomicaSeeded) return;
+    if (!db) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "C.A. Artajones",
+      "C.D. Ardoi",
+      "C.D. Azkoyen",
+      "C.D. Corellano",
+      "C.D. Erriberri",
+      "C.D. Gares",
+      "C.D. Ilumberri",
+      "C.D. Injerto",
+      "C.D. Lerines",
+      "C.D. Lourdes",
+      "C.D. Oberena",
+      "C.D. Ondalan",
+      "C.D. Peña Azagresa",
+      "C.D. Zarramonza",
+      "CD Baztan KE",
+      "J.D. San Jorge",
+      "S.D. Lagunak",
+      "U.C.D. Burlades"
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (exactly this name + Primera Autonomica Navarra + Group Único, to avoid collision with LNJ or Tercera team if they have the exact same name)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === 'primera autonomica navarra'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'AUT',
+          competicion: 'Primera Autonomica Navarra',
+          grupo: 'Único',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraAutonomicaSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Autonómica Navarra creados`);
       saveState();
     }
   }
