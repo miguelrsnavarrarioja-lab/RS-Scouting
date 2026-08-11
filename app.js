@@ -12131,6 +12131,13 @@
       });
 
       if (!exists) {
+        // === CHECK TOMBSTONE: don't re-create if user deleted this club ===
+        if (!state.deletedTombstones) state.deletedTombstones = {};
+        const tomb = state.deletedTombstones['clubes'] || { ids: [], names: [] };
+        const tombstoneIdCheck = 'c_fa_' + (ac.codigo || '');
+        const isTombstoned = tomb.names.includes(cleanAcName) || tomb.ids.includes(tombstoneIdCheck) || tomb.ids.includes(String(ac.codigo || '').trim());
+        if (isTombstoned) return; // User deleted this — never re-create
+
         const newClub = {
           id: 'c_fa_' + (ac.codigo || Date.now() + Math.floor(Math.random()*100)),
           codigo: ac.codigo || '',
@@ -15586,6 +15593,12 @@
       const tNameClean = t.nombre.toLowerCase().trim();
       const exists = state.directory.equipos.some(eq => eq && (eq.nombre || eq.equipo || '').toLowerCase().trim() === tNameClean);
       if (!exists) {
+        // === CHECK TOMBSTONE: don't re-create if user deleted this equipo ===
+        if (!state.deletedTombstones) state.deletedTombstones = {};
+        const tomb = state.deletedTombstones['equipos'] || { ids: [], names: [] };
+        const isTombstoned = tomb.names.includes(tNameClean) || (t.id && tomb.ids.includes(String(t.id).trim()));
+        if (isTombstoned) return; // User deleted this — never re-create
+
         state.directory.equipos.push(t);
         saveToFirebase('equipos', t);
         teamsAdded++;
