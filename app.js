@@ -9759,24 +9759,27 @@
   function getFedAcronym(fedStr) {
     if (!fedStr || fedStr === 'TODAS') return 'TODAS';
     const s = String(fedStr).trim();
-
     const lower = s.toLowerCase();
 
-    // Explicit unique federation acronym map
+    // User exact requested acronym mappings:
+    // CANARIAS = FCF
+    // CATALUÑA = FCAF
+    // CANTABRIA = RFCF
+    if (lower.includes('canaria') || lower.includes('canarias') || lower.includes('ftf')) return 'FCF';
+    if (lower.includes('catalana') || lower.includes('cataluña') || lower.includes('fcaf')) return 'FCAF';
+    if (lower.includes('cántabra') || lower.includes('cantabra') || lower.includes('rfcf')) return 'RFCF';
+
     if (lower.includes('española') || lower.includes('rfef') || lower.includes('españa')) return 'RFEF';
     if (lower.includes('navarra') || lower.includes('fnf')) return 'FNF';
-    if (lower.includes('aragonesa') || lower.includes('aragon') || lower.includes('faf')) return 'FARAG';
+    if (lower.includes('aragonesa') || lower.includes('aragon') || lower.includes('farag') || lower.includes('faf')) return 'FAF';
     if (lower.includes('madrid') || lower.includes('rffm')) return 'RFFM';
     if (lower.includes('valenciana') || lower.includes('comunitat valenciana') || lower.includes('ffcv')) return 'FFCV';
-    if (lower.includes('catalana') || lower.includes('cataluña') || lower.includes('fcf')) return 'FCF';
-    if (lower.includes('andaluza') || lower.includes('andalucía') || lower.includes('rfaf')) return 'FAND';
-    if (lower.includes('galicia') || lower.includes('gallega') || lower.includes('futgal')) return 'FGF';
+    if (lower.includes('andaluza') || lower.includes('andalucía') || lower.includes('rfaf') || lower.includes('fand')) return 'RFAF';
+    if (lower.includes('galicia') || lower.includes('gallega') || lower.includes('futgal') || lower.includes('fgf')) return 'FGF';
     if (lower.includes('asturias') || lower.includes('asturiana') || lower.includes('rffpa')) return 'RFFPA';
     if (lower.includes('riojana') || lower.includes('rioja') || lower.includes('frf')) return 'FRF';
     if (lower.includes('vasca') || lower.includes('euskal') || lower.includes('eff')) return 'EFF-FVF';
     if (lower.includes('balears') || lower.includes('balear') || lower.includes('ffib')) return 'FFIB';
-    if (lower.includes('canaria') || lower.includes('canarias') || lower.includes('ftf')) return 'FCAN';
-    if (lower.includes('cántabra') || lower.includes('cantabra') || lower.includes('rfcf')) return 'RFCF';
     if (lower.includes('castilla y león') || lower.includes('castilla leon') || lower.includes('fcylf')) return 'FCYLF';
     if (lower.includes('castilla-la mancha') || lower.includes('castilla la mancha') || lower.includes('ffcm')) return 'FFCM';
     if (lower.includes('extremadura') || lower.includes('extremeña') || lower.includes('fexf')) return 'FEXF';
@@ -15430,10 +15433,9 @@
       subFilteredItems = subFilteredItems.filter(est => (est.comunidad || 'Sin Comunidad').toUpperCase().trim() === currentComunidadFilter.toUpperCase().trim());
     } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab) && currentFederationFilter !== 'TODAS') {
       subFilteredItems = subFilteredItems.filter(item => {
-        const itemFed = (item.federacion || item.federacionVinculada || item.ambito || 'Sin Federación').toUpperCase().trim();
-        const filterVal = currentFederationFilter.toUpperCase().trim();
-        const filterAcronym = getFedAcronym(currentFederationFilter).toUpperCase().trim();
-        return itemFed.includes(filterVal) || filterVal.includes(itemFed) || (filterAcronym.length >= 3 && itemFed.includes(filterAcronym));
+        const itemFed = (item.federacion || item.federacionVinculada || item.ambito || '').trim();
+        const itemAcr = getFedAcronym(itemFed);
+        return itemAcr === currentFederationFilter || itemFed.toLowerCase().includes(currentFederationFilter.toLowerCase());
       });
     }
 
@@ -15494,18 +15496,35 @@
         </div>
       `;
     } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab)) {
-      const fedsSet = new Set(rawItems.map(item => (item.federacion || item.federacionVinculada || 'Sin Federación').trim()).filter(Boolean));
+      const acronymToFedMap = new Map();
+
       if (state.directory.federaciones && state.directory.federaciones.length) {
         state.directory.federaciones.forEach(f => {
           const fName = (f.nombre || f.federacion || '').trim();
-          if (fName) fedsSet.add(fName);
+          if (fName) {
+            const acr = getFedAcronym(fName);
+            if (acr && acr !== 'TODAS' && !acronymToFedMap.has(acr)) {
+              acronymToFedMap.set(acr, fName);
+            }
+          }
         });
       }
-      let fedsList = Array.from(fedsSet);
+
+      rawItems.forEach(item => {
+        const fName = (item.federacion || item.federacionVinculada || '').trim();
+        if (fName) {
+          const acr = getFedAcronym(fName);
+          if (acr && acr !== 'TODAS' && !acronymToFedMap.has(acr)) {
+            acronymToFedMap.set(acr, fName);
+          }
+        }
+      });
+
+      let acrList = Array.from(acronymToFedMap.keys());
 
       if (!state.directoryFederationsOrder) state.directoryFederationsOrder = [];
 
-      fedsList.sort((a, b) => {
+      acrList.sort((a, b) => {
         const idxA = state.directoryFederationsOrder.indexOf(a);
         const idxB = state.directoryFederationsOrder.indexOf(b);
         if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -15514,24 +15533,25 @@
         return a.localeCompare(b, 'es');
       });
 
-      const allFeds = ['TODAS', ...fedsList];
+      const allFeds = ['TODAS', ...acrList];
       subFilterBarHTML = `
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
           </span>
-          ${allFeds.map(fed => {
-            const acronym = fed === 'TODAS' ? 'TODAS' : (getFedAcronym(fed) || 'FED');
-            const isDraggable = fed !== 'TODAS';
+          ${allFeds.map(fedAcr => {
+            const fullName = fedAcr === 'TODAS' ? 'TODAS' : (acronymToFedMap.get(fedAcr) || fedAcr);
+            const isDraggable = fedAcr !== 'TODAS';
+            const isActive = currentFederationFilter === fedAcr || currentFederationFilter === fullName;
             return `
             <button type="button" 
-                    class="btn-dir-subfilter btn-fed-draggable ${currentFederationFilter === fed ? 'active' : ''}" 
+                    class="btn-dir-subfilter btn-fed-draggable ${isActive ? 'active' : ''}" 
                     data-type="federacion" 
-                    data-val="${escapeHtml(fed)}" 
+                    data-val="${escapeHtml(fedAcr)}" 
                     draggable="${isDraggable}" 
-                    title="${escapeHtml(fed)} (Arrastra para reordenar)" 
-                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentFederationFilter === fed ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentFederationFilter === fed ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
-              ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(acronym)}
+                    title="${escapeHtml(fullName)} (Arrastra para reordenar)" 
+                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+              ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(fedAcr)}
             </button>
           `;
           }).join('')}
