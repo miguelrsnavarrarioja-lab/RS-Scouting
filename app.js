@@ -225,7 +225,8 @@
 
     if (!db) return;
 
-    // Always save config immediately (including seeding flags so they survive reload)
+    // Always save config immediately (including seeding flags and deletion tombstones)
+    if (!state.deletedTombstones) state.deletedTombstones = {};
     const configToSave = Object.assign({}, state.settings || {}, {
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       customTabOrder: state.customTabOrder || [],
@@ -235,7 +236,8 @@
       federacionesSeeded: !!state.directory?.federacionesSeeded,
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
       equiposAragonSeeded: !!state.directory?.equiposAragonSeeded,
-      federacionesSeleccionesSeeded: !!state.directory?.federacionesSeleccionesSeeded
+      federacionesSeleccionesSeeded: !!state.directory?.federacionesSeleccionesSeeded,
+      deletedTombstones: state.deletedTombstones
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
       .catch(e => console.warn('Error sync configuracion:', e));
@@ -417,6 +419,10 @@
           }
           if (Array.isArray(configData.directoryFederationsOrder)) {
             state.directoryFederationsOrder = configData.directoryFederationsOrder;
+          }
+          // Restore deletion tombstones so seeding functions don't re-create deleted items
+          if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') {
+            state.deletedTombstones = configData.deletedTombstones;
           }
         }
 
@@ -10152,6 +10158,18 @@
       );
     }
 
+    // === TOMBSTONE: register deletion permanently so seeding won't re-create it ===
+    if (!state.deletedTombstones) state.deletedTombstones = {};
+    if (!state.deletedTombstones[tabName]) state.deletedTombstones[tabName] = { ids: [], names: [] };
+    const tomb = state.deletedTombstones[tabName];
+    if (itemObj) {
+      if (itemObj.id != null && !tomb.ids.includes(String(itemObj.id))) tomb.ids.push(String(itemObj.id));
+      if (itemObj.nombre && !tomb.names.includes(itemObj.nombre.toLowerCase().trim())) tomb.names.push(itemObj.nombre.toLowerCase().trim());
+      if (itemObj.seleccion && !tomb.names.includes(itemObj.seleccion.toLowerCase().trim())) tomb.names.push(itemObj.seleccion.toLowerCase().trim());
+    }
+    // Also tombstone by the raw itemId passed
+    if (!tomb.ids.includes(String(itemId).trim())) tomb.ids.push(String(itemId).trim());
+
     // Remove from local state
     if (Array.isArray(state.directory[tabName])) {
       state.directory[tabName] = state.directory[tabName].filter(item => {
@@ -10168,11 +10186,8 @@
     if (db) {
       setFirebaseHeaderStatus('syncing');
       const idsToDelete = new Set();
-      // Always try the passed itemId
       idsToDelete.add(String(itemId).trim());
-      // If we found the object in state, also use its exact .id (most reliable)
       if (itemObj && itemObj.id != null) idsToDelete.add(String(itemObj.id).trim());
-      // Also try codigo if present
       if (itemObj && itemObj.codigo != null) idsToDelete.add(String(itemObj.codigo).trim());
 
       const batch = db.batch();
@@ -15708,6 +15723,13 @@
         );
 
         if (!exists) {
+          // === CHECK TOMBSTONE: don't re-create if user deleted this selección ===
+          if (!state.deletedTombstones) state.deletedTombstones = {};
+          const tomb = state.deletedTombstones['selecciones'] || { ids: [], names: [] };
+          const nameLower = selFullName.toLowerCase().trim();
+          const isTombstoned = tomb.names.includes(nameLower);
+          if (isTombstoned) return; // User deleted this — never re-create
+
           const newSel = {
             id: 'sel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
             nombre: selFullName,
