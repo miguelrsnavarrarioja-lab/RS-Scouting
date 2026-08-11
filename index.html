@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" href="Logo MS.png">
   
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1786387117">
+  <link rel="stylesheet" href="styles.css?v=1786388347">
   
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -872,77 +872,113 @@
       </div>
     </section>
 
-    <!-- ==================== 4. IMPORTADOR INTELIGENTE VIEW ==================== -->
+    <!-- ==================== 4. IMPORTADOR DE PLANTILLAS FEDERATIVAS VIEW ==================== -->
     <section class="tab-view" id="view-importador">
       <div class="importador-card">
-        <!-- Title & Subtitle matching Importador.png -->
         <div class="importador-header">
           <div class="importador-title">
             <i data-lucide="wand-2" class="title-icon"></i>
-            <h2>Importador Inteligente</h2>
+            <h2>Importador de Plantillas Federativas</h2>
           </div>
-          <p class="importador-subtitle">Súper Poder: Copia y pega el contenido completo de la web de la federación para extraer entidades.</p>
+          <p class="importador-subtitle">Copia y pega la lista de jugadores tal como aparece en la web de la federación (ej: "Albisu Muñoz, Unai"). Podrás configurar y editar los datos antes de guardar.</p>
         </div>
 
         <div class="importador-body">
           <form id="importerForm" onsubmit="return false;">
-            <!-- Entity Type Select -->
+            <!-- Entity Type Selection -->
             <div class="form-group mb-4">
-              <label class="form-label font-bold text-uppercase text-xs">TIPO DE ENTIDAD A IMPORTAR</label>
+              <label class="form-label font-bold text-uppercase text-xs">TIPO DE IMPORTACIÓN</label>
               <select id="importerEntityType" class="form-control font-bold" style="font-size: 15px; padding: 10px;">
-                <option value="clubes" selected>1. 🛡️ Clubes</option>
-                <option value="estadios">2. 🏟️ Estadios</option>
-                <option value="equipos">3. 👕 Equipos</option>
-                <option value="plantilla">4. 🏃 Plantilla Completa (Jugadores y Staff)</option>
+                <option value="plantilla" selected>🏃 Plantilla / Jugadores de la Web Federativa</option>
+                <option value="clubes">🛡️ Clubes</option>
+                <option value="equipos">👕 Equipos</option>
+                <option value="estadios">🏟️ Estadios</option>
               </select>
-            <!-- Contextual Fields Container (shown for Equipos, Staff, Jugadores, Plantilla) -->
-            <div id="importerContextOptions" class="grid grid-3 gap-4 mb-4 hidden" style="background: var(--bg-subtle); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-              <div class="form-group mb-0">
-                <label class="form-label font-bold text-uppercase text-xs">EQUIPO DE DESTINO (DEL DIRECTORIO)</label>
-                <select id="importerTargetEquipo" class="form-control font-bold">
-                  <option value="" disabled selected>-- Selecciona un Equipo del Directorio --</option>
-                </select>
-                <input type="text" id="importerManualEquipoInput" class="form-control mt-2 hidden" placeholder="Nombre del equipo manual...">
-              </div>
-
-              <div class="form-group mb-0" id="importerCatContainer">
-                <label class="form-label font-bold text-uppercase text-xs">CATEGORÍA</label>
-                <select id="importerCategoria" class="form-control">
-                  <option value="Tercera RFEF" selected>Tercera RFEF</option>
-                  <option value="Primera RFEF">Primera RFEF</option>
-                  <option value="Segunda RFEF">Segunda RFEF</option>
-                  <option value="División de Honor Juvenil">División de Honor Juvenil</option>
-                  <option value="Liga Nacional Juvenil">Liga Nacional Juvenil</option>
-                  <option value="Primera Autonómica">Primera Autonómica</option>
-                  <option value="Preferente">Preferente</option>
-                  <option value="Juvenil Primera">Juvenil Primera</option>
-                  <option value="Cadete DH">Cadete DH</option>
-                  <option value="Infantil DH">Infantil DH</option>
-                  <option value="Femenino Senior">Femenino Senior</option>
-                </select>
-              </div>
-
-              <div class="form-group mb-0" id="importerTempContainer">
-                <label class="form-label font-bold text-uppercase text-xs">TEMPORADA</label>
-                <select id="importerTemporada" class="form-control">
-                  <option value="2026/2027" selected>2026/2027 (Temporada Actual)</option>
-                  <option value="2025/2026">2025/2026</option>
-                  <option value="2024/2025">2024/2025</option>
-                </select>
-              </div>
             </div>
 
+            <!-- Contextual Fields Container for Jugadores / Plantillas -->
+            <div id="importerContextOptions" class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
+              <h4 style="font-size: 14px; font-weight: 800; margin: 0 0 12px 0; color: var(--primary-blue, #2563eb); display: flex; align-items: center; gap: 6px;">
+                ⚙️ Valores por Defecto para la Plantilla (se aplicarán a los jugadores importados)
+              </h4>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">EQUIPO DE DESTINO</label>
+                  <select id="importerTargetEquipo" class="form-control font-bold">
+                    <option value="" disabled selected>-- Selecciona un Equipo --</option>
+                  </select>
+                  <input type="text" id="importerManualEquipoInput" class="form-control mt-2 hidden" placeholder="Escribe el nombre del equipo...">
+                </div>
 
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">AÑO NACIMIENTO / EDAD</label>
+                  <input type="text" id="importerAnoNacimiento" class="form-control font-bold" placeholder="Ej: 2006" value="2006">
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">POSICIÓN POR DEFECTO</label>
+                  <select id="importerPosicion" class="form-control font-bold">
+                    <option value="Por definir" selected>Por definir</option>
+                    <option value="Portero">Portero</option>
+                    <option value="Defensa Central">Defensa Central</option>
+                    <option value="Lateral Derecho">Lateral Derecho</option>
+                    <option value="Lateral Izquierdo">Lateral Izquierdo</option>
+                    <option value="Pivote">Pivote</option>
+                    <option value="Mediocentro">Mediocentro</option>
+                    <option value="Mediapunta">Mediapunta</option>
+                    <option value="Extremo Derecho">Extremo Derecho</option>
+                    <option value="Extremo Izquierdo">Extremo Izquierdo</option>
+                    <option value="Delantero Centro">Delantero Centro</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">ESTADO JUGADOR</label>
+                  <select id="importerEstadoJugador" class="form-control font-bold">
+                    <option value="ALTA" selected>ALTA</option>
+                    <option value="RENOVACIÓN">RENOVACIÓN</option>
+                    <option value="SEGUIMIENTO">SEGUIMIENTO</option>
+                    <option value="PRUEBA">PRUEBA</option>
+                    <option value="DILIGENCIA">DILIGENCIA</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">PROYECCIÓN / RS</label>
+                  <select id="importerProyeccion" class="form-control font-bold">
+                    <option value="Proyección Alta" selected>Proyección Alta</option>
+                    <option value="Proyección Media">Proyección Media</option>
+                    <option value="Nivel A">Nivel A</option>
+                    <option value="Nivel B">Nivel B</option>
+                    <option value="Nivel C">Nivel C</option>
+                  </select>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label font-bold text-uppercase text-xs">PIERNA DOMINANTE</label>
+                  <select id="importerPierna" class="form-control font-bold">
+                    <option value="Diestra" selected>Diestra</option>
+                    <option value="Zurda">Zurda</option>
+                    <option value="Ambidextra">Ambidextra</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
             <!-- Content Textarea -->
             <div class="form-group mb-5">
-              <label class="form-label font-bold text-uppercase text-xs">CONTENIDO COPIADO DE LA WEB</label>
-              <textarea id="importerRawContent" class="form-control importer-textarea" rows="12" placeholder="Pega el texto de clasificación, listas de jugadores, o tablas aquí..."></textarea>
+              <label class="form-label font-bold text-uppercase text-xs">LISTA DE JUGADORES COPIADA DE LA WEB DE LA FEDERACIÓN</label>
+              <textarea id="importerRawContent" class="form-control importer-textarea" rows="10" placeholder="Pega aquí la lista de la federación. Ejemplo:
+Albisu Muñoz, Unai
+Astrain Perez, Ander
+Fuentes Bacáicoa, Martín Javier
+Galvete Vilar, Alvaro..."></textarea>
             </div>
 
             <!-- Action Button -->
-            <button type="button" class="btn btn-primary btn-lg" id="btnRunImporter">
-              <i data-lucide="search"></i> Paso 1: Extraer y Revisar Datos
+            <button type="button" class="btn btn-primary btn-lg" id="btnRunImporter" style="font-weight: 800; padding: 14px 28px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <i data-lucide="edit-3"></i> Procesar y Abrir Ventana de Edición Previa
             </button>
           </form>
         </div>
@@ -950,7 +986,7 @@
 
       <!-- Results Preview Area -->
       <div id="importerResultsContainer" class="importer-results hidden mt-6">
-        <!-- Extraction summary and table rendered dynamically -->
+        <!-- Dynamic review table -->
       </div>
     </section>
 
@@ -1126,6 +1162,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <!-- App Script -->
-  <script src="app.js?v=1786387117"></script>
+  <script src="app.js?v=1786388347"></script>
 </body>
 </html>
