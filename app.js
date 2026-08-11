@@ -16789,6 +16789,46 @@
     return nameStr.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
   }
 
+  function getTeamComunidad(equipoName) {
+    if (!equipoName || !state.directory) return '';
+    const nameClean = equipoName.toLowerCase().trim();
+
+    // Search in equipos
+    const eq = (state.directory.equipos || []).find(e => 
+      e && ((e.nombre || '').toLowerCase().trim() === nameClean || (e.equipo || '').toLowerCase().trim() === nameClean)
+    );
+
+    if (eq) {
+      if (eq.comunidad) return eq.comunidad;
+      if (eq.provincia) return eq.provincia;
+      if (eq.federacion) {
+        const fedLower = eq.federacion.toLowerCase();
+        if (fedLower.includes('navarra')) return 'Navarra';
+        if (fedLower.includes('aragón') || fedLower.includes('aragonesa')) return 'Aragón';
+        if (fedLower.includes('rioja')) return 'La Rioja';
+        if (fedLower.includes('vasca') || fedLower.includes('país vasco') || fedLower.includes('pais vasco')) return 'País Vasco';
+        if (fedLower.includes('madrid')) return 'Madrid';
+        if (fedLower.includes('catalana') || fedLower.includes('cataluña')) return 'Cataluña';
+        if (fedLower.includes('valenciana')) return 'Comunidad Valenciana';
+        if (fedLower.includes('andaluza') || fedLower.includes('andalucía')) return 'Andalucía';
+      }
+      if (eq.club) {
+        const clubMatch = (state.directory.clubes || []).find(c => 
+          c && (c.nombre || '').toLowerCase().trim() === eq.club.toLowerCase().trim()
+        );
+        if (clubMatch && clubMatch.comunidad) return clubMatch.comunidad;
+      }
+    }
+
+    // Search directly in clubes
+    const clubDirect = (state.directory.clubes || []).find(c => 
+      c && ((c.nombre || '').toLowerCase().trim() === nameClean || (c.club || '').toLowerCase().trim() === nameClean)
+    );
+    if (clubDirect && clubDirect.comunidad) return clubDirect.comunidad;
+
+    return '';
+  }
+
   function processImporterText() {
     const rawText = document.getElementById('importerRawText')?.value.trim();
     if (!rawText) {
@@ -16799,13 +16839,13 @@
     // Default team choice
     const selectVal = document.getElementById('importerDefaultEquipoSelect')?.value;
     const inputVal = document.getElementById('importerDefaultEquipo')?.value.trim();
-    const defaultEquipo = selectVal || inputVal || 'Sin equipo';
+    const defaultEquipo = selectVal || inputVal || '';
 
-    const defaultAno = '2006';
+    const defaultAno = ''; // Empty by default as requested
     const defaultPais = 'España';
     const defaultSexo = 'MASCULINO';
-    const defaultComunidad = 'Navarra';
-    const defaultLocalidad = 'Pamplona';
+    const defaultComunidad = getTeamComunidad(defaultEquipo); // Linked to team!
+    const defaultLocalidad = ''; // Empty by default as requested
     const defaultEstado = 'RENOVACIÓN'; // Default RENOVACIÓN as requested
     const defaultPierna = 'Diestra';
     const defaultProyeccion = ''; // Blank by default as requested
@@ -17012,6 +17052,13 @@
           stagedExcelRows[rowIdx][fieldName] = e.target.value;
           if (fieldName === 'tipo') {
             renderExcelTable(); // Re-render for color badge update
+          } else if (fieldName === 'equipo') {
+            const detectedComunidad = getTeamComunidad(e.target.value);
+            if (detectedComunidad) {
+              stagedExcelRows[rowIdx].comunidad = detectedComunidad;
+              const comInput = tbody.querySelector(`.excel-cell-field[data-idx="${rowIdx}"][data-field="comunidad"]`);
+              if (comInput) comInput.value = detectedComunidad;
+            }
           }
         }
       });
