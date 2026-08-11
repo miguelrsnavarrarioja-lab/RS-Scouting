@@ -238,9 +238,9 @@
   /**
    * Fuerza el volcado y sincronización de absolutamente todo el estado actual a Firebase.
    */
-  async function syncAllToFirebase(showToast = true) {
+  async function syncAllToFirebase(notifyUser = true) {
     if (!db) {
-      if (showToast) alert('⚠️ Firebase no está inicializado o no hay conexión.');
+      if (notifyUser) alert('⚠️ Firebase no está inicializado o no hay conexión.');
       return;
     }
 
@@ -292,12 +292,16 @@
 
       console.log('✅ Sincronización completa finalizada en Firebase');
       setFirebaseHeaderStatus('synced');
-      if (showToast) {
-        showToast('☁️ Sincronización con Firebase completada con éxito', 'success');
+      if (notifyUser) {
+        if (typeof showToast === 'function') {
+          showToast('☁️ Sincronización con Firebase completada con éxito', 'success');
+        } else {
+          alert('☁️ Sincronización con Firebase completada con éxito');
+        }
       }
     } catch (err) {
       console.error('Error durante la sincronización a Firebase:', err);
-      if (showToast) alert('⚠️ Error al sincronizar con Firebase: ' + err.message);
+      if (notifyUser) alert('⚠️ Error al sincronizar con Firebase: ' + err.message);
     }
   }
 
