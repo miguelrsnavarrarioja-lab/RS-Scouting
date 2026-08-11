@@ -16806,10 +16806,10 @@
     const defaultSexo = 'MASCULINO';
     const defaultComunidad = 'Navarra';
     const defaultLocalidad = 'Pamplona';
-    const defaultEstado = 'ALTA';
+    const defaultEstado = 'RENOVACIÓN'; // Default RENOVACIÓN as requested
     const defaultPierna = 'Diestra';
-    const defaultProyeccion = 'Proyección Alta';
-    const defaultPosicion = 'Por definir';
+    const defaultProyeccion = ''; // Blank by default as requested
+    const defaultPosicion = '';
 
     const lines = rawText.split('\n');
     stagedExcelRows = [];
@@ -16842,6 +16842,7 @@
         id: (isStaff ? 'st_' : 'j_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         checked: true,
         tipo: currentRole, // 'JUGADOR' o 'STAFF'
+        cargo: isStaff ? 'Delegado' : '',
         nombre: formattedName,
         ano: defaultAno,
         pais: defaultPais,
@@ -16852,7 +16853,7 @@
         localidad: defaultLocalidad,
         pierna: defaultPierna,
         proyeccion: defaultProyeccion,
-        posicion: isStaff ? 'Delegado / Técnico' : defaultPosicion,
+        posicion: defaultPosicion,
         posicionSecundaria: ''
       });
     });
@@ -16890,10 +16891,12 @@
       `;
     }
 
-    const posOptions = ['Por definir', 'Portero', 'Defensa Central', 'Lateral Derecho', 'Lateral Izquierdo', 'Pivote', 'Mediocentro', 'Mediapunta', 'Extremo Derecho', 'Extremo Izquierdo', 'Delantero Centro', 'Entrenador', 'Segundo Entrenador', 'Delegado / Técnico', 'Preparador Físico', 'Fisioterapeuta'];
-    const estadoOptions = ['ALTA', 'RENOVACIÓN', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA'];
-    const proyeccionOptions = ['Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
-    const piernaOptions = ['Diestra', 'Zurda', 'Ambidextra'];
+    // Positions from player modal (only abbreviated codes)
+    const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
+    const cargoOptions = ['Delegado', 'Entrenador Principal', 'Segundo Entrenador', 'Preparador Físico', 'Entrenador de Porteros', 'Scout / Ojeador', 'Analista Táctico', 'Director Deportivo', 'Fisioterapeuta', 'Médico', 'Delegado de Equipo', 'Delegado de Campo', 'Utillero', 'Readaptador'];
+    const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
+    const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
+    const piernaOptions = ['Diestra', 'Zurda', 'Ambidextra', 'DERECHA', 'IZQUIERDA', 'AMBIDIESTRO'];
 
     let html = '';
     stagedExcelRows.forEach((row, idx) => {
@@ -16915,6 +16918,16 @@
               <option value="JUGADOR" ${row.tipo === 'JUGADOR' ? 'selected' : ''}>🏃 JUGADOR</option>
               <option value="STAFF" ${row.tipo === 'STAFF' ? 'selected' : ''}>👔 STAFF</option>
             </select>
+          </td>
+
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+            ${isStaff ? `
+              <select class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c;">
+                ${cargoOptions.map(c => `<option value="${c}" ${row.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}
+              </select>
+            ` : `
+              <span style="display: block; text-align: center; color: #cbd5e1; font-weight: bold; font-size: 11px;">-</span>
+            `}
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
@@ -16962,20 +16975,19 @@
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${idx}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
-              ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr}</option>`).join('')}
+              ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
-              ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p}</option>`).join('')}
+              ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
-              <option value="">(Ninguna)</option>
-              ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
+              ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p || '(Ninguna)'}</option>`).join('')}
             </select>
           </td>
 
@@ -17179,6 +17191,14 @@
     const totalJugadores = countJugadoresNew + countJugadoresUpd;
     const totalStaff = countStaffNew + countStaffUpd;
 
+    // Empty raw text and inputs for next import
+    const rawTextarea = document.getElementById('importerRawText');
+    if (rawTextarea) rawTextarea.value = '';
+    const equipoSelect = document.getElementById('importerDefaultEquipoSelect');
+    if (equipoSelect) equipoSelect.value = '';
+    const equipoInput = document.getElementById('importerDefaultEquipo');
+    if (equipoInput) equipoInput.value = '';
+
     // Show success view
     const step2Container = document.getElementById('importerStep2ExcelContainer');
     if (step2Container) {
@@ -17201,8 +17221,8 @@
           </p>
 
           <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-secondary btn-lg" onclick="location.reload()" style="font-weight: 800; padding: 12px 24px; cursor: pointer;">
-              🔄 Nueva Importación
+            <button type="button" class="btn btn-secondary btn-lg" onclick="resetImporterToStep1()" style="font-weight: 800; padding: 12px 24px; cursor: pointer;">
+              🔄 Realizar Nueva Importación
             </button>
             
             <button type="button" class="btn btn-primary btn-lg" onclick="navigateToDirectoryTab('jugadores')" style="font-weight: 800; padding: 12px 28px; cursor: pointer;">
@@ -17216,6 +17236,30 @@
 
     showToast(`☁️ ${itemsToSave.length} registros guardados en la app y en Firebase`, 'success');
   });
+
+  function resetImporterToStep1() {
+    stagedExcelRows = [];
+    const rawTextarea = document.getElementById('importerRawText');
+    if (rawTextarea) rawTextarea.value = '';
+
+    const equipoSelect = document.getElementById('importerDefaultEquipoSelect');
+    if (equipoSelect) equipoSelect.value = '';
+
+    const equipoInput = document.getElementById('importerDefaultEquipo');
+    if (equipoInput) equipoInput.value = '';
+
+    const step2Container = document.getElementById('importerStep2ExcelContainer');
+    if (step2Container) {
+      step2Container.classList.add('hidden');
+    }
+
+    const step1Container = document.getElementById('importerStep1Container');
+    if (step1Container) {
+      step1Container.classList.remove('hidden');
+    }
+  }
+
+  window.resetImporterToStep1 = resetImporterToStep1;
 
 
 
