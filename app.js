@@ -215,23 +215,97 @@
 
   let state = loadState();
 
-    function saveState() {
+  // Debounce timer for auto-sync to Firebase
+  let _saveStateDebounceTimer = null;
+
+  function saveState() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
 
-    if (db) {
-      if (state.settings || state.favColumns || state.customTabOrder) {
-        const configToSave = Object.assign({}, state.settings || {}, {
-          favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
-          customTabOrder: state.customTabOrder || [],
-          customClubTypes: state.customClubTypes || [],
-          clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
-          federacionesSeeded: !!state.directory?.federacionesSeeded
-        });
-        db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
-          .catch(e => console.warn('Error sync configuracion:', e));
+    if (!db) return;
+
+    // Always save config immediately
+    const configToSave = Object.assign({}, state.settings || {}, {
+      favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
+      customTabOrder: state.customTabOrder || [],
+      customClubTypes: state.customClubTypes || [],
+      directoryFederationsOrder: state.directoryFederationsOrder || [],
+      clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
+      federacionesSeeded: !!state.directory?.federacionesSeeded
+    });
+    db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
+      .catch(e => console.warn('Error sync configuracion:', e));
+
+    // Debounce the full directory sync to avoid flooding Firebase
+    if (_saveStateDebounceTimer) clearTimeout(_saveStateDebounceTimer);
+    _saveStateDebounceTimer = setTimeout(() => {
+      _syncDirectoryToFirebase();
+    }, 800);
+  }
+
+  async function _syncDirectoryToFirebase() {
+    if (!db) return;
+    try {
+      setFirebaseHeaderStatus('syncing');
+
+      const collectionsMap = {
+        'jugadores':     state.directory?.jugadores     || [],
+        'clubes':        state.directory?.clubes        || [],
+        'equipos':       state.directory?.equipos       || [],
+        'federaciones':  state.directory?.federaciones  || [],
+        'selecciones':   state.directory?.selecciones   || [],
+        'convocatorias': state.directory?.convocatorias || [],
+        'torneos':       state.directory?.torneos       || [],
+        'staff':         state.directory?.staff         || [],
+        'agencias':      state.directory?.agencias      || [],
+        'agentes':       state.directory?.agentes       || [],
+        'estadios':      state.directory?.estadios      || [],
+        'partidos':      state.matches                  || [],
+        'informes':      state.reports                  || [],
+        'agenda':        state.agenda                   || [],
+        'enlaces':       state.links                    || []
+      };
+
+      for (const [colName, items] of Object.entries(collectionsMap)) {
+        if (!Array.isArray(items)) continue;
+
+        // Get current Firebase IDs for this collection
+        let firebaseIds = new Set();
+        try {
+          const snap = await db.collection(colName).get();
+          snap.forEach(doc => firebaseIds.add(doc.id));
+        } catch (e) { /* ignore */ }
+
+        // IDs that currently exist in local state
+        const localIds = new Set(items.filter(i => i && i.id).map(i => String(i.id)));
+
+        // Delete from Firebase docs that are no longer in local state
+        const toDelete = [...firebaseIds].filter(id => !localIds.has(id));
+        if (toDelete.length > 0) {
+          const delBatch = db.batch();
+          toDelete.forEach(id => delBatch.delete(db.collection(colName).doc(id)));
+          await delBatch.commit().catch(e => console.warn(`Error borrando de ${colName}:`, e));
+        }
+
+        // Upsert all local items in chunks of 450
+        for (let i = 0; i < items.length; i += 450) {
+          const chunk = items.slice(i, i + 450);
+          const batch = db.batch();
+          chunk.forEach(item => {
+            if (item && item.id) {
+              batch.set(db.collection(colName).doc(String(item.id)), item, { merge: true });
+            }
+          });
+          await batch.commit().catch(e => console.warn(`Error guardando chunk en ${colName}:`, e));
+        }
       }
+
+      setFirebaseHeaderStatus('synced');
+      console.log('✅ Auto-sync a Firebase completado');
+    } catch (err) {
+      console.error('Error en _syncDirectoryToFirebase:', err);
+      setFirebaseHeaderStatus('error');
     }
   }
 
