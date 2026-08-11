@@ -15542,6 +15542,12 @@
     const validNamesSet = new Set(validPlayers.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
 
     let cleanedCount = 0;
+  function cleanOrphanPlayersFromAllTeams() {
+    if (!state || !state.directory || !Array.isArray(state.directory.equipos)) return 0;
+    const validPlayers = state.directory.jugadores || [];
+    const validNamesSet = new Set(validPlayers.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
+
+    let cleanedCount = 0;
     state.directory.equipos.forEach(eq => {
       if (Array.isArray(eq.plantilla)) {
         const origLen = eq.plantilla.length;
@@ -15567,25 +15573,25 @@
     const nameLower = fedName.toLowerCase();
 
     if (nameLower.includes('rfef') || nameLower.includes('española') || nameLower.includes('españa')) return 'España';
-    if (nameLower.includes('navarr')) return 'Navarra';
-    if (nameLower.includes('aragon') || nameLower.includes('aragón')) return 'Aragón';
-    if (nameLower.includes('rioja')) return 'La Rioja';
-    if (nameLower.includes('vasca') || nameLower.includes('euskadi') || nameLower.includes('pais vasco') || nameLower.includes('país vasco')) return 'País Vasco';
-    if (nameLower.includes('madrid')) return 'Madrid';
-    if (nameLower.includes('catalana') || nameLower.includes('cataluña') || nameLower.includes('catalunya')) return 'Cataluña';
+    if (nameLower.includes('navarr') || nameLower.includes('fnf')) return 'Navarra';
+    if (nameLower.includes('aragon') || nameLower.includes('aragón') || nameLower.includes('farag') || nameLower.includes('faf')) return 'Aragón';
+    if (nameLower.includes('rioja') || nameLower.includes('frf')) return 'La Rioja';
+    if (nameLower.includes('vasca') || nameLower.includes('euskadi') || nameLower.includes('pais vasco') || nameLower.includes('país vasco') || nameLower.includes('eff')) return 'País Vasco';
+    if (nameLower.includes('madrid') || nameLower.includes('rffm')) return 'Madrid';
+    if (nameLower.includes('catalana') || nameLower.includes('cataluña') || nameLower.includes('catalunya') || nameLower.includes('fcaf') || nameLower.includes('fcf')) return 'Cataluña';
     if (nameLower.includes('valencian') || nameLower.includes('comunitat valenciana') || nameLower.includes('ffcv')) return 'C. Valenciana';
-    if (nameLower.includes('andaluz') || nameLower.includes('andalucía')) return 'Andalucía';
-    if (nameLower.includes('galleg') || nameLower.includes('galicia')) return 'Galicia';
-    if (nameLower.includes('asturia')) return 'Asturias';
-    if (nameLower.includes('canta')) return 'Cantabria';
-    if (nameLower.includes('castilla y león') || nameLower.includes('castellano-leonesa') || nameLower.includes('castilla leon')) return 'Castilla y León';
-    if (nameLower.includes('castilla-la mancha') || nameLower.includes('castilla la mancha')) return 'Castilla-La Mancha';
-    if (nameLower.includes('extremad')) return 'Extremadura';
-    if (nameLower.includes('murcia')) return 'Murcia';
-    if (nameLower.includes('balear') || nameLower.includes('balears')) return 'Baleares';
-    if (nameLower.includes('canaria') || nameLower.includes('canarias')) return 'Canarias';
-    if (nameLower.includes('ceuta') || nameLower.includes('ceutí')) return 'Ceuta';
-    if (nameLower.includes('melilla') || nameLower.includes('melillense')) return 'Melilla';
+    if (nameLower.includes('andaluz') || nameLower.includes('andalucía') || nameLower.includes('rfaf') || nameLower.includes('fand')) return 'Andalucía';
+    if (nameLower.includes('galleg') || nameLower.includes('galicia') || nameLower.includes('fgf')) return 'Galicia';
+    if (nameLower.includes('asturia') || nameLower.includes('rffpa')) return 'Asturias';
+    if (nameLower.includes('canta') || nameLower.includes('cántab') || nameLower.includes('cantab') || nameLower.includes('rfcf')) return 'Cantabria';
+    if (nameLower.includes('castilla y león') || nameLower.includes('castellano-leonesa') || nameLower.includes('castilla leon') || nameLower.includes('fcylf')) return 'Castilla y León';
+    if (nameLower.includes('castilla-la mancha') || nameLower.includes('castilla la mancha') || nameLower.includes('ffcm')) return 'Castilla-La Mancha';
+    if (nameLower.includes('extremad') || nameLower.includes('fexf')) return 'Extremadura';
+    if (nameLower.includes('murcia') || nameLower.includes('ffrm')) return 'Murcia';
+    if (nameLower.includes('balear') || nameLower.includes('balears') || nameLower.includes('ffib')) return 'Baleares';
+    if (nameLower.includes('canaria') || nameLower.includes('canarias') || nameLower.includes('fcan')) return 'Canarias';
+    if (nameLower.includes('ceuta') || nameLower.includes('ceutí') || nameLower.includes('ffce')) return 'Ceuta';
+    if (nameLower.includes('melilla') || nameLower.includes('melillense') || nameLower.includes('rfmf')) return 'Melilla';
 
     return fedName.replace(/^(real\s+|federación\s+(de\s+fútbol\s+de\s+la\s+|de\s+fútbol\s+de\s+|de\s+|del\s+)?|federació\s+)/i, '').trim();
   }
@@ -15609,26 +15615,44 @@
     let newCount = 0;
     let updatedCount = 0;
 
-    // First update existing selecciones names to append 26/27 and remove prefix if needed
+    // 1. First update ALL existing selecciones names to format cleanly: "[Comunidad] [Categoría] [Sexo] 26/27"
     state.directory.selecciones.forEach(s => {
-      if (s && s.nombre) {
-        let nameStr = s.nombre.trim();
-        if (nameStr.startsWith('Selección ')) {
-          nameStr = nameStr.replace(/^Selección\s+/, '');
-        }
-        if (!nameStr.includes('26/27')) {
-          nameStr = `${nameStr} 26/27`;
-        }
-        if (s.nombre !== nameStr) {
-          s.nombre = nameStr;
-          s.seleccion = nameStr;
-          s.temporada = '26/27';
-          saveToFirebase('selecciones', s);
-          updatedCount++;
-        }
+      if (!s) return;
+      const fedStr = s.federacion || s.nombre || '';
+      const baseName = getFederationSelectionBaseName(fedStr);
+      const cat = s.categoria || 'Sub16';
+      const sexo = s.sexo || 'Masculino';
+      const sexoLabel = sexo === 'Femenino' ? 'Femenina' : 'Masculina';
+
+      const cleanName = `${baseName} ${cat} ${sexoLabel} 26/27`;
+
+      if (s.nombre !== cleanName || s.seleccion !== cleanName || s.temporada !== '26/27') {
+        s.nombre = cleanName;
+        s.seleccion = cleanName;
+        s.temporada = '26/27';
+        saveToFirebase('selecciones', s);
+        updatedCount++;
       }
     });
 
+    // 2. Deduplicate selecciones by name
+    const uniqueSelecciones = [];
+    const seenNames = new Set();
+
+    state.directory.selecciones.forEach(s => {
+      if (!s || !s.nombre) return;
+      const cleanLower = s.nombre.toLowerCase().trim();
+      if (!seenNames.has(cleanLower)) {
+        seenNames.add(cleanLower);
+        uniqueSelecciones.push(s);
+      } else {
+        if (s.id) deleteFromFirebase('selecciones', s.id);
+      }
+    });
+
+    state.directory.selecciones = uniqueSelecciones;
+
+    // 3. Ensure all requested categories exist for every federation
     federaciones.forEach(fed => {
       const fedFullName = fed.nombre || fed.federacion;
       if (!fedFullName) return;
@@ -15671,6 +15695,11 @@
 
     if (newCount > 0 || updatedCount > 0) {
       saveState();
+    }
+  }
+
+    if (newCount > 0 || updatedCount > 0) {
+      saveState();
       console.log(`🌍 Actualizadas/Creadas selecciones autonómicas con formato '[Comunidad] [Categoría] 26/27' (${newCount} creadas, ${updatedCount} actualizadas).`);
     }
   }
@@ -15693,6 +15722,13 @@
     ensureClubesAragonSeeded();
     ensureEquiposAragonSeeded();
     ensureFederacionesSeleccionesSeeded();
+
+    if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
+      currentFederationFilter = getFederationSelectionBaseName(currentFederationFilter);
+    }
+    if (state.directoryFederationsOrder && Array.isArray(state.directoryFederationsOrder)) {
+      state.directoryFederationsOrder = state.directoryFederationsOrder.map(item => getFederationSelectionBaseName(item));
+    }
 
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
     if (!state.dirActiveFilters) state.dirActiveFilters = {};
