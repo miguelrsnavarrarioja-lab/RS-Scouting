@@ -225,14 +225,17 @@
 
     if (!db) return;
 
-    // Always save config immediately
+    // Always save config immediately (including seeding flags so they survive reload)
     const configToSave = Object.assign({}, state.settings || {}, {
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       customTabOrder: state.customTabOrder || [],
       customClubTypes: state.customClubTypes || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
-      federacionesSeeded: !!state.directory?.federacionesSeeded
+      federacionesSeeded: !!state.directory?.federacionesSeeded,
+      clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
+      equiposAragonSeeded: !!state.directory?.equiposAragonSeeded,
+      federacionesSeleccionesSeeded: !!state.directory?.federacionesSeleccionesSeeded
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
       .catch(e => console.warn('Error sync configuracion:', e));
@@ -471,6 +474,19 @@
           }
           if (configData.federacionesSeeded) {
             state.directory.federacionesSeeded = true;
+          }
+          // Restore seeding flags so seeding functions don't re-run after reload
+          if (configData.clubesAragonSeeded) {
+            state.directory.clubesAragonSeeded = true;
+          }
+          if (configData.equiposAragonSeeded) {
+            state.directory.equiposAragonSeeded = true;
+          }
+          if (configData.federacionesSeleccionesSeeded) {
+            state.directory.federacionesSeleccionesSeeded = true;
+          }
+          if (Array.isArray(configData.directoryFederationsOrder)) {
+            state.directoryFederationsOrder = configData.directoryFederationsOrder;
           }
         }
 
