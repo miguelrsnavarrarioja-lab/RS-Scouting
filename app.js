@@ -237,6 +237,7 @@
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
       equiposAragonSeeded: !!state.directory?.equiposAragonSeeded,
       federacionesSeleccionesSeeded: !!state.directory?.federacionesSeleccionesSeeded,
+      federacionesClubsMigrated: !!state.directory?.federacionesClubsMigrated,
       deletedTombstones: state.deletedTombstones
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
@@ -423,6 +424,9 @@
           // Restore deletion tombstones so seeding functions don't re-create deleted items
           if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') {
             state.deletedTombstones = configData.deletedTombstones;
+          }
+          if (configData.federacionesClubsMigrated) {
+            state.directory.federacionesClubsMigrated = true;
           }
         }
 
@@ -15757,6 +15761,41 @@
     }
   }
 
+  function migrateFederacionesClubs() {
+    if (!state.directory || !Array.isArray(state.directory.clubes)) return;
+    if (state.directory.federacionesClubsMigrated) return;
+
+    const FAF = 'FAF - Real Federación Aragonesa de Fútbol';
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    let changed = 0;
+
+    state.directory.clubes.forEach(club => {
+      if (!club) return;
+      const com = (club.comunidad || '').toLowerCase().trim();
+      const fed = (club.federacion || '').toLowerCase().trim();
+
+      if (com === 'aragón' || com === 'aragon' || fed.includes('aragon') || fed.includes('fargf') || (club.id && club.id.startsWith('c_fa_'))) {
+        if (club.federacion !== FAF) {
+          club.federacion = FAF;
+          if (db) db.collection('clubes').doc(String(club.id)).update({ federacion: FAF }).catch(() => {});
+          changed++;
+        }
+      } else if (com === 'navarra' || fed.includes('navarra') || fed.includes('fnf') || (club.id && club.id.startsWith('club_fnf_'))) {
+        if (club.federacion !== FNF) {
+          club.federacion = FNF;
+          if (db) db.collection('clubes').doc(String(club.id)).update({ federacion: FNF }).catch(() => {});
+          changed++;
+        }
+      }
+    });
+
+    state.directory.federacionesClubsMigrated = true;
+    if (changed > 0) {
+      console.log(`✅ Federaciones actualizadas en ${changed} clubes`);
+      saveState();
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
@@ -15775,6 +15814,7 @@
     ensureClubesAragonSeeded();
     ensureEquiposAragonSeeded();
     ensureFederacionesSeleccionesSeeded();
+    migrateFederacionesClubs();
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
       currentFederationFilter = getFederationSelectionBaseName(currentFederationFilter);
