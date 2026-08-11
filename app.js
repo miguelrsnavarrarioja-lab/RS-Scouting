@@ -15542,12 +15542,6 @@
     const validNamesSet = new Set(validPlayers.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
 
     let cleanedCount = 0;
-  function cleanOrphanPlayersFromAllTeams() {
-    if (!state || !state.directory || !Array.isArray(state.directory.equipos)) return 0;
-    const validPlayers = state.directory.jugadores || [];
-    const validNamesSet = new Set(validPlayers.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
-
-    let cleanedCount = 0;
     state.directory.equipos.forEach(eq => {
       if (Array.isArray(eq.plantilla)) {
         const origLen = eq.plantilla.length;
@@ -15695,12 +15689,6 @@
 
     if (newCount > 0 || updatedCount > 0) {
       saveState();
-    }
-  }
-
-    if (newCount > 0 || updatedCount > 0) {
-      saveState();
-      console.log(`🌍 Actualizadas/Creadas selecciones autonómicas con formato '[Comunidad] [Categoría] 26/27' (${newCount} creadas, ${updatedCount} actualizadas).`);
     }
   }
 
