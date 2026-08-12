@@ -516,6 +516,7 @@
         if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
         if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
         if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
+        if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -4465,23 +4466,11 @@
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                      <label class="form-label" style="margin: 0; font-weight: 800;">TIPO DE CLUB</label>
-                      <button type="button" id="btnShowAddClubTypeInput" style="background: none; border: none; font-size: 11px; color: var(--primary-blue, #2563eb); font-weight: 800; cursor: pointer; padding: 0;">+ Crear Tipo</button>
-                    </div>
-
-                    <input type="text" id="cfTipo" class="form-control mb-2" placeholder="Ej: Cantera, Convenio, Profesional..." value="${escapeHtml(tipoStr)}" list="clubTypeDatalistOptions">
+                    <label class="form-label">TIPO DE CLUB</label>
+                    <input type="text" id="cfTipo" class="form-control" placeholder="Ej: Formador, Cantera, Profesional..." value="${escapeHtml(tipoStr)}" list="clubTypeDatalistOptions">
                     <datalist id="clubTypeDatalistOptions">
                       ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('')}
                     </datalist>
-
-                    <div id="newClubTypeInputRow" style="display: none; gap: 4px; margin-bottom: 4px;">
-                      <input type="text" id="inputNewCustomClubType" class="form-control" placeholder="Nombre nuevo tipo..." style="font-size: 11px; padding: 4px 8px; height: 32px;">
-                      <button type="button" id="btnConfirmAddClubType" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px; font-weight: 800; height: 32px; white-space: nowrap;">Añadir</button>
-                    </div>
-
-                    <div id="clubTypeChipsContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border: 1px solid var(--border-medium, #cbd5e1); border-radius: var(--radius-md, 8px); background: #ffffff; min-height: 38px; max-height: 95px; overflow-y: auto; align-items: center;">
-                    </div>
                   </div>
 
                   <div class="form-group">
@@ -10729,6 +10718,140 @@
     }
   }
 
+  function getOrCreateClub(clubName, comunidad = 'Nacional', federacion = 'RFEF') {
+    if (!state.directory) state.directory = {};
+    if (!state.directory.clubes) state.directory.clubes = [];
+    const cleanName = String(clubName || '').replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
+    if (!cleanName) return null;
+
+    const slugId = 'club_' + cleanName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+
+    let clubMatch = state.directory.clubes.find(c => 
+      c && (
+        String(c.id) === String(slugId) ||
+        (c.nombre && String(c.nombre).toLowerCase().trim() === cleanName.toLowerCase()) ||
+        (c.equipo && String(c.equipo).toLowerCase().trim() === cleanName.toLowerCase())
+      )
+    );
+
+    if (!clubMatch) {
+      clubMatch = {
+        id: slugId,
+        nombre: cleanName,
+        equipo: cleanName,
+        comunidad: comunidad,
+        pais: 'España',
+        federacion: federacion
+      };
+      state.directory.clubes.unshift(clubMatch);
+      if (db) db.collection('clubes').doc(String(slugId)).set(clubMatch, { merge: true }).catch(()=>{});
+    } else {
+      if (clubMatch.id !== slugId) {
+        clubMatch.id = slugId;
+      }
+    }
+    return clubMatch;
+  }
+
+  function deduplicateDirectoryData() {
+    if (!state.directory) return;
+    let modified = false;
+
+    // 1. Deduplicate Clubes
+    if (Array.isArray(state.directory.clubes) && state.directory.clubes.length > 0) {
+      const clubMap = new Map();
+      const duplicateClubIds = new Set();
+      const uniqueClubes = [];
+
+      state.directory.clubes.forEach(club => {
+        if (!club) return;
+        const normName = String(club.nombre || club.equipo || '').toLowerCase().trim();
+        if (!normName) return;
+
+        if (!clubMap.has(normName)) {
+          clubMap.set(normName, club);
+          uniqueClubes.push(club);
+        } else {
+          const primaryClub = clubMap.get(normName);
+          if (club.id && String(club.id) !== String(primaryClub.id)) {
+            duplicateClubIds.add(String(club.id));
+          }
+        }
+      });
+
+      if (duplicateClubIds.size > 0) {
+        modified = true;
+        console.log(`🧹 Eliminando ${duplicateClubIds.size} clubes duplicados de Firestore y memoria...`);
+        state.directory.clubes = uniqueClubes;
+
+        if (db) {
+          duplicateClubIds.forEach(id => {
+            db.collection('clubes').doc(id).delete().catch(e => console.warn('Error borrando club duplicado:', id, e));
+          });
+        }
+
+        // Re-link teams
+        if (Array.isArray(state.directory.equipos)) {
+          state.directory.equipos.forEach(eq => {
+            if (!eq) return;
+            const eqClubName = String(eq.clubVinculado || eq.club || '').toLowerCase().trim();
+            if (eqClubName && clubMap.has(eqClubName)) {
+              const primaryC = clubMap.get(eqClubName);
+              if (eq.clubId !== primaryC.id || eq.club !== primaryC.nombre) {
+                eq.clubId = primaryC.id;
+                eq.club = primaryC.nombre;
+                if (db) db.collection('equipos').doc(String(eq.id)).update({ clubId: primaryC.id, club: primaryC.nombre }).catch(() => {});
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // 2. Deduplicate Equipos
+    if (Array.isArray(state.directory.equipos) && state.directory.equipos.length > 0) {
+      const teamMap = new Map();
+      const duplicateTeamIds = new Set();
+      const uniqueEquipos = [];
+
+      state.directory.equipos.forEach(eq => {
+        if (!eq) return;
+        const normName = String(eq.nombre || eq.equipo || '').toLowerCase().trim();
+        const normComp = String(eq.competicion || '').toLowerCase().trim();
+        const normGrup = String(eq.grupo || '').toLowerCase().trim();
+        const key = `${normName}|${normComp}|${normGrup}`;
+
+        if (!normName) return;
+
+        if (!teamMap.has(key)) {
+          teamMap.set(key, eq);
+          uniqueEquipos.push(eq);
+        } else {
+          const primaryTeam = teamMap.get(key);
+          if (eq.id && String(eq.id) !== String(primaryTeam.id)) {
+            duplicateTeamIds.add(String(eq.id));
+          }
+        }
+      });
+
+      if (duplicateTeamIds.size > 0) {
+        modified = true;
+        console.log(`🧹 Eliminando ${duplicateTeamIds.size} equipos duplicados de Firestore y memoria...`);
+        state.directory.equipos = uniqueEquipos;
+
+        if (db) {
+          duplicateTeamIds.forEach(id => {
+            db.collection('equipos').doc(id).delete().catch(e => console.warn('Error borrando equipo duplicado:', id, e));
+          });
+        }
+      }
+    }
+
+    if (modified) {
+      saveState();
+    }
+  }
+
   function migrateFederacionesClubs() {
     if (!state.directory || !Array.isArray(state.directory.clubes)) return;
     if (state.directory.federacionesClubsMigrated) return;
@@ -11953,18 +12076,7 @@
       let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
 
       // Find or create club
-      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
-      if (!clubMatch) {
-        clubMatch = {
-          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
-          nombre: clubName,
-          comunidad: 'Nacional',
-          pais: 'España',
-          federacion: RFEF
-        };
-        state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
-      }
+      let clubMatch = getOrCreateClub(clubName, 'Nacional', RFEF);
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 3)
       let teamMatch = state.directory.equipos.find(e => 
@@ -11974,8 +12086,9 @@
       );
       
       if (!teamMatch) {
+        const teamSlug = 'eq_' + (teamName + '_dhj_3').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
         teamMatch = {
-          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          id: teamSlug,
           nombre: teamName,
           equipo: teamName,
           club: clubMatch.nombre, // Link to club
@@ -11989,7 +12102,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(()=>{});
         addedCount++;
       }
     });
@@ -12044,18 +12157,7 @@
       let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
 
       // Find or create club
-      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
-      if (!clubMatch) {
-        clubMatch = {
-          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
-          nombre: clubName,
-          comunidad: 'Nacional',
-          pais: 'España',
-          federacion: RFEF
-        };
-        state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
-      }
+      let clubMatch = getOrCreateClub(clubName, 'Nacional', RFEF);
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 2)
       let teamMatch = state.directory.equipos.find(e => 
@@ -12065,8 +12167,9 @@
       );
       
       if (!teamMatch) {
+        const teamSlug = 'eq_' + (teamName + '_dhj_2').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
         teamMatch = {
-          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          id: teamSlug,
           nombre: teamName,
           equipo: teamName,
           club: clubMatch.nombre, // Link to club
@@ -12080,7 +12183,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(()=>{});
         addedCount++;
       }
     });
@@ -12111,18 +12214,7 @@
     // Wipe all auto-seeded Aragon data one time
     // wipeAragonData();
     migrateFederacionesClubs();
-    if (typeof seedNavarraPrimeraAutonomicaJuvenilTeams === 'function') seedNavarraPrimeraAutonomicaJuvenilTeams();
-    if (typeof seedNavarraRegionalPreferenteTeams === 'function') seedNavarraRegionalPreferenteTeams();
-    if (typeof seedNavarraRegionalPreferenteGroup2Teams === 'function') seedNavarraRegionalPreferenteGroup2Teams();
-    if (typeof seedNavarraLigaCadeteTeams === 'function') seedNavarraLigaCadeteTeams();
-    if (typeof seedNavarraPrimeraAutonomicaCadeteTeams === 'function') seedNavarraPrimeraAutonomicaCadeteTeams();
-    if (typeof seedNavarraPrimeraRegionalG1Teams === 'function') seedNavarraPrimeraRegionalG1Teams();
-    if (typeof seedNavarraPrimeraRegionalG2Teams === 'function') seedNavarraPrimeraRegionalG2Teams();
-    if (typeof seedNavarraPrimeraRegionalG3Teams === 'function') seedNavarraPrimeraRegionalG3Teams();
-    if (typeof seedNavarraPrimeraRegionalG4Teams === 'function') seedNavarraPrimeraRegionalG4Teams();
-    if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
-    if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
-    if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
+    if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
       currentFederationFilter = getFederationSelectionBaseName(currentFederationFilter);
