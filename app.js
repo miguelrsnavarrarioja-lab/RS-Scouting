@@ -14691,6 +14691,53 @@
     let container = document.getElementById('agendaToastContainer');
     if (!container) {
       container = document.createElement('div');
+      container.id = 'agendaToastContainer';
+      container.className = 'agenda-toast-container';
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'agenda-toast-item';
+    toast.innerHTML = `
+      <div class="toast-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="bell-ring" style="color: #f59e0b; width: 18px; height: 18px;"></i>
+          <strong style="color: var(--text-main); font-weight: 800;">⏰ Recordatorio de Agenda</strong>
+        </div>
+        <button class="toast-close-btn">&times;</button>
+      </div>
+      <div class="toast-body" style="margin-top: 4px;">
+        <h4 style="font-size: 14px; font-weight: 800; margin: 0 0 4px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h4>
+        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Programado para las <strong>${escapeHtml(task.hora)} hs</strong> (${escapeHtml(task.fecha)}).</p>
+      </div>
+      <div class="toast-actions" style="display: flex; gap: 8px; margin-top: 12px;">
+        <button class="btn btn-sm btn-primary btn-view-toast-task" style="flex: 1; font-size: 11px; padding: 6px 10px;">
+          <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ver Ficha
+        </button>
+        <button class="btn btn-sm btn-secondary btn-dismiss-toast" style="font-size: 11px; padding: 6px 10px;">
+          Entendido
+        </button>
+      </div>
+    `;
+
+    container.appendChild(toast);
+    if (window.lucide) window.lucide.createIcons();
+
+    toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-view-toast-task').addEventListener('click', () => {
+      toast.remove();
+      openAgendaTaskDetailModal(task.id);
+    });
+
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 20000);
+  }
+
+  // --------------------------------------------------------------------------
+  // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
+  // --------------------------------------------------------------------------
   let selectedCarteleraCalendar = 'all';
   let selectedCarteleraJornada = 'all';
   let selectedCarteleraInterest = 'priority';
