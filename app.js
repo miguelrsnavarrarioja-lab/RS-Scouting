@@ -798,7 +798,10 @@
     // 4. Render Widget: Tareas Pendientes
     renderDashboardPendingTasks();
 
-    // 5. Init Shortcuts listeners
+    // 5. Render Widget: Eventos Pendientes
+    renderDashboardPendingEvents();
+
+    // 6. Init Shortcuts listeners
     initDashboardShortcuts();
   }
 
@@ -851,7 +854,7 @@
     if (!container) return;
 
     const agenda = state.agenda || [];
-    const pending = agenda.filter(a => !a.completada).slice(0, 4);
+    const pending = agenda.filter(a => !a.completada && a.tipo !== 'evento').slice(0, 4);
 
     if (pending.length === 0) {
       container.innerHTML = `
@@ -885,6 +888,56 @@
         const item = state.agenda.find(a => a.id === taskId);
         if (item) {
           item.completada = e.target.checked;
+          item.estado = e.target.checked ? 'done' : 'todo';
+          saveState();
+          renderDashboard();
+          if (typeof renderAgenda === 'function') renderAgenda();
+        }
+      };
+    });
+  }
+
+  function renderDashboardPendingEvents() {
+    const container = document.getElementById('dashboardPendingEventsList');
+    if (!container) return;
+
+    const agenda = state.agenda || [];
+    const pendingEvents = agenda.filter(a => !a.completada && a.tipo === 'evento').slice(0, 4);
+
+    if (pendingEvents.length === 0) {
+      container.innerHTML = `
+        <div class="dashboard-empty-widget">
+          <i data-lucide="calendar"></i>
+          <p>No tienes eventos pendientes</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = pendingEvents.map(t => {
+      const isHigh = t.prioridad === 'Alta';
+      const badgeClass = isHigh ? 'badge-high' : t.prioridad === 'Media' ? 'badge-medium' : 'badge-low';
+      return `
+        <div class="dashboard-widget-item task-item">
+          <label class="dashboard-task-label">
+            <input type="checkbox" class="dashboard-task-checkbox" data-task-id="${t.id}">
+            <span class="dashboard-task-title">${escapeHtml(t.titulo)}</span>
+          </label>
+          <div class="dashboard-task-right">
+            <span style="font-size: 11px; color: var(--text-muted); margin-right: 6px;">📅 ${escapeHtml(t.fecha || '')}</span>
+            <span class="priority-badge ${badgeClass}">${escapeHtml(t.prioridad || 'Media')}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.dashboard-task-checkbox').forEach(chk => {
+      chk.onchange = (e) => {
+        const taskId = e.target.dataset.taskId;
+        const item = state.agenda.find(a => a.id === taskId);
+        if (item) {
+          item.completada = e.target.checked;
+          item.estado = e.target.checked ? 'done' : 'todo';
           saveState();
           renderDashboard();
           if (typeof renderAgenda === 'function') renderAgenda();
@@ -1241,7 +1294,8 @@
   document.getElementById('calendarSearchInput')?.addEventListener('input', renderCalendario);
   document.getElementById('calendarFilterStatus')?.addEventListener('change', renderCalendario);
   document.getElementById('calendarFilterCategory')?.addEventListener('change', renderCalendario);
-  document.getElementById('btnNewCalendarMatch')?.addEventListener('click', () => openNewMatchModal());
+  document.getElementById('btnNewCalendarMatch')?.addEventListener('click', () => openMatchReportEditor(null));
+  document.getElementById('btnNewCalendarTask')?.addEventListener('click', () => openNewAgendaTaskModal());
 
   function openNewMatchModal(defaultDate = null) {
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
@@ -1319,23 +1373,75 @@
   let currentEditingReportId = null;
   let timerInterval = null;
   let timerSeconds = 0;
+  let currentPartidosCategoryTab = 'all';
+
+  function renderMatchCategorySubtabs() {
+    const container = document.getElementById('matchCategorySubtabsBar');
+    if (!container) return;
+
+    const reports = state.reports || [];
+    const catMap = {};
+    reports.forEach(r => {
+      const cat = (r.categoria || r.competicion || '').trim();
+      if (cat) {
+        catMap[cat] = (catMap[cat] || 0) + 1;
+      }
+    });
+
+    const categories = Object.keys(catMap).sort();
+
+    let html = `
+      <div class="player-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all">
+        <i data-lucide="layers"></i> Todos (${reports.length})
+      </div>
+    `;
+
+    categories.forEach(cat => {
+      const count = catMap[cat];
+      const isActive = currentPartidosCategoryTab === cat;
+      html += `
+        <div class="player-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}">
+          <i data-lucide="tag"></i> ${escapeHtml(cat)} (${count})
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.player-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentPartidosCategoryTab = tab.dataset.partidoscat || 'all';
+        renderPartidosList();
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
 
   function renderPartidosList() {
     document.getElementById('partidosListState').classList.remove('hidden');
     document.getElementById('matchReportEditorState').classList.add('hidden');
 
+    renderMatchCategorySubtabs();
+
     const searchVal = document.getElementById('reportsSearchInput')?.value.toLowerCase() || '';
     const filtered = state.reports.filter(r => {
-      const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.generalAnalysis}`.toLowerCase();
-      return !searchVal || text.includes(searchVal);
+      const cat = (r.categoria || r.competicion || '').trim();
+      const matchesCat = (currentPartidosCategoryTab === 'all') || (cat === currentPartidosCategoryTab);
+      const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
+      const matchesSearch = !searchVal || text.includes(searchVal);
+      return matchesCat && matchesSearch;
     });
 
     const container = document.getElementById('reportsListContainer');
     if (filtered.length === 0) {
+      const emptyMsg = currentPartidosCategoryTab === 'all'
+        ? 'No hay informes técnicos de partido guardados.'
+        : `No hay informes guardados en la categoría "${escapeHtml(currentPartidosCategoryTab)}".`;
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
           <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
-          <p class="empty-state-text">No hay informes técnicos de partido guardados.</p>
+          <p class="empty-state-text">${emptyMsg}</p>
           <button class="btn btn-primary" id="btnEmptyCreateReport">Crear Primer Informe</button>
         </div>
       `;
@@ -1344,7 +1450,7 @@
       container.innerHTML = filtered.map(r => `
         <div class="match-card">
           <div class="match-card-header">
-            <span class="match-category-tag">${escapeHtml(r.categoria || 'Informe Técnico')}</span>
+            <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
             <span style="font-weight: 800; font-size: 16px; color: var(--primary-blue);">${r.localScore} - ${r.visitanteScore}</span>
           </div>
 
@@ -14718,6 +14824,21 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
+  let currentAgendaSubtab = 'tareas';
+
+  function initAgendaSubtabs() {
+    const subtabsContainer = document.getElementById('agendaSubtabsBar');
+    if (!subtabsContainer) return;
+    subtabsContainer.querySelectorAll('.player-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        subtabsContainer.querySelectorAll('.player-subtab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentAgendaSubtab = tab.dataset.agendatab || 'tareas';
+        renderAgenda();
+      });
+    });
+  }
+
   function initAgendaFilters() {
     renderAgenda();
   }
@@ -14728,21 +14849,29 @@
     initAgendaArchiveControl();
     initNotificationsSystem();
     checkAgendaTaskReminders();
+    initAgendaSubtabs();
 
-    // 1. Render sidebar categories (filtering active non-archived tasks)
+    // 1. Render sidebar categories (filtering active non-archived tasks by current subtab: Tareas vs Eventos)
     const activeTasksList = state.agenda.filter(t => !t.archivada);
+    const subtabFilteredTasks = activeTasksList.filter(t => {
+      if (currentAgendaSubtab === 'eventos') {
+        return t.tipo === 'evento';
+      } else {
+        return t.tipo !== 'evento';
+      }
+    });
 
     const filterContainer = document.getElementById('agendaCategoryFilters');
     if (filterContainer) {
-      const counts = { all: activeTasksList.length };
-      activeTasksList.forEach(t => {
+      const counts = { all: subtabFilteredTasks.length };
+      subtabFilteredTasks.forEach(t => {
         const cat = t.categoria || 'general';
         counts[cat] = (counts[cat] || 0) + 1;
       });
 
       let filtersHtml = `
         <li class="${currentAgendaCat === 'all' ? 'active' : ''}" data-cat="all">
-          <i data-lucide="layers"></i> Todas las tareas
+          <i data-lucide="layers"></i> Todas las ${currentAgendaSubtab === 'eventos' ? 'eventos' : 'tareas'}
           <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts.all}</span>
         </li>
       `;
@@ -14806,20 +14935,22 @@
       });
     }
 
-    // Render 3-Column Kanban Board
+    // Render 3-Column Kanban Board for active subtab
     const container = document.getElementById('agendaTasksContainer');
     if (!container) return;
 
-    const filtered = activeTasksList.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
+    const filtered = subtabFilteredTasks.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
     const todoTasks = filtered.filter(t => (t.estado || 'todo') === 'todo');
     const inProgressTasks = filtered.filter(t => t.estado === 'in_progress');
     const doneTasks = filtered.filter(t => t.estado === 'done');
+    const itemTypeName = currentAgendaSubtab === 'eventos' ? 'eventos' : 'tareas';
 
     const renderTaskCard = (t) => {
       const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
       const catName = catObj ? catObj.label : (t.categoria || 'General');
       const isDone = t.estado === 'done';
       const colorObj = getCategoryColor(t.categoria);
+      const isEvento = t.tipo === 'evento';
 
       return `
         <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id}" draggable="true" style="border-left: 4px solid ${colorObj.accent};">
@@ -14831,16 +14962,16 @@
               <h4 style="font-size: 14px; font-weight: 700; margin: 0; color: var(--text-main); ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
             </div>
             <div style="display: flex; gap: 4px; flex-shrink: 0;">
-              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id}" title="Editar tarea">
+              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id}" title="Editar">
                 <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
               </button>
-              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id}" title="Eliminar tarea">
+              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id}" title="Eliminar">
                 <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
               </button>
             </div>
           </div>
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
-            <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')} ${escapeHtml(t.hora || '')}</span>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            <span>${isEvento ? '📅' : '📋'} ${escapeHtml(t.fecha || 'Sin fecha')} ${escapeHtml(t.hora || '')}</span>
             <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-light);">
@@ -14866,7 +14997,7 @@
             <span class="agenda-column-count">${todoTasks.length}</span>
           </div>
           <div class="agenda-cards-list" data-status="todo">
-            ${todoTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas pendientes</div>` : todoTasks.map(renderTaskCard).join('')}
+            ${todoTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay ${itemTypeName} pendientes</div>` : todoTasks.map(renderTaskCard).join('')}
           </div>
         </div>
         <div class="agenda-board-column col-in-progress">
@@ -14878,7 +15009,7 @@
             <span class="agenda-column-count">${inProgressTasks.length}</span>
           </div>
           <div class="agenda-cards-list" data-status="in_progress">
-            ${inProgressTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas en proceso</div>` : inProgressTasks.map(renderTaskCard).join('')}
+            ${inProgressTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay ${itemTypeName} en proceso</div>` : inProgressTasks.map(renderTaskCard).join('')}
           </div>
         </div>
         <div class="agenda-board-column col-done">
@@ -14890,7 +15021,7 @@
             <span class="agenda-column-count">${doneTasks.length}</span>
           </div>
           <div class="agenda-cards-list" data-status="done">
-            ${doneTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay tareas completadas</div>` : doneTasks.map(renderTaskCard).join('')}
+            ${doneTasks.length === 0 ? `<div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">No hay ${itemTypeName} completadas</div>` : doneTasks.map(renderTaskCard).join('')}
           </div>
         </div>
       </div>
@@ -15062,9 +15193,18 @@
     const catOptions = state.agendaCategories.map(c => `<option value="${c.id}" ${c.id === task.categoria ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
     showModal('Editar Tarea / Evento de Agenda', `
       <form id="editAgendaForm">
-        <div class="form-group mb-4">
-          <label class="form-label">Título de la Tarea / Evento</label>
-          <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
+          <div class="form-group">
+            <label class="form-label">Título de la Tarea / Evento</label>
+            <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo</label>
+            <select id="agTipoEdit" class="form-control">
+              <option value="tarea" ${task.tipo !== 'evento' ? 'selected' : ''}>📋 Tarea</option>
+              <option value="evento" ${task.tipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
+            </select>
+          </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
           <div class="form-group">
@@ -15104,6 +15244,7 @@
       if (!title) return alert('Por favor ingresa un título');
       const estadoVal = document.getElementById('agEstadoEdit').value;
       task.titulo = title;
+      task.tipo = document.getElementById('agTipoEdit')?.value || 'tarea';
       task.fecha = document.getElementById('agDateEdit').value;
       task.hora = document.getElementById('agTimeEdit').value;
       task.categoria = document.getElementById('agCatEdit').value;
@@ -15117,20 +15258,30 @@
     });
   }
 
-  document.getElementById('btnNewAgendaTask')?.addEventListener('click', () => {
+  function openNewAgendaTaskModal(defaultDate = null) {
     normalizeAgendaCategories();
+    const initialDate = defaultDate || new Date().toISOString().split('T')[0];
     const catOptions = state.agendaCategories.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
     const hasExistingCats = state.agendaCategories.length > 0;
     showModal('Añadir Tarea / Evento a la Agenda', `
       <form id="newAgendaForm">
-        <div class="form-group mb-4">
-          <label class="form-label">Título de la Tarea / Evento</label>
-          <input type="text" id="agTitle" class="form-control" placeholder="Ej: Viaje a Alcalá para ver al Juvenil B" required>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
+          <div class="form-group">
+            <label class="form-label">Título de la Tarea / Evento</label>
+            <input type="text" id="agTitle" class="form-control" placeholder="Ej: Viaje a Alcalá para ver al Juvenil B" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo</label>
+            <select id="agTipo" class="form-control">
+              <option value="tarea" ${currentAgendaSubtab === 'tareas' ? 'selected' : ''}>📋 Tarea</option>
+              <option value="evento" ${currentAgendaSubtab === 'eventos' ? 'selected' : ''}>📅 Evento</option>
+            </select>
+          </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
           <div class="form-group">
             <label class="form-label">Fecha</label>
-            <input type="date" id="agDate" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            <input type="date" id="agDate" class="form-control" value="${initialDate}">
           </div>
           <div class="form-group">
             <label class="form-label">Hora</label>
@@ -15182,11 +15333,13 @@
       state.agenda.unshift({
         id: 'ag_' + Date.now(),
         titulo: title,
+        tipo: document.getElementById('agTipo')?.value || 'tarea',
         fecha: document.getElementById('agDate').value,
         hora: document.getElementById('agTime').value,
         categoria: catValue,
         prioridad: document.getElementById('agPrio').value,
-        completada: false
+        estado: estadoVal,
+        completada: (estadoVal === 'done')
       });
 
       saveState();
@@ -15207,7 +15360,9 @@
         }
       });
     }
-  });
+  }
+
+  document.getElementById('btnNewAgendaTask')?.addEventListener('click', () => openNewAgendaTaskModal());
 
   // --------------------------------------------------------------------------
   // 9. SECTION 6: ENLACES FEDERATIVOS & RECURSOS
