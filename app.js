@@ -257,6 +257,8 @@
       customClubTypes: state.customClubTypes || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
+      agendaCategories: state.agendaCategories || [],
+      cartelera: state.cartelera || {},
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
       federacionesSeeded: !!state.directory?.federacionesSeeded,
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
@@ -314,6 +316,7 @@
         'partidos': state.matches || [],
         'informes': state.reports || [],
         'agenda': state.agenda || [],
+        'agendaCategories': state.agendaCategories || [],
         'enlaces': state.links || []
       };
 
@@ -337,7 +340,9 @@
 
       const configToSave = Object.assign({}, state.settings || {}, {
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
-        customTabOrder: state.customTabOrder || []
+        customTabOrder: state.customTabOrder || [],
+        agendaCategories: state.agendaCategories || [],
+        cartelera: state.cartelera || {}
       });
       await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
 
@@ -379,7 +384,7 @@
       const [
         jugadores, clubes, equipos, federaciones, selecciones,
         convocatorias, torneos, staff, agencias, agentes, estadios,
-        partidos, informes, agenda, enlaces
+        partidos, informes, agenda, agendaCategories, enlaces
       ] = await Promise.all([
         fetchCol('jugadores'),
         fetchCol('clubes'),
@@ -395,6 +400,7 @@
         fetchCol('partidos'),
         fetchCol('informes'),
         fetchCol('agenda'),
+        fetchCol('agendaCategories'),
         fetchCol('enlaces')
       ]);
 
@@ -430,6 +436,14 @@
         state.matches = partidos;
         state.reports = informes;
         state.agenda = agenda;
+        if (Array.isArray(agendaCategories) && agendaCategories.length > 0) {
+          state.agendaCategories = agendaCategories;
+        } else if (configData && Array.isArray(configData.agendaCategories) && configData.agendaCategories.length > 0) {
+          state.agendaCategories = configData.agendaCategories;
+        }
+        if (configData && configData.cartelera) {
+          state.cartelera = configData.cartelera;
+        }
         state.links = enlaces;
 
         if (configData) {
@@ -14595,7 +14609,7 @@
   function initNotificationsSystem() {
     renderNotificationsUI();
 
-    const btnNotif = document.getElementById('btnNotifications');
+    const btnNotif = document.getElementById('btnHeaderNotifications') || document.getElementById('btnNotifications');
     const dropdown = document.getElementById('notificationsDropdown');
     const btnMarkAll = document.getElementById('btnMarkAllNotifsRead');
 
@@ -14605,6 +14619,9 @@
         e.stopPropagation();
         if (dropdown) {
           dropdown.classList.toggle('hidden');
+        }
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
         }
       });
     }
@@ -14622,11 +14639,18 @@
 
     document.addEventListener('click', (e) => {
       if (dropdown && !dropdown.classList.contains('hidden')) {
-        if (!e.target.closest('.notifications-nav-wrapper')) {
+        if (!e.target.closest('.notifications-dropdown-container') && !e.target.closest('.notifications-nav-wrapper')) {
           dropdown.classList.add('hidden');
         }
       }
     });
+
+    // Automatically check for task/event reminders every 15 seconds
+    if (!window._agendaReminderTimer) {
+      window._agendaReminderTimer = setInterval(() => {
+        checkAgendaTaskReminders();
+      }, 15000);
+    }
   }
 
   function checkAgendaTaskReminders() {
@@ -16122,9 +16146,9 @@
     const task = state.agenda.find(t => t.id === taskId);
     if (!task) return;
     normalizeAgendaCategories();
-    const catOptions = state.agendaCategories.map(c => `<option value="${c.id}" ${c.id === task.categoria ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
+    const catOptions = (state.agendaCategories || []).map(c => `<option value="${c.id}" ${c.id === task.categoria ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
     showModal('Editar Tarea / Evento de Agenda', `
-      <form id="editAgendaForm">
+      <form id="editAgendaForm" onsubmit="return false;">
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
           <div class="form-group">
             <label class="form-label">Título de la Tarea / Evento</label>
@@ -16151,7 +16175,11 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label class="form-label">Categoría</label>
-            <select id="agCatEdit" class="form-control">${catOptions}</select>
+            <select id="agCatEdit" class="form-control mb-2">
+              ${catOptions}
+              <option value="__custom__">+ Crear Nueva Categoría...</option>
+            </select>
+            <input type="text" id="agCatEditCustom" class="form-control hidden" placeholder="Escribe la nueva categoría">
           </div>
           <div class="form-group">
             <label class="form-label">Estado</label>
@@ -16174,30 +16202,66 @@
     `, () => {
       const title = document.getElementById('agTitleEdit').value.trim();
       if (!title) return alert('Por favor ingresa un título');
+      let catValue = document.getElementById('agCatEdit')?.value;
+      const customValue = document.getElementById('agCatEditCustom')?.value.trim() || '';
+
+      if (catValue === '__custom__' || customValue) {
+        if (!customValue) {
+          alert('Por favor escribe el nombre para la nueva categoría.');
+          document.getElementById('agCatEditCustom')?.focus();
+          return false;
+        }
+        const existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === customValue.toLowerCase());
+        if (existing) {
+          catValue = existing.id;
+        } else {
+          const newId = 'cat_' + Date.now();
+          state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
+          catValue = newId;
+        }
+      }
+
       const estadoVal = document.getElementById('agEstadoEdit').value;
       task.titulo = title;
       task.tipo = document.getElementById('agTipoEdit')?.value || 'tarea';
       task.fecha = document.getElementById('agDateEdit').value;
       task.hora = document.getElementById('agTimeEdit').value;
-      task.categoria = document.getElementById('agCatEdit').value;
+      task.categoria = catValue;
       task.estado = estadoVal;
       task.completada = (estadoVal === 'done');
       task.prioridad = document.getElementById('agPrioEdit').value;
       saveState();
+      saveToFirebase('agenda', task);
+      if (catValue) {
+        const catObj = (state.agendaCategories || []).find(c => c.id === catValue);
+        if (catObj) saveToFirebase('agendaCategories', catObj);
+      }
       hideModal();
       renderAgenda();
       renderCalendario();
     });
+
+    const agCatEditSel = document.getElementById('agCatEdit');
+    const agCatEditCust = document.getElementById('agCatEditCustom');
+    if (agCatEditSel && agCatEditCust) {
+      agCatEditSel.addEventListener('change', () => {
+        if (agCatEditSel.value === '__custom__') {
+          agCatEditCust.classList.remove('hidden');
+          agCatEditCust.focus();
+        } else {
+          agCatEditCust.classList.add('hidden');
+        }
+      });
+    }
   }
 
   function openNewAgendaTaskModal(defaultDate = null, defaultType = null) {
     normalizeAgendaCategories();
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
-    const catOptions = state.agendaCategories.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
-    const hasExistingCats = state.agendaCategories.length > 0;
+    const catOptions = (state.agendaCategories || []).map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
     const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
     showModal('Añadir Tarea / Evento a la Agenda', `
-      <form id="newAgendaForm">
+      <form id="newAgendaForm" onsubmit="return false;">
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
           <div class="form-group">
             <label class="form-label">Título de la Tarea / Evento</label>
@@ -16226,9 +16290,9 @@
             <label class="form-label">Categoría</label>
             <select id="agCat" class="form-control mb-2">
               ${catOptions}
-              <option value="__custom__" ${!hasExistingCats ? 'selected' : ''}>+ Crear Nueva Categoría...</option>
+              <option value="__custom__">+ Crear Nueva Categoría...</option>
             </select>
-            <input type="text" id="agCatCustom" class="form-control ${hasExistingCats ? 'hidden' : ''}" placeholder="Nombre de la categoría">
+            <input type="text" id="agCatCustom" class="form-control hidden" placeholder="Nombre de la categoría">
           </div>
           <div class="form-group">
             <label class="form-label">Estado</label>
@@ -16250,20 +16314,45 @@
       </form>
     `, () => {
       const title = document.getElementById('agTitle').value.trim();
-      if (!title) return alert('Por favor ingresa un título');
-      let catValue = document.getElementById('agCat').value;
-      const customValue = document.getElementById('agCatCustom').value.trim();
-      if ((catValue === '__custom__' || !catValue) && customValue) {
-        const newId = 'cat_' + Date.now();
-        state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
-        catValue = newId;
-      } else if (!catValue && !customValue) {
-        const defaultId = 'cat_' + Date.now();
-        state.agendaCategories.push({ id: defaultId, label: 'General', icon: 'bookmark' });
-        catValue = defaultId;
+      if (!title) {
+        alert('Por favor ingresa un título');
+        document.getElementById('agTitle')?.focus();
+        return false;
+      }
+      let catValue = document.getElementById('agCat')?.value;
+      const customValue = document.getElementById('agCatCustom')?.value.trim() || '';
+
+      if (catValue === '__custom__' || customValue) {
+        if (!customValue) {
+          alert('Por favor escribe el nombre para la nueva categoría.');
+          const custInput = document.getElementById('agCatCustom');
+          if (custInput) {
+            custInput.classList.remove('hidden');
+            custInput.focus();
+          }
+          return false;
+        }
+
+        const existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === customValue.toLowerCase());
+        if (existing) {
+          catValue = existing.id;
+        } else {
+          const newId = 'cat_' + Date.now();
+          state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
+          catValue = newId;
+        }
+      } else if (!catValue) {
+        const defaultCat = (state.agendaCategories || [])[0];
+        if (defaultCat) {
+          catValue = defaultCat.id;
+        } else {
+          const defaultId = 'cat_' + Date.now();
+          state.agendaCategories.push({ id: defaultId, label: 'General', icon: 'bookmark' });
+          catValue = defaultId;
+        }
       }
       const estadoVal = document.getElementById('agEstado').value;
-      state.agenda.unshift({
+      const newTask = {
         id: 'ag_' + Date.now(),
         titulo: title,
         tipo: document.getElementById('agTipo')?.value || 'tarea',
@@ -16273,9 +16362,17 @@
         prioridad: document.getElementById('agPrio').value,
         estado: estadoVal,
         completada: (estadoVal === 'done')
-      });
+      };
+
+      state.agenda.unshift(newTask);
 
       saveState();
+      saveToFirebase('agenda', newTask);
+      if (catValue) {
+        const catObj = (state.agendaCategories || []).find(c => c.id === catValue);
+        if (catObj) saveToFirebase('agendaCategories', catObj);
+      }
+
       hideModal();
       renderAgenda();
       renderCalendario();
