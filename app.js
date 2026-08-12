@@ -14754,17 +14754,17 @@
     if (!state.cartelera.priorityTeams) {
       state.cartelera.priorityTeams = [];
     }
+    
+    // Purge ALL previous imported test calendars completely to start 100% fresh
+    if (!state.cartelera.wipedOldImportedData || (state.cartelera.calendarios && state.cartelera.calendarios.some(c => c && (c.nombre || '').toLowerCase().includes('pdf') || c.id === 'cal_sample_dh'))) {
+      state.cartelera.calendarios = [];
+      state.cartelera.wipedOldImportedData = true;
+      saveState();
+      if (typeof syncAllToFirebase === 'function') syncAllToFirebase(false);
+    }
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
     }
-
-    // Purge any sample or test PDF calendars if present
-    state.cartelera.calendarios = state.cartelera.calendarios.filter(c => {
-      if (!c) return false;
-      const name = (c.nombre || '').toLowerCase();
-      const isTestPdf = name.includes('pdf') || name.includes('prueba') || name.includes('sample') || c.id === 'cal_sample_dh';
-      return !isTestPdf;
-    });
   }
 
   function renderCartelera() {
@@ -15709,26 +15709,107 @@
       btnExportPdf.onclick = () => openExportMatchesPDFModal();
     }
 
-    const btnUpload = document.getElementById('btnUploadCalendarPDF');
-    const fileInput = document.getElementById('inputCalendarFile');
-    if (btnUpload && fileInput && !btnUpload.dataset.initialized) {
-      btnUpload.dataset.initialized = 'true';
-      btnUpload.onclick = () => fileInput.click();
-      fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) parseCalendarFile(file);
-      };
-    }
-
     const btnPaste = document.getElementById('btnPasteCalendarText');
     if (btnPaste && !btnPaste.dataset.initialized) {
       btnPaste.dataset.initialized = 'true';
       btnPaste.onclick = () => {
-        showCustomPromptModal('Pegar Calendario o Partidos (Texto)', '', (rawText) => {
-          if (rawText && rawText.trim()) {
-            parseCalendarText(rawText.trim(), 'Calendario Importado');
-          }
-        });
+        openImportTextCalendarModal();
+      };
+    }
+  }
+
+  function openImportTextCalendarModal() {
+    ensureCarteleraState();
+    
+    // Gather available categories from state.directory.equipos & state.cartelera
+    const catSet = new Set([
+      'División de Honor Juvenil',
+      'Liga Nacional Juvenil',
+      'Preferente Juvenil',
+      'Primera RFEF',
+      'Segunda RFEF',
+      'Tercera RFEF',
+      'Cadete División de Honor',
+      'Cadete Preferente',
+      'Infantil',
+      'Senior'
+    ]);
+
+    (state.directory.equipos || []).forEach(e => {
+      if (e.categoria) catSet.add(e.categoria);
+      if (e.competicion) catSet.add(e.competicion);
+      if (e.liga) catSet.add(e.liga);
+    });
+
+    (state.cartelera?.calendarios || []).forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        if (m.competicion) catSet.add(m.competicion);
+      });
+    });
+
+    const catOptions = Array.from(catSet).sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+    showModal('📥 Importador de Calendario de Partidos', `
+      <form id="formImportTextCalendar" onsubmit="return false;">
+        <div class="form-group mb-3">
+          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Categoría o Competición</label>
+          <select id="importCompSelect" class="form-control mb-2" style="font-size: 13px; font-weight: 700;">
+            ${catOptions}
+            <option value="__custom__">+ Otra Categoría / Competición personalizada...</option>
+          </select>
+          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: DHJ Grupo 2)">
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label" style="font-weight: 800; font-size: 13px;">Pegar Texto del Calendario o Fixture (Cuadro Amplio)</label>
+          <textarea id="importRawText" class="form-control" rows="14" placeholder="Pega aquí todo el texto copiado del calendario de la federación o web...
+
+Ejemplo:
+Jornada 1
+Real Zaragoza vs Huesca
+Danok Bat vs Oberena
+
+Jornada 2
+Huesca vs Danok Bat
+Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-height: 1.5; min-height: 280px;"></textarea>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); padding: 10px 14px; border-radius: var(--radius-md);" class="mb-4">
+          💡 <strong>Procesamiento Inteligente:</strong> Detecta encabezados de <code>Jornada 1</code>, enfrentamientos <code>Local vs Visitante</code>, <code>Local - Visitante</code> y fechas/horas automáticamente.
+        </div>
+      </form>
+    `, () => {
+      const selValue = document.getElementById('importCompSelect')?.value;
+      const customValue = document.getElementById('importCompCustom')?.value.trim();
+      let compName = selValue === '__custom__' ? customValue : selValue;
+
+      if (!compName) {
+        alert('Por favor selecciona o escribe el nombre de la categoría/competición.');
+        document.getElementById('importCompSelect')?.focus();
+        return false;
+      }
+
+      const rawText = document.getElementById('importRawText')?.value.trim();
+      if (!rawText) {
+        alert('Por favor pega el texto del calendario.');
+        document.getElementById('importRawText')?.focus();
+        return false;
+      }
+
+      parseCalendarText(rawText, compName);
+      hideModal();
+    });
+
+    const compSel = document.getElementById('importCompSelect');
+    const compCust = document.getElementById('importCompCustom');
+    if (compSel && compCust) {
+      compSel.onchange = () => {
+        if (compSel.value === '__custom__') {
+          compCust.classList.remove('hidden');
+          compCust.focus();
+        } else {
+          compCust.classList.add('hidden');
+        }
       };
     }
   }
