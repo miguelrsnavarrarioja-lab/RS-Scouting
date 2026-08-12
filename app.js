@@ -3780,12 +3780,22 @@
         return false;
       }
 
+      const rawTipoInput = document.getElementById('cfTipo')?.value.trim() || '';
+      const inputTypes = rawTipoInput ? rawTipoInput.split(',').map(s => s.trim()).filter(Boolean) : selectedClubTypes;
+      inputTypes.forEach(t => {
+        if (t && !state.customClubTypes.includes(t)) {
+          state.customClubTypes.push(t);
+        }
+      });
+      const finalTipoStr = inputTypes.join(', ');
+
       const updatedClub = {
         id: isEdit ? clubId : 'c_' + Date.now(),
         nombre: nameVal,
         equipo: nameVal,
-        tipo: selectedClubTypes.join(', '),
-        tiposArray: [...selectedClubTypes],
+        tipo: finalTipoStr,
+        tiposArray: [...inputTypes],
+        tipoClub: finalTipoStr,
         anoFundacion: document.getElementById('cfAnoFundacion')?.value.trim() || '',
         ano: document.getElementById('cfAnoFundacion')?.value.trim() || '',
         comunidad: document.getElementById('cfComunidad')?.value.trim() || '',
@@ -3946,6 +3956,8 @@
     } : null);
 
     // Setup event listeners after modal is rendered
+    const cfTipoInput = document.getElementById('cfTipo');
+
     const renderClubTypeChips = () => {
       const container = document.getElementById('clubTypeChipsContainer');
       if (!container) return;
@@ -3966,10 +3978,17 @@
           } else {
             selectedClubTypes.push(tVal);
           }
+          if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
           renderClubTypeChips();
         });
       });
     };
+
+    cfTipoInput?.addEventListener('input', () => {
+      const vals = cfTipoInput.value.split(',').map(s => s.trim()).filter(Boolean);
+      selectedClubTypes = vals;
+      renderClubTypeChips();
+    });
 
     renderClubTypeChips();
 
@@ -3998,6 +4017,13 @@
       }
       if (!selectedClubTypes.includes(val)) {
         selectedClubTypes.push(val);
+      }
+      if (cfTipoInput) {
+        cfTipoInput.value = selectedClubTypes.join(', ');
+      }
+      const datalist = document.getElementById('clubTypeDatalistOptions');
+      if (datalist) {
+        datalist.innerHTML = state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
       }
       if (inputNewType) inputNewType.value = '';
       if (inputRow) inputRow.style.display = 'none';
@@ -4444,6 +4470,11 @@
                       <button type="button" id="btnShowAddClubTypeInput" style="background: none; border: none; font-size: 11px; color: var(--primary-blue, #2563eb); font-weight: 800; cursor: pointer; padding: 0;">+ Crear Tipo</button>
                     </div>
 
+                    <input type="text" id="cfTipo" class="form-control mb-2" placeholder="Ej: Cantera, Convenio, Profesional..." value="${escapeHtml(tipoStr)}" list="clubTypeDatalistOptions">
+                    <datalist id="clubTypeDatalistOptions">
+                      ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('')}
+                    </datalist>
+
                     <div id="newClubTypeInputRow" style="display: none; gap: 4px; margin-bottom: 4px;">
                       <input type="text" id="inputNewCustomClubType" class="form-control" placeholder="Nombre nuevo tipo..." style="font-size: 11px; padding: 4px 8px; height: 32px;">
                       <button type="button" id="btnConfirmAddClubType" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px; font-weight: 800; height: 32px; white-space: nowrap;">Añadir</button>
@@ -4710,6 +4741,8 @@
     card.classList.add('large');
 
     showModal(titleText, modalHTML, () => {
+      const cfTipoInput = document.getElementById('cfTipo');
+
       // Render Club Type Chips inside openClubModal
       const renderClubTypeChips = () => {
         const container = document.getElementById('clubTypeChipsContainer');
@@ -4731,10 +4764,17 @@
             } else {
               selectedClubTypes.push(tVal);
             }
+            if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
             renderClubTypeChips();
           });
         });
       };
+
+      cfTipoInput?.addEventListener('input', () => {
+        const vals = cfTipoInput.value.split(',').map(s => s.trim()).filter(Boolean);
+        selectedClubTypes = vals;
+        renderClubTypeChips();
+      });
 
       renderClubTypeChips();
 
@@ -4764,6 +4804,13 @@
         if (!selectedClubTypes.includes(val)) {
           selectedClubTypes.push(val);
         }
+        if (cfTipoInput) {
+          cfTipoInput.value = selectedClubTypes.join(', ');
+        }
+        const datalist = document.getElementById('clubTypeDatalistOptions');
+        if (datalist) {
+          datalist.innerHTML = state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+        }
         if (inputNewType) inputNewType.value = '';
         if (inputRow) inputRow.style.display = 'none';
         saveState();
@@ -4781,12 +4828,22 @@
       const nameVal = document.getElementById('cfNombre').value.trim();
       if (!nameVal) return alert('Por favor ingresa el nombre del club');
 
+      const rawTipoInput = document.getElementById('cfTipo')?.value.trim() || '';
+      const inputTypes = rawTipoInput ? rawTipoInput.split(',').map(s => s.trim()).filter(Boolean) : selectedClubTypes;
+      inputTypes.forEach(t => {
+        if (t && !state.customClubTypes.includes(t)) {
+          state.customClubTypes.push(t);
+        }
+      });
+      const finalTipoStr = inputTypes.join(', ');
+
       const updatedClub = {
         id: isEdit ? clubId : 'c_' + Date.now(),
         nombre: nameVal,
         equipo: nameVal,
-        tipo: selectedClubTypes.join(', '),
-        tiposArray: [...selectedClubTypes],
+        tipo: finalTipoStr,
+        tiposArray: [...inputTypes],
+        tipoClub: finalTipoStr,
         anoFundacion: document.getElementById('cfAnoFundacion').value.trim(),
         ano: document.getElementById('cfAnoFundacion').value.trim(),
         comunidad: document.getElementById('cfComunidad').value.trim(),
