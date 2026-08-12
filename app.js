@@ -32,7 +32,11 @@
       informes: []
     },
     agenda: [],
-    links: []
+    links: [],
+    cartelera: {
+      calendarios: [],
+      priorityTeams: ['Real Zaragoza', 'Huesca', 'Danok Bat']
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -733,6 +737,7 @@
     else if (tabName === 'calendario') renderCalendario();
     else if (tabName === 'partidos') renderPartidosList();
     else if (tabName === 'directorio') renderDirectorio();
+    else if (tabName === 'cartelera') renderCartelera();
     else if (tabName === 'agenda') renderAgenda();
     else if (tabName === 'enlaces') renderEnlaces();
     else if (tabName === 'importador') {
@@ -14727,8 +14732,433 @@
     }, 20000);
   }
 
-  // Intervalo de comprobación cada 15 segundos
-  setInterval(checkAgendaTaskReminders, 15000);
+  // --------------------------------------------------------------------------
+  // 4.8 CARTELERA DE SCOUTING
+  // --------------------------------------------------------------------------
+  let selectedCarteleraCalendar = 'all';
+  let selectedCarteleraJornada = 'all';
+  let selectedCarteleraInterest = 'priority';
+
+  function ensureCarteleraState() {
+    if (!state.cartelera) {
+      state.cartelera = {
+        calendarios: [],
+        priorityTeams: ['Real Zaragoza', 'Huesca', 'Danok Bat']
+      };
+    }
+    if (!state.cartelera.priorityTeams) {
+      state.cartelera.priorityTeams = ['Real Zaragoza', 'Huesca', 'Danok Bat'];
+    }
+    if (!state.cartelera.calendarios) {
+      state.cartelera.calendarios = [];
+    }
+
+    // Default sample calendar if empty
+    if (state.cartelera.calendarios.length === 0) {
+      state.cartelera.calendarios.push({
+        id: 'cal_sample_dh',
+        nombre: 'División de Honor Juvenil - Grupo 2',
+        partidos: [
+          { id: 'm_sample_1', jornada: 'Jornada 1', fecha: '2026-08-23', hora: '17:00', local: 'Real Zaragoza Juvenil A', visitante: 'Danok Bat Juvenil A', competicion: 'División de Honor', estadio: 'Ciudad Deportiva Real Zaragoza' },
+          { id: 'm_sample_2', jornada: 'Jornada 1', fecha: '2026-08-23', hora: '18:00', local: 'Osasuna Juvenil A', visitante: 'Athletic Club Juvenil A', competicion: 'División de Honor', estadio: 'Tajonar' },
+          { id: 'm_sample_3', jornada: 'Jornada 1', fecha: '2026-08-24', hora: '12:00', local: 'Huesca Juvenil A', visitante: 'Real Sociedad Juvenil A', competicion: 'División de Honor', estadio: 'Base Aragonesa' },
+          { id: 'm_sample_4', jornada: 'Jornada 2', fecha: '2026-08-30', hora: '17:00', local: 'Danok Bat Juvenil A', visitante: 'Huesca Juvenil A', competicion: 'División de Honor', estadio: 'Mallona' },
+          { id: 'm_sample_5', jornada: 'Jornada 2', fecha: '2026-08-30', hora: '18:30', local: 'Real Sociedad Juvenil A', visitante: 'Real Zaragoza Juvenil A', competicion: 'División de Honor', estadio: 'Zubieta' }
+        ]
+      });
+    }
+  }
+
+  function renderCartelera() {
+    ensureCarteleraState();
+    initCarteleraListeners();
+    renderCarteleraPriorityTeams();
+    renderCarteleraSelectors();
+    renderCarteleraMatches();
+  }
+
+  function renderCarteleraPriorityTeams() {
+    const container = document.getElementById('carteleraPriorityTeamsContainer');
+    if (!container) return;
+    const teams = state.cartelera.priorityTeams || [];
+
+    if (teams.length === 0) {
+      container.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún. Haz clic en + Añadir Equipo.</span>`;
+      return;
+    }
+
+    container.innerHTML = teams.map(team => `
+      <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+        ⭐ ${escapeHtml(team)}
+        <button type="button" class="btn-remove-priority-team" data-team="${escapeHtml(team)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
+          <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+        </button>
+      </span>
+    `).join('');
+
+    container.querySelectorAll('.btn-remove-priority-team').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const teamToRemove = btn.dataset.team;
+        state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
+        saveState();
+        renderCartelera();
+      };
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function renderCarteleraSelectors() {
+    const calSelect = document.getElementById('carteleraCalendarSelect');
+    const jorSelect = document.getElementById('carteleraJornadaSelect');
+    if (!calSelect || !jorSelect) return;
+
+    const calendarios = state.cartelera.calendarios || [];
+
+    let calHtml = `<option value="all">🏆 Todos los Calendarios (${calendarios.length})</option>`;
+    calendarios.forEach(cal => {
+      calHtml += `<option value="${cal.id}" ${selectedCarteleraCalendar === cal.id ? 'selected' : ''}>${escapeHtml(cal.nombre)}</option>`;
+    });
+    calSelect.innerHTML = calHtml;
+
+    // Collect all jornadas for active calendar filter
+    const jornadasSet = new Set();
+    calendarios.forEach(cal => {
+      if (selectedCarteleraCalendar === 'all' || selectedCarteleraCalendar === cal.id) {
+        (cal.partidos || []).forEach(m => {
+          if (m.jornada) jornadasSet.add(m.jornada);
+        });
+      }
+    });
+
+    const jornadasList = Array.from(jornadasSet).sort();
+    let jorHtml = `<option value="all">Todas las Jornadas</option>`;
+    jornadasList.forEach(j => {
+      jorHtml += `<option value="${escapeHtml(j)}" ${selectedCarteleraJornada === j ? 'selected' : ''}>${escapeHtml(j)}</option>`;
+    });
+    jorSelect.innerHTML = jorHtml;
+  }
+
+  function renderCarteleraMatches() {
+    const container = document.getElementById('carteleraMatchesGrid');
+    if (!container) return;
+
+    const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
+    const calendarios = state.cartelera.calendarios || [];
+
+    let allMatches = [];
+    calendarios.forEach(cal => {
+      if (selectedCarteleraCalendar === 'all' || selectedCarteleraCalendar === cal.id) {
+        (cal.partidos || []).forEach(m => {
+          const locLower = (m.local || '').toLowerCase();
+          const visLower = (m.visitante || '').toLowerCase();
+          const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
+          const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
+          const isHighInterest = isPriorityLocal || isPriorityVisitante;
+          const isClash = isPriorityLocal && isPriorityVisitante;
+
+          allMatches.push({
+            ...m,
+            competicion: m.competicion || cal.nombre,
+            isPriorityLocal,
+            isPriorityVisitante,
+            isHighInterest,
+            isClash
+          });
+        });
+      }
+    });
+
+    // Apply filters
+    if (selectedCarteleraJornada !== 'all') {
+      allMatches = allMatches.filter(m => m.jornada === selectedCarteleraJornada);
+    }
+    if (selectedCarteleraInterest === 'priority') {
+      allMatches = allMatches.filter(m => m.isHighInterest);
+    }
+
+    // Sort: Clash/HighInterest first, then by date/jornada
+    allMatches.sort((a, b) => {
+      if (a.isClash && !b.isClash) return -1;
+      if (!a.isClash && b.isClash) return 1;
+      if (a.isHighInterest && !b.isHighInterest) return -1;
+      if (!a.isHighInterest && b.isHighInterest) return 1;
+      return 0;
+    });
+
+    if (allMatches.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1; padding: 50px; text-align: center;">
+          <i data-lucide="film" style="width: 48px; height: 48px; color: var(--text-subtle); margin-bottom: 12px;"></i>
+          <p class="empty-state-text">No hay partidos en la cartelera para los filtros seleccionados.</p>
+          <button class="btn btn-secondary" id="btnResetCarteleraFilters">Mostrar todos los partidos</button>
+        </div>
+      `;
+      document.getElementById('btnResetCarteleraFilters')?.addEventListener('click', () => {
+        selectedCarteleraInterest = 'all';
+        selectedCarteleraJornada = 'all';
+        const intSel = document.getElementById('carteleraInterestFilter');
+        if (intSel) intSel.value = 'all';
+        renderCartelera();
+      });
+      return;
+    }
+
+    container.innerHTML = allMatches.map(m => {
+      const starBadge = m.isClash
+        ? `<span class="badge" style="background: #f59e0b; color: #ffffff; font-weight: 800; font-size: 11px; padding: 4px 10px; border-radius: 9999px;">⭐ Duelo de Interés Alto ⭐</span>`
+        : m.isHighInterest
+        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 9999px;">⭐ Equipo Prioritario</span>`
+        : `<span class="badge" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; padding: 4px 8px; border-radius: 4px;">Partido</span>`;
+
+      return `
+        <div class="match-card" style="border: ${m.isHighInterest ? '2px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-color)'}; position: relative;">
+          <div class="match-card-header" style="margin-bottom: 12px;">
+            ${starBadge}
+            <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 8px; border-radius: 6px;">${escapeHtml(m.jornada || 'Partido')}</span>
+          </div>
+
+          <div class="match-card-teams" style="margin-bottom: 14px;">
+            <span class="match-team-name" style="${m.isPriorityLocal ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.local)}</span>
+            <span class="match-vs">vs</span>
+            <span class="match-team-name text-right" style="${m.isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.visitante)}</span>
+          </div>
+
+          <div class="match-card-details mb-3" style="font-size: 12px; color: var(--text-muted); background: var(--bg-subtle, #f8fafc); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-light, #e2e8f0);">
+            <div style="font-weight: 700; color: var(--text-main); margin-bottom: 6px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display: flex; align-items: center; gap: 4px;">
+                <i data-lucide="calendar-clock" style="width: 13px; color: var(--primary-blue);"></i> Fecha y Hora Definitiva:
+              </span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+              <div>
+                <label style="font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px; color: var(--text-muted);">Fecha</label>
+                <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; font-weight: 700; height: 28px; padding: 2px 6px;">
+              </div>
+              <div>
+                <label style="font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px; color: var(--text-muted);">Hora</label>
+                <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; font-weight: 700; height: 28px; padding: 2px 6px;">
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border-light);">
+              <span><i data-lucide="trophy" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.competicion || 'Liga')}</span>
+              ${m.estadio ? `<span><i data-lucide="map-pin" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.estadio)}</span>` : ''}
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="width: 100%; font-weight: 800; background: var(--primary-blue, #2563eb); padding: 10px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-lucide="zap" style="width: 16px; height: 16px; color: #f59e0b;"></i> Abrir Informe en Directo
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.cartelera-match-date').forEach(input => {
+      input.onchange = (e) => {
+        const matchId = input.dataset.matchid;
+        const newDate = e.target.value;
+        (state.cartelera.calendarios || []).forEach(cal => {
+          const target = (cal.partidos || []).find(p => p.id === matchId);
+          if (target) target.fecha = newDate;
+        });
+        saveState();
+      };
+    });
+
+    container.querySelectorAll('.cartelera-match-time').forEach(input => {
+      input.onchange = (e) => {
+        const matchId = input.dataset.matchid;
+        const newTime = e.target.value;
+        (state.cartelera.calendarios || []).forEach(cal => {
+          const target = (cal.partidos || []).find(p => p.id === matchId);
+          if (target) target.hora = newTime;
+        });
+        saveState();
+      };
+    });
+
+    container.querySelectorAll('.btn-cartelera-to-live').forEach(btn => {
+      btn.onclick = () => {
+        const matchId = btn.dataset.matchid;
+        const targetMatch = allMatches.find(m => m.id === matchId);
+        if (targetMatch) {
+          convertCarteleraMatchToLiveReport(targetMatch);
+        }
+      };
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function convertCarteleraMatchToLiveReport(match) {
+    const report = {
+      id: 'rep_' + Date.now(),
+      localTeam: match.local,
+      visitanteTeam: match.visitante,
+      date: match.fecha || new Date().toISOString().split('T')[0],
+      time: match.hora || '17:00',
+      estadio: match.estadio || '',
+      competicion: match.competicion || 'Liga',
+      categoria: match.categoria || match.jornada || 'Cartelera',
+      federacion: 'RFEF',
+      localScore: 0,
+      visitanteScore: 0,
+      localFormation: '1-4-3-3',
+      visitanteFormation: '1-4-4-2',
+      generalAnalysis: `Informe en directo cargado desde Cartelera (${match.jornada || ''})`
+    };
+
+    if (!state.reports) state.reports = [];
+    state.reports.unshift(report);
+    saveState();
+
+    if (typeof showToast === 'function') {
+      showToast(`⚡ Informe en directo creado: ${match.local} vs ${match.visitante}`);
+    }
+    openMatchReportEditor(report.id);
+  }
+
+  function initCarteleraListeners() {
+    const btnAddPriority = document.getElementById('btnAddPriorityTeam');
+    if (btnAddPriority && !btnAddPriority.dataset.initialized) {
+      btnAddPriority.dataset.initialized = 'true';
+      btnAddPriority.onclick = () => {
+        showCustomPromptModal('Añadir Equipo Prioritario', '', (teamName) => {
+          if (teamName && teamName.trim()) {
+            const clean = teamName.trim();
+            if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
+            if (!state.cartelera.priorityTeams.includes(clean)) {
+              state.cartelera.priorityTeams.push(clean);
+              saveState();
+              renderCartelera();
+            }
+          }
+        });
+      };
+    }
+
+    const calSelect = document.getElementById('carteleraCalendarSelect');
+    if (calSelect && !calSelect.dataset.initialized) {
+      calSelect.dataset.initialized = 'true';
+      calSelect.onchange = (e) => {
+        selectedCarteleraCalendar = e.target.value;
+        selectedCarteleraJornada = 'all';
+        renderCartelera();
+      };
+    }
+
+    const jorSelect = document.getElementById('carteleraJornadaSelect');
+    if (jorSelect && !jorSelect.dataset.initialized) {
+      jorSelect.dataset.initialized = 'true';
+      jorSelect.onchange = (e) => {
+        selectedCarteleraJornada = e.target.value;
+        renderCarteleraMatches();
+      };
+    }
+
+    const intFilter = document.getElementById('carteleraInterestFilter');
+    if (intFilter && !intFilter.dataset.initialized) {
+      intFilter.dataset.initialized = 'true';
+      intFilter.onchange = (e) => {
+        selectedCarteleraInterest = e.target.value;
+        renderCarteleraMatches();
+      };
+    }
+
+    const btnUpload = document.getElementById('btnUploadCalendarPDF');
+    const fileInput = document.getElementById('inputCalendarFile');
+    if (btnUpload && fileInput && !btnUpload.dataset.initialized) {
+      btnUpload.dataset.initialized = 'true';
+      btnUpload.onclick = () => fileInput.click();
+      fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) parseCalendarFile(file);
+      };
+    }
+
+    const btnPaste = document.getElementById('btnPasteCalendarText');
+    if (btnPaste && !btnPaste.dataset.initialized) {
+      btnPaste.dataset.initialized = 'true';
+      btnPaste.onclick = () => {
+        showCustomPromptModal('Pegar Calendario o Partidos (Texto)', '', (rawText) => {
+          if (rawText && rawText.trim()) {
+            parseCalendarText(rawText.trim(), 'Calendario Importado');
+          }
+        });
+      };
+    }
+  }
+
+  function parseCalendarFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      parseCalendarText(content, file.name.replace(/\.[^/.]+$/, ''));
+    };
+    reader.readAsText(file);
+  }
+
+  function parseCalendarText(rawText, calendarName) {
+    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const matches = [];
+    let currentJornada = 'Jornada 1';
+
+    lines.forEach((line, idx) => {
+      if (/jornada\s*\d+/i.test(line)) {
+        const matchJor = line.match(/jornada\s*\d+/i);
+        if (matchJor) currentJornada = matchJor[0].charAt(0).toUpperCase() + matchJor[0].slice(1);
+        return;
+      }
+
+      if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ')) {
+        const parts = line.split(/\s+(?:vs|-|VS)\s+/);
+        if (parts.length >= 2) {
+          matches.push({
+            id: 'cm_' + Date.now() + '_' + idx,
+            jornada: currentJornada,
+            fecha: new Date().toISOString().split('T')[0],
+            hora: '17:00',
+            local: parts[0].trim(),
+            visitante: parts[1].trim(),
+            competicion: calendarName || 'Liga Importada'
+          });
+        }
+      }
+    });
+
+    if (matches.length === 0) {
+      lines.forEach((l, idx) => {
+        if (l.length > 4) {
+          matches.push({
+            id: 'cm_' + Date.now() + '_' + idx,
+            jornada: 'Jornada 1',
+            fecha: new Date().toISOString().split('T')[0],
+            hora: '17:00',
+            local: l,
+            visitante: 'Rival',
+            competicion: calendarName || 'Calendario'
+          });
+        }
+      });
+    }
+
+    ensureCarteleraState();
+    const newCal = {
+      id: 'cal_' + Date.now(),
+      nombre: calendarName || 'Calendario Importado',
+      partidos: matches
+    };
+
+    state.cartelera.calendarios.push(newCal);
+    selectedCarteleraCalendar = newCal.id;
+    saveState();
+
+    if (typeof showToast === 'function') {
+      showToast(`✅ Calendario "${newCal.nombre}" importado con ${matches.length} partidos`);
+    }
+    renderCartelera();
+  }
 
   function initAgendaArchiveControl() {
     const btnArchive = document.getElementById('btnOpenAgendaArchive');

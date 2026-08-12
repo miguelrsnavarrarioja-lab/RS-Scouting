@@ -53,6 +53,10 @@
           <i data-lucide="folder-open"></i>
           <span>Directorio</span>
         </button>
+        <button class="nav-tab" data-tab="cartelera">
+          <i data-lucide="film"></i>
+          <span>Cartelera</span>
+        </button>
         <button class="nav-tab" data-tab="agenda">
           <i data-lucide="check-square"></i>
           <span>Agenda</span>
@@ -1051,6 +1055,73 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
             </button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ==================== 4.5 CARTELERA DE SCOUTING VIEW ==================== -->
+    <section class="tab-view" id="view-cartelera">
+      <div class="view-header">
+        <div class="view-title-group">
+          <h1>🎬 Cartelera de Scouting</h1>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <input type="file" id="inputCalendarFile" accept=".pdf,.txt,.csv,.json" class="hidden">
+          <button class="btn btn-secondary" id="btnPasteCalendarText" title="Pegar texto o partidos directamente">
+            <i data-lucide="clipboard-type"></i> Pegar Texto
+          </button>
+          <button class="btn btn-primary" id="btnUploadCalendarPDF">
+            <i data-lucide="file-up"></i> Subir Calendario PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Control Panel: Equipos Prioritarios & Filtro de Jornada -->
+      <div class="cartelera-controls-card mb-4" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
+        
+        <!-- Equipos Prioritarios Chips -->
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <h3 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios de Seguimiento
+            </h3>
+            <button class="btn btn-sm btn-secondary" id="btnAddPriorityTeam" style="font-size: 12px; padding: 4px 10px;">
+              <i data-lucide="plus" style="width: 13px;"></i> Añadir Equipo
+            </button>
+          </div>
+          <div id="carteleraPriorityTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <!-- Rendered priority team chips -->
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 16px 0;">
+
+        <!-- Selector de Liga y Selector de Jornada -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: center;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Competición / Calendario</label>
+            <select id="carteleraCalendarSelect" class="form-control">
+              <option value="all">🏆 Todos los Calendarios</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtrar Jornada / Evento</label>
+            <select id="carteleraJornadaSelect" class="form-control">
+              <option value="all">Todas las Jornadas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtro de Interés</label>
+            <select id="carteleraInterestFilter" class="form-control">
+              <option value="all">Todos los partidos</option>
+              <option value="priority" selected>⭐ Solo Destacados (Equipos Prioritarios)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid de Partidos de Cartelera -->
+      <div class="cartelera-matches-grid" id="carteleraMatchesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px;">
+        <!-- Dynamic match cards -->
       </div>
     </section>
 
