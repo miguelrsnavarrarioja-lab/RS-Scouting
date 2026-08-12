@@ -3771,262 +3771,7 @@
       </div>
     `;
 
-    const card = document.getElementById('generalModalCard');
-    card.classList.add('large');
 
-        showModal(titleText, modalHTML, () => {
-      const nameVal = document.getElementById('cfNombre')?.value.trim();
-      if (!nameVal) {
-        alert('Por favor ingresa el nombre del club');
-        return false;
-      }
-
-      const rawTipoInput = document.getElementById('cfTipo')?.value.trim() || '';
-      const inputTypes = rawTipoInput ? rawTipoInput.split(',').map(s => s.trim()).filter(Boolean) : selectedClubTypes;
-      inputTypes.forEach(t => {
-        if (t && !state.customClubTypes.includes(t)) {
-          state.customClubTypes.push(t);
-        }
-      });
-      const finalTipoStr = inputTypes.join(', ');
-
-      const updatedClub = {
-        id: isEdit ? clubId : 'c_' + Date.now(),
-        nombre: nameVal,
-        equipo: nameVal,
-        tipo: finalTipoStr,
-        tiposArray: [...inputTypes],
-        tipoClub: finalTipoStr,
-        anoFundacion: document.getElementById('cfAnoFundacion')?.value.trim() || '',
-        ano: document.getElementById('cfAnoFundacion')?.value.trim() || '',
-        comunidad: document.getElementById('cfComunidad')?.value.trim() || '',
-        localidad: document.getElementById('cfLocalidad')?.value.trim() || '',
-        federacion: document.getElementById('cfFederacion')?.value.trim() || '',
-        estadio: document.getElementById('cfEstadio')?.value.trim() || '',
-        web: document.getElementById('cfWeb')?.value.trim() || '',
-        instagram: document.getElementById('cfInstagram')?.value.trim() || '',
-        linkedin: document.getElementById('cfLinkedin')?.value.trim() || '',
-        facebook: document.getElementById('cfFacebook')?.value.trim() || '',
-        convenidoDe: document.getElementById('cfConvenidoDe')?.value.trim() || '',
-        convenidosVinculados: document.getElementById('cfConvenidosVinculados')?.value.trim() || '',
-        patrocinadorDe: document.getElementById('cfPatrocinadorDe')?.value.trim() || '',
-        patrocinadoPor: document.getElementById('cfPatrocinadoPor')?.value.trim() || '',
-
-        codigo: document.getElementById('cfCodigo')?.value.trim() || '',
-        delegacion: document.getElementById('cfDelegacion')?.value.trim() || '',
-        cif: document.getElementById('cfCif')?.value.trim() || '',
-        domicilio: document.getElementById('cfDomicilio')?.value.trim() || '',
-        provincia: document.getElementById('cfProvincia')?.value.trim() || '',
-        cp: document.getElementById('cfCp')?.value.trim() || '',
-        colorCamiseta: document.getElementById('cfColorCamiseta')?.value.trim() || '',
-        colorPantalon: document.getElementById('cfColorPantalon')?.value.trim() || '',
-        colorMedias: document.getElementById('cfColorMedias')?.value.trim() || '',
-        email: document.getElementById('cfEmail')?.value.trim() || '',
-        telefonos: document.getElementById('cfTelefonos')?.value.trim() || '',
-        fax: document.getElementById('cfFax')?.value.trim() || '',
-
-        staff: localStaffList,
-        equiposList: localEquiposList,
-        notas: document.getElementById('cfNotas')?.value.trim() || '',
-
-        logo: logoData,
-        escudo: logoData,
-        colorPrimary: document.getElementById('cfColorPrimary')?.value || '#2563eb',
-        colorSecondary: document.getElementById('cfColorSecondary')?.value || '#ffffff'
-      };
-
-      if (!state.directory.clubes) state.directory.clubes = [];
-      if (isEdit) {
-        const idx = state.directory.clubes.findIndex(c => c && (String(c.id) === String(clubId) || (c.codigo && String(c.codigo) === String(clubId))));
-        if (idx !== -1) state.directory.clubes[idx] = updatedClub;
-      } else {
-        state.directory.clubes.unshift(updatedClub);
-      }
-      saveToFirebase('clubes', updatedClub);
-
-      // Auto-sync logo/escudo and colors to all linked teams in state.directory.equipos
-      if (state.directory.equipos && Array.isArray(state.directory.equipos)) {
-        state.directory.equipos.forEach(eq => {
-          const eqClubName = (eq.clubVinculado || eq.club || '').trim().toLowerCase();
-          const clubNameLower = (nameVal || nombre || '').trim().toLowerCase();
-          const isLinked = (eqClubName && eqClubName === clubNameLower) || (eq.nombre && clubNameLower && eq.nombre.toLowerCase().startsWith(clubNameLower));
-          if (isLinked) {
-            if (logoData) {
-              eq.escudo = logoData;
-              eq.logo = logoData;
-            }
-            if (updatedClub.colorPrimary) {
-              eq.colorPrimary = updatedClub.colorPrimary;
-            }
-            if (updatedClub.colorSecondary) {
-              eq.colorSecondary = updatedClub.colorSecondary;
-            }
-            if (updatedClub.federacion) {
-              eq.federacion = updatedClub.federacion;
-            }
-            saveToFirebase('equipos', eq);
-          }
-        });
-      }
-
-      // Bidirectional sync for Federación, Estadio, Convenidos & Patrocinador
-      const fedVal = updatedClub.federacion;
-      const estVal = updatedClub.estadio;
-      const convDeVal = updatedClub.convenidoDe;
-      const convVincVal = updatedClub.convenidosVinculados;
-      const patVal = updatedClub.patrocinadorDe;
-      const patPorVal = updatedClub.patrocinadoPor;
-
-      if (fedVal && state.directory.federaciones) {
-        let targetFed = state.directory.federaciones.find(f => 
-          (f.nombre && f.nombre.toLowerCase() === fedVal.toLowerCase()) ||
-          (f.federacion && f.federacion.toLowerCase() === fedVal.toLowerCase())
-        );
-        if (!targetFed) {
-          targetFed = {
-            id: 'fed_' + Date.now() + Math.floor(Math.random()*100),
-            nombre: fedVal,
-            federacion: fedVal,
-            clubes: []
-          };
-          state.directory.federaciones.unshift(targetFed);
-        }
-        if (!targetFed.clubes) targetFed.clubes = [];
-        const exists = targetFed.clubes.some(c => (typeof c === 'string' ? c : c.nombre) === nameVal);
-        if (!exists) targetFed.clubes.push({ id: updatedClub.id, nombre: nameVal });
-      }
-
-      if (estVal && state.directory.estadios) {
-        let targetEst = state.directory.estadios.find(e => 
-          (e.nombre && e.nombre.toLowerCase() === estVal.toLowerCase()) ||
-          (e.estadio && e.estadio.toLowerCase() === estVal.toLowerCase())
-        );
-        if (!targetEst) {
-          targetEst = {
-            id: 'est_' + Date.now() + Math.floor(Math.random()*100),
-            nombre: estVal,
-            estadio: estVal,
-            clubes: []
-          };
-          state.directory.estadios.unshift(targetEst);
-        }
-        if (!targetEst.clubes) targetEst.clubes = [];
-        const exists = targetEst.clubes.some(c => (typeof c === 'string' ? c : c.nombre) === nameVal);
-        if (!exists) targetEst.clubes.push({ id: updatedClub.id, nombre: nameVal });
-      }
-
-      const syncClubToClub = (targetClubName, targetField) => {
-        if (!targetClubName || !state.directory.clubes) return;
-        let targetC = state.directory.clubes.find(c => 
-          (c.nombre && c.nombre.toLowerCase() === targetClubName.toLowerCase()) ||
-          (c.equipo && c.equipo.toLowerCase() === targetClubName.toLowerCase())
-        );
-        if (!targetC) {
-          targetC = {
-            id: 'c_' + Date.now() + Math.floor(Math.random()*100),
-            nombre: targetClubName,
-            equipo: targetClubName
-          };
-          state.directory.clubes.unshift(targetC);
-        }
-        if (!targetC[targetField]) targetC[targetField] = '';
-        if (!targetC[targetField].toLowerCase().includes(nameVal.toLowerCase())) {
-          targetC[targetField] = targetC[targetField] ? `${targetC[targetField]}, ${nameVal}` : nameVal;
-        }
-      };
-
-      syncClubToClub(convDeVal, 'convenidosVinculados');
-      syncClubToClub(convVincVal, 'convenidoDe');
-      syncClubToClub(patVal, 'patrocinadorDe');
-      syncClubToClub(patPorVal, 'patrocinadorDe');
-
-      saveState();
-      card.classList.remove('large');
-      hideModal();
-      renderDirectorio();
-    }, isEdit ? {
-      label: 'Eliminar Club',
-      title: `¿Eliminar Ficha de ${nombre || 'Club'}?`,
-      message: `¿Estás seguro de que deseas eliminar permanentemente el club "${nombre}" de la base de datos?`,
-      action: () => {
-        deleteDirectoryItem('clubes', clubId);
-        hideModal();
-        showToast('Club eliminado con éxito', 'danger');
-        renderDirectorio();
-      }
-    } : null);
-
-    // Setup event listeners after modal is rendered
-    const cfTipoInput = document.getElementById('cfTipo');
-    const badgesContainer = document.getElementById('clubTypeSelectedBadges');
-    const selectAdd = document.getElementById('selectClubTypeAdd');
-    const rowCreate = document.getElementById('rowCreateNewClubType');
-    const inputNewInline = document.getElementById('inputNewClubTypeInline');
-    const btnConfirmInline = document.getElementById('btnConfirmNewClubTypeInline');
-    const btnCancelInline = document.getElementById('btnCancelNewClubTypeInline');
-
-    const updateClubTypeSelectOptions = () => {
-      if (!selectAdd) return;
-      selectAdd.innerHTML = `
-        <option value="">+ Añadir tipo de club...</option>
-        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
-        <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
-      `;
-    };
-
-    const renderClubTypeBadges = () => {
-      if (!badgesContainer) return;
-      if (selectedClubTypes.length === 0) {
-        badgesContainer.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Ningún tipo seleccionado</span>`;
-      } else {
-        badgesContainer.innerHTML = selectedClubTypes.map(t => `
-          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
-            ${escapeHtml(t)}
-            <button type="button" class="btn-remove-club-type" data-type="${escapeHtml(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
-          </span>
-        `).join('');
-      }
-
-      badgesContainer.querySelectorAll('.btn-remove-club-type').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const tVal = btn.dataset.type;
-          selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
-          if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
-          renderClubTypeBadges();
-        });
-      });
-
-      if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
-    };
-
-    renderClubTypeBadges();
-
-    selectAdd?.addEventListener('change', () => {
-      const val = selectAdd.value;
-      if (!val) return;
-
-      if (val === '__CREATE_NEW_TYPE__') {
-        selectAdd.value = '';
-        showCustomPromptModal('Añadir Nuevo Tipo de Club', '', (newTypeVal) => {
-          if (!state.customClubTypes.includes(newTypeVal)) {
-            state.customClubTypes.push(newTypeVal);
-            saveState();
-          }
-          if (!selectedClubTypes.includes(newTypeVal)) {
-            selectedClubTypes.push(newTypeVal);
-          }
-          updateClubTypeSelectOptions();
-          renderClubTypeBadges();
-        });
-      } else {
-        if (!selectedClubTypes.includes(val)) {
-          selectedClubTypes.push(val);
-          renderClubTypeBadges();
-        }
-        selectAdd.value = '';
-      }
-    });
 
 // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
@@ -4454,24 +4199,25 @@
                   <input type="text" id="cfNombre" class="form-control" placeholder="Ej: Real Madrid CF..." value="${escapeHtml(nombre)}" required>
                 </div>
 
-                <div class="form-group mb-4">
-                  <label class="form-label" style="font-weight: 800;">TIPO DE CLUB</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+                  <div class="form-group">
+                    <label class="form-label" style="font-weight: 800;">TIPO DE CLUB</label>
 
-                  <!-- Selected Badges Container -->
-                  <div id="clubTypeSelectedBadges" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; align-items: center;">
+                    <!-- Selected Badges Container -->
+                    <div id="clubTypeSelectedBadges" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; align-items: center;">
+                    </div>
+
+                    <!-- Select Dropdown for adding existing types + Option to create new type -->
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <select id="selectClubTypeAdd" class="form-control" style="flex: 1;">
+                        <option value="">+ Añadir tipo de club...</option>
+                        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+                        <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
+                      </select>
+                    </div>
+
+                    <input type="hidden" id="cfTipo" value="${escapeHtml(tipoStr)}">
                   </div>
-
-                  <!-- Select Dropdown for adding existing types + Option to create new type -->
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="selectClubTypeAdd" class="form-control" style="flex: 1;">
-                      <option value="">+ Añadir tipo de club...</option>
-                      ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
-                      <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
-                    </select>
-                  </div>
-
-                  <input type="hidden" id="cfTipo" value="${escapeHtml(tipoStr)}">
-                </div>
 
                   <div class="form-group">
                     <label class="form-label">AÑO FUNDACIÓN</label>
@@ -5046,10 +4792,76 @@
       action: () => {
         deleteDirectoryItem('clubes', clubId);
         hideModal();
-        showToast('Club eliminado con éxito', 'danger');
-        renderDirectorio();
       }
     } : null);
+
+    // Setup event listeners after modal is rendered
+    const cfTipoInput = document.getElementById('cfTipo');
+    const badgesContainer = document.getElementById('clubTypeSelectedBadges');
+    const selectAdd = document.getElementById('selectClubTypeAdd');
+
+    const updateClubTypeSelectOptions = () => {
+      if (!selectAdd) return;
+      selectAdd.innerHTML = `
+        <option value="">+ Añadir tipo de club...</option>
+        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+        <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
+      `;
+    };
+
+    const renderClubTypeBadges = () => {
+      if (!badgesContainer) return;
+      if (selectedClubTypes.length === 0) {
+        badgesContainer.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Ningún tipo seleccionado</span>`;
+      } else {
+        badgesContainer.innerHTML = selectedClubTypes.map(t => `
+          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+            ${escapeHtml(t)}
+            <button type="button" class="btn-remove-club-type" data-type="${escapeHtml(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
+          </span>
+        `).join('');
+      }
+
+      badgesContainer.querySelectorAll('.btn-remove-club-type').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const tVal = btn.dataset.type;
+          selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
+          if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
+          renderClubTypeBadges();
+        });
+      });
+
+      if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
+    };
+
+    renderClubTypeBadges();
+
+    selectAdd?.addEventListener('change', () => {
+      const val = selectAdd.value;
+      if (!val) return;
+
+      if (val === '__CREATE_NEW_TYPE__') {
+        selectAdd.value = '';
+        showCustomPromptModal('Añadir Nuevo Tipo de Club', '', (newTypeVal) => {
+          if (!state.customClubTypes.includes(newTypeVal)) {
+            state.customClubTypes.push(newTypeVal);
+            saveState();
+          }
+          if (!selectedClubTypes.includes(newTypeVal)) {
+            selectedClubTypes.push(newTypeVal);
+          }
+          updateClubTypeSelectOptions();
+          renderClubTypeBadges();
+        });
+      } else {
+        if (!selectedClubTypes.includes(val)) {
+          selectedClubTypes.push(val);
+          renderClubTypeBadges();
+        }
+        selectAdd.value = '';
+      }
+    });
 
     // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
