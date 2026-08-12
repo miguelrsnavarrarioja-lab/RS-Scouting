@@ -230,6 +230,7 @@
       customTabOrder: state.customTabOrder || [],
       customClubTypes: state.customClubTypes || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
+      directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
       federacionesSeeded: !!state.directory?.federacionesSeeded,
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
@@ -240,6 +241,18 @@
       navarraLnjSeeded: !!state.directory?.navarraLnjSeeded,
       navarraTerceraSeeded: !!state.directory?.navarraTerceraSeeded,
       navarraAutonomicaSeeded: !!state.directory?.navarraAutonomicaSeeded,
+      navarraPrimeraAutonomicaJuvenilSeeded: !!state.directory?.navarraPrimeraAutonomicaJuvenilSeeded,
+      navarraRegionalPreferenteSeeded: !!state.directory?.navarraRegionalPreferenteSeeded,
+      navarraRegionalPreferenteG2Seeded: !!state.directory?.navarraRegionalPreferenteG2Seeded,
+      navarraLigaCadeteSeeded: !!state.directory?.navarraLigaCadeteSeeded,
+      navarraPrimeraAutonomicaCadeteSeeded: !!state.directory?.navarraPrimeraAutonomicaCadeteSeeded,
+      navarraPrimeraRegionalG1Seeded: !!state.directory?.navarraPrimeraRegionalG1Seeded,
+      navarraPrimeraRegionalG2Seeded: !!state.directory?.navarraPrimeraRegionalG2Seeded,
+      navarraPrimeraRegionalG3Seeded: !!state.directory?.navarraPrimeraRegionalG3Seeded,
+      navarraPrimeraRegionalG4Seeded: !!state.directory?.navarraPrimeraRegionalG4Seeded,
+      navarraPrimeraRegionalG5Seeded: !!state.directory?.navarraPrimeraRegionalG5Seeded,
+      dhjGroup3Seeded: !!state.directory?.dhjGroup3Seeded,
+      dhjGroup2Seeded: !!state.directory?.dhjGroup2Seeded,
       deletedTombstones: state.deletedTombstones
     });
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
@@ -423,6 +436,9 @@
           if (Array.isArray(configData.directoryFederationsOrder)) {
             state.directoryFederationsOrder = configData.directoryFederationsOrder;
           }
+          if (Array.isArray(configData.directoryCategoriesOrder)) {
+            state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          }
           // Restore deletion tombstones so seeding functions don't re-create deleted items
           if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') {
             state.deletedTombstones = configData.deletedTombstones;
@@ -442,6 +458,42 @@
           if (configData.navarraAutonomicaSeeded) {
             state.directory.navarraAutonomicaSeeded = true;
           }
+          if (configData.navarraPrimeraAutonomicaJuvenilSeeded) {
+            state.directory.navarraPrimeraAutonomicaJuvenilSeeded = true;
+          }
+          if (configData.navarraRegionalPreferenteSeeded) {
+            state.directory.navarraRegionalPreferenteSeeded = true;
+          }
+          if (configData.navarraRegionalPreferenteG2Seeded) {
+            state.directory.navarraRegionalPreferenteG2Seeded = true;
+          }
+          if (configData.navarraLigaCadeteSeeded) {
+            state.directory.navarraLigaCadeteSeeded = true;
+          }
+          if (configData.navarraPrimeraAutonomicaCadeteSeeded) {
+            state.directory.navarraPrimeraAutonomicaCadeteSeeded = true;
+          }
+          if (configData.navarraPrimeraRegionalG1Seeded) {
+            state.directory.navarraPrimeraRegionalG1Seeded = true;
+          }
+          if (configData.navarraPrimeraRegionalG2Seeded) {
+            state.directory.navarraPrimeraRegionalG2Seeded = true;
+          }
+          if (configData.navarraPrimeraRegionalG3Seeded) {
+            state.directory.navarraPrimeraRegionalG3Seeded = true;
+          }
+          if (configData.navarraPrimeraRegionalG4Seeded) {
+            state.directory.navarraPrimeraRegionalG4Seeded = true;
+          }
+          if (configData.navarraPrimeraRegionalG5Seeded) {
+            state.directory.navarraPrimeraRegionalG5Seeded = true;
+          }
+          if (configData.dhjGroup3Seeded) {
+            state.directory.dhjGroup3Seeded = true;
+          }
+          if (configData.dhjGroup2Seeded) {
+            state.directory.dhjGroup2Seeded = true;
+          }
         }
 
         setFirebaseHeaderStatus('synced');
@@ -452,6 +504,18 @@
         if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
         if (typeof seedNavarraTerceraRFEFTeams === 'function') seedNavarraTerceraRFEFTeams();
         if (typeof seedNavarraAutonomicaTeams === 'function') seedNavarraAutonomicaTeams();
+        if (typeof seedNavarraPrimeraAutonomicaJuvenilTeams === 'function') seedNavarraPrimeraAutonomicaJuvenilTeams();
+        if (typeof seedNavarraRegionalPreferenteTeams === 'function') seedNavarraRegionalPreferenteTeams();
+        if (typeof seedNavarraRegionalPreferenteGroup2Teams === 'function') seedNavarraRegionalPreferenteGroup2Teams();
+        if (typeof seedNavarraLigaCadeteTeams === 'function') seedNavarraLigaCadeteTeams();
+        if (typeof seedNavarraPrimeraAutonomicaCadeteTeams === 'function') seedNavarraPrimeraAutonomicaCadeteTeams();
+        if (typeof seedNavarraPrimeraRegionalG1Teams === 'function') seedNavarraPrimeraRegionalG1Teams();
+        if (typeof seedNavarraPrimeraRegionalG2Teams === 'function') seedNavarraPrimeraRegionalG2Teams();
+        if (typeof seedNavarraPrimeraRegionalG3Teams === 'function') seedNavarraPrimeraRegionalG3Teams();
+        if (typeof seedNavarraPrimeraRegionalG4Teams === 'function') seedNavarraPrimeraRegionalG4Teams();
+        if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
+        if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
+        if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -10890,6 +10954,1087 @@
     }
   }
 
+  function seedNavarraPrimeraAutonomicaJuvenilTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraAutonomicaJuvenilSeeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. San Juan \"B\"",
+      "Berriozar C.F.",
+      "Beti Kozkor K.E.",
+      "C.A. Valtierrano",
+      "C.D. Amigo \"B\"",
+      "C.D. Ardoi",
+      "C.D. Izarra",
+      "C.D. Ondalan",
+      "C.D. Pamplona \"B\"",
+      "C.D. Valle de Egües",
+      "C.F. Gazte Berriak Ansoain \"B\"",
+      "J.D. San Jorge",
+      "Peña Sport F.C.",
+      "U.D. Beriain",
+      "U.D. Mutilvera \"B\"",
+      "U.D.C. Txantrea K.K.E."
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Autonómica Juvenil Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Autonómica Juvenil Navarra)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'JAU',
+          competicion: compName,
+          grupo: 'Único',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraAutonomicaJuvenilSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Autonómica Juvenil Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraRegionalPreferenteTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraRegionalPreferenteSeeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "C.Ciudad de Iruña",
+      "C.D. Amigo",
+      "C.D. Ardoi \"B\"",
+      "C.D. Etxarri Aranatz K.E.",
+      "C.D. Gares \"B\"",
+      "C.D. Infanzones",
+      "C.D. San Andres",
+      "C.D. Soto-Ibarbaso",
+      "C.D. Subiza Cendea de Galar \"B\"",
+      "C.D. Valle de Egües \"B\"",
+      "C.D. Zirauki",
+      "C.F. Beti Casedano",
+      "Rotxapea C.D.",
+      "S.D. Alsasua",
+      "U.C.D. Burlades \"B\"",
+      "U.D. Mutilvera \"B\""
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Regional Preferente Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Regional Preferente Navarra)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'PREF',
+          competicion: compName,
+          grupo: '1',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraRegionalPreferenteSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Regional Preferente Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraRegionalPreferenteGroup2Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraRegionalPreferenteG2Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "C.A. Cirbonero \"B\"",
+      "C.A. Milagres de Futbol",
+      "C.A. Valtierrano",
+      "C.D. Alesves",
+      "C.D. Aluvion",
+      "C.D. Arenas",
+      "C.D. Azkarrena",
+      "C.D. Funes",
+      "C.D. Idoya",
+      "C.D. Larrate",
+      "C.D. Mendi",
+      "C.D. Ribaforada",
+      "C.D. River Ega",
+      "C.D. San Adrian",
+      "C.D. San Miguel",
+      "C.D. Sesma"
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Regional Preferente Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "B", etc.)
+      let clubName = teamName.replace(/"B"/g, '').replace(/ B$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Regional Preferente Navarra + Grupo 2)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '2'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'PREF',
+          competicion: compName,
+          grupo: '2',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraRegionalPreferenteG2Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Regional Preferente Navarra (Grupo 2) creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraLigaCadeteTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraLigaCadeteSeeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. San Juan",
+      "C.D. Ardoi \"A\"",
+      "C.D. Azkoyen",
+      "C.D. Izarra \"A\"",
+      "C.D. Lourdes",
+      "C.D. Oberena",
+      "C.D. Pamplona",
+      "C.D. Valle de Egües",
+      "C.F. Gazte Berriak Ansoain",
+      "Club Atlético Osasuna",
+      "Peña Sport F.C.",
+      "Rotxapea C.D.",
+      "S.D. Lagunak",
+      "U.D. Mutilvera",
+      "U.D. Valle de Aranguren",
+      "U.D.C. Txantrea K.K.E."
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Liga Cadete Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc.)
+      let clubName = teamName.replace(/"[AB]"/g, '').replace(/ [AB]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Liga Cadete Navarra)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'CV',
+          competicion: compName,
+          grupo: 'Único',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraLigaCadeteSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Liga Cadete Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraAutonomicaCadeteTeams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraAutonomicaCadeteSeeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. San Juan \"B\"",
+      "C.D. Amigo",
+      "C.D. Huarte",
+      "C.D. Izarra \"B\"",
+      "C.D. Lezkairu",
+      "C.D. Lourdes",
+      "C.D. Oberena \"B\"",
+      "C.D. Pamplona \"B\"",
+      "C.D. Peña Azagresa",
+      "C.D. Tudelano",
+      "C.D.Kirol Sport",
+      "C.F. Gazte Berriak Ansoain \"B\"",
+      "CD Baztan KE",
+      "Club Atlético Osasuna \"B\"",
+      "U.C.D. Burlades",
+      "U.D.C. Txantrea K.K.E. \"B\""
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Autonómica Cadete Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc.)
+      let clubName = teamName.replace(/"[AB]"/g, '').replace(/ [AB]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Autonómica Cadete Navarra)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'CH',
+          competicion: compName,
+          grupo: 'Único',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraAutonomicaCadeteSeeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Autonómica Cadete Navarra creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraRegionalG1Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraRegionalG1Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. Cabanillas",
+      "C.A. Monteagudo",
+      "C.D. Ablitense",
+      "C.D. Buñuel",
+      "C.D. Cadreita",
+      "C.D. Calatrava",
+      "C.D. Castejon",
+      "C.D. La Peña Fustiñana",
+      "C.D. Murchante",
+      "C.D. Muskaria",
+      "C.D. Peña Azagresa \"B\"",
+      "C.D. San Adrian \"B\"",
+      "C.D. Tudelano \"B\""
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Regional Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc.)
+      let clubName = teamName.replace(/"[AB]"/g, '').replace(/ [AB]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 1)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '1'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'CH',
+          competicion: compName,
+          grupo: '1',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraRegionalG1Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Regional Navarra (Grupo 1) creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraRegionalG2Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraRegionalG2Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "C.A. Huracan",
+      "C.D. Ardoi \"C\"",
+      "C.D. Carcar",
+      "C.D. Idoya \"B\"",
+      "C.D. Izarra \"B\"",
+      "C.D. Lodosa",
+      "C.D. Mendavies",
+      "C.D. Ondalan \"B\"",
+      "C.D. San Ignacio",
+      "C.D. Urantzia",
+      "C.D. Urbasa",
+      "C.D. Zarramonza \"B\"",
+      "C.D.Asdefor \"B\"",
+      "Irulegi K.E.",
+      "U.D. Mutilvera \"A\""
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Regional Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", "C", etc.)
+      let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 2)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '2'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'REG',
+          competicion: compName,
+          grupo: '2',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraRegionalG2Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Regional Navarra (Grupo 2) creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraRegionalG3Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraRegionalG3Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "C.A. Artajones \"B\"",
+      "C.A. Marcilla Aurora",
+      "C.A.Santacara",
+      "C.D. Falcesino",
+      "C.D. Larrate \"B\"",
+      "C.D. Murillo",
+      "C.D. San Miguel \"B\"",
+      "C.D. Sporting Melides",
+      "C.D.Inter de Pamplona",
+      "C.D.Kirol Sport",
+      "Castillo F.C.",
+      "F.C. Bidezarra \"B\"",
+      "Izar F.C.",
+      "S.D. Lagunak \"B\"",
+      "U.D. Beriain"
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Regional Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc.)
+      let clubName = teamName.replace(/"[AB]"/g, '').replace(/ [AB]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 3)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '3'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'REG',
+          competicion: compName,
+          grupo: '3',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraRegionalG3Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Regional Navarra (Grupo 3) creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraRegionalG4Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraRegionalG4Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "A.D. Mendillorri",
+      "C.D. Aibares",
+      "C.D. Amaya",
+      "C.D. Aoiz \"B\"",
+      "C.D. Aurrera de Liédena",
+      "C.D. Cantolagua \"B\"",
+      "C.D. Huarte \"B\"",
+      "C.D. Iruña",
+      "C.D. Lezkairu",
+      "C.D. Urroztarra",
+      "C.D. Valle de Egües \"C\"",
+      "C.D.Universidad de Navarra",
+      "U.C.D. Burlades \"C\"",
+      "U.D. Mutilvera \"B\"",
+      "Valdorba F.C."
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Regional Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", "C", etc.)
+      let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 4)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '4'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'REG',
+          competicion: compName,
+          grupo: '4',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraRegionalG4Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Regional Navarra (Grupo 4) creados`);
+      saveState();
+    }
+  }
+
+  function seedNavarraPrimeraRegionalG5Teams() {
+    if (!state.directory) return;
+    if (state.directory.navarraPrimeraRegionalG5Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "Alde Zaharreko Kluba",
+      "Arga Ibaia K.E.",
+      "Beloso FC",
+      "Berriozar C.F.",
+      "Beti Kozkor K.E. \"B\"",
+      "C.D. Aurrera K.E.",
+      "C.D. Beti Onak \"B\"",
+      "C.D.Asdefor \"A\"",
+      "C.D.Lagun Artea",
+      "C.F. Gazte Berriak Ansoain \"B\"",
+      "CD Baztan KE \"B\"",
+      "Doneztebe F.T. \"B\"",
+      "J.D. San Jorge \"B\"",
+      "Rotxapea C.D. \"B\"",
+      "S.D. Alsasua"
+    ];
+
+    const FNF = 'FNF - Federación Navarra de Fútbol';
+    const compName = 'Primera Regional Navarra';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc.)
+      let clubName = teamName.replace(/"[AB]"/g, '').replace(/ [AB]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 5)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '5'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'REG',
+          competicion: compName,
+          grupo: '5',
+          comunidad: 'Navarra',
+          pais: 'España',
+          federacion: FNF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.navarraPrimeraRegionalG5Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos Primera Regional Navarra (Grupo 5) creados`);
+      saveState();
+    }
+  }
+
+  function seedDhjGroup3Teams() {
+    if (!state.directory) return;
+    if (state.directory.dhjGroup3Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "BADALONA, C.F.",
+      "C. Gimnástic Manresa",
+      "C.D. Oberena",
+      "C.E. Sabadell F.C.",
+      "C.F. Damm",
+      "Club Atlético Osasuna",
+      "F.C. Barcelona",
+      "Girona FC",
+      "MONZÓN FÚTBOL BASE - AT. Gigamontrans",
+      "RCD Espanyol de Barcelona",
+      "Real Zaragoza",
+      "S.D. Huesca",
+      "U.D. Valle de Aranguren",
+      "UD Montecarlo",
+      "UE Sant Andreu",
+      "Zaragoza-Racing Club"
+    ];
+
+    const RFEF = 'RFEF - Real Federación Española de Fútbol';
+    const compName = 'División Honor Juvenil';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'División Honor Juvenil', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc. if present)
+      let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Nacional',
+          pais: 'España',
+          federacion: RFEF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 3)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '3'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'DHJ',
+          competicion: compName,
+          grupo: '3',
+          comunidad: 'Nacional',
+          pais: 'España',
+          federacion: RFEF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.dhjGroup3Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos División Honor Juvenil (Grupo 3) creados`);
+      saveState();
+    }
+  }
+
+  function seedDhjGroup2Teams() {
+    if (!state.directory) return;
+    if (state.directory.dhjGroup2Seeded) return;
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+    if (!state.directory.equipos) state.directory.equipos = [];
+
+    const teamsToCreate = [
+      "Antiguoko Kirol Elkartea",
+      "ARRATIA, C.D.",
+      "Athletic Club",
+      "CD Betoño",
+      "CyD Leonesa",
+      "Danok Bat Club de Fica",
+      "Deportivo Alavés",
+      "EF MAREO",
+      "INDAUTXU, S.D.",
+      "Real Sociedad de Fútbol",
+      "Real Valladolid CF",
+      "Santutxu F.C.",
+      "SD Eibar",
+      "SD Leioa",
+      "Union Deportiva Logroñes",
+      "Unionistas de Salamanca C.F."
+    ];
+
+    const RFEF = 'RFEF - Real Federación Española de Fútbol';
+    const compName = 'División Honor Juvenil';
+
+    if (!state.customCompeticiones) {
+      state.customCompeticiones = ['Amistoso', 'División Honor Juvenil', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+    }
+    if (!state.customCompeticiones.includes(compName)) {
+      state.customCompeticiones.push(compName);
+    }
+
+    let addedCount = 0;
+
+    teamsToCreate.forEach(teamName => {
+      // Clean up club name (remove "A", "B", etc. if present)
+      let clubName = teamName.replace(/"[ABC]"/g, '').replace(/ [ABC]$/, '').trim();
+
+      // Find or create club
+      let clubMatch = state.directory.clubes.find(c => c && c.nombre && c.nombre.toLowerCase() === clubName.toLowerCase());
+      if (!clubMatch) {
+        clubMatch = {
+          id: 'club_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: clubName,
+          comunidad: 'Nacional',
+          pais: 'España',
+          federacion: RFEF
+        };
+        state.directory.clubes.unshift(clubMatch);
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(()=>{});
+      }
+
+      // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 2)
+      let teamMatch = state.directory.equipos.find(e => 
+        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        (e.grupo || '') === '2'
+      );
+      
+      if (!teamMatch) {
+        teamMatch = {
+          id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
+          nombre: teamName,
+          equipo: teamName,
+          club: clubMatch.nombre, // Link to club
+          clubId: clubMatch.id,
+          categoria: 'DHJ',
+          competicion: compName,
+          grupo: '2',
+          comunidad: 'Nacional',
+          pais: 'España',
+          federacion: RFEF,
+          plantilla: []
+        };
+        state.directory.equipos.unshift(teamMatch);
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(()=>{});
+        addedCount++;
+      }
+    });
+
+    state.directory.dhjGroup2Seeded = true;
+    if (addedCount > 0) {
+      console.log(`✅ ${addedCount} equipos División Honor Juvenil (Grupo 2) creados`);
+      saveState();
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
@@ -10905,10 +12050,22 @@
     if (pageOverride !== null && pageOverride !== undefined) currentDirectoryPage = pageOverride;
 
     // Always ensure Aragonesa clubs, teams, players and Federaciones Selecciones are seeded
-            ensureFederacionesSeleccionesSeeded();
+    ensureFederacionesSeleccionesSeeded();
     // Wipe all auto-seeded Aragon data one time
     // wipeAragonData();
     migrateFederacionesClubs();
+    if (typeof seedNavarraPrimeraAutonomicaJuvenilTeams === 'function') seedNavarraPrimeraAutonomicaJuvenilTeams();
+    if (typeof seedNavarraRegionalPreferenteTeams === 'function') seedNavarraRegionalPreferenteTeams();
+    if (typeof seedNavarraRegionalPreferenteGroup2Teams === 'function') seedNavarraRegionalPreferenteGroup2Teams();
+    if (typeof seedNavarraLigaCadeteTeams === 'function') seedNavarraLigaCadeteTeams();
+    if (typeof seedNavarraPrimeraAutonomicaCadeteTeams === 'function') seedNavarraPrimeraAutonomicaCadeteTeams();
+    if (typeof seedNavarraPrimeraRegionalG1Teams === 'function') seedNavarraPrimeraRegionalG1Teams();
+    if (typeof seedNavarraPrimeraRegionalG2Teams === 'function') seedNavarraPrimeraRegionalG2Teams();
+    if (typeof seedNavarraPrimeraRegionalG3Teams === 'function') seedNavarraPrimeraRegionalG3Teams();
+    if (typeof seedNavarraPrimeraRegionalG4Teams === 'function') seedNavarraPrimeraRegionalG4Teams();
+    if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
+    if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
+    if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
       currentFederationFilter = getFederationSelectionBaseName(currentFederationFilter);
@@ -10996,7 +12153,19 @@
     let subFilterBarHTML = '';
     if (currentDirectoryTab === 'equipos') {
       const categoriesSet = new Set(rawItems.map(eq => (eq.categoria || 'Sin Categoría').trim()).filter(Boolean));
-      const categories = Array.from(categoriesSet).sort((a, b) => a.localeCompare(b, 'es'));
+      const categories = Array.from(categoriesSet);
+
+      if (!state.directoryCategoriesOrder) state.directoryCategoriesOrder = [];
+
+      categories.sort((a, b) => {
+        const idxA = state.directoryCategoriesOrder.indexOf(a);
+        const idxB = state.directoryCategoriesOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'es');
+      });
+
       const allCats = ['TODOS', ...categories];
 
       const teamsForGroups = currentSubCategoryFilter === 'TODOS' ? rawItems : rawItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
@@ -11010,11 +12179,21 @@
             <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
               <i data-lucide="filter" style="width: 14px;"></i> Categoría:
             </span>
-            ${allCats.map(cat => `
-              <button type="button" class="btn-dir-subfilter ${currentSubCategoryFilter === cat ? 'active' : ''}" data-type="categoria" data-val="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentSubCategoryFilter === cat ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentSubCategoryFilter === cat ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentSubCategoryFilter === cat ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-                ${escapeHtml(cat)}
-              </button>
-            `).join('')}
+            ${allCats.map(cat => {
+              const isDraggable = cat !== 'TODOS';
+              const isActive = currentSubCategoryFilter === cat;
+              return `
+                <button type="button" 
+                        class="btn-dir-subfilter btn-cat-draggable ${isActive ? 'active' : ''}" 
+                        data-type="categoria" 
+                        data-val="${escapeHtml(cat)}" 
+                        draggable="${isDraggable}" 
+                        title="${escapeHtml(cat)}${isDraggable ? ' (Arrastra para reordenar)' : ''}" 
+                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+                  ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(cat)}
+                </button>
+              `;
+            }).join('')}
           </div>
 
           <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed var(--border-light); padding-top: 8px;">
@@ -12335,6 +13514,67 @@
         if (fromIdx !== -1 && toIdx !== -1) {
           state.directoryFederationsOrder.splice(fromIdx, 1);
           state.directoryFederationsOrder.splice(toIdx, 0, draggedFedName);
+          saveState();
+          renderDirectorio();
+        }
+      });
+    });
+
+    // Drag & Drop reordering for category subfilter tabs
+    let draggedCatName = null;
+    container.querySelectorAll('.btn-cat-draggable').forEach(btn => {
+      btn.addEventListener('dragstart', (e) => {
+        draggedCatName = btn.dataset.val;
+        if (draggedCatName === 'TODOS') {
+          e.preventDefault();
+          return;
+        }
+        btn.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedCatName);
+      });
+
+      btn.addEventListener('dragend', () => {
+        btn.style.opacity = '1';
+        container.querySelectorAll('.btn-cat-draggable').forEach(b => {
+          b.style.border = currentSubCategoryFilter === b.dataset.val ? '1px solid var(--primary-blue, #2563eb)' : '1px solid var(--border-light)';
+        });
+      });
+
+      btn.addEventListener('dragover', (e) => {
+        const targetVal = btn.dataset.val;
+        if (targetVal === 'TODOS' || draggedCatName === 'TODOS') return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        btn.style.border = '2px dashed var(--primary-blue, #2563eb)';
+      });
+
+      btn.addEventListener('dragleave', () => {
+        const targetVal = btn.dataset.val;
+        if (targetVal === 'TODOS') return;
+        btn.style.border = currentSubCategoryFilter === targetVal ? '1px solid var(--primary-blue, #2563eb)' : '1px solid var(--border-light)';
+      });
+
+      btn.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetCatName = btn.dataset.val;
+        if (!draggedCatName || draggedCatName === 'TODOS' || targetCatName === 'TODOS' || draggedCatName === targetCatName) return;
+
+        if (!state.directoryCategoriesOrder) state.directoryCategoriesOrder = [];
+        
+        container.querySelectorAll('.btn-cat-draggable').forEach(b => {
+          const val = b.dataset.val;
+          if (val && val !== 'TODOS' && !state.directoryCategoriesOrder.includes(val)) {
+            state.directoryCategoriesOrder.push(val);
+          }
+        });
+
+        const fromIdx = state.directoryCategoriesOrder.indexOf(draggedCatName);
+        const toIdx = state.directoryCategoriesOrder.indexOf(targetCatName);
+
+        if (fromIdx !== -1 && toIdx !== -1) {
+          state.directoryCategoriesOrder.splice(fromIdx, 1);
+          state.directoryCategoriesOrder.splice(toIdx, 0, draggedCatName);
           saveState();
           renderDirectorio();
         }
