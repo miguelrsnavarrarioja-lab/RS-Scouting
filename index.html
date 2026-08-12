@@ -238,12 +238,15 @@
         <div class="view-title-group">
           <h1>📅 Calendario</h1>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button class="btn btn-primary" id="btnNewCalendarMatch">
             <i data-lucide="plus"></i> Programar Partido
           </button>
           <button class="btn btn-primary" id="btnNewCalendarTask">
             <i data-lucide="check-square"></i> Crear Nueva Tarea
+          </button>
+          <button class="btn btn-secondary" id="btnNewCalendarEvent">
+            <i data-lucide="calendar"></i> Crear Evento
           </button>
         </div>
       </div>
@@ -1095,6 +1098,14 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
 
         <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 16px 0;">
 
+        <!-- Buscador Rápido de Cartelera -->
+        <div class="toolbar mb-3">
+          <div class="toolbar-search" style="flex: 1;">
+            <i data-lucide="search"></i>
+            <input type="text" id="carteleraSearchInput" placeholder="🔍 Buscador rápido por equipo, estadio, jornada o competición...">
+          </div>
+        </div>
+
         <!-- Selector de Liga y Selector de Jornada -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: center;">
           <div class="form-group" style="margin: 0;">
@@ -1119,6 +1130,11 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         </div>
       </div>
 
+      <!-- Pestañas Inteligentes por Competición -->
+      <div class="directory-subtabs-bar mb-4" id="carteleraCompSubtabsBar" style="overflow-x: auto; flex-wrap: nowrap; gap: 6px;">
+        <!-- Dynamically generated competition subtabs -->
+      </div>
+
       <!-- Grid de Partidos de Cartelera -->
       <div class="cartelera-matches-grid" id="carteleraMatchesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px;">
         <!-- Dynamic match cards -->
@@ -1127,9 +1143,18 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
 
     <!-- ==================== 5. AGENDA VIEW ==================== -->
     <section class="tab-view" id="view-agenda">
-      <div class="view-header">
-        <div class="view-title-group">
-          <h1>📝 Agenda</h1>
+      <div class="view-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <div class="view-title-group" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <h1 style="margin: 0;">📝 Agenda</h1>
+          <!-- Agenda Subtabs Bar: Tareas vs Eventos (en la misma línea) -->
+          <div class="directory-subtabs-bar" id="agendaSubtabsBar" style="margin: 0; padding: 0;">
+            <button class="directory-tab active" data-agendatab="tareas">
+              <i data-lucide="check-square" style="width: 14px; vertical-align: middle;"></i> Tareas
+            </button>
+            <button class="directory-tab" data-agendatab="eventos">
+              <i data-lucide="calendar" style="width: 14px; vertical-align: middle;"></i> Eventos
+            </button>
+          </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <button class="btn btn-secondary" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas">
@@ -1138,16 +1163,6 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
           <button class="btn btn-primary" id="btnNewAgendaTask">
             <i data-lucide="plus"></i> Nueva Tarea / Evento
           </button>
-        </div>
-      </div>
-
-      <!-- Agenda Subtabs Bar: Tareas vs Eventos -->
-      <div class="player-subtabs-bar mb-4" id="agendaSubtabsBar">
-        <div class="player-subtab active" data-agendatab="tareas">
-          <i data-lucide="check-square"></i> Tareas
-        </div>
-        <div class="player-subtab" data-agendatab="eventos">
-          <i data-lucide="calendar"></i> Eventos
         </div>
       </div>
 

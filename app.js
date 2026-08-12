@@ -1300,7 +1300,8 @@
   document.getElementById('calendarFilterStatus')?.addEventListener('change', renderCalendario);
   document.getElementById('calendarFilterCategory')?.addEventListener('change', renderCalendario);
   document.getElementById('btnNewCalendarMatch')?.addEventListener('click', () => openMatchReportEditor(null));
-  document.getElementById('btnNewCalendarTask')?.addEventListener('click', () => openNewAgendaTaskModal());
+  document.getElementById('btnNewCalendarTask')?.addEventListener('click', () => openNewAgendaTaskModal(null, 'tarea'));
+  document.getElementById('btnNewCalendarEvent')?.addEventListener('click', () => openNewAgendaTaskModal(null, 'evento'));
 
   function openNewMatchModal(defaultDate = null) {
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
@@ -14738,6 +14739,7 @@
   let selectedCarteleraCalendar = 'all';
   let selectedCarteleraJornada = 'all';
   let selectedCarteleraInterest = 'priority';
+  let selectedCarteleraCompTab = 'all';
 
   function ensureCarteleraState() {
     if (!state.cartelera) {
@@ -14774,6 +14776,7 @@
     initCarteleraListeners();
     renderCarteleraPriorityTeams();
     renderCarteleraSelectors();
+    renderCarteleraCompSubtabs();
     renderCarteleraMatches();
   }
 
@@ -14807,6 +14810,51 @@
     });
 
     if (window.lucide) window.lucide.createIcons();
+  }
+
+  function renderCarteleraCompSubtabs() {
+    const container = document.getElementById('carteleraCompSubtabsBar');
+    if (!container) return;
+
+    const calendarios = state.cartelera.calendarios || [];
+    const compMap = {};
+    let totalMatchesCount = 0;
+
+    calendarios.forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        const comp = (m.competicion || cal.nombre || 'General').trim();
+        compMap[comp] = (compMap[comp] || 0) + 1;
+        totalMatchesCount++;
+      });
+    });
+
+    const comps = Object.keys(compMap).sort();
+
+    let html = `
+      <button class="directory-tab ${selectedCarteleraCompTab === 'all' ? 'active' : ''}" data-comptab="all">
+        🏆 Todas (${totalMatchesCount})
+      </button>
+    `;
+
+    comps.forEach(c => {
+      const count = compMap[c];
+      const isActive = selectedCarteleraCompTab === c;
+      html += `
+        <button class="directory-tab ${isActive ? 'active' : ''}" data-comptab="${escapeHtml(c)}">
+          ⚽ ${escapeHtml(c)} (${count})
+        </button>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.directory-tab').forEach(tab => {
+      tab.onclick = () => {
+        selectedCarteleraCompTab = tab.dataset.comptab || 'all';
+        renderCarteleraCompSubtabs();
+        renderCarteleraMatches();
+      };
+    });
   }
 
   function renderCarteleraSelectors() {
@@ -14846,6 +14894,7 @@
 
     const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
     const calendarios = state.cartelera.calendarios || [];
+    const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
 
     let allMatches = [];
     calendarios.forEach(cal => {
@@ -14858,9 +14907,11 @@
           const isHighInterest = isPriorityLocal || isPriorityVisitante;
           const isClash = isPriorityLocal && isPriorityVisitante;
 
+          const comp = m.competicion || cal.nombre;
+
           allMatches.push({
             ...m,
-            competicion: m.competicion || cal.nombre,
+            competicion: comp,
             isPriorityLocal,
             isPriorityVisitante,
             isHighInterest,
@@ -14870,12 +14921,27 @@
       }
     });
 
-    // Apply filters
+    // Apply Competition subtab filter
+    if (selectedCarteleraCompTab !== 'all') {
+      allMatches = allMatches.filter(m => m.competicion === selectedCarteleraCompTab);
+    }
+
+    // Apply Jornada filter
     if (selectedCarteleraJornada !== 'all') {
       allMatches = allMatches.filter(m => m.jornada === selectedCarteleraJornada);
     }
+
+    // Apply Interest filter
     if (selectedCarteleraInterest === 'priority') {
       allMatches = allMatches.filter(m => m.isHighInterest);
+    }
+
+    // Apply Buscador Rápido search filter
+    if (searchVal) {
+      allMatches = allMatches.filter(m => {
+        const text = `${m.local} ${m.visitante} ${m.jornada} ${m.competicion} ${m.estadio || ''} ${m.fecha || ''}`.toLowerCase();
+        return text.includes(searchVal);
+      });
     }
 
     // Sort: Clash/HighInterest first, then by date/jornada
@@ -14898,8 +14964,11 @@
       document.getElementById('btnResetCarteleraFilters')?.addEventListener('click', () => {
         selectedCarteleraInterest = 'all';
         selectedCarteleraJornada = 'all';
+        selectedCarteleraCompTab = 'all';
         const intSel = document.getElementById('carteleraInterestFilter');
         if (intSel) intSel.value = 'all';
+        const searchInp = document.getElementById('carteleraSearchInput');
+        if (searchInp) searchInp.value = '';
         renderCartelera();
       });
       return;
@@ -14991,51 +15060,176 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
-  function convertCarteleraMatchToLiveReport(match) {
-    const report = {
-      id: 'rep_' + Date.now(),
-      localTeam: match.local,
-      visitanteTeam: match.visitante,
-      date: match.fecha || new Date().toISOString().split('T')[0],
-      time: match.hora || '17:00',
-      estadio: match.estadio || '',
-      competicion: match.competicion || 'Liga',
-      categoria: match.categoria || match.jornada || 'Cartelera',
-      federacion: 'RFEF',
-      localScore: 0,
-      visitanteScore: 0,
-      localFormation: '1-4-3-3',
-      visitanteFormation: '1-4-4-2',
-      generalAnalysis: `Informe en directo cargado desde Cartelera (${match.jornada || ''})`
+  function openAddPriorityTeamModal() {
+    const catSet = new Set([
+      'División de Honor Juvenil',
+      'Liga Nacional Juvenil',
+      'Preferente Juvenil',
+      'Primera RFEF',
+      'Segunda RFEF',
+      'Tercera RFEF',
+      'Cadete División de Honor',
+      'Cadete Preferente',
+      'Infantil',
+      'Senior'
+    ]);
+
+    (state.directory.equipos || []).forEach(e => {
+      if (e.categoria) catSet.add(e.categoria);
+      if (e.competicion) catSet.add(e.competicion);
+      if (e.liga) catSet.add(e.liga);
+    });
+
+    (state.cartelera?.calendarios || []).forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        if (m.competicion) catSet.add(m.competicion);
+      });
+    });
+
+    const categories = Array.from(catSet).sort();
+
+    const groupSet = new Set([
+      'Todos los Grupos',
+      'Grupo 1',
+      'Grupo 2',
+      'Grupo 3',
+      'Grupo 4',
+      'Grupo 5',
+      'Grupo 6',
+      'Grupo 7',
+      'Grupo Subgrupo A',
+      'Grupo Subgrupo B'
+    ]);
+
+    (state.directory.equipos || []).forEach(e => {
+      if (e.grupo) groupSet.add(e.grupo);
+    });
+
+    const groups = Array.from(groupSet);
+
+    const catOptions = `<option value="all">-- Todas las Categorías --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+
+    showModal('⭐ Añadir Equipo Prioritario', `
+      <form id="formAddPriorityTeamModal">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría / Competición</label>
+            <select id="modalPriorityCat" class="form-control">
+              ${catOptions}
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Grupo</label>
+            <select id="modalPriorityGroup" class="form-control">
+              ${groupOptions}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Seleccionar Equipo en esta Categoría/Grupo</label>
+          <select id="modalPriorityTeamSelect" class="form-control">
+            <option value="">-- Selecciona un equipo --</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-4">
+          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">O Escribir Nombre del Equipo</label>
+          <input type="text" id="modalPriorityTeamCustom" class="form-control" placeholder="Ej: Real Zaragoza Juvenil A">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 800;">
+            <i data-lucide="check"></i> Añadir a Equipos Prioritarios
+          </button>
+        </div>
+      </form>
+    `);
+
+    const catEl = document.getElementById('modalPriorityCat');
+    const groupEl = document.getElementById('modalPriorityGroup');
+    const teamSelectEl = document.getElementById('modalPriorityTeamSelect');
+    const customInputEl = document.getElementById('modalPriorityTeamCustom');
+
+    function updateTeamDropdown() {
+      const selectedCat = catEl.value;
+      const selectedGroup = groupEl.value;
+
+      const teamSet = new Set();
+
+      (state.directory.equipos || []).forEach(e => {
+        const teamName = e.nombre || e.equipo || '';
+        if (!teamName) return;
+
+        const matchesCat = (selectedCat === 'all') || (e.categoria === selectedCat) || (e.competicion === selectedCat) || (e.liga === selectedCat);
+        const matchesGroup = (selectedGroup === 'Todos los Grupos' || !selectedGroup) || (e.grupo === selectedGroup);
+
+        if (matchesCat && matchesGroup) {
+          teamSet.add(teamName);
+        }
+      });
+
+      (state.cartelera?.calendarios || []).forEach(cal => {
+        (cal.partidos || []).forEach(m => {
+          const matchesCat = (selectedCat === 'all') || (m.competicion === selectedCat) || (cal.nombre === selectedCat);
+          if (matchesCat) {
+            if (m.local) teamSet.add(m.local);
+            if (m.visitante) teamSet.add(m.visitante);
+          }
+        });
+      });
+
+      const teamsList = Array.from(teamSet).sort();
+
+      let optionsHtml = `<option value="">-- Selecciona un equipo (${teamsList.length} disponibles) --</option>`;
+      teamsList.forEach(t => {
+        optionsHtml += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
+      });
+
+      teamSelectEl.innerHTML = optionsHtml;
+    }
+
+    catEl.onchange = updateTeamDropdown;
+    groupEl.onchange = updateTeamDropdown;
+    updateTeamDropdown();
+
+    teamSelectEl.onchange = (e) => {
+      if (e.target.value) {
+        customInputEl.value = e.target.value;
+      }
     };
 
-    if (!state.reports) state.reports = [];
-    state.reports.unshift(report);
-    saveState();
+    document.getElementById('formAddPriorityTeamModal').onsubmit = (e) => {
+      e.preventDefault();
+      const teamToAdd = customInputEl.value.trim() || teamSelectEl.value.trim();
+      if (teamToAdd) {
+        if (!state.cartelera) ensureCarteleraState();
+        if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
+        if (!state.cartelera.priorityTeams.includes(teamToAdd)) {
+          state.cartelera.priorityTeams.push(teamToAdd);
+          saveState();
+          renderCartelera();
+        }
+        hideModal();
+      }
+    };
 
-    if (typeof showToast === 'function') {
-      showToast(`⚡ Informe en directo creado: ${match.local} vs ${match.visitante}`);
-    }
-    openMatchReportEditor(report.id);
+    if (window.lucide) window.lucide.createIcons();
   }
 
   function initCarteleraListeners() {
     const btnAddPriority = document.getElementById('btnAddPriorityTeam');
     if (btnAddPriority && !btnAddPriority.dataset.initialized) {
       btnAddPriority.dataset.initialized = 'true';
-      btnAddPriority.onclick = () => {
-        showCustomPromptModal('Añadir Equipo Prioritario', '', (teamName) => {
-          if (teamName && teamName.trim()) {
-            const clean = teamName.trim();
-            if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
-            if (!state.cartelera.priorityTeams.includes(clean)) {
-              state.cartelera.priorityTeams.push(clean);
-              saveState();
-              renderCartelera();
-            }
-          }
-        });
-      };
+      btnAddPriority.onclick = () => openAddPriorityTeamModal();
+    }
+
+    const searchInput = document.getElementById('carteleraSearchInput');
+    if (searchInput && !searchInput.dataset.initialized) {
+      searchInput.dataset.initialized = 'true';
+      searchInput.oninput = () => renderCarteleraMatches();
     }
 
     const calSelect = document.getElementById('carteleraCalendarSelect');
@@ -15259,9 +15453,9 @@
   function initAgendaSubtabs() {
     const subtabsContainer = document.getElementById('agendaSubtabsBar');
     if (!subtabsContainer) return;
-    subtabsContainer.querySelectorAll('.player-subtab').forEach(tab => {
+    subtabsContainer.querySelectorAll('.directory-tab, .player-subtab').forEach(tab => {
       tab.addEventListener('click', () => {
-        subtabsContainer.querySelectorAll('.player-subtab').forEach(t => t.classList.remove('active'));
+        subtabsContainer.querySelectorAll('.directory-tab, .player-subtab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentAgendaSubtab = tab.dataset.agendatab || 'tareas';
         renderAgenda();
@@ -15688,11 +15882,12 @@
     });
   }
 
-  function openNewAgendaTaskModal(defaultDate = null) {
+  function openNewAgendaTaskModal(defaultDate = null, defaultType = null) {
     normalizeAgendaCategories();
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
     const catOptions = state.agendaCategories.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
     const hasExistingCats = state.agendaCategories.length > 0;
+    const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
     showModal('Añadir Tarea / Evento a la Agenda', `
       <form id="newAgendaForm">
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
@@ -15703,8 +15898,8 @@
           <div class="form-group">
             <label class="form-label">Tipo</label>
             <select id="agTipo" class="form-control">
-              <option value="tarea" ${currentAgendaSubtab === 'tareas' ? 'selected' : ''}>📋 Tarea</option>
-              <option value="evento" ${currentAgendaSubtab === 'eventos' ? 'selected' : ''}>📅 Evento</option>
+              <option value="tarea" ${selectedTipo === 'tareas' || selectedTipo === 'tarea' ? 'selected' : ''}>📋 Tarea</option>
+              <option value="evento" ${selectedTipo === 'eventos' || selectedTipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
             </select>
           </div>
         </div>
