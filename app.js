@@ -16458,11 +16458,40 @@
   /**
    * Ventana emergente modal centrada con la estética de la app para pedir texto (remplaza prompt)
    */
+  function ensureSubModalOverlay() {
+    let overlay = document.getElementById('subModalOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'subModalOverlay';
+      overlay.className = 'modal-overlay hidden';
+      overlay.style.cssText = 'z-index: 10000; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; padding: 16px; box-sizing: border-box;';
+
+      const card = document.createElement('div');
+      card.id = 'subModalCard';
+      card.className = 'modal-card';
+      card.style.cssText = 'max-width: 460px; width: 100%; background: var(--bg-card, #ffffff); border-radius: var(--radius-lg, 16px); padding: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-light, #e2e8f0); position: relative; box-sizing: border-box;';
+
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function hideSubModal() {
+    const overlay = document.getElementById('subModalOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+  }
+
   function showCustomPromptModal(title, defaultValue = '', onAccept) {
-    const html = `
-      <div style="text-align: center; padding: 16px 8px;">
-        <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-          <i data-lucide="plus-circle" style="width: 28px; height: 28px;"></i>
+    const overlay = ensureSubModalOverlay();
+    const card = document.getElementById('subModalCard');
+
+    card.innerHTML = `
+      <div style="text-align: center; padding: 10px 4px;">
+        <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+          <i data-lucide="plus-circle" style="width: 26px; height: 26px;"></i>
         </div>
         <h4 style="font-size: 17px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 16px 0;">${escapeHtml(title)}</h4>
         <div class="form-group mb-4" style="text-align: left;">
@@ -16479,14 +16508,7 @@
       </div>
     `;
 
-    showModal(title || 'Nuevo Elemento', html, null);
-
-    const footer = document.querySelector('#generalModalOverlay .modal-footer');
-    if (footer) footer.style.display = 'none';
-
-    const resetFooter = () => {
-      if (footer) footer.style.display = '';
-    };
+    overlay.classList.remove('hidden');
 
     setTimeout(() => {
       const inputEl = document.getElementById('customPromptInput');
@@ -16497,21 +16519,19 @@
 
       const accept = () => {
         const val = document.getElementById('customPromptInput')?.value || '';
-        resetFooter();
-        hideModal();
+        hideSubModal();
         if (onAccept && val.trim()) onAccept(val.trim());
       };
 
       const cancel = () => {
-        resetFooter();
-        hideModal();
+        hideSubModal();
       };
 
       const btnAccept = document.getElementById('btnCustomPromptAccept');
-      if (btnAccept) btnAccept.onclick = (e) => { e.preventDefault(); accept(); };
+      if (btnAccept) btnAccept.onclick = (e) => { e.preventDefault(); e.stopPropagation(); accept(); };
 
       const btnCancel = document.getElementById('btnCustomPromptCancel');
-      if (btnCancel) btnCancel.onclick = (e) => { e.preventDefault(); cancel(); };
+      if (btnCancel) btnCancel.onclick = (e) => { e.preventDefault(); e.stopPropagation(); cancel(); };
 
       const _promptKeyHandler = (e) => {
         if (e.key === 'Enter') {
@@ -16528,65 +16548,11 @@
     }, 50);
   }
 
-  /**
-   * Ventana emergente modal centrada con la estética de la app para confirmar acciones (remplaza confirm)
-   */
-      function showToast(message, type = 'success') {
-    let container = document.getElementById('globalToastContainer');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'globalToastContainer';
-      container.style.position = 'fixed';
-      container.style.bottom = '24px';
-      container.style.right = '24px';
-      container.style.zIndex = '100000';
-      container.style.display = 'flex';
-      container.style.flexDirection = 'column';
-      container.style.gap = '10px';
-      container.style.pointerEvents = 'none';
-      document.body.appendChild(container);
-    }
-
-    const toast = document.createElement('div');
-    toast.style.pointerEvents = 'auto';
-    toast.style.background = type === 'danger' ? '#ef4444' : '#10b981';
-    toast.style.color = '#ffffff';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = '10px';
-    toast.style.fontSize = '14px';
-    toast.style.fontWeight = '700';
-    toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.2)';
-    toast.style.display = 'flex';
-    toast.style.alignItems = 'center';
-    toast.style.gap = '10px';
-    toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-    toast.style.transform = 'translateY(20px)';
-    toast.style.opacity = '0';
-
-    toast.innerHTML = `
-      <i data-lucide="${type === 'danger' ? 'trash-2' : 'check-circle'}" style="width: 18px; height: 18px;"></i>
-      <span>${escapeHtml(message)}</span>
-    `;
-
-    container.appendChild(toast);
-    if (window.lucide) window.lucide.createIcons();
-
-    requestAnimationFrame(() => {
-      toast.style.transform = 'translateY(0)';
-      toast.style.opacity = '1';
-    });
-
-    setTimeout(() => {
-      toast.style.transform = 'translateY(-10px)';
-      toast.style.opacity = '0';
-      setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 300);
-    }, 2500);
-  }
-
   function showCustomConfirmModal(title, message, onConfirm) {
-    const html = `
+    const overlay = ensureSubModalOverlay();
+    const card = document.getElementById('subModalCard');
+
+    card.innerHTML = `
       <div style="text-align: center; padding: 12px 6px;">
         <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); color: #ef4444; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
           <i data-lucide="alert-triangle" style="width: 26px; height: 26px;"></i>
@@ -16604,16 +16570,7 @@
       </div>
     `;
 
-    showModal('Confirmación del Sistema', html, null);
-
-    const footer = document.querySelector('#generalModalOverlay .modal-footer');
-    if (footer) {
-      footer.style.display = 'none';
-    }
-
-    const resetFooter = () => {
-      if (footer) footer.style.display = '';
-    };
+    overlay.classList.remove('hidden');
 
     const confirmBtn = document.getElementById('btnCustomConfirmOk');
     const cancelBtn = document.getElementById('btnCustomConfirmCancel');
@@ -16622,8 +16579,7 @@
       confirmBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        resetFooter();
-        hideModal();
+        hideSubModal();
         if (onConfirm) onConfirm();
       };
     }
@@ -16632,47 +16588,68 @@
       cancelBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        resetFooter();
-        hideModal();
+        hideSubModal();
       };
     }
 
-    // Allow Enter to confirm and Escape to cancel
     const _confirmKeyHandler = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         document.removeEventListener('keydown', _confirmKeyHandler);
-        resetFooter();
-        hideModal();
+        hideSubModal();
         if (onConfirm) onConfirm();
       } else if (e.key === 'Escape') {
         document.removeEventListener('keydown', _confirmKeyHandler);
-        resetFooter();
-        hideModal();
+        hideSubModal();
       }
     };
     document.addEventListener('keydown', _confirmKeyHandler);
+    if (window.lucide) window.lucide.createIcons();
   }
 
-  // Sobrescribir avisos del sistema (alerts) para mostrarlos siempre en ventanas emergentes centradas
-  window.alert = function (message) {
-    const alertModalHTML = `
+  function showCustomAlertModal(title, message) {
+    const overlay = ensureSubModalOverlay();
+    const card = document.getElementById('subModalCard');
+
+    card.innerHTML = `
       <div style="text-align: center; padding: 12px 6px;">
         <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
           <i data-lucide="info" style="width: 30px; height: 30px;"></i>
         </div>
-        <p style="font-size: 15px; font-weight: 700; color: var(--text-main, #1e293b); line-height: 1.5; margin: 0 0 24px 0;">
-          ${escapeHtml(String(message))}
+        <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 8px 0;">${escapeHtml(title || 'Aviso del Sistema')}</h4>
+        <p style="font-size: 14px; font-weight: 700; color: var(--text-muted, #64748b); line-height: 1.5; margin: 0 0 24px 0;">
+          ${escapeHtml(String(message || ''))}
         </p>
         <button type="button" class="btn btn-primary" id="btnCustomAlertOk" style="min-width: 140px; font-weight: 800; padding: 10px 24px; border-radius: var(--radius-pill);">
           Entendido
         </button>
       </div>
     `;
-    showModal('Aviso del Sistema', alertModalHTML, null);
-    setTimeout(() => {
-      document.getElementById('btnCustomAlertOk')?.addEventListener('click', hideModal);
-    }, 50);
+
+    overlay.classList.remove('hidden');
+
+    const btnOk = document.getElementById('btnCustomAlertOk');
+    if (btnOk) {
+      btnOk.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        hideSubModal();
+      };
+    }
+
+    const _alertKeyHandler = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        document.removeEventListener('keydown', _alertKeyHandler);
+        hideSubModal();
+      }
+    };
+    document.addEventListener('keydown', _alertKeyHandler);
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  window.alert = function (message) {
+    showCustomAlertModal('Aviso del Sistema', message);
   };
 
   // Utility HTML Escape
