@@ -748,12 +748,20 @@
   // 3.5 SECTION 0: DASHBOARD
   // --------------------------------------------------------------------------
   function renderDashboard() {
-    // 1. Update Current Date Display
+    // 1. Update Current Date & Time Display
     const dateDisplay = document.getElementById('dashboardDateDisplay');
     if (dateDisplay) {
-      const now = new Date();
-      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-      dateDisplay.textContent = now.toLocaleDateString('es-ES', options);
+      const updateClock = () => {
+        const now = new Date();
+        const dateOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+        const dateStr = now.toLocaleDateString('es-ES', dateOptions);
+        const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+        dateDisplay.textContent = `${formattedDate} • ${timeStr}`;
+      };
+      updateClock();
+      if (window._dashboardClockInterval) clearInterval(window._dashboardClockInterval);
+      window._dashboardClockInterval = setInterval(updateClock, 1000);
     }
 
     // 2. Metrics (KPIs)
