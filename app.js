@@ -204,11 +204,30 @@
     }
   }
 
+  const APP_NAME_STORAGE_KEY = 'RS_SCOUTING_APP_NAME';
+
+  function updateAppNameUI(name) {
+    const currentName = name || (typeof state !== 'undefined' && state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem(APP_NAME_STORAGE_KEY); } catch(e){} })() || 'RS Scouting';
+    document.querySelectorAll('#appBrandName, .app-brand-name').forEach(el => {
+      el.textContent = currentName;
+    });
+    const configInput = document.getElementById('configAppNameInput');
+    if (configInput && configInput.value !== currentName) {
+      configInput.value = currentName;
+    }
+  }
+
   function loadState() {
+    let savedAppName = 'RS Scouting';
     try {
+      savedAppName = localStorage.getItem(APP_NAME_STORAGE_KEY) || 'RS Scouting';
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
-    return JSON.parse(JSON.stringify(DEFAULT_INITIAL_STATE));
+
+    const initialState = JSON.parse(JSON.stringify(DEFAULT_INITIAL_STATE));
+    if (!initialState.settings) initialState.settings = {};
+    initialState.settings.appName = savedAppName;
+    return initialState;
   }
 
   let state = loadState();
@@ -219,6 +238,9 @@
   function saveState() {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      if (state && state.settings && state.settings.appName) {
+        localStorage.setItem(APP_NAME_STORAGE_KEY, state.settings.appName);
+      }
     } catch (e) {}
 
     if (!db) return;
@@ -408,6 +430,13 @@
 
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
+          if (configData.appName) {
+            state.settings.appName = configData.appName;
+            try {
+              localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName);
+            } catch (e) {}
+            updateAppNameUI(configData.appName);
+          }
           if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) {
             state.favColumns = configData.favColumns;
           }
@@ -1339,12 +1368,12 @@
       });
       container.querySelectorAll('.btn-delete-report').forEach(btn => {
         btn.addEventListener('click', () => {
-          if (confirm('¿Eliminar este informe de partido?')) {
+          showCustomConfirmModal('Eliminar Informe', '¿Deseas eliminar este informe de partido definitivamente?', () => {
             deleteFromFirebase('reports', btn.dataset.repid);
             state.reports = state.reports.filter(r => r.id !== btn.dataset.repid);
             saveState();
             renderPartidosList();
-          }
+          });
         });
       });
     }
@@ -3958,23 +3987,23 @@
     // Handle creation of new custom localidad
     locSelect?.addEventListener('change', (e) => {
       if (e.target.value === '__NEW_LOCALIDAD__') {
-        const newLocName = prompt('Introduce el nombre de la nueva localidad:');
-        if (newLocName && newLocName.trim()) {
-          const trimmed = newLocName.trim();
-          if (!state.customLocalidades) state.customLocalidades = [];
-          if (!state.customLocalidades.includes(trimmed)) {
-            state.customLocalidades.push(trimmed);
-            saveState();
+        locSelect.value = '';
+        showCustomPromptModal('Añadir Nueva Localidad', '', (newLocName) => {
+          if (newLocName && newLocName.trim()) {
+            const trimmed = newLocName.trim();
+            if (!state.customLocalidades) state.customLocalidades = [];
+            if (!state.customLocalidades.includes(trimmed)) {
+              state.customLocalidades.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            locSelect.insertBefore(opt, locSelect.lastElementChild);
+            locSelect.value = trimmed;
           }
-          const opt = document.createElement('option');
-          opt.value = trimmed;
-          opt.textContent = trimmed;
-          opt.selected = true;
-          locSelect.insertBefore(opt, locSelect.lastElementChild);
-          locSelect.value = trimmed;
-        } else {
-          locSelect.value = '';
-        }
+        });
       }
     });
 
@@ -4700,24 +4729,30 @@
       }
 
       // 3. Sync to target Club for Convenios & Patrocinios
-      const syncClubToClub = (targetClubName, targetField) => {
-        if (!targetClubName || !state.directory.clubes) return;
-        let targetC = state.directory.clubes.find(c => 
-          (c.nombre && c.nombre.toLowerCase() === targetClubName.toLowerCase()) ||
-          (c.equipo && c.equipo.toLowerCase() === targetClubName.toLowerCase())
-        );
-        if (!targetC) {
-          targetC = {
-            id: 'c_' + Date.now() + Math.floor(Math.random()*100),
-            nombre: targetClubName,
-            equipo: targetClubName
-          };
-          state.directory.clubes.unshift(targetC);
+      const syncClubToClub = (targetClubNames, targetField) => {
+        if (!targetClubNames || !state.directory.clubes) return;
+
+        let namesArr = [];
+        if (Array.isArray(targetClubNames)) {
+          namesArr = targetClubNames.map(s => typeof s === 'string' ? s : (s.nombre || s.equipo || '')).filter(Boolean);
+        } else if (typeof targetClubNames === 'string') {
+          namesArr = targetClubNames.split(',').map(s => s.trim()).filter(Boolean);
         }
-        if (!targetC[targetField]) targetC[targetField] = '';
-        if (!targetC[targetField].toLowerCase().includes(nameVal.toLowerCase())) {
-          targetC[targetField] = targetC[targetField] ? `${targetC[targetField]}, ${nameVal}` : nameVal;
-        }
+
+        namesArr.forEach(targetClubName => {
+          if (!targetClubName) return;
+          let targetC = state.directory.clubes.find(c => 
+            (c.nombre && c.nombre.toLowerCase() === targetClubName.toLowerCase()) ||
+            (c.equipo && c.equipo.toLowerCase() === targetClubName.toLowerCase())
+          );
+          // DO NOT create a new club if it does not exist
+          if (!targetC) return;
+
+          if (!targetC[targetField]) targetC[targetField] = '';
+          if (!targetC[targetField].toLowerCase().includes(nameVal.toLowerCase())) {
+            targetC[targetField] = targetC[targetField] ? `${targetC[targetField]}, ${nameVal}` : nameVal;
+          }
+        });
       };
 
       syncClubToClub(convDeVal, 'convenidosVinculados');
@@ -5092,23 +5127,23 @@
 
     clubLocSelect?.addEventListener('change', (e) => {
       if (e.target.value === '__NEW_LOCALIDAD__') {
-        const newLocName = prompt('Introduce el nombre de la nueva localidad:');
-        if (newLocName && newLocName.trim()) {
-          const trimmed = newLocName.trim();
-          if (!state.customLocalidades) state.customLocalidades = [];
-          if (!state.customLocalidades.includes(trimmed)) {
-            state.customLocalidades.push(trimmed);
-            saveState();
+        clubLocSelect.value = '';
+        showCustomPromptModal('Añadir Nueva Localidad', '', (newLocName) => {
+          if (newLocName && newLocName.trim()) {
+            const trimmed = newLocName.trim();
+            if (!state.customLocalidades) state.customLocalidades = [];
+            if (!state.customLocalidades.includes(trimmed)) {
+              state.customLocalidades.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            clubLocSelect.insertBefore(opt, clubLocSelect.lastElementChild);
+            clubLocSelect.value = trimmed;
           }
-          const opt = document.createElement('option');
-          opt.value = trimmed;
-          opt.textContent = trimmed;
-          opt.selected = true;
-          clubLocSelect.insertBefore(opt, clubLocSelect.lastElementChild);
-          clubLocSelect.value = trimmed;
-        } else {
-          clubLocSelect.value = '';
-        }
+        });
       }
     });
 
@@ -5815,23 +5850,23 @@
     const compSelect = document.getElementById('tfCompeticion');
     compSelect?.addEventListener('change', (e) => {
       if (e.target.value === '__NEW_COMPETICION__') {
-        const newComp = prompt('Introduce el nombre de la nueva competición:');
-        if (newComp && newComp.trim()) {
-          const trimmed = newComp.trim();
-          if (!state.customCompeticiones) state.customCompeticiones = ['Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
-          if (!state.customCompeticiones.includes(trimmed)) {
-            state.customCompeticiones.push(trimmed);
-            saveState();
+        compSelect.value = '';
+        showCustomPromptModal('Añadir Nueva Competición', '', (newComp) => {
+          if (newComp && newComp.trim()) {
+            const trimmed = newComp.trim();
+            if (!state.customCompeticiones) state.customCompeticiones = ['Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+            if (!state.customCompeticiones.includes(trimmed)) {
+              state.customCompeticiones.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            compSelect.insertBefore(opt, compSelect.lastElementChild);
+            compSelect.value = trimmed;
           }
-          const opt = document.createElement('option');
-          opt.value = trimmed;
-          opt.textContent = trimmed;
-          opt.selected = true;
-          compSelect.insertBefore(opt, compSelect.lastElementChild);
-          compSelect.value = trimmed;
-        } else {
-          compSelect.value = '';
-        }
+        });
       }
     });
 
@@ -5839,23 +5874,23 @@
     const tornSelect = document.getElementById('tfTorneo');
     tornSelect?.addEventListener('change', (e) => {
       if (e.target.value === '__NEW_TORNEO__') {
-        const newTorn = prompt('Introduce el nombre del nuevo torneo:');
-        if (newTorn && newTorn.trim()) {
-          const trimmed = newTorn.trim();
-          if (!state.customTorneos) state.customTorneos = ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico'];
-          if (!state.customTorneos.includes(trimmed)) {
-            state.customTorneos.push(trimmed);
-            saveState();
+        tornSelect.value = '';
+        showCustomPromptModal('Añadir Nuevo Torneo', '', (newTorn) => {
+          if (newTorn && newTorn.trim()) {
+            const trimmed = newTorn.trim();
+            if (!state.customTorneos) state.customTorneos = ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico'];
+            if (!state.customTorneos.includes(trimmed)) {
+              state.customTorneos.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            tornSelect.insertBefore(opt, tornSelect.lastElementChild);
+            tornSelect.value = trimmed;
           }
-          const opt = document.createElement('option');
-          opt.value = trimmed;
-          opt.textContent = trimmed;
-          opt.selected = true;
-          tornSelect.insertBefore(opt, tornSelect.lastElementChild);
-          tornSelect.value = trimmed;
-        } else {
-          tornSelect.value = '';
-        }
+        });
       }
     });
 
@@ -10580,6 +10615,12 @@
         const normName = String(club.nombre || club.equipo || '').toLowerCase().trim();
         if (!normName) return;
 
+        // Filter out phantom concatenated clubs (e.g. "Zaragoza-Racing Club, UD Montecarlo")
+        if (normName.includes(',') || normName.includes(';')) {
+          if (club.id) duplicateClubIds.add(String(club.id));
+          return;
+        }
+
         if (!clubMap.has(normName)) {
           clubMap.set(normName, club);
           uniqueClubes.push(club);
@@ -14654,14 +14695,14 @@
 
       modalBody.querySelectorAll('.btn-delete-archived-task').forEach(btn => {
         btn.addEventListener('click', () => {
-          if (confirm('¿Eliminar esta tarea definitivamente?')) {
+          showCustomConfirmModal('Eliminar Tarea', '¿Deseas eliminar esta tarea definitivamente?', () => {
             deleteFromFirebase('agenda', btn.dataset.id);
             state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
             saveState();
             renderAgenda();
             renderCalendario();
             openAgendaArchiveModal();
-          }
+          });
         });
       });
     }
@@ -14726,12 +14767,12 @@
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const catId = btn.dataset.id;
-          if (confirm('¿Eliminar esta categoría de la agenda?')) {
+          showCustomConfirmModal('Eliminar Categoría', '¿Deseas eliminar esta categoría de la agenda?', () => {
             state.agendaCategories = state.agendaCategories.filter(c => c.id !== catId);
             if (currentAgendaCat === catId) currentAgendaCat = 'all';
             saveState();
             renderAgenda();
-          }
+          });
         });
       });
     }
@@ -14740,19 +14781,20 @@
     if (btnAddNewCat && !btnAddNewCat.dataset.initialized) {
       btnAddNewCat.dataset.initialized = 'true';
       btnAddNewCat.addEventListener('click', () => {
-        const name = prompt('Nombre de la nueva categoría para la Agenda:');
-        if (name && name.trim()) {
-          const cleanName = name.trim();
-          const newId = 'cat_' + Date.now();
-          state.agendaCategories.push({
-            id: newId,
-            label: cleanName,
-            icon: 'bookmark'
-          });
-          currentAgendaCat = newId;
-          saveState();
-          renderAgenda();
-        }
+        showCustomPromptModal('Nueva Categoría para la Agenda', '', (name) => {
+          if (name && name.trim()) {
+            const cleanName = name.trim();
+            const newId = 'cat_' + Date.now();
+            state.agendaCategories.push({
+              id: newId,
+              label: cleanName,
+              icon: 'bookmark'
+            });
+            currentAgendaCat = newId;
+            saveState();
+            renderAgenda();
+          }
+        });
       });
     }
 
@@ -14992,14 +15034,14 @@
     });
 
     document.getElementById('btnDetailDeleteTask')?.addEventListener('click', () => {
-      if (confirm('¿Eliminar esta tarea de la agenda?')) {
+      showCustomConfirmModal('Eliminar Tarea', '¿Deseas eliminar esta tarea de la agenda?', () => {
         deleteFromFirebase('agenda', task.id);
         state.agenda = state.agenda.filter(i => i.id !== task.id);
         saveState();
         hideModal();
         renderAgenda();
         renderCalendario();
-      }
+      });
     });
 
     if (window.lucide) window.lucide.createIcons();
@@ -15904,13 +15946,13 @@
     });
 
     document.getElementById('btnModalDeleteLink')?.addEventListener('click', () => {
-      if (confirm('¿Deseas eliminar este enlace?')) {
+      showCustomConfirmModal('Eliminar Enlace', '¿Deseas eliminar este enlace definitivamente?', () => {
         deleteFromFirebase('enlaces', link.id);
         state.links = state.links.filter(l => l.id !== link.id);
         saveState();
         hideModal();
         renderEnlaces();
-      }
+      });
     });
   }
 
@@ -16158,8 +16200,10 @@
   // 10. SECTION 7: CONFIGURACIÓN & BACKUP JSON
   // --------------------------------------------------------------------------
   function renderConfiguracion() {
-    document.getElementById('configAppNameInput').value = state.settings.appName || 'RS Scouting';
-    setTheme(state.settings.theme || 'light');
+    const savedName = (state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem('RS_SCOUTING_APP_NAME'); } catch(e){} })() || 'RS Scouting';
+    const input = document.getElementById('configAppNameInput');
+    if (input) input.value = savedName;
+    setTheme((state && state.settings && state.settings.theme) || 'light');
   }
 
   document.querySelectorAll('.btn-theme').forEach(btn => {
@@ -16179,11 +16223,21 @@
     });
   }
 
-  document.getElementById('configAppNameInput')?.addEventListener('change', (e) => {
-    state.settings.appName = e.target.value;
-    document.getElementById('appBrandName').textContent = e.target.value;
-    saveState();
-  });
+  const configInputEl = document.getElementById('configAppNameInput');
+  if (configInputEl) {
+    const handleAppNameChange = (e) => {
+      const val = e.target.value.trim() || 'RS Scouting';
+      if (!state.settings) state.settings = {};
+      state.settings.appName = val;
+      try {
+        localStorage.setItem('RS_SCOUTING_APP_NAME', val);
+      } catch (err) {}
+      updateAppNameUI(val);
+      saveState();
+    };
+    configInputEl.addEventListener('input', handleAppNameChange);
+    configInputEl.addEventListener('change', handleAppNameChange);
+  }
 
   // Helper de Exportación JSON seguro usando Blob
   function exportBackupJSON() {
@@ -16221,17 +16275,14 @@
       try {
         const imported = JSON.parse(event.target.result);
         if (imported && typeof imported === 'object') {
-          if (confirm('⚠️ ¿Deseas restaurar esta copia de seguridad?\n\nSe actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.')) {
+          showCustomConfirmModal('Restaurar Copia de Seguridad', 'Se actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.', () => {
             state = imported;
             saveState();
-            if (db) {
-              // no auto re-upload
-            }
             if (typeof renderAllViews === 'function') {
               renderAllViews();
             }
             alert('📂 ¡Copia de seguridad restaurada correctamente y sincronizada con Firebase!');
-          }
+          });
         } else {
           alert('El archivo JSON no tiene el formato adecuado.');
         }
@@ -16294,8 +16345,8 @@
   }
 
   // Clear All Data
-  document.getElementById('btnClearAllData')?.addEventListener('click', async () => {
-    if (confirm('⚠️ ¿Estás seguro de que deseas BORRAR TODOS LOS DATOS de la aplicación y de FIREBASE?\n\nEsta acción eliminará de forma PERMANENTE todos los partidos, informes técnicos, jugadores, clubes, equipos, staff, estadios, agenda y enlaces de TODOS los sitios (local y nube) para empezar 100% desde cero.')) {
+  document.getElementById('btnClearAllData')?.addEventListener('click', () => {
+    showCustomConfirmModal('Borrar Todos los Datos', 'Esta acción eliminará de forma PERMANENTE todos los partidos, informes técnicos, jugadores, clubes, equipos, staff, estadios, agenda y enlaces. ¿Continuar?', async () => {
       if (db) {
         try {
           await clearAllFirebaseData();
@@ -16330,16 +16381,16 @@
       saveState();
       alert('✓ Todos los datos han sido borrados de la aplicación y de Firebase Firestore. El sistema está 100% limpio.');
       window.location.reload();
-    }
+    });
   });
 
   // Reset Sample Data
   document.getElementById('btnResetSampleData')?.addEventListener('click', () => {
-    if (confirm('¿Cargar datos de ejemplo iniciales? Esto restaurará la demo predeterminada.')) {
+    showCustomConfirmModal('Restaurar Demo', '¿Cargar datos de ejemplo iniciales? Esto restaurará la demo predeterminada.', () => {
       state = JSON.parse(JSON.stringify(DEFAULT_INITIAL_STATE));
       saveState();
       window.location.reload();
-    }
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -16752,10 +16803,8 @@
     setupInputClearButtons();
     
     // Apply saved brand name & theme
-    if (state.settings.appName) {
-      document.getElementById('appBrandName').textContent = state.settings.appName;
-    }
-    setTheme(state.settings.theme || 'light');
+    updateAppNameUI();
+    setTheme((state && state.settings && state.settings.theme) || 'light');
 
     // Initial view render
     renderView('dashboard');
