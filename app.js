@@ -420,22 +420,21 @@
         console.log(`🔥 Se obtuvieron ${totalItemsCloud} registros desde Firebase Cloud Firestore`);
 
         state.directory = state.directory || {};
-        state.directory.jugadores = jugadores || [];
-        state.players = [];
-        state.directory.clubes = clubes;
-        state.directory.equipos = equipos;
-        state.directory.federaciones = federaciones;
-        state.directory.selecciones = selecciones;
-        state.directory.convocatorias = convocatorias;
-        state.directory.torneos = torneos;
-        state.directory.staff = staff;
-        state.directory.agencias = agencias;
-        state.directory.agentes = agentes;
-        state.directory.estadios = estadios;
+        if (Array.isArray(jugadores) && jugadores.length > 0) state.directory.jugadores = jugadores;
+        if (Array.isArray(clubes) && clubes.length > 0) state.directory.clubes = clubes;
+        if (Array.isArray(equipos) && equipos.length > 0) state.directory.equipos = equipos;
+        if (Array.isArray(federaciones) && federaciones.length > 0) state.directory.federaciones = federaciones;
+        if (Array.isArray(selecciones) && selecciones.length > 0) state.directory.selecciones = selecciones;
+        if (Array.isArray(convocatorias) && convocatorias.length > 0) state.directory.convocatorias = convocatorias;
+        if (Array.isArray(torneos) && torneos.length > 0) state.directory.torneos = torneos;
+        if (Array.isArray(staff) && staff.length > 0) state.directory.staff = staff;
+        if (Array.isArray(agencias) && agencias.length > 0) state.directory.agencias = agencias;
+        if (Array.isArray(agentes) && agentes.length > 0) state.directory.agentes = agentes;
+        if (Array.isArray(estadios) && estadios.length > 0) state.directory.estadios = estadios;
 
-        state.matches = partidos;
-        state.reports = informes;
-        state.agenda = agenda;
+        state.matches = (Array.isArray(partidos) && partidos.length > 0) ? partidos : (state.matches || []);
+        state.reports = (Array.isArray(informes) && informes.length > 0) ? informes : (state.reports || []);
+        state.agenda = (Array.isArray(agenda) && agenda.length > 0) ? agenda : (state.agenda || []);
         if (Array.isArray(agendaCategories) && agendaCategories.length > 0) {
           state.agendaCategories = agendaCategories;
         } else if (configData && Array.isArray(configData.agendaCategories) && configData.agendaCategories.length > 0) {
@@ -444,7 +443,7 @@
         if (configData && configData.cartelera) {
           state.cartelera = configData.cartelera;
         }
-        state.links = enlaces;
+        state.links = (Array.isArray(enlaces) && enlaces.length > 0) ? enlaces : (state.links || []);
 
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
@@ -464,89 +463,65 @@
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
-          if (configData.clubesNavarraSeeded) {
-            state.directory.clubesNavarraSeeded = true;
-          }
-          if (configData.federacionesSeeded) {
-            state.directory.federacionesSeeded = true;
-          }
-          // Restore seeding flags so seeding functions don't re-run after reload
-          if (configData.clubesAragonSeeded) {
-            state.directory.clubesAragonSeeded = true;
-          }
-          if (configData.equiposAragonSeeded) {
-            state.directory.equiposAragonSeeded = true;
-          }
-          if (configData.federacionesSeleccionesSeeded) {
-            state.directory.federacionesSeleccionesSeeded = true;
-          }
-          if (Array.isArray(configData.directoryFederationsOrder)) {
-            state.directoryFederationsOrder = configData.directoryFederationsOrder;
-          }
-          if (Array.isArray(configData.directoryCategoriesOrder)) {
-            state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
-          }
-          // Restore deletion tombstones so seeding functions don't re-create deleted items
-          if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') {
-            state.deletedTombstones = configData.deletedTombstones;
-          }
-          if (configData.federacionesClubsMigrated) {
-            state.directory.federacionesClubsMigrated = true;
-          }
-          if (configData.aragonWiped) {
-            state.directory.aragonWiped = true;
-          }
-          if (configData.navarraLnjSeeded) {
-            state.directory.navarraLnjSeeded = true;
-          }
-          if (configData.navarraTerceraSeeded) {
-            state.directory.navarraTerceraSeeded = true;
-          }
-          if (configData.navarraAutonomicaSeeded) {
-            state.directory.navarraAutonomicaSeeded = true;
-          }
-          if (configData.navarraPrimeraAutonomicaJuvenilSeeded) {
-            state.directory.navarraPrimeraAutonomicaJuvenilSeeded = true;
-          }
-          if (configData.navarraRegionalPreferenteSeeded) {
-            state.directory.navarraRegionalPreferenteSeeded = true;
-          }
-          if (configData.navarraRegionalPreferenteG2Seeded) {
-            state.directory.navarraRegionalPreferenteG2Seeded = true;
-          }
-          if (configData.navarraLigaCadeteSeeded) {
-            state.directory.navarraLigaCadeteSeeded = true;
-          }
-          if (configData.navarraPrimeraAutonomicaCadeteSeeded) {
-            state.directory.navarraPrimeraAutonomicaCadeteSeeded = true;
-          }
-          if (configData.navarraPrimeraRegionalG1Seeded) {
-            state.directory.navarraPrimeraRegionalG1Seeded = true;
-          }
-          if (configData.navarraPrimeraRegionalG2Seeded) {
-            state.directory.navarraPrimeraRegionalG2Seeded = true;
-          }
-          if (configData.navarraPrimeraRegionalG3Seeded) {
-            state.directory.navarraPrimeraRegionalG3Seeded = true;
-          }
-          if (configData.navarraPrimeraRegionalG4Seeded) {
-            state.directory.navarraPrimeraRegionalG4Seeded = true;
-          }
-          if (configData.navarraPrimeraRegionalG5Seeded) {
-            state.directory.navarraPrimeraRegionalG5Seeded = true;
-          }
-          if (configData.dhjGroup3Seeded) {
-            state.directory.dhjGroup3Seeded = true;
-          }
-          if (configData.dhjGroup2Seeded) {
-            state.directory.dhjGroup2Seeded = true;
-          }
+          if (configData.clubesNavarraSeeded) state.directory.clubesNavarraSeeded = true;
+          if (configData.federacionesSeeded) state.directory.federacionesSeeded = true;
+          if (configData.clubesAragonSeeded) state.directory.clubesAragonSeeded = true;
+          if (configData.equiposAragonSeeded) state.directory.equiposAragonSeeded = true;
+          if (configData.federacionesSeleccionesSeeded) state.directory.federacionesSeleccionesSeeded = true;
+          if (Array.isArray(configData.directoryFederationsOrder)) state.directoryFederationsOrder = configData.directoryFederationsOrder;
+          if (Array.isArray(configData.directoryCategoriesOrder)) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') state.deletedTombstones = configData.deletedTombstones;
+          if (configData.federacionesClubsMigrated) state.directory.federacionesClubsMigrated = true;
+          if (configData.aragonWiped) state.directory.aragonWiped = true;
+          if (configData.navarraLnjSeeded) state.directory.navarraLnjSeeded = true;
+          if (configData.navarraTerceraSeeded) state.directory.navarraTerceraSeeded = true;
+          if (configData.navarraAutonomicaSeeded) state.directory.navarraAutonomicaSeeded = true;
+          if (configData.navarraPrimeraAutonomicaJuvenilSeeded) state.directory.navarraPrimeraAutonomicaJuvenilSeeded = true;
+          if (configData.navarraRegionalPreferenteSeeded) state.directory.navarraRegionalPreferenteSeeded = true;
+          if (configData.navarraRegionalPreferenteG2Seeded) state.directory.navarraRegionalPreferenteG2Seeded = true;
+          if (configData.navarraLigaCadeteSeeded) state.directory.navarraLigaCadeteSeeded = true;
+          if (configData.navarraPrimeraAutonomicaCadeteSeeded) state.directory.navarraPrimeraAutonomicaCadeteSeeded = true;
+          if (configData.navarraPrimeraRegionalG1Seeded) state.directory.navarraPrimeraRegionalG1Seeded = true;
+          if (configData.navarraPrimeraRegionalG2Seeded) state.directory.navarraPrimeraRegionalG2Seeded = true;
+          if (configData.navarraPrimeraRegionalG3Seeded) state.directory.navarraPrimeraRegionalG3Seeded = true;
+          if (configData.navarraPrimeraRegionalG4Seeded) state.directory.navarraPrimeraRegionalG4Seeded = true;
+          if (configData.navarraPrimeraRegionalG5Seeded) state.directory.navarraPrimeraRegionalG5Seeded = true;
+          if (configData.dhjGroup3Seeded) state.directory.dhjGroup3Seeded = true;
+          if (configData.dhjGroup2Seeded) state.directory.dhjGroup2Seeded = true;
+        }
+
+        // If directory collections are empty, reset seed flags to force complete re-seeding
+        const hasEquipos = (state.directory.equipos && state.directory.equipos.length > 0);
+        const hasClubes = (state.directory.clubes && state.directory.clubes.length > 0);
+        const hasFederaciones = (state.directory.federaciones && state.directory.federaciones.length > 0);
+
+        if (!hasEquipos || !hasClubes || !hasFederaciones) {
+          console.log('🌱 Reseteando flags de inicialización para repoblar el Directorio...');
+          state.directory.clubesNavarraSeeded = false;
+          state.directory.federacionesSeeded = false;
+          state.directory.clubesAragonSeeded = false;
+          state.directory.equiposAragonSeeded = false;
+          state.directory.federacionesSeleccionesSeeded = false;
+          state.directory.navarraLnjSeeded = false;
+          state.directory.navarraTerceraSeeded = false;
+          state.directory.navarraAutonomicaSeeded = false;
+          state.directory.navarraPrimeraAutonomicaJuvenilSeeded = false;
+          state.directory.navarraRegionalPreferenteSeeded = false;
+          state.directory.navarraRegionalPreferenteG2Seeded = false;
+          state.directory.navarraLigaCadeteSeeded = false;
+          state.directory.navarraPrimeraAutonomicaCadeteSeeded = false;
+          state.directory.navarraPrimeraRegionalG1Seeded = false;
+          state.directory.navarraPrimeraRegionalG2Seeded = false;
+          state.directory.navarraPrimeraRegionalG3Seeded = false;
+          state.directory.navarraPrimeraRegionalG4Seeded = false;
+          state.directory.navarraPrimeraRegionalG5Seeded = false;
+          state.directory.dhjGroup3Seeded = false;
+          state.directory.dhjGroup2Seeded = false;
         }
 
         setFirebaseHeaderStatus('synced');
         
-        // Run one-time migrations and cleanup immediately after loading data
-        if (typeof wipeAragonData === 'function') // wipeAragonData();
+        // Run seeding and migrations to ensure directory is completely populated
         if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
         if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
         if (typeof seedNavarraTerceraRFEFTeams === 'function') seedNavarraTerceraRFEFTeams();
@@ -563,7 +538,13 @@
         if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
         if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
         if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
+        if (typeof ensureFederacionesSeleccionesSeeded === 'function') ensureFederacionesSeleccionesSeeded();
         if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
+
+        // Sync populated directory back to Firebase so cloud has full copy
+        if (!hasEquipos || !hasClubes || !hasFederaciones) {
+          syncAllToFirebase(false);
+        }
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -571,9 +552,6 @@
         return true;
       } else {
         console.log('ℹ️ Firebase no contiene colecciones de datos. Sincronizando estado local inicial a Firebase...');
-        if (state.directory) state.directory.jugadores = [];
-        state.players = [];
-        // no auto re-upload
         return false;
       }
     } catch (err) {
@@ -16287,12 +16265,22 @@
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
           <div class="form-group">
-            <label class="form-label">Categoría</label>
-            <select id="agCat" class="form-control mb-2">
-              ${catOptions}
-              <option value="__custom__">+ Crear Nueva Categoría...</option>
-            </select>
-            <input type="text" id="agCatCustom" class="form-control hidden" placeholder="Nombre de la categoría">
+            <label class="form-label" style="font-weight: 700;">Categoría</label>
+            <div style="display: flex; gap: 6px;">
+              <select id="agCat" class="form-control" style="flex: 1;">
+                ${catOptions}
+                <option value="__custom__">+ Crear Nueva Categoría...</option>
+              </select>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAgCatInlineNew" title="Crear nueva categoría" style="padding: 0 10px; font-weight: 800; font-size: 11px; white-space: nowrap; background: var(--bg-subtle, #f1f5f9);">
+                + Nueva
+              </button>
+            </div>
+            <div id="agCatInlineBox" class="mt-2 hidden" style="display: flex; gap: 6px;">
+              <input type="text" id="agCatCustom" class="form-control" placeholder="Nombre de categoría..." style="font-size: 12px; height: 34px;">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAgCatInlineSave" style="padding: 0 12px; font-weight: 800; font-size: 11px; white-space: nowrap; background: var(--primary-blue, #2563eb); color: white; height: 34px;">
+                Crear
+              </button>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Estado</label>
@@ -16325,11 +16313,10 @@
       if (catValue === '__custom__' || customValue) {
         if (!customValue) {
           alert('Por favor escribe el nombre para la nueva categoría.');
+          const inlineBox = document.getElementById('agCatInlineBox');
           const custInput = document.getElementById('agCatCustom');
-          if (custInput) {
-            custInput.classList.remove('hidden');
-            custInput.focus();
-          }
+          if (inlineBox) inlineBox.classList.remove('hidden');
+          if (custInput) custInput.focus();
           return false;
         }
 
@@ -16338,7 +16325,9 @@
           catValue = existing.id;
         } else {
           const newId = 'cat_' + Date.now();
-          state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
+          const newCatObj = { id: newId, label: customValue, icon: 'bookmark' };
+          state.agendaCategories.push(newCatObj);
+          saveToFirebase('agendaCategories', newCatObj);
           catValue = newId;
         }
       } else if (!catValue) {
@@ -16347,10 +16336,13 @@
           catValue = defaultCat.id;
         } else {
           const defaultId = 'cat_' + Date.now();
-          state.agendaCategories.push({ id: defaultId, label: 'General', icon: 'bookmark' });
+          const defaultCatObj = { id: defaultId, label: 'General', icon: 'bookmark' };
+          state.agendaCategories.push(defaultCatObj);
+          saveToFirebase('agendaCategories', defaultCatObj);
           catValue = defaultId;
         }
       }
+
       const estadoVal = document.getElementById('agEstado').value;
       const newTask = {
         id: 'ag_' + Date.now(),
@@ -16380,13 +16372,74 @@
 
     const agCatSel = document.getElementById('agCat');
     const agCatCust = document.getElementById('agCatCustom');
-    if (agCatSel && agCatCust) {
+    const btnInlineNew = document.getElementById('btnAgCatInlineNew');
+    const btnInlineSave = document.getElementById('btnAgCatInlineSave');
+    const inlineBox = document.getElementById('agCatInlineBox');
+
+    if (btnInlineNew && inlineBox) {
+      btnInlineNew.onclick = () => {
+        inlineBox.classList.toggle('hidden');
+        if (!inlineBox.classList.contains('hidden') && agCatCust) {
+          agCatCust.focus();
+        }
+      };
+    }
+
+    const doCreateInlineCategory = () => {
+      const catName = agCatCust?.value.trim();
+      if (!catName) {
+        alert('Por favor escribe un nombre de categoría');
+        if (agCatCust) agCatCust.focus();
+        return;
+      }
+      let existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === catName.toLowerCase());
+      let catId = existing ? existing.id : null;
+      if (!existing) {
+        catId = 'cat_' + Date.now();
+        const newCatObj = { id: catId, label: catName, icon: 'bookmark' };
+        state.agendaCategories.push(newCatObj);
+        saveState();
+        saveToFirebase('agendaCategories', newCatObj);
+      }
+      
+      // Update dropdown options
+      if (agCatSel) {
+        let optExists = Array.from(agCatSel.options).find(o => o.value === catId);
+        if (!optExists) {
+          const opt = document.createElement('option');
+          opt.value = catId;
+          opt.textContent = catName;
+          agCatSel.insertBefore(opt, agCatSel.querySelector('option[value="__custom__"]'));
+        }
+        agCatSel.value = catId;
+      }
+      
+      if (inlineBox) inlineBox.classList.add('hidden');
+      if (typeof showToast === 'function') {
+        showToast(`🏷️ Categoría "${catName}" creada y asignada`);
+      }
+    };
+
+    if (btnInlineSave) {
+      btnInlineSave.onclick = doCreateInlineCategory;
+    }
+
+    if (agCatCust) {
+      agCatCust.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          doCreateInlineCategory();
+        }
+      };
+    }
+
+    if (agCatSel && inlineBox) {
       agCatSel.addEventListener('change', () => {
         if (agCatSel.value === '__custom__') {
-          agCatCust.classList.remove('hidden');
-          agCatCust.focus();
+          inlineBox.classList.remove('hidden');
+          if (agCatCust) agCatCust.focus();
         } else {
-          agCatCust.classList.add('hidden');
+          inlineBox.classList.add('hidden');
         }
       });
     }
