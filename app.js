@@ -14691,56 +14691,10 @@
     let container = document.getElementById('agendaToastContainer');
     if (!container) {
       container = document.createElement('div');
-      container.id = 'agendaToastContainer';
-      container.className = 'agenda-toast-container';
-      document.body.appendChild(container);
-    }
-
-    const toast = document.createElement('div');
-    toast.className = 'agenda-toast-item';
-    toast.innerHTML = `
-      <div class="toast-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="bell-ring" style="color: #f59e0b; width: 18px; height: 18px;"></i>
-          <strong style="color: var(--text-main); font-weight: 800;">⏰ Recordatorio de Agenda</strong>
-        </div>
-        <button class="toast-close-btn">&times;</button>
-      </div>
-      <div class="toast-body" style="margin-top: 4px;">
-        <h4 style="font-size: 14px; font-weight: 800; margin: 0 0 4px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h4>
-        <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Programado para las <strong>${escapeHtml(task.hora)} hs</strong> (${escapeHtml(task.fecha)}).</p>
-      </div>
-      <div class="toast-actions" style="display: flex; gap: 8px; margin-top: 12px;">
-        <button class="btn btn-sm btn-primary btn-view-toast-task" style="flex: 1; font-size: 11px; padding: 6px 10px;">
-          <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ver Ficha
-        </button>
-        <button class="btn btn-sm btn-secondary btn-dismiss-toast" style="font-size: 11px; padding: 6px 10px;">
-          Entendido
-        </button>
-      </div>
-    `;
-
-    container.appendChild(toast);
-    if (window.lucide) window.lucide.createIcons();
-
-    toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
-    toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => toast.remove());
-    toast.querySelector('.btn-view-toast-task').addEventListener('click', () => {
-      toast.remove();
-      openAgendaTaskDetailModal(task.id);
-    });
-
-    setTimeout(() => {
-      if (toast.parentNode) toast.remove();
-    }, 20000);
-  }
-
-  // --------------------------------------------------------------------------
-  // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
-  // --------------------------------------------------------------------------
   let selectedCarteleraCalendar = 'all';
   let selectedCarteleraJornada = 'all';
   let selectedCarteleraInterest = 'priority';
+  let selectedCarteleraFedTab = 'all';
   let selectedCarteleraCompTab = 'all';
   let selectedCarteleraSubview = 'destacados'; // 'destacados' | 'jornadas'
 
@@ -14772,6 +14726,7 @@
     initCarteleraListeners();
     renderCarteleraPriorityTeams();
     renderCarteleraSelectors();
+    renderCarteleraFedSubtabs();
     renderCarteleraCompSubtabs();
     renderCarteleraSubviewTabs();
     renderCarteleraMatches();
@@ -14809,6 +14764,53 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
+  function renderCarteleraFedSubtabs() {
+    const container = document.getElementById('carteleraFedSubtabsBar');
+    if (!container) return;
+
+    const calendarios = state.cartelera.calendarios || [];
+    const fedMap = {};
+    let totalMatchesCount = 0;
+
+    calendarios.forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        const fed = (m.federacion || cal.federacion || 'General').trim();
+        fedMap[fed] = (fedMap[fed] || 0) + 1;
+        totalMatchesCount++;
+      });
+    });
+
+    const feds = Object.keys(fedMap).sort();
+
+    let html = `
+      <button class="directory-tab ${selectedCarteleraFedTab === 'all' ? 'active' : ''}" data-fedtab="all">
+        🏛️ Todas las Federaciones (${totalMatchesCount})
+      </button>
+    `;
+
+    feds.forEach(f => {
+      const count = fedMap[f];
+      const isActive = selectedCarteleraFedTab === f;
+      html += `
+        <button class="directory-tab ${isActive ? 'active' : ''}" data-fedtab="${escapeHtml(f)}">
+          🏛️ ${escapeHtml(f)} (${count})
+        </button>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.directory-tab').forEach(tab => {
+      tab.onclick = () => {
+        selectedCarteleraFedTab = tab.dataset.fedtab || 'all';
+        selectedCarteleraCompTab = 'all';
+        renderCarteleraFedSubtabs();
+        renderCarteleraCompSubtabs();
+        renderCarteleraMatches();
+      };
+    });
+  }
+
   function renderCarteleraCompSubtabs() {
     const container = document.getElementById('carteleraCompSubtabsBar');
     if (!container) return;
@@ -14819,9 +14821,12 @@
 
     calendarios.forEach(cal => {
       (cal.partidos || []).forEach(m => {
-        const comp = (m.competicion || cal.nombre || 'General').trim();
-        compMap[comp] = (compMap[comp] || 0) + 1;
-        totalMatchesCount++;
+        const fed = (m.federacion || cal.federacion || 'General').trim();
+        if (selectedCarteleraFedTab === 'all' || selectedCarteleraFedTab === fed) {
+          const comp = (m.competicion || cal.nombre || 'General').trim();
+          compMap[comp] = (compMap[comp] || 0) + 1;
+          totalMatchesCount++;
+        }
       });
     });
 
@@ -14829,7 +14834,7 @@
 
     let html = `
       <button class="directory-tab ${selectedCarteleraCompTab === 'all' ? 'active' : ''}" data-comptab="all">
-        🏆 Todas (${totalMatchesCount})
+        🏆 Todas las Categorías (${totalMatchesCount})
       </button>
     `;
 
@@ -14927,10 +14932,12 @@
           const isClash = isPriorityLocal && isPriorityVisitante;
 
           const comp = m.competicion || cal.nombre;
+          const fed = m.federacion || cal.federacion || 'General';
 
           allMatches.push({
             ...m,
             competicion: comp,
+            federacion: fed,
             isPriorityLocal,
             isPriorityVisitante,
             isHighInterest,
@@ -14940,7 +14947,12 @@
       }
     });
 
-    // Apply Competition subtab filter
+    // Apply Federación filter (Level 1)
+    if (selectedCarteleraFedTab !== 'all') {
+      allMatches = allMatches.filter(m => (m.federacion || 'General') === selectedCarteleraFedTab);
+    }
+
+    // Apply Competition subtab filter (Level 2)
     if (selectedCarteleraCompTab !== 'all') {
       allMatches = allMatches.filter(m => m.competicion === selectedCarteleraCompTab);
     }
@@ -14953,7 +14965,7 @@
     // Apply Buscador Rápido search filter
     if (searchVal) {
       allMatches = allMatches.filter(m => {
-        const text = `${m.local} ${m.visitante} ${m.jornada} ${m.competicion} ${m.estadio || ''} ${m.fecha || ''}`.toLowerCase();
+        const text = `${m.local} ${m.visitante} ${m.jornada} ${m.competicion} ${m.federacion || ''} ${m.estadio || ''} ${m.fecha || ''}`.toLowerCase();
         return text.includes(searchVal);
       });
     }
@@ -15002,6 +15014,7 @@
       document.getElementById('btnResetCarteleraFilters')?.addEventListener('click', () => {
         selectedCarteleraInterest = 'all';
         selectedCarteleraJornada = 'all';
+        selectedCarteleraFedTab = 'all';
         selectedCarteleraCompTab = 'all';
         const intSel = document.getElementById('carteleraInterestFilter');
         if (intSel) intSel.value = 'all';
@@ -15052,7 +15065,7 @@
               </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border-light);">
-              <span><i data-lucide="trophy" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.competicion || 'Liga')}</span>
+              <span><i data-lucide="trophy" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.competicion || 'Liga')} (${escapeHtml(m.federacion || 'RFEF')})</span>
               ${m.estadio ? `<span><i data-lucide="map-pin" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.estadio)}</span>` : ''}
             </div>
           </div>
