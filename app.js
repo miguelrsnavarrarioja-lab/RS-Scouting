@@ -14736,12 +14736,13 @@
   }
 
   // --------------------------------------------------------------------------
-  // 4.8 CARTELERA DE SCOUTING
+  // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
   // --------------------------------------------------------------------------
   let selectedCarteleraCalendar = 'all';
   let selectedCarteleraJornada = 'all';
   let selectedCarteleraInterest = 'priority';
   let selectedCarteleraCompTab = 'all';
+  let selectedCarteleraSubview = 'destacados'; // 'destacados' | 'jornadas'
 
   function ensureCarteleraState() {
     if (!state.cartelera) {
@@ -14757,8 +14758,13 @@
       state.cartelera.calendarios = [];
     }
 
-    // Purge any sample calendar if present
-    state.cartelera.calendarios = state.cartelera.calendarios.filter(c => c.id !== 'cal_sample_dh');
+    // Purge any sample or test PDF calendars if present
+    state.cartelera.calendarios = state.cartelera.calendarios.filter(c => {
+      if (!c) return false;
+      const name = (c.nombre || '').toLowerCase();
+      const isTestPdf = name.includes('pdf') || name.includes('prueba') || name.includes('sample') || c.id === 'cal_sample_dh';
+      return !isTestPdf;
+    });
   }
 
   function renderCartelera() {
@@ -14767,6 +14773,7 @@
     renderCarteleraPriorityTeams();
     renderCarteleraSelectors();
     renderCarteleraCompSubtabs();
+    renderCarteleraSubviewTabs();
     renderCarteleraMatches();
   }
 
@@ -14776,7 +14783,7 @@
     const teams = state.cartelera.priorityTeams || [];
 
     if (teams.length === 0) {
-      container.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún. Haz clic en + Añadir Equipo.</span>`;
+      container.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún. Haz clic en + Añadir Equipo para destacar sus partidos.</span>`;
       return;
     }
 
@@ -14845,6 +14852,28 @@
         renderCarteleraMatches();
       };
     });
+  }
+
+  function renderCarteleraSubviewTabs() {
+    const tabDestacados = document.getElementById('tabCarteleraDestacados');
+    const tabJornadas = document.getElementById('tabCarteleraJornadas');
+
+    if (tabDestacados && tabJornadas) {
+      tabDestacados.classList.toggle('active', selectedCarteleraSubview === 'destacados');
+      tabJornadas.classList.toggle('active', selectedCarteleraSubview === 'jornadas');
+
+      tabDestacados.onclick = () => {
+        selectedCarteleraSubview = 'destacados';
+        renderCarteleraSubviewTabs();
+        renderCarteleraMatches();
+      };
+
+      tabJornadas.onclick = () => {
+        selectedCarteleraSubview = 'jornadas';
+        renderCarteleraSubviewTabs();
+        renderCarteleraMatches();
+      };
+    }
   }
 
   function renderCarteleraSelectors() {
@@ -14921,17 +14950,27 @@
       allMatches = allMatches.filter(m => m.jornada === selectedCarteleraJornada);
     }
 
-    // Apply Interest filter
-    if (selectedCarteleraInterest === 'priority') {
-      allMatches = allMatches.filter(m => m.isHighInterest);
-    }
-
     // Apply Buscador Rápido search filter
     if (searchVal) {
       allMatches = allMatches.filter(m => {
         const text = `${m.local} ${m.visitante} ${m.jornada} ${m.competicion} ${m.estadio || ''} ${m.fecha || ''}`.toLowerCase();
         return text.includes(searchVal);
       });
+    }
+
+    // IF SUBVIEW IS JORNADAS, group and display matches by Jornada 1, Jornada 2...
+    if (selectedCarteleraSubview === 'jornadas') {
+      renderCarteleraJornadasGrid(allMatches);
+      return;
+    }
+
+    // ELSE SUBVIEW IS DESTACADOS
+    // Apply Interest filter (Destacados shows priority matches first or filtered)
+    if (selectedCarteleraInterest === 'priority') {
+      const priorityMatches = allMatches.filter(m => m.isHighInterest);
+      if (priorityMatches.length > 0) {
+        allMatches = priorityMatches;
+      }
     }
 
     // Sort: Clash/HighInterest first, then by date/jornada
@@ -14947,15 +14986,15 @@
       const hasCalendars = (calendarios.length > 0);
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding: 60px 20px; text-align: center; background: var(--bg-card); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);">
-          <i data-lucide="file-up" style="width: 54px; height: 54px; color: var(--primary-blue); margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto;"></i>
+          <i data-lucide="file-input" style="width: 54px; height: 54px; color: var(--primary-blue); margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto;"></i>
           <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 8px;">Cartelera Lista para Empezar</h3>
           <p class="empty-state-text" style="max-width: 480px; margin: 0 auto 20px auto; color: var(--text-muted); font-size: 13px;">
-            ${hasCalendars ? 'No hay partidos con los filtros aplicados. Puedes restablecer los filtros para ver todos los partidos.' : 'Sube tu primer archivo PDF o pega el texto del calendario para empezar a visualizar los enfrentamientos en tu cartelera.'}
+            ${hasCalendars ? 'No hay partidos destacados con los filtros aplicados. Puedes agregar equipos prioritarios o cambiar a la vista por Jornadas.' : 'Pega el texto del calendario de tu categoría o competición para visualizar automáticamente todos los encuentros.'}
           </p>
           <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
             ${hasCalendars ? '<button class="btn btn-secondary" id="btnResetCarteleraFilters">Mostrar todos los partidos</button>' : ''}
-            <button class="btn btn-primary" onclick="document.getElementById('inputCalendarFile').click()" style="font-weight: 800; padding: 10px 20px;">
-              <i data-lucide="file-up"></i> Subir Calendario PDF
+            <button class="btn btn-primary" id="btnEmptyImportText" style="font-weight: 800; padding: 10px 20px;">
+              <i data-lucide="file-input"></i> 📥 Importar Texto de Calendario
             </button>
           </div>
         </div>
@@ -14969,6 +15008,9 @@
         const searchInp = document.getElementById('carteleraSearchInput');
         if (searchInp) searchInp.value = '';
         renderCartelera();
+      });
+      document.getElementById('btnEmptyImportText')?.addEventListener('click', () => {
+        openImportTextCalendarModal();
       });
       return;
     }
@@ -15022,6 +15064,103 @@
       `;
     }).join('');
 
+    bindCarteleraMatchEvents(container, allMatches);
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function renderCarteleraJornadasGrid(allMatches) {
+    const container = document.getElementById('carteleraMatchesGrid');
+    if (!container) return;
+
+    if (allMatches.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 20px; color: var(--text-muted); background: var(--bg-card); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);">
+          <i data-lucide="calendar-off" style="width: 44px; height: 44px; color: var(--primary-blue); margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;"></i>
+          <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">No hay encuentros cargados</h4>
+          <p style="font-size: 13px; margin-bottom: 16px;">Importa el texto de los encuentros de tu competición para visualizarlos por Jornadas.</p>
+          <button class="btn btn-primary" onclick="openImportTextCalendarModal()" style="font-weight: 800;">
+            <i data-lucide="file-input"></i> 📥 Importar Texto de Calendario
+          </button>
+        </div>
+      `;
+      if (window.lucide) window.lucide.createIcons();
+      return;
+    }
+
+    // Group matches by Jornada
+    const groupedByJornada = {};
+    allMatches.forEach(m => {
+      const jorKey = m.jornada || 'Sin Jornada';
+      if (!groupedByJornada[jorKey]) groupedByJornada[jorKey] = [];
+      groupedByJornada[jorKey].push(m);
+    });
+
+    const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
+
+    // Sort Jornada keys naturally
+    const sortedJornadas = Object.keys(groupedByJornada).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.replace(/\D/g, '')) || 0;
+      if (numA && numB) return numA - numB;
+      return a.localeCompare(b);
+    });
+
+    let html = '';
+    sortedJornadas.forEach(jorName => {
+      const jorMatches = groupedByJornada[jorName];
+      html += `
+        <div style="grid-column: 1 / -1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color);">
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--primary-blue, #2563eb); margin: 0; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="calendar" style="width: 18px; height: 18px;"></i> ${escapeHtml(jorName)}
+            </h3>
+            <span class="badge" style="font-size: 11px; font-weight: 800; background: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 4px 10px; border-radius: 9999px;">${jorMatches.length} partidos</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
+            ${jorMatches.map(m => {
+              const locLower = (m.local || '').toLowerCase();
+              const visLower = (m.visitante || '').toLowerCase();
+              const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
+              const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
+              const isHighInterest = isPriorityLocal || isPriorityVisitante;
+
+              return `
+                <div class="match-card" style="border: ${isHighInterest ? '2px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-color)'}; background: var(--bg-subtle, #f8fafc); padding: 12px; border-radius: var(--radius-md);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${escapeHtml(m.competicion || '')}</span>
+                    ${isHighInterest ? '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px;">⭐ DESTACADO</span>' : ''}
+                  </div>
+                  <div class="match-card-teams" style="margin-bottom: 10px; font-size: 13px;">
+                    <span class="match-team-name" style="${isPriorityLocal ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.local)}</span>
+                    <span class="match-vs">vs</span>
+                    <span class="match-team-name text-right" style="${isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.visitante)}</span>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                    <div>
+                      <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                    </div>
+                    <div>
+                      <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="width: 100%; font-weight: 800; font-size: 11px; padding: 6px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i data-lucide="zap" style="width: 14px; height: 14px; color: #f59e0b;"></i> Abrir Informe en Directo
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+    bindCarteleraMatchEvents(container, allMatches);
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function bindCarteleraMatchEvents(container, allMatches) {
     container.querySelectorAll('.cartelera-match-date').forEach(input => {
       input.onchange = (e) => {
         const matchId = input.dataset.matchid;
