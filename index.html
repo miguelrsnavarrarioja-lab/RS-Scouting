@@ -115,72 +115,74 @@
 
     <!-- ==================== 0. DASHBOARD VIEW ==================== -->
     <section class="tab-view active" id="view-dashboard">
-      <div class="dashboard-banner">
-        <div class="dashboard-welcome" style="display: flex; align-items: center;">
-          <img src="Logo MS.png" alt="MS Fútbol Scout Logo" style="height: 65px; width: auto; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.08));">
-        </div>
+      <div class="dashboard-banner" style="justify-content: flex-end; padding: 12px 20px; margin-bottom: 20px;">
         <div class="dashboard-date-badge">
           <i data-lucide="clock"></i>
           <span id="dashboardDateDisplay">Hoy</span>
         </div>
       </div>
 
-      <!-- KPI METRICS GRID -->
-      <div class="dashboard-section-title">
-        <h3><i data-lucide="activity"></i> Métricas Clave</h3>
-      </div>
-      <div class="kpi-grid">
-        <div class="kpi-card" data-shortcut="partidos">
-          <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Partidos Vistos</span>
-            <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
-            <span class="kpi-subtext">Total acumulado</span>
-          </div>
+      <!-- MAIN HERO SECTION: LOGO ON LEFT + KPI METRICS ON RIGHT -->
+      <div class="dashboard-main-hero-grid">
+        <!-- LEFT: LOGO HERO CARD -->
+        <div class="dashboard-logo-card">
+          <img src="Logo MS.png" alt="MS Fútbol Scout Logo" class="dashboard-hero-logo">
         </div>
-        <div class="kpi-card" data-shortcut="calendario">
-          <div class="kpi-icon info"><i data-lucide="calendar"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Partidos Programados</span>
-            <span class="kpi-value" id="kpiScheduledMatchesCount">0</span>
-            <span class="kpi-subtext">Próximos eventos</span>
+
+        <!-- RIGHT: KPI METRICS GRID -->
+        <div class="kpi-grid">
+          <div class="kpi-card" data-shortcut="partidos">
+            <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Partidos Vistos</span>
+              <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
+              <span class="kpi-subtext">Total acumulado</span>
+            </div>
           </div>
-        </div>
-        <div class="kpi-card" data-shortcut="partidos">
-          <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Partidos En Directo</span>
-            <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
-            <span class="kpi-subtext">Hoy / En curso</span>
+          <div class="kpi-card" data-shortcut="calendario">
+            <div class="kpi-icon info"><i data-lucide="calendar"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Partidos Programados</span>
+              <span class="kpi-value" id="kpiScheduledMatchesCount">0</span>
+              <span class="kpi-subtext">Próximos eventos</span>
+            </div>
           </div>
-        </div>
-        <div class="kpi-card" data-shortcut="partidos">
-          <div class="kpi-icon green"><i data-lucide="file-text"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Informes Generados</span>
-            <span class="kpi-value" id="kpiTotalReports">0</span>
-            <span class="kpi-subtext">Evaluaciones creadas</span>
+          <div class="kpi-card" data-shortcut="partidos">
+            <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Partidos En Directo</span>
+              <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
+              <span class="kpi-subtext">Hoy / En curso</span>
+            </div>
           </div>
-        </div>
-        <div class="kpi-card" data-shortcut="directorio">
-          <div class="kpi-icon purple"><i data-lucide="users"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Jugadores</span>
-            <span class="kpi-value" id="kpiTotalPlayers">0</span>
-            <span class="kpi-subtext">En directorio activo</span>
+          <div class="kpi-card" data-shortcut="partidos">
+            <div class="kpi-icon green"><i data-lucide="file-text"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Informes Generados</span>
+              <span class="kpi-value" id="kpiTotalReports">0</span>
+              <span class="kpi-subtext">Evaluaciones creadas</span>
+            </div>
           </div>
-        </div>
-        <div class="kpi-card" data-shortcut="agenda">
-          <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
-          <div class="kpi-info">
-            <span class="kpi-label">Tareas Pendientes</span>
-            <span class="kpi-value" id="kpiPendingTasks">0</span>
-            <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
+          <div class="kpi-card" data-shortcut="directorio">
+            <div class="kpi-icon purple"><i data-lucide="users"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Jugadores</span>
+              <span class="kpi-value" id="kpiTotalPlayers">0</span>
+              <span class="kpi-subtext">En directorio activo</span>
+            </div>
+          </div>
+          <div class="kpi-card" data-shortcut="agenda">
+            <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Tareas Pendientes</span>
+              <span class="kpi-value" id="kpiPendingTasks">0</span>
+              <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- WIDGETS DUAL GRID -->
+      <!-- WIDGETS DUAL GRID: PRÓXIMOS PARTIDOS & TAREAS PENDIENTES -->
       <div class="dashboard-widgets-grid">
         <!-- Widget: Próximos Partidos -->
         <div class="widget-card">
