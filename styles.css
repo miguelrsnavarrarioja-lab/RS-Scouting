@@ -2736,6 +2736,7 @@ a {
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   transition: max-width 0.2s ease;
+  margin: auto;
 }
 
 .modal-card.large {

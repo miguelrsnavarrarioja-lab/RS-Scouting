@@ -3958,85 +3958,73 @@
 
     // Setup event listeners after modal is rendered
     const cfTipoInput = document.getElementById('cfTipo');
+    const badgesContainer = document.getElementById('clubTypeSelectedBadges');
+    const selectAdd = document.getElementById('selectClubTypeAdd');
+    const rowCreate = document.getElementById('rowCreateNewClubType');
+    const inputNewInline = document.getElementById('inputNewClubTypeInline');
+    const btnConfirmInline = document.getElementById('btnConfirmNewClubTypeInline');
+    const btnCancelInline = document.getElementById('btnCancelNewClubTypeInline');
 
-    const renderClubTypeChips = () => {
-      const container = document.getElementById('clubTypeChipsContainer');
-      if (!container) return;
-      container.innerHTML = state.customClubTypes.map(t => {
-        const isSelected = selectedClubTypes.includes(t);
-        return `
-          <span class="club-type-chip ${isSelected ? 'selected' : ''}" data-type="${escapeHtml(t)}" style="padding: 3px 10px; font-size: 11px; font-weight: 600; border-radius: 12px; cursor: pointer; user-select: none; transition: all 0.15s ease; border: 1px solid ${isSelected ? 'var(--primary-blue, #2563eb)' : '#cbd5e1'}; background: ${isSelected ? 'var(--primary-blue, #2563eb)' : '#f8fafc'}; color: ${isSelected ? '#ffffff' : '#334155'}; display: inline-flex; align-items: center; gap: 4px;">
-            ${isSelected ? '✓ ' : ''}${escapeHtml(t)}
+    const updateClubTypeSelectOptions = () => {
+      if (!selectAdd) return;
+      selectAdd.innerHTML = `
+        <option value="">+ Añadir tipo de club...</option>
+        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+        <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
+      `;
+    };
+
+    const renderClubTypeBadges = () => {
+      if (!badgesContainer) return;
+      if (selectedClubTypes.length === 0) {
+        badgesContainer.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Ningún tipo seleccionado</span>`;
+      } else {
+        badgesContainer.innerHTML = selectedClubTypes.map(t => `
+          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+            ${escapeHtml(t)}
+            <button type="button" class="btn-remove-club-type" data-type="${escapeHtml(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
           </span>
-        `;
-      }).join('');
+        `).join('');
+      }
 
-      container.querySelectorAll('.club-type-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-          const tVal = chip.dataset.type;
-          if (selectedClubTypes.includes(tVal)) {
-            selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
-          } else {
-            selectedClubTypes.push(tVal);
-          }
+      badgesContainer.querySelectorAll('.btn-remove-club-type').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const tVal = btn.dataset.type;
+          selectedClubTypes = selectedClubTypes.filter(x => x !== tVal);
           if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
-          renderClubTypeChips();
+          renderClubTypeBadges();
         });
       });
+
+      if (cfTipoInput) cfTipoInput.value = selectedClubTypes.join(', ');
     };
 
-    cfTipoInput?.addEventListener('input', () => {
-      const vals = cfTipoInput.value.split(',').map(s => s.trim()).filter(Boolean);
-      selectedClubTypes = vals;
-      renderClubTypeChips();
-    });
+    renderClubTypeBadges();
 
-    renderClubTypeChips();
-
-    const btnShowInput = document.getElementById('btnShowAddClubTypeInput');
-    const inputRow = document.getElementById('newClubTypeInputRow');
-    const inputNewType = document.getElementById('inputNewCustomClubType');
-    const btnConfirmAdd = document.getElementById('btnConfirmAddClubType');
-
-    const btnOpenConvModal = document.getElementById('btnOpenConvenidosModalInForm');
-    btnOpenConvModal?.addEventListener('click', () => {
-      openClubConvenidosWindow(club);
-    });
-
-    btnShowInput?.addEventListener('click', () => {
-      if (inputRow) {
-        inputRow.style.display = inputRow.style.display === 'none' ? 'flex' : 'none';
-        if (inputRow.style.display === 'flex') inputNewType?.focus();
-      }
-    });
-
-    const handleAddNewType = () => {
-      const val = inputNewType?.value.trim();
+    selectAdd?.addEventListener('change', () => {
+      const val = selectAdd.value;
       if (!val) return;
-      if (!state.customClubTypes.includes(val)) {
-        state.customClubTypes.push(val);
-      }
-      if (!selectedClubTypes.includes(val)) {
-        selectedClubTypes.push(val);
-      }
-      if (cfTipoInput) {
-        cfTipoInput.value = selectedClubTypes.join(', ');
-      }
-      const datalist = document.getElementById('clubTypeDatalistOptions');
-      if (datalist) {
-        datalist.innerHTML = state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
-      }
-      if (inputNewType) inputNewType.value = '';
-      if (inputRow) inputRow.style.display = 'none';
-      saveState();
-      renderClubTypeChips();
-    };
 
-    btnConfirmAdd?.addEventListener('click', handleAddNewType);
-    inputNewType?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAddNewType();
+      if (val === '__CREATE_NEW_TYPE__') {
+        selectAdd.value = '';
+        showCustomPromptModal('Añadir Nuevo Tipo de Club', '', (newTypeVal) => {
+          if (!state.customClubTypes.includes(newTypeVal)) {
+            state.customClubTypes.push(newTypeVal);
+            saveState();
+          }
+          if (!selectedClubTypes.includes(newTypeVal)) {
+            selectedClubTypes.push(newTypeVal);
+          }
+          updateClubTypeSelectOptions();
+          renderClubTypeBadges();
+        });
+      } else {
+        if (!selectedClubTypes.includes(val)) {
+          selectedClubTypes.push(val);
+          renderClubTypeBadges();
+        }
+        selectAdd.value = '';
       }
     });
 
@@ -4307,17 +4295,18 @@
       const val = e.target.value;
       if (!val) return;
       if (val === '__NEW_PAIS__') {
-        const newP = prompt('Introduce el nombre del nuevo país / nacionalidad:');
-        if (newP && newP.trim()) {
-          const trimmed = newP.trim();
-          if (!state.customPaises) state.customPaises = [...LISTA_PAISES];
-          if (!state.customPaises.includes(trimmed)) {
-            state.customPaises.push(trimmed);
-            saveState();
+        showCustomPromptModal('Añadir Nuevo País / Nacionalidad', '', (newP) => {
+          if (newP && newP.trim()) {
+            const trimmed = newP.trim();
+            if (!state.customPaises) state.customPaises = [...LISTA_PAISES];
+            if (!state.customPaises.includes(trimmed)) {
+              state.customPaises.push(trimmed);
+              saveState();
+            }
+            if (!localPaises.includes(trimmed)) localPaises.push(trimmed);
+            renderPaisesTags();
           }
-          if (!localPaises.includes(trimmed)) localPaises.push(trimmed);
-          renderPaisesTags();
-        }
+        });
       } else {
         if (!localPaises.includes(val)) localPaises.push(val);
         renderPaisesTags();
@@ -4330,17 +4319,18 @@
       const val = e.target.value;
       if (!val) return;
       if (val === '__NEW_LESION__') {
-        const newL = prompt('Introduce el nombre de la nueva lesión:');
-        if (newL && newL.trim()) {
-          const trimmed = newL.trim();
-          if (!state.customLesiones) state.customLesiones = ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis'];
-          if (!state.customLesiones.includes(trimmed)) {
-            state.customLesiones.push(trimmed);
-            saveState();
+        showCustomPromptModal('Añadir Nueva Lesión', '', (newL) => {
+          if (newL && newL.trim()) {
+            const trimmed = newL.trim();
+            if (!state.customLesiones) state.customLesiones = ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis'];
+            if (!state.customLesiones.includes(trimmed)) {
+              state.customLesiones.push(trimmed);
+              saveState();
+            }
+            if (!localLesiones.includes(trimmed)) localLesiones.push(trimmed);
+            renderLesionesTags();
           }
-          if (!localLesiones.includes(trimmed)) localLesiones.push(trimmed);
-          renderLesionesTags();
-        }
+        });
       } else {
         if (!localLesiones.includes(val)) localLesiones.push(val);
         renderLesionesTags();
@@ -4464,14 +4454,24 @@
                   <input type="text" id="cfNombre" class="form-control" placeholder="Ej: Real Madrid CF..." value="${escapeHtml(nombre)}" required>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-                  <div class="form-group">
-                    <label class="form-label">TIPO DE CLUB</label>
-                    <input type="text" id="cfTipo" class="form-control" placeholder="Ej: Formador, Cantera, Profesional..." value="${escapeHtml(tipoStr)}" list="clubTypeDatalistOptions">
-                    <datalist id="clubTypeDatalistOptions">
-                      ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('')}
-                    </datalist>
+                <div class="form-group mb-4">
+                  <label class="form-label" style="font-weight: 800;">TIPO DE CLUB</label>
+
+                  <!-- Selected Badges Container -->
+                  <div id="clubTypeSelectedBadges" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 28px; align-items: center;">
                   </div>
+
+                  <!-- Select Dropdown for adding existing types + Option to create new type -->
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="selectClubTypeAdd" class="form-control" style="flex: 1;">
+                      <option value="">+ Añadir tipo de club...</option>
+                      ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+                      <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
+                    </select>
+                  </div>
+
+                  <input type="hidden" id="cfTipo" value="${escapeHtml(tipoStr)}">
+                </div>
 
                   <div class="form-group">
                     <label class="form-label">AÑO FUNDACIÓN</label>
@@ -16597,26 +16597,33 @@
    */
   function showCustomPromptModal(title, defaultValue = '', onAccept) {
     const html = `
-      <div style="text-align: center; padding: 12px 6px;">
-        <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
-          <i data-lucide="edit-3" style="width: 26px; height: 26px;"></i>
+      <div style="text-align: center; padding: 16px 8px;">
+        <div style="width: 58px; height: 58px; border-radius: 50%; background: rgba(37, 99, 235, 0.1); color: var(--primary-blue, #2563eb); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+          <i data-lucide="plus-circle" style="width: 28px; height: 28px;"></i>
         </div>
-        <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 16px 0;">${escapeHtml(title)}</h4>
+        <h4 style="font-size: 17px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 16px 0;">${escapeHtml(title)}</h4>
         <div class="form-group mb-4" style="text-align: left;">
-          <input type="text" id="customPromptInput" class="form-control" value="${escapeHtml(defaultValue)}" style="font-size: 14px; padding: 10px 14px; font-weight: 600;" autofocus>
+          <input type="text" id="customPromptInput" class="form-control" value="${escapeHtml(defaultValue)}" placeholder="Escribe el nombre aquí..." style="font-size: 14px; padding: 10px 14px; font-weight: 600;" autofocus>
         </div>
-        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-          <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700;">
+        <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700; padding: 10px 20px;">
             Cancelar
           </button>
-          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800;">
+          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800; background: var(--primary-blue, #2563eb); color: white; padding: 10px 20px;">
             Aceptar
           </button>
         </div>
       </div>
     `;
 
-    showModal('Editar Columna', html, null);
+    showModal(title || 'Nuevo Elemento', html, null);
+
+    const footer = document.querySelector('#generalModalOverlay .modal-footer');
+    if (footer) footer.style.display = 'none';
+
+    const resetFooter = () => {
+      if (footer) footer.style.display = '';
+    };
 
     setTimeout(() => {
       const inputEl = document.getElementById('customPromptInput');
@@ -16627,15 +16634,34 @@
 
       const accept = () => {
         const val = document.getElementById('customPromptInput')?.value || '';
+        resetFooter();
         hideModal();
         if (onAccept && val.trim()) onAccept(val.trim());
       };
 
-      document.getElementById('btnCustomPromptAccept')?.addEventListener('click', accept);
-      document.getElementById('btnCustomPromptCancel')?.addEventListener('click', hideModal);
-      inputEl?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') accept();
-      });
+      const cancel = () => {
+        resetFooter();
+        hideModal();
+      };
+
+      const btnAccept = document.getElementById('btnCustomPromptAccept');
+      if (btnAccept) btnAccept.onclick = (e) => { e.preventDefault(); accept(); };
+
+      const btnCancel = document.getElementById('btnCustomPromptCancel');
+      if (btnCancel) btnCancel.onclick = (e) => { e.preventDefault(); cancel(); };
+
+      const _promptKeyHandler = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          inputEl?.removeEventListener('keydown', _promptKeyHandler);
+          accept();
+        } else if (e.key === 'Escape') {
+          inputEl?.removeEventListener('keydown', _promptKeyHandler);
+          cancel();
+        }
+      };
+      inputEl?.addEventListener('keydown', _promptKeyHandler);
+      if (window.lucide) window.lucide.createIcons();
     }, 50);
   }
 
