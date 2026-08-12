@@ -14745,30 +14745,18 @@
     if (!state.cartelera) {
       state.cartelera = {
         calendarios: [],
-        priorityTeams: ['Real Zaragoza', 'Huesca', 'Danok Bat']
+        priorityTeams: []
       };
     }
     if (!state.cartelera.priorityTeams) {
-      state.cartelera.priorityTeams = ['Real Zaragoza', 'Huesca', 'Danok Bat'];
+      state.cartelera.priorityTeams = [];
     }
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
     }
 
-    // Default sample calendar if empty
-    if (state.cartelera.calendarios.length === 0) {
-      state.cartelera.calendarios.push({
-        id: 'cal_sample_dh',
-        nombre: 'División de Honor Juvenil - Grupo 2',
-        partidos: [
-          { id: 'm_sample_1', jornada: 'Jornada 1', fecha: '2026-08-23', hora: '17:00', local: 'Real Zaragoza Juvenil A', visitante: 'Danok Bat Juvenil A', competicion: 'División de Honor', estadio: 'Ciudad Deportiva Real Zaragoza' },
-          { id: 'm_sample_2', jornada: 'Jornada 1', fecha: '2026-08-23', hora: '18:00', local: 'Osasuna Juvenil A', visitante: 'Athletic Club Juvenil A', competicion: 'División de Honor', estadio: 'Tajonar' },
-          { id: 'm_sample_3', jornada: 'Jornada 1', fecha: '2026-08-24', hora: '12:00', local: 'Huesca Juvenil A', visitante: 'Real Sociedad Juvenil A', competicion: 'División de Honor', estadio: 'Base Aragonesa' },
-          { id: 'm_sample_4', jornada: 'Jornada 2', fecha: '2026-08-30', hora: '17:00', local: 'Danok Bat Juvenil A', visitante: 'Huesca Juvenil A', competicion: 'División de Honor', estadio: 'Mallona' },
-          { id: 'm_sample_5', jornada: 'Jornada 2', fecha: '2026-08-30', hora: '18:30', local: 'Real Sociedad Juvenil A', visitante: 'Real Zaragoza Juvenil A', competicion: 'División de Honor', estadio: 'Zubieta' }
-        ]
-      });
-    }
+    // Purge any sample calendar if present
+    state.cartelera.calendarios = state.cartelera.calendarios.filter(c => c.id !== 'cal_sample_dh');
   }
 
   function renderCartelera() {
@@ -14954,11 +14942,20 @@
     });
 
     if (allMatches.length === 0) {
+      const hasCalendars = (calendarios.length > 0);
       container.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1; padding: 50px; text-align: center;">
-          <i data-lucide="film" style="width: 48px; height: 48px; color: var(--text-subtle); margin-bottom: 12px;"></i>
-          <p class="empty-state-text">No hay partidos en la cartelera para los filtros seleccionados.</p>
-          <button class="btn btn-secondary" id="btnResetCarteleraFilters">Mostrar todos los partidos</button>
+        <div class="empty-state" style="grid-column: 1 / -1; padding: 60px 20px; text-align: center; background: var(--bg-card); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);">
+          <i data-lucide="file-up" style="width: 54px; height: 54px; color: var(--primary-blue); margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto;"></i>
+          <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 8px;">Cartelera Lista para Empezar</h3>
+          <p class="empty-state-text" style="max-width: 480px; margin: 0 auto 20px auto; color: var(--text-muted); font-size: 13px;">
+            ${hasCalendars ? 'No hay partidos con los filtros aplicados. Puedes restablecer los filtros para ver todos los partidos.' : 'Sube tu primer archivo PDF o pega el texto del calendario para empezar a visualizar los enfrentamientos en tu cartelera.'}
+          </p>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            ${hasCalendars ? '<button class="btn btn-secondary" id="btnResetCarteleraFilters">Mostrar todos los partidos</button>' : ''}
+            <button class="btn btn-primary" onclick="document.getElementById('inputCalendarFile').click()" style="font-weight: 800; padding: 10px 20px;">
+              <i data-lucide="file-up"></i> Subir Calendario PDF
+            </button>
+          </div>
         </div>
       `;
       document.getElementById('btnResetCarteleraFilters')?.addEventListener('click', () => {
@@ -15219,6 +15216,270 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
+  function openExportMatchesPDFModal() {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+
+    showModal('📄 Exportar Hoja de Partidos a PDF', `
+      <form id="formExportMatchesPDF">
+        <div class="form-group mb-3">
+          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Título del Documento PDF</label>
+          <input type="text" id="pdfExportDocTitle" class="form-control" value="Cartelera de Scouting - Planificación de Partidos" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">📅 Fecha de Inicio (Desde)</label>
+            <input type="date" id="pdfExportStartDate" class="form-control" value="${todayStr}" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">📅 Fecha de Fin (Hasta)</label>
+            <input type="date" id="pdfExportEndDate" class="form-control" value="${nextWeekStr}" required>
+          </div>
+        </div>
+
+        <div class="form-group mb-4">
+          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtro de Partidos a Incluir</label>
+          <select id="pdfExportFilterType" class="form-control">
+            <option value="all">Todos los partidos en ese rango de fechas</option>
+            <option value="priority" selected>⭐ Solo partidos de Equipos Prioritarios</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: #2563eb; border-color: #2563eb;">
+            <i data-lucide="printer"></i> Generar y Descargar PDF
+          </button>
+        </div>
+      </form>
+    `);
+
+    document.getElementById('formExportMatchesPDF').onsubmit = (e) => {
+      e.preventDefault();
+      const docTitle = document.getElementById('pdfExportDocTitle').value.trim();
+      const startDate = document.getElementById('pdfExportStartDate').value;
+      const endDate = document.getElementById('pdfExportEndDate').value;
+      const filterType = document.getElementById('pdfExportFilterType').value;
+
+      generateMatchesPDF(docTitle, startDate, endDate, filterType);
+      hideModal();
+    };
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function generateMatchesPDF(docTitle, startDate, endDate, filterType) {
+    const priorityTeamsLower = (state.cartelera?.priorityTeams || []).map(t => t.toLowerCase().trim());
+    let matchesList = [];
+
+    // Gather from state.cartelera.calendarios
+    (state.cartelera?.calendarios || []).forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        const matchDate = m.fecha;
+        if (matchDate && matchDate >= startDate && matchDate <= endDate) {
+          const locLower = (m.local || '').toLowerCase();
+          const visLower = (m.visitante || '').toLowerCase();
+          const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt));
+
+          matchesList.push({
+            ...m,
+            competicion: m.competicion || cal.nombre,
+            isPriority
+          });
+        }
+      });
+    });
+
+    // Gather from state.matches (programmed matches)
+    (state.matches || []).forEach(m => {
+      const matchDate = m.fecha;
+      if (matchDate && matchDate >= startDate && matchDate <= endDate) {
+        const locLower = (m.localTeam || '').toLowerCase();
+        const visLower = (m.visitanteTeam || '').toLowerCase();
+        const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt));
+
+        matchesList.push({
+          id: m.id,
+          local: m.localTeam,
+          visitante: m.visitanteTeam,
+          fecha: m.fecha,
+          hora: m.time || m.hora || '17:00',
+          jornada: m.categoria || 'Partido Programado',
+          competicion: m.competicion || 'Liga',
+          estadio: m.estadio || '',
+          isPriority
+        });
+      }
+    });
+
+    // Apply priority filter if selected
+    if (filterType === 'priority') {
+      matchesList = matchesList.filter(m => m.isPriority);
+    }
+
+    // Deduplicate matches by local vs visitante and fecha
+    const seen = new Set();
+    matchesList = matchesList.filter(m => {
+      const key = `${m.local}_${m.visitante}_${m.fecha}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Sort chronologically by date and time
+    matchesList.sort((a, b) => {
+      const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
+      const dateB = new Date((b.fecha || '9999-12-31') + 'T' + (b.hora || '00:00'));
+      return dateA - dateB;
+    });
+
+    if (matchesList.length === 0) {
+      alert(`No se encontraron partidos en el rango de fechas seleccionado (${startDate} al ${endDate}).`);
+      return;
+    }
+
+    // Build print HTML document
+    const printWin = window.open('', '_blank');
+    if (!printWin) return alert('Por favor permite las ventanas emergentes en tu navegador para generar el PDF');
+
+    const formattedStartDate = formatDateSpanish(startDate);
+    const formattedEndDate = formatDateSpanish(endDate);
+
+    const rowsHtml = matchesList.map((m, idx) => `
+      <tr style="${m.isPriority ? 'background-color: #fffbeb;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; white-space: nowrap;">
+          ${m.fecha ? formatDateSpanish(m.fecha) : 'Sin fecha'}<br>
+          <span style="font-size: 11px; color: #2563eb;">⏰ ${m.hora || '17:00'} hs</span>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">
+          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.local)}</strong> vs 
+          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.visitante)}</strong>
+          ${m.isPriority ? '<span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 6px;">⭐ PRIORITARIO</span>' : ''}
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+          <strong>${escapeHtml(m.competicion || 'Liga')}</strong><br>
+          <span style="color: #64748b;">${escapeHtml(m.jornada || '')}</span>
+        </td>
+        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+          ${m.estadio ? `📍 ${escapeHtml(m.estadio)}` : '-'}
+        </td>
+      </tr>
+    `).join('');
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${escapeHtml(docTitle)}</title>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            margin: 30px;
+            background: #ffffff;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+          }
+          .header-title h1 {
+            font-size: 22px;
+            margin: 0 0 6px 0;
+            color: #0f172a;
+          }
+          .header-title p {
+            margin: 0;
+            font-size: 13px;
+            color: #475569;
+          }
+          .logo-box {
+            text-align: right;
+          }
+          .logo-box h2 {
+            font-size: 16px;
+            margin: 0;
+            color: #2563eb;
+            font-weight: 800;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          th {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 12px;
+            text-align: left;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 11px;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+          }
+          @media print {
+            body { margin: 15mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="header-title">
+            <h1>${escapeHtml(docTitle)}</h1>
+            <p><strong>Rango de fechas:</strong> ${formattedStartDate} al ${formattedEndDate} &bull; Total partidos: ${matchesList.length}</p>
+          </div>
+          <div class="logo-box">
+            <h2>MS FÚTBOL SCOUT</h2>
+            <span style="font-size: 11px; color: #64748b;">Cartelera & Agenda de Scouting</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha y Hora</th>
+              <th>Enfrentamiento (Partido)</th>
+              <th>Competición / Jornada</th>
+              <th>Estadio / Sede</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <span>Generado automáticamente por MS Fútbol Scout</span>
+          <span>Fecha de exportación: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+
+    printWin.document.close();
+  }
+
   function initCarteleraListeners() {
     const btnAddPriority = document.getElementById('btnAddPriorityTeam');
     if (btnAddPriority && !btnAddPriority.dataset.initialized) {
@@ -15258,6 +15519,12 @@
         selectedCarteleraInterest = e.target.value;
         renderCarteleraMatches();
       };
+    }
+
+    const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
+    if (btnExportPdf && !btnExportPdf.dataset.initialized) {
+      btnExportPdf.dataset.initialized = 'true';
+      btnExportPdf.onclick = () => openExportMatchesPDFModal();
     }
 
     const btnUpload = document.getElementById('btnUploadCalendarPDF');
