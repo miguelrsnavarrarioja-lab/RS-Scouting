@@ -15058,6 +15058,7 @@
   }
 
   function openAddPriorityTeamModal() {
+    ensureCarteleraState();
     const catSet = new Set([
       'División de Honor Juvenil',
       'Liga Nacional Juvenil',
@@ -15107,7 +15108,7 @@
     const catOptions = `<option value="all">-- Todas las Categorías --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
-    showModal('⭐ Añadir Equipo Prioritario', `
+    showModal('⭐ Gestor de Equipos Prioritarios de Seguimiento', `
       <form id="formAddPriorityTeamModal">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
           <div class="form-group" style="margin: 0;">
@@ -15124,22 +15125,30 @@
           </div>
         </div>
 
+        <!-- Multi-select Teams Checklist -->
         <div class="form-group mb-3">
-          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Seleccionar Equipo en esta Categoría/Grupo</label>
-          <select id="modalPriorityTeamSelect" class="form-control">
-            <option value="">-- Selecciona un equipo --</option>
-          </select>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin: 0;">
+              Equipos disponibles en esta Categoría/Grupo (Marca los que deseas seguir):
+            </label>
+            <button type="button" class="btn btn-sm btn-secondary" id="btnSelectAllModalTeams" style="font-size: 11px; padding: 2px 8px;">
+              Seleccionar Todos
+            </button>
+          </div>
+          <div id="modalPriorityTeamsList" style="max-height: 180px; overflow-y: auto; background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+            <!-- Checkboxes rendered dynamically -->
+          </div>
         </div>
 
         <div class="form-group mb-4">
-          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">O Escribir Nombre del Equipo</label>
-          <input type="text" id="modalPriorityTeamCustom" class="form-control" placeholder="Ej: Real Zaragoza Juvenil A">
+          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">O Escribir Nombre(s) Personalizado(s) (separados por comas)</label>
+          <input type="text" id="modalPriorityTeamCustom" class="form-control" placeholder="Ej: Real Zaragoza, Huesca, Danok Bat">
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
           <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="font-weight: 800;">
-            <i data-lucide="check"></i> Añadir a Equipos Prioritarios
+          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: #2563eb;">
+            <i data-lucide="check"></i> Guardar Equipos Prioritarios
           </button>
         </div>
       </form>
@@ -15147,12 +15156,14 @@
 
     const catEl = document.getElementById('modalPriorityCat');
     const groupEl = document.getElementById('modalPriorityGroup');
-    const teamSelectEl = document.getElementById('modalPriorityTeamSelect');
+    const listEl = document.getElementById('modalPriorityTeamsList');
     const customInputEl = document.getElementById('modalPriorityTeamCustom');
+    const btnSelectAll = document.getElementById('btnSelectAllModalTeams');
 
-    function updateTeamDropdown() {
+    function updateTeamCheckboxes() {
       const selectedCat = catEl.value;
       const selectedGroup = groupEl.value;
+      const currentPrioritySet = new Set((state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim()));
 
       const teamSet = new Set();
 
@@ -15180,37 +15191,67 @@
 
       const teamsList = Array.from(teamSet).sort();
 
-      let optionsHtml = `<option value="">-- Selecciona un equipo (${teamsList.length} disponibles) --</option>`;
-      teamsList.forEach(t => {
-        optionsHtml += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
-      });
+      if (teamsList.length === 0) {
+        listEl.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); grid-column: 1 / -1; font-style: italic;">No hay equipos registrados aún para esta combinación. Puedes escribir nombres personalizados en el campo de texto.</span>`;
+        return;
+      }
 
-      teamSelectEl.innerHTML = optionsHtml;
+      listEl.innerHTML = teamsList.map(t => {
+        const isChecked = currentPrioritySet.has(t.toLowerCase().trim());
+        return `
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-main);">
+            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(t)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: #2563eb;">
+            <span>${escapeHtml(t)}</span>
+          </label>
+        `;
+      }).join('');
     }
 
-    catEl.onchange = updateTeamDropdown;
-    groupEl.onchange = updateTeamDropdown;
-    updateTeamDropdown();
+    catEl.onchange = updateTeamCheckboxes;
+    groupEl.onchange = updateTeamCheckboxes;
+    updateTeamCheckboxes();
 
-    teamSelectEl.onchange = (e) => {
-      if (e.target.value) {
-        customInputEl.value = e.target.value;
-      }
-    };
+    if (btnSelectAll) {
+      btnSelectAll.onclick = () => {
+        const checkboxes = listEl.querySelectorAll('.chk-priority-team');
+        const allChecked = Array.from(checkboxes).every(c => c.checked);
+        checkboxes.forEach(c => c.checked = !allChecked);
+      };
+    }
 
     document.getElementById('formAddPriorityTeamModal').onsubmit = (e) => {
       e.preventDefault();
-      const teamToAdd = customInputEl.value.trim() || teamSelectEl.value.trim();
-      if (teamToAdd) {
-        if (!state.cartelera) ensureCarteleraState();
-        if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
-        if (!state.cartelera.priorityTeams.includes(teamToAdd)) {
-          state.cartelera.priorityTeams.push(teamToAdd);
-          saveState();
-          renderCartelera();
+      
+      const selectedFromChecks = Array.from(listEl.querySelectorAll('.chk-priority-team:checked')).map(c => c.value);
+      const customVal = customInputEl.value.trim();
+      let customTeams = customVal ? customVal.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      if (!state.cartelera) ensureCarteleraState();
+      if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
+
+      const currentLowerMap = new Map();
+      state.cartelera.priorityTeams.forEach(t => currentLowerMap.set(t.toLowerCase(), t));
+
+      // Add checked teams
+      selectedFromChecks.forEach(t => {
+        if (!currentLowerMap.has(t.toLowerCase())) {
+          state.cartelera.priorityTeams.push(t);
         }
-        hideModal();
+      });
+
+      // Add custom typed teams
+      customTeams.forEach(t => {
+        if (!currentLowerMap.has(t.toLowerCase())) {
+          state.cartelera.priorityTeams.push(t);
+        }
+      });
+
+      saveState();
+      renderCartelera();
+      if (typeof showToast === 'function') {
+        showToast(`⭐ Equipos prioritarios actualizados (${state.cartelera.priorityTeams.length} en seguimiento)`);
       }
+      hideModal();
     };
 
     if (window.lucide) window.lucide.createIcons();
