@@ -1610,12 +1610,12 @@
       });
       container.querySelectorAll('.btn-delete-report').forEach(btn => {
         btn.addEventListener('click', () => {
-          showCustomConfirmModal('Eliminar Informe', '¿Deseas eliminar este informe de partido definitivamente?', () => {
-            deleteFromFirebase('reports', btn.dataset.repid);
+          if (confirm('¿Estás seguro de que quieres eliminar este informe de partido?')) {
+            deleteFromFirebase('informes', btn.dataset.repid);
             state.reports = state.reports.filter(r => r.id !== btn.dataset.repid);
             saveState();
             renderPartidosList();
-          });
+          }
         });
       });
     }
@@ -2619,6 +2619,7 @@
       if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
       else playerInDir.historialEvaluaciones.push(evalRecord);
 
+      saveToFirebase('jugadores', playerInDir);
       saveState();
     }
   }
@@ -3314,6 +3315,7 @@
         );
       }
 
+      saveToFirebase('informes', reportObj);
       saveState();
 
       if (typeof showNotification === 'function') {
@@ -3503,7 +3505,7 @@
 
   function openPlayerModal(playerId = null) {
     const isEdit = !!playerId;
-    const player = isEdit ? (state.directory.jugadores.find(j => j.id === playerId) || {}) : {};
+    const player = isEdit ? (state.directory.jugadores.find(j => String(j.id) === String(playerId)) || {}) : {};
 
     // Prepare default values
     const nombre = player.nombre || '';
@@ -5750,9 +5752,10 @@
               <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
-                    <th style="padding: 8px 12px; width: 30%;">PLANTILLA</th>
-                    <th style="padding: 8px 12px; width: 18%;">POS. PRINC.</th>
-                    <th style="padding: 8px 12px; width: 18%;">POS. SEC.</th>
+                    <th style="padding: 8px 12px; width: 22%;">PLANTILLA</th>
+                    <th style="padding: 8px 12px; width: 8%;">AÑO</th>
+                    <th style="padding: 8px 12px; width: 14%;">POS. PRINC.</th>
+                    <th style="padding: 8px 12px; width: 14%;">POS. SEC.</th>
                     <th style="padding: 8px 12px; width: 12%;">LATERAL.</th>
                     <th style="padding: 8px 12px; width: 17%;">PROYECCIÓN</th>
                     <th style="padding: 8px 12px; text-align: right; width: 5%;">ELIM.</th>
@@ -6264,7 +6267,7 @@
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
 
       if (localPlantillaList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted);">Sin jugadores vinculados en la plantilla</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 12px; text-align: center; color: var(--text-muted);">Sin jugadores vinculados en la plantilla</td></tr>`;
       } else {
         tbody.innerHTML = localPlantillaList.map((j, idx) => {
           const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
@@ -6275,6 +6278,7 @@
           );
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
+          let anoHTML = '-';
           let posPriHTML = '-';
           let posSecHTML = '-';
           let lateralidadHTML = '-';
@@ -6282,6 +6286,8 @@
 
           if (foundPlayer) {
             nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
+            anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${foundPlayer.id}" value="${escapeHtml(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             const posSec = foundPlayer.posicionSecundaria || '';
             const pierna = foundPlayer.pierna || '';
@@ -6319,6 +6325,7 @@
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 6px 12px;">${nameHTML}</td>
+              <td style="padding: 6px 4px;">${anoHTML}</td>
               <td style="padding: 6px 4px;">${posPriHTML}</td>
               <td style="padding: 6px 4px;">${posSecHTML}</td>
               <td style="padding: 6px 4px;">${lateralidadHTML}</td>
@@ -6332,9 +6339,9 @@
           `;
         }).join('');
 
-        // Handle inline edit changes
-        tbody.querySelectorAll('.inline-edit-select').forEach(sel => {
-          sel.addEventListener('change', (e) => {
+        // Handle inline edit changes (selects and text inputs)
+        tbody.querySelectorAll('.inline-edit-select, .inline-edit-input').forEach(el => {
+          el.addEventListener('change', (e) => {
             const pId = e.target.dataset.pid;
             const field = e.target.dataset.field;
             const val = e.target.value;
@@ -6342,6 +6349,7 @@
               const pIndex = state.directory.jugadores.findIndex(p => String(p.id) === String(pId));
               if (pIndex !== -1) {
                 state.directory.jugadores[pIndex][field] = val;
+                if (field === 'anoNac') state.directory.jugadores[pIndex].ano = val;
                 saveToFirebase('jugadores', state.directory.jugadores[pIndex]);
                 saveState();
                 renderTeamCampogramaPins(); // Update campograma live
@@ -12419,7 +12427,10 @@
     if (!state.dirActiveFilters[currentDirectoryTab]) state.dirActiveFilters[currentDirectoryTab] = {};
     const activeFilters = state.dirActiveFilters[currentDirectoryTab];
 
-    const rawItems = [...(state.directory[currentDirectoryTab] || [])];
+    let rawItems = [...(state.directory[currentDirectoryTab] || [])];
+    if (currentDirectoryTab === 'jugadores' && !searchVal) {
+      rawItems = [];
+    }
 
     // Helper to render dynamic filter selects for current directory section
     // Section filters removed per user request
@@ -12722,13 +12733,23 @@
 
     const container = document.getElementById('directoryContentBox');
     if (filtered.length === 0) {
-      container.innerHTML = `
-        ${subFilterBarHTML}
-        <div class="empty-state" style="margin-top: 16px;">
-          <p class="empty-state-text">No se encontraron registros de ${currentDirectoryTab}.</p>
-          <button class="btn btn-primary" id="btnEmptyCreateDirItem">Crear Primero</button>
-        </div>
-      `;
+      if (currentDirectoryTab === 'jugadores' && !searchVal) {
+        container.innerHTML = `
+          ${subFilterBarHTML}
+          <div class="empty-state" style="margin-top: 16px;">
+            <i data-lucide="search" style="width: 32px; height: 32px; opacity: 0.4; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; color: var(--text-muted);"></i>
+            <p class="empty-state-text" style="color: var(--text-muted); font-size: 14px;">Utiliza el buscador para encontrar un jugador o filtra por categorías.</p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          ${subFilterBarHTML}
+          <div class="empty-state" style="margin-top: 16px;">
+            <p class="empty-state-text">No se encontraron registros de ${currentDirectoryTab}.</p>
+            <button class="btn btn-primary" id="btnEmptyCreateDirItem">Crear Primero</button>
+          </div>
+        `;
+      }
       document.getElementById('btnEmptyCreateDirItem')?.addEventListener('click', () => openAddDirectoryItemModal());
     } else {
       if (currentDirectoryTab === 'jugadores') {
@@ -14778,9 +14799,9 @@
 
   function renderNotificationsUI() {
     normalizeNotifications();
-    const badge = document.getElementById('notifBadgeCount');
+    const badge = document.getElementById('headerNotificationDot');
     const subtext = document.getElementById('notifUnreadSubtext');
-    const container = document.getElementById('notificationsListContainer');
+    const container = document.getElementById('notificationsList');
 
     const unreadCount = state.notifications.filter(n => !n.read).length;
 
@@ -16239,8 +16260,6 @@
 
     (state.directory.equipos || []).forEach(e => {
       if (e.categoria) catSet.add(e.categoria);
-      if (e.competicion) catSet.add(e.competicion);
-      if (e.liga) catSet.add(e.liga);
     });
 
     (state.cartelera?.calendarios || []).forEach(cal => {
@@ -16249,27 +16268,45 @@
       });
     });
 
+    const fedSet = new Set();
+    (state.directory.federaciones || []).forEach(f => {
+      if (f.nombre) fedSet.add(f.nombre);
+    });
+    const fedOptions = Array.from(fedSet).sort().map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+
+    const groupSet = new Set();
+    (state.directory.equipos || []).forEach(e => {
+      if (e.grupo) groupSet.add(e.grupo);
+    });
+    const groupOptions = Array.from(groupSet).sort().map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+
     const catOptions = Array.from(catSet).sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
 
     showModal('📥 Importador de Calendario de Partidos', `
       <form id="formImportTextCalendar" onsubmit="return false;">
         <div class="form-group mb-3">
-          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Categoría o Competición</label>
+          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Categoría</label>
           <select id="importCompSelect" class="form-control mb-2" style="font-size: 13px; font-weight: 700;">
             ${catOptions}
-            <option value="__custom__">+ Otra Categoría / Competición personalizada...</option>
+            <option value="__custom__">+ Otra Categoría personalizada...</option>
           </select>
-          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: DHJ Grupo 2)">
+          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: DHJ)">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Federación (Opcional)</label>
-            <input type="text" id="importFederacion" class="form-control" placeholder="Ej: RFEF, Navarra...">
+            <select id="importFederacion" class="form-control" style="font-size: 13px; font-weight: 700;">
+              <option value="">-- Sin Federación --</option>
+              ${fedOptions}
+            </select>
           </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Grupo (Opcional)</label>
-            <input type="text" id="importGrupo" class="form-control" placeholder="Ej: Grupo 2">
+            <select id="importGrupo" class="form-control" style="font-size: 13px; font-weight: 700;">
+              <option value="">-- Sin Grupo --</option>
+              ${groupOptions}
+            </select>
           </div>
         </div>
 
