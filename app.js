@@ -1519,20 +1519,30 @@
     const categories = Object.keys(catMap).sort();
 
     let html = `
-      <div class="player-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all">
-        <i data-lucide="layers"></i> Todos (${reports.length})
-      </div>
+      <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="filter" style="width: 14px;"></i> Categoría:
+          </span>
+          <button type="button" class="player-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosCategoryTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            TODOS (${reports.length})
+          </button>
     `;
 
     categories.forEach(cat => {
       const count = catMap[cat];
       const isActive = currentPartidosCategoryTab === cat;
       html += `
-        <div class="player-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}">
-          <i data-lucide="tag"></i> ${escapeHtml(cat)} (${count})
-        </div>
+          <button type="button" class="player-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            ${escapeHtml(cat).toUpperCase()} (${count})
+          </button>
       `;
     });
+
+    html += `
+        </div>
+      </div>
+    `;
 
     container.innerHTML = html;
 
@@ -1617,8 +1627,8 @@
             <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
             <!-- Línea 4: Resultado y Lugar -->
             <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')} &nbsp;|&nbsp; <strong style="color: var(--primary-blue); font-size: 13px;">Res: ${r.localScore} - ${r.visitanteScore}</strong></div>
-            <!-- Táctica original (Opcional pero útil mantener) -->
-            <div style="margin-top: 4px;"><i data-lucide="activity" style="width: 14px;"></i> Táctica: ${escapeHtml(r.localFormation)} vs ${escapeHtml(r.visitanteFormation)}</div>
+            <!-- Competición -->
+            <div style="margin-top: 4px; font-weight: 600; color: var(--text-muted);"><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(r.competicion || r.categoria || 'Amistoso')}</div>
           </div>
 
           <div style="display: flex; gap: 8px; margin-top: 10px;">
