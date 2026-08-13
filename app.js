@@ -14760,16 +14760,26 @@
           </div>
         `;
       } else {
-        container.innerHTML = state.notifications.map(n => `
+        container.innerHTML = state.notifications.map(n => {
+          const taskObj = state.agenda ? state.agenda.find(t => t.id === n.taskId) : null;
+          const isPending = taskObj ? !taskObj.completada : true;
+          const statusBadge = isPending 
+            ? '<span style="font-size: 9px; background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 8px;">PENDIENTE</span>' 
+            : '<span style="font-size: 9px; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 8px;">COMPLETADA</span>';
+
+          return `
           <div class="notif-item ${n.read ? '' : 'unread'}" data-notifid="${n.id}" data-taskid="${n.taskId}">
-            <i data-lucide="clock" style="width: 16px; height: 16px; color: #f59e0b; flex-shrink: 0; margin-top: 2px;"></i>
+            <i data-lucide="clock" style="width: 16px; height: 16px; color: ${isPending ? '#f59e0b' : '#22c55e'}; flex-shrink: 0; margin-top: 2px;"></i>
             <div style="flex: 1;">
-              <h5 style="font-size: 13px; font-weight: 700; margin: 0 0 2px 0; color: var(--text-main);">${escapeHtml(n.titulo)}</h5>
+              <h5 style="font-size: 13px; font-weight: 700; margin: 0 0 2px 0; color: var(--text-main); display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
+                ${escapeHtml(n.titulo)}
+                ${statusBadge}
+              </h5>
               <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Revisión programada: <strong>${escapeHtml(n.hora || '12:00')} hs</strong> (${escapeHtml(n.fecha || 'Hoy')})</p>
             </div>
             ${!n.read ? '<span class="notif-item-unread-dot" title="Sin leer"></span>' : ''}
           </div>
-        `).join('');
+        `}).join('');
 
         container.querySelectorAll('.notif-item').forEach(item => {
           item.addEventListener('click', () => {
@@ -14932,7 +14942,15 @@
     if (window.lucide) window.lucide.createIcons();
 
     toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
-    toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => {
+      const notif = state.notifications.find(n => n.taskId === task.id && !n.read);
+      if (notif) {
+        notif.read = true;
+        saveState();
+        renderNotificationsUI();
+      }
+      toast.remove();
+    });
     toast.querySelector('.btn-view-toast-task').addEventListener('click', () => {
       toast.remove();
       openAgendaTaskDetailModal(task.id);
