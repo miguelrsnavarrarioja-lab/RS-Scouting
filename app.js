@@ -114,11 +114,52 @@
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
+      // Enable offline persistence so the app works without internet
+      // (e.g. iPad in the field) and queues changes for later sync
+      db.enablePersistence({ synchronizeTabs: true })
+        .then(() => console.log('🔥 Persistencia offline activada'))
+        .catch(err => {
+          if (err.code === 'failed-precondition') {
+            console.warn('⚠️ Persistencia no disponible: múltiples pestañas abiertas');
+          } else if (err.code === 'unimplemented') {
+            console.warn('⚠️ Persistencia no soportada en este navegador');
+          }
+        });
       console.log('🔥 Firebase Cloud Firestore conectado con éxito');
     } catch (e) {
       console.error('Error al inicializar Firebase:', e);
     }
   }
+
+  // --------------------------------------------------------------------------
+  // Anti-Echo Mechanism: Track recent local writes to prevent onSnapshot
+  // from re-processing our own changes (avoids loops and flickering)
+  // --------------------------------------------------------------------------
+  const _recentLocalWrites = new Map(); // key: 'collection/docId' -> timestamp
+  const ANTI_ECHO_TTL_MS = 5000; // Ignore echoed snapshots within 5 seconds
+
+  function markLocalWrite(collectionName, docId) {
+    _recentLocalWrites.set(`${collectionName}/${String(docId)}`, Date.now());
+  }
+
+  function isRecentLocalWrite(collectionName, docId) {
+    const key = `${collectionName}/${String(docId)}`;
+    const ts = _recentLocalWrites.get(key);
+    if (!ts) return false;
+    if (Date.now() - ts > ANTI_ECHO_TTL_MS) {
+      _recentLocalWrites.delete(key);
+      return false;
+    }
+    return true;
+  }
+
+  // Periodically clean up stale entries from the anti-echo map
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, ts] of _recentLocalWrites) {
+      if (now - ts > ANTI_ECHO_TTL_MS) _recentLocalWrites.delete(key);
+    }
+  }, 15000);
 
     async function deleteFromFirebase(collectionName, docId, itemObj = null) {
     if (!db || !docId) return;
@@ -129,7 +170,9 @@
         if (itemObj.codigo !== undefined && itemObj.codigo !== null) idsToDelete.add(String(itemObj.codigo));
       }
 
+      // Mark all IDs as local writes to prevent onSnapshot echo
       for (const id of idsToDelete) {
+        markLocalWrite(collectionName, id);
         await db.collection(collectionName).doc(id).delete().catch(() => {});
       }
 
@@ -149,6 +192,7 @@
       snaps.forEach(snap => {
         if (snap && !snap.empty) {
           snap.forEach(doc => {
+            markLocalWrite(collectionName, doc.id);
             doc.ref.delete().catch(() => {});
           });
         }
@@ -161,6 +205,7 @@
 
     function saveToFirebase(collectionName, item) {
     if (!db || !item || !item.id) return;
+    markLocalWrite(collectionName, item.id);
     setFirebaseHeaderStatus('syncing');
     db.collection(collectionName).doc(String(item.id)).set(item, { merge: true })
       .then(() => {
