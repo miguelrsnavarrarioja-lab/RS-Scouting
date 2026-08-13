@@ -12324,6 +12324,51 @@
     }
   }
 
+  function fixTeamNamesBatch() {
+    if (!state.directory || !state.directory.equipos) return;
+    let count = 0;
+    
+    state.directory.equipos.forEach(eq => {
+      let clubVal = eq.clubVinculado || eq.club || '';
+      let catVal = eq.categoria || '';
+      let tempVal = eq.temporada || '';
+      
+      let tempShort = '';
+      if (tempVal) {
+        const match = tempVal.match(/(\d{2,4})\/(\d{2,4})/);
+        if (match) tempShort = match[1].slice(-2) + '/' + match[2].slice(-2);
+        else tempShort = tempVal;
+      }
+      
+      let baseName = clubVal;
+      if (!baseName) {
+         let currentName = eq.nombre || eq.equipo || '';
+         if (catVal) currentName = currentName.replace(new RegExp('\\b' + catVal + '\\b', 'gi'), '');
+         if (tempShort) currentName = currentName.replace(new RegExp('\\b' + tempShort + '\\b', 'gi'), '');
+         if (tempVal) currentName = currentName.replace(new RegExp('\\b' + tempVal + '\\b', 'gi'), '');
+         baseName = currentName.trim();
+      }
+      
+      baseName = baseName.replace(/[\-,|]+$/, '').trim();
+      
+      const parts = [baseName, catVal, tempShort].filter(Boolean);
+      if (parts.length > 0) {
+        const expectedName = parts.join(' ').replace(/\s+/g, ' ').trim();
+        if (eq.nombre !== expectedName) {
+          eq.nombre = expectedName;
+          eq.equipo = expectedName;
+          saveToFirebase('equipos', eq);
+          count++;
+        }
+      }
+    });
+    
+    if (count > 0) {
+      console.log(`[Migración] Se corrigieron automáticamente ${count} nombres de equipos.`);
+      saveState();
+    }
+  }
+
   function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
@@ -12345,6 +12390,7 @@
       if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
       if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
       if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
+      if (typeof fixTeamNamesBatch === "function") fixTeamNamesBatch();
     }
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
