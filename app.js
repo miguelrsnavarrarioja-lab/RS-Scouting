@@ -554,35 +554,6 @@
           if (configData.dhjGroup2Seeded) state.directory.dhjGroup2Seeded = true;
         }
 
-        // If directory collections are empty, reset seed flags to force complete re-seeding
-        const hasEquipos = (state.directory.equipos && state.directory.equipos.length > 0);
-        const hasClubes = (state.directory.clubes && state.directory.clubes.length > 0);
-        const hasFederaciones = (state.directory.federaciones && state.directory.federaciones.length > 0);
-
-        if (!hasEquipos || !hasClubes || !hasFederaciones) {
-          console.log('🌱 Reseteando flags de inicialización para repoblar el Directorio...');
-          state.directory.clubesNavarraSeeded = false;
-          state.directory.federacionesSeeded = false;
-          state.directory.clubesAragonSeeded = false;
-          state.directory.equiposAragonSeeded = false;
-          state.directory.federacionesSeleccionesSeeded = false;
-          state.directory.navarraLnjSeeded = false;
-          state.directory.navarraTerceraSeeded = false;
-          state.directory.navarraAutonomicaSeeded = false;
-          state.directory.navarraPrimeraAutonomicaJuvenilSeeded = false;
-          state.directory.navarraRegionalPreferenteSeeded = false;
-          state.directory.navarraRegionalPreferenteG2Seeded = false;
-          state.directory.navarraLigaCadeteSeeded = false;
-          state.directory.navarraPrimeraAutonomicaCadeteSeeded = false;
-          state.directory.navarraPrimeraRegionalG1Seeded = false;
-          state.directory.navarraPrimeraRegionalG2Seeded = false;
-          state.directory.navarraPrimeraRegionalG3Seeded = false;
-          state.directory.navarraPrimeraRegionalG4Seeded = false;
-          state.directory.navarraPrimeraRegionalG5Seeded = false;
-          state.directory.dhjGroup3Seeded = false;
-          state.directory.dhjGroup2Seeded = false;
-        }
-
         setFirebaseHeaderStatus('synced');
         
         // Run seeding and migrations to ensure directory is completely populated
@@ -604,11 +575,6 @@
         if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
         if (typeof ensureFederacionesSeleccionesSeeded === 'function') ensureFederacionesSeleccionesSeeded();
         if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
-
-        // Sync populated directory back to Firebase so cloud has full copy
-        if (!hasEquipos || !hasClubes || !hasFederaciones) {
-          syncAllToFirebase(false);
-        }
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -11065,7 +11031,7 @@
       }
 
       // Check if team already exists
-      let teamMatch = state.directory.equipos.find(e => e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
+      let teamMatch = state.directory.equipos.find(e => e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()));
       if (!teamMatch) {
         teamMatch = {
           id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
@@ -11147,7 +11113,7 @@
       // Check if team already exists (exactly this name + Tercera RFEF + Group XV, to avoid collision with LNJ team if they have the exact same name)
       // Usually team names for the senior team don't have "Juvenil" in them.
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === 'tercera rfef'
       );
       
@@ -11231,7 +11197,7 @@
 
       // Check if team already exists (exactly this name + Primera Autonomica Navarra + Group Único, to avoid collision with LNJ or Tercera team if they have the exact same name)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === 'primera autonomica navarra'
       );
       
@@ -11321,7 +11287,7 @@
 
       // Check if team already exists (matches teamName + Primera Autonómica Juvenil Navarra)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
       
@@ -11411,7 +11377,7 @@
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
       
@@ -11501,7 +11467,7 @@
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra + Grupo 2)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
@@ -11592,7 +11558,7 @@
 
       // Check if team already exists (matches teamName + Liga Cadete Navarra)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
       
@@ -11682,7 +11648,7 @@
 
       // Check if team already exists (matches teamName + Primera Autonómica Cadete Navarra)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
       
@@ -11769,7 +11735,7 @@
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 1)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '1'
       );
@@ -11859,7 +11825,7 @@
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 2)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
@@ -11949,7 +11915,7 @@
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 3)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
       );
@@ -12039,7 +12005,7 @@
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 4)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '4'
       );
@@ -12129,7 +12095,7 @@
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 5)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '5'
       );
@@ -12209,7 +12175,7 @@
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 3)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
       );
@@ -12290,7 +12256,7 @@
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 2)
       let teamMatch = state.directory.equipos.find(e => 
-        e && e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase() && 
+        e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
@@ -12386,7 +12352,6 @@
     // Run heavy migrations and cleanup routines ONCE on startup for instant tab rendering
     if (!window._hasRunDirectoryOptimizations) {
       window._hasRunDirectoryOptimizations = true;
-      if (typeof ensureFederacionesSeleccionesSeeded === 'function') ensureFederacionesSeleccionesSeeded();
       if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
       if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
       if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
