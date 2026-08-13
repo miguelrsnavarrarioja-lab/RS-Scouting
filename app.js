@@ -1575,26 +1575,53 @@
       `;
       document.getElementById('btnEmptyCreateReport')?.addEventListener('click', () => openMatchReportEditor());
     } else {
-      container.innerHTML = filtered.map(r => `
-        <div class="match-card">
-          <div class="match-card-header">
+      container.innerHTML = filtered.map(r => {
+        let lLogo = '';
+        let vLogo = '';
+        
+        const getLogo = (teamName) => {
+          if(!teamName) return '';
+          const eq = (state.directory.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
+          if(eq && eq.clubVinculado) {
+            const c = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
+            if(c && c.logo) return c.logo;
+          }
+          const c2 = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === teamName.toLowerCase());
+          if(c2 && c2.logo) return c2.logo;
+          return '';
+        };
+
+        lLogo = getLogo(r.localTeam);
+        vLogo = getLogo(r.visitanteTeam);
+
+        return `
+        <div class="match-card" style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="match-card-header" style="justify-content: flex-start; padding-bottom: 4px;">
             <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
-            <span style="font-weight: 800; font-size: 16px; color: var(--primary-blue);">${r.localScore} - ${r.visitanteScore}</span>
           </div>
 
-          <div class="match-card-teams">
-            <span class="match-team-name">${escapeHtml(r.localTeam)}</span>
-            <span class="match-vs">vs</span>
-            <span class="match-team-name text-right">${escapeHtml(r.visitanteTeam)}</span>
+          <!-- Línea 1 y 2: Escudo y Nombre Equipos -->
+          <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${lLogo ? `<img src="${lLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
+              <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${vLogo ? `<img src="${vLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
+              <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
+            </div>
           </div>
 
-          <div class="match-card-details">
-            <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
-            <div><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}</div>
-            <div><i data-lucide="activity" style="width: 14px;"></i> Táctica: ${escapeHtml(r.localFormation)} vs ${escapeHtml(r.visitanteFormation)}</div>
+          <div class="match-card-details" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
+            <!-- Línea 3: Fecha -->
+            <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
+            <!-- Línea 4: Resultado y Lugar -->
+            <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')} &nbsp;|&nbsp; <strong style="color: var(--primary-blue); font-size: 13px;">Res: ${r.localScore} - ${r.visitanteScore}</strong></div>
+            <!-- Táctica original (Opcional pero útil mantener) -->
+            <div style="margin-top: 4px;"><i data-lucide="activity" style="width: 14px;"></i> Táctica: ${escapeHtml(r.localFormation)} vs ${escapeHtml(r.visitanteFormation)}</div>
           </div>
 
-          <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
             <button class="btn btn-primary btn-edit-report" data-repid="${r.id}" style="flex: 1;">
               <i data-lucide="edit"></i> Abrir Informe
             </button>
@@ -1603,7 +1630,8 @@
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
 
       container.querySelectorAll('.btn-edit-report').forEach(btn => {
         btn.addEventListener('click', () => openMatchReportEditor(btn.dataset.repid));
