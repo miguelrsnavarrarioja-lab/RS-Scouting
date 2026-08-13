@@ -14887,12 +14887,22 @@
 
     const unreadCount = state.notifications.filter(n => !n.read).length;
 
+    const btnNotif = document.getElementById('btnHeaderNotifications');
+
     if (badge) {
       if (unreadCount > 0) {
         badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
         badge.classList.remove('hidden');
+        if (btnNotif) {
+          btnNotif.style.color = 'var(--primary-blue, #2563eb)';
+          btnNotif.style.backgroundColor = 'rgba(37, 99, 235, 0.1)';
+        }
       } else {
         badge.classList.add('hidden');
+        if (btnNotif) {
+          btnNotif.style.color = '';
+          btnNotif.style.backgroundColor = '';
+        }
       }
     }
 
