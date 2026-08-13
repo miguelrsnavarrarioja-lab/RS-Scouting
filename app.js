@@ -6357,6 +6357,7 @@
       const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
 
       // Resolve valid player objects for squad from directory
+      const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
         return playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
@@ -6372,9 +6373,8 @@
         // Find squad players matching this position code (primary or secondary)
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
         });
 
         let playersHTML = '';
@@ -6445,6 +6445,7 @@
       const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
       const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
 
+      const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
         return playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
@@ -6458,9 +6459,8 @@
 
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
         });
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
@@ -7659,9 +7659,8 @@
 
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
         });
 
         let playersHTML = '';
@@ -7754,9 +7753,8 @@
 
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const p2 = (p.posicionSecundaria || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p2 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
         });
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
