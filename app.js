@@ -5747,14 +5747,15 @@
             </div>
 
             <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
-                    <th style="padding: 8px 12px; width: 35%;">PLANTILLA</th>
-                    <th style="padding: 8px 12px; width: 20%;">POSICIÓN PRINCIPAL</th>
-                    <th style="padding: 8px 12px; width: 20%;">POSICIÓN SECUNDARIA</th>
-                    <th style="padding: 8px 12px; width: 15%;">RENDIMIENTO RS</th>
-                    <th style="padding: 8px 12px; text-align: right; width: 10%;">ELIMINAR</th>
+                    <th style="padding: 8px 12px; width: 30%;">PLANTILLA</th>
+                    <th style="padding: 8px 12px; width: 18%;">POS. PRINC.</th>
+                    <th style="padding: 8px 12px; width: 18%;">POS. SEC.</th>
+                    <th style="padding: 8px 12px; width: 12%;">LATERAL.</th>
+                    <th style="padding: 8px 12px; width: 17%;">PROYECCIÓN</th>
+                    <th style="padding: 8px 12px; text-align: right; width: 5%;">ELIM.</th>
                   </tr>
                 </thead>
                 <tbody id="tfPlantillaTableBody"></tbody>
@@ -6274,33 +6275,80 @@
           );
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
-          let posPri = '-';
-          let posSec = '-';
-          let rendRS = '-';
+          let posPriHTML = '-';
+          let posSecHTML = '-';
+          let lateralidadHTML = '-';
+          let rendRSHTML = '-';
 
           if (foundPlayer) {
             nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
-            posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '-';
-            posSec = foundPlayer.posicionSecundaria || '-';
-            rendRS = foundPlayer.rendimientoRS || foundPlayer.rendimiento || '-';
+            const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
+            const posSec = foundPlayer.posicionSecundaria || '';
+            const pierna = foundPlayer.pierna || '';
+            const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
+            
+            const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
+            const generatePosOptions = (selected) => {
+              let opts = `<option value="">--</option>`;
+              opts += posicionesOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !posicionesOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              return opts;
+            };
+
+            const piernaOpts = ['DERECHA', 'IZQUIERDA', 'AMBIDIESTRO'];
+            const generatePiernaOptions = (selected) => {
+              let opts = `<option value="">--</option>`;
+              opts += piernaOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              return opts;
+            };
+
+            const proyOpts = ['CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
+            const generateProyOptions = (selected) => {
+              let opts = `<option value="">--</option>`;
+              opts += proyOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !proyOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              return opts;
+            };
+
+            posPriHTML = `<select class="form-control inline-edit-select" data-field="posicionPrincipal" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posPri)}</select>`;
+            posSecHTML = `<select class="form-control inline-edit-select" data-field="posicionSecundaria" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posSec)}</select>`;
+            lateralidadHTML = `<select class="form-control inline-edit-select" data-field="pierna" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePiernaOptions(pierna)}</select>`;
+            rendRSHTML = `<select class="form-control inline-edit-select" data-field="proyeccion" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateProyOptions(proyeccion)}</select>`;
           }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
-              <td style="padding: 8px 12px;">${nameHTML}</td>
-              <td style="padding: 8px 12px; font-weight: 600;">${escapeHtml(posPri)}</td>
-              <td style="padding: 8px 12px; color: var(--text-muted);">${escapeHtml(posSec)}</td>
-              <td style="padding: 8px 12px;">
-                <span class="badge" style="background: rgba(37, 99, 235, 0.1); color: var(--primary-blue); font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(rendRS)}</span>
-              </td>
-              <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
+              <td style="padding: 6px 12px;">${nameHTML}</td>
+              <td style="padding: 6px 4px;">${posPriHTML}</td>
+              <td style="padding: 6px 4px;">${posSecHTML}</td>
+              <td style="padding: 6px 4px;">${lateralidadHTML}</td>
+              <td style="padding: 6px 4px;">${rendRSHTML}</td>
+              <td style="padding: 6px 12px; text-align: right;">
+                <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${idx}" style="width: 24px; height: 24px; padding: 0;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
             </tr>
           `;
         }).join('');
+
+        // Handle inline edit changes
+        tbody.querySelectorAll('.inline-edit-select').forEach(sel => {
+          sel.addEventListener('change', (e) => {
+            const pId = e.target.dataset.pid;
+            const field = e.target.dataset.field;
+            const val = e.target.value;
+            if (pId && state.directory && state.directory.jugadores) {
+              const pIndex = state.directory.jugadores.findIndex(p => String(p.id) === String(pId));
+              if (pIndex !== -1) {
+                state.directory.jugadores[pIndex][field] = val;
+                saveToFirebase('jugadores', state.directory.jugadores[pIndex]);
+                saveState();
+                renderTeamCampogramaPins(); // Update campograma live
+              }
+            }
+          });
+        });
 
         tbody.querySelectorAll('.btn-del-jugador').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -6374,7 +6422,7 @@
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
         });
 
         let playersHTML = '';
@@ -6460,7 +6508,7 @@
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
         });
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
@@ -7660,7 +7708,7 @@
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
         });
 
         let playersHTML = '';
@@ -7754,7 +7802,7 @@
         const matchingPlayers = squadPlayers.filter(p => {
           const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
           const codeUpper = posCode.toUpperCase().trim();
-          return p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1);
+          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
         });
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
