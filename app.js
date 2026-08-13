@@ -15456,19 +15456,24 @@
       'Senior'
     ]);
 
+    const fedSet = new Set();
+
     (state.directory.equipos || []).forEach(e => {
       if (e.categoria) catSet.add(e.categoria);
       if (e.competicion) catSet.add(e.competicion);
       if (e.liga) catSet.add(e.liga);
+      if (e.federacion) fedSet.add(e.federacion);
     });
 
     (state.cartelera?.calendarios || []).forEach(cal => {
       (cal.partidos || []).forEach(m => {
         if (m.competicion) catSet.add(m.competicion);
+        if (m.federacion) fedSet.add(m.federacion);
       });
     });
 
     const categories = Array.from(catSet).sort();
+    const federations = Array.from(fedSet).sort();
 
     const groupSet = new Set([
       'Todos los Grupos',
@@ -15490,22 +15495,55 @@
     const groups = Array.from(groupSet);
 
     const catOptions = `<option value="all">-- Todas las Categorías --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
     const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
     showModal('⭐ Gestor de Equipos Prioritarios de Seguimiento', `
+      <style>
+        .priority-tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); margin-bottom: 12px; }
+        .priority-tab { background: none; border: none; padding: 8px 16px; font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .priority-tab.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        .priority-tab-content { display: none; }
+        .priority-tab-content.active { display: block; }
+      </style>
       <form id="formAddPriorityTeamModal">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría / Competición</label>
-            <select id="modalPriorityCat" class="form-control">
-              ${catOptions}
-            </select>
+        
+        <div class="priority-tabs">
+          <button type="button" class="priority-tab active" data-tab="tab-category">Filtrar por Categoría</button>
+          <button type="button" class="priority-tab" data-tab="tab-federation">Filtrar por Federación</button>
+        </div>
+
+        <div id="tab-category" class="priority-tab-content active">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría / Competición</label>
+              <select id="modalPriorityCat" class="form-control">
+                ${catOptions}
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Grupo</label>
+              <select id="modalPriorityGroupCat" class="form-control">
+                ${groupOptions}
+              </select>
+            </div>
           </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Grupo</label>
-            <select id="modalPriorityGroup" class="form-control">
-              ${groupOptions}
-            </select>
+        </div>
+
+        <div id="tab-federation" class="priority-tab-content">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Federación</label>
+              <select id="modalPriorityFed" class="form-control">
+                ${fedOptions}
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Grupo</label>
+              <select id="modalPriorityGroupFed" class="form-control">
+                ${groupOptions}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -15513,7 +15551,7 @@
         <div class="form-group mb-3">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <label class="form-label" style="font-size: 12px; font-weight: 700; margin: 0;">
-              Equipos disponibles en esta Categoría/Grupo (Marca los que deseas seguir):
+              Equipos disponibles (Marca los que deseas seguir):
             </label>
             <button type="button" class="btn btn-sm btn-secondary" id="btnSelectAllModalTeams" style="font-size: 11px; padding: 2px 8px;">
               Seleccionar Todos
@@ -15538,35 +15576,69 @@
       </form>
     `);
 
+    let currentTab = 'tab-category';
+
+    const tabBtns = document.querySelectorAll('.priority-tab');
+    tabBtns.forEach(btn => {
+      btn.onclick = () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.priority-tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        currentTab = btn.dataset.tab;
+        document.getElementById(currentTab).classList.add('active');
+        updateTeamCheckboxes();
+      };
+    });
+
     const catEl = document.getElementById('modalPriorityCat');
-    const groupEl = document.getElementById('modalPriorityGroup');
+    const groupCatEl = document.getElementById('modalPriorityGroupCat');
+    const fedEl = document.getElementById('modalPriorityFed');
+    const groupFedEl = document.getElementById('modalPriorityGroupFed');
     const listEl = document.getElementById('modalPriorityTeamsList');
     const customInputEl = document.getElementById('modalPriorityTeamCustom');
     const btnSelectAll = document.getElementById('btnSelectAllModalTeams');
 
     function updateTeamCheckboxes() {
-      const selectedCat = catEl.value;
-      const selectedGroup = groupEl.value;
       const currentPrioritySet = new Set((state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim()));
-
       const teamSet = new Set();
 
       (state.directory.equipos || []).forEach(e => {
         const teamName = e.nombre || e.equipo || '';
         if (!teamName) return;
 
-        const matchesCat = (selectedCat === 'all') || (e.categoria === selectedCat) || (e.competicion === selectedCat) || (e.liga === selectedCat);
-        const matchesGroup = (selectedGroup === 'Todos los Grupos' || !selectedGroup) || (e.grupo === selectedGroup);
+        let matchesFilter = false;
+        if (currentTab === 'tab-category') {
+          const selectedCat = catEl.value;
+          const selectedGroup = groupCatEl.value;
+          const matchesCat = (selectedCat === 'all') || (e.categoria === selectedCat) || (e.competicion === selectedCat) || (e.liga === selectedCat);
+          const matchesGroup = (selectedGroup === 'Todos los Grupos' || !selectedGroup) || (e.grupo === selectedGroup);
+          matchesFilter = matchesCat && matchesGroup;
+        } else {
+          const selectedFed = fedEl.value;
+          const selectedGroup = groupFedEl.value;
+          const matchesFed = (selectedFed === 'all') || (e.federacion === selectedFed);
+          const matchesGroup = (selectedGroup === 'Todos los Grupos' || !selectedGroup) || (e.grupo === selectedGroup);
+          matchesFilter = matchesFed && matchesGroup;
+        }
 
-        if (matchesCat && matchesGroup) {
+        if (matchesFilter) {
           teamSet.add(teamName);
         }
       });
 
       (state.cartelera?.calendarios || []).forEach(cal => {
         (cal.partidos || []).forEach(m => {
-          const matchesCat = (selectedCat === 'all') || (m.competicion === selectedCat) || (cal.nombre === selectedCat);
-          if (matchesCat) {
+          let matchesFilter = false;
+          if (currentTab === 'tab-category') {
+            const selectedCat = catEl.value;
+            const matchesCat = (selectedCat === 'all') || (m.competicion === selectedCat) || (cal.nombre === selectedCat);
+            matchesFilter = matchesCat;
+          } else {
+            const selectedFed = fedEl.value;
+            const matchesFed = (selectedFed === 'all') || (m.federacion === selectedFed);
+            matchesFilter = matchesFed;
+          }
+          if (matchesFilter) {
             if (m.local) teamSet.add(m.local);
             if (m.visitante) teamSet.add(m.visitante);
           }
@@ -15592,7 +15664,9 @@
     }
 
     catEl.onchange = updateTeamCheckboxes;
-    groupEl.onchange = updateTeamCheckboxes;
+    groupCatEl.onchange = updateTeamCheckboxes;
+    fedEl.onchange = updateTeamCheckboxes;
+    groupFedEl.onchange = updateTeamCheckboxes;
     updateTeamCheckboxes();
 
     if (btnSelectAll) {
@@ -15775,20 +15849,20 @@
 
     const rowsHtml = matchesList.map((m, idx) => `
       <tr style="${m.isPriority ? 'background-color: #fffbeb;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; white-space: nowrap;">
+        <td style="padding: 10px 12px; font-weight: 700; white-space: nowrap; border: 1px solid #000;">
           ${m.fecha ? formatDateSpanish(m.fecha) : 'Sin fecha'}<br>
           <span style="font-size: 11px; color: #2563eb;">⏰ ${m.hora || '17:00'} hs</span>
         </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px 12px; border: 1px solid #000;">
           <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.local)}</strong> vs 
           <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.visitante)}</strong>
-          ${m.isPriority ? '<span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 6px;">⭐ PRIORITARIO</span>' : ''}
+          ${m.isPriority ? '<span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 6px; border: 1px solid #000;">⭐ PRIORITARIO</span>' : ''}
         </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+        <td style="padding: 10px 12px; font-size: 12px; color: #475569; border: 1px solid #000;">
           <strong>${escapeHtml(m.competicion || 'Liga')}</strong><br>
           <span style="color: #64748b;">${escapeHtml(m.jornada || '')}</span>
         </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+        <td style="padding: 10px 12px; font-size: 12px; color: #475569; border: 1px solid #000;">
           ${m.estadio ? `📍 ${escapeHtml(m.estadio)}` : '-'}
         </td>
       </tr>
@@ -15838,15 +15912,21 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
+            border: 1px solid #000;
+          }
+          th, td {
+            border: 1px solid #000;
           }
           th {
-            background-color: #0f172a;
-            color: #ffffff;
+            background-color: #f1f5f9;
+            color: #0f172a;
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             padding: 10px 12px;
             text-align: left;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .footer {
             margin-top: 40px;
