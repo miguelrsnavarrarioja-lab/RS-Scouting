@@ -15024,7 +15024,7 @@
       if (t.fecha && t.hora && !t.completada && !t.archivada && !t.notified) {
         if (t.fecha < currentDateStr || (t.fecha === currentDateStr && t.hora <= currentTimeStr)) {
           t.notified = true;
-          if (window.saveToFirebase) saveToFirebase('agenda', t);
+          saveToFirebase('agenda', t);
           stateUpdated = true;
 
           state.notifications.unshift({
