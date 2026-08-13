@@ -12533,9 +12533,6 @@
     const activeFilters = state.dirActiveFilters[currentDirectoryTab];
 
     let rawItems = [...(state.directory[currentDirectoryTab] || [])];
-    if (currentDirectoryTab === 'jugadores' && !searchVal) {
-      rawItems = [];
-    }
 
     // Helper to render dynamic filter selects for current directory section
     // Section filters removed per user request
@@ -12838,23 +12835,14 @@
 
     const container = document.getElementById('directoryContentBox');
     if (filtered.length === 0) {
-      if (currentDirectoryTab === 'jugadores' && !searchVal) {
-        container.innerHTML = `
-          ${subFilterBarHTML}
-          <div class="empty-state" style="margin-top: 16px;">
-            <i data-lucide="search" style="width: 32px; height: 32px; opacity: 0.4; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; color: var(--text-muted);"></i>
-            <p class="empty-state-text" style="color: var(--text-muted); font-size: 14px;">Utiliza el buscador para encontrar un jugador o filtra por categorías.</p>
-          </div>
-        `;
-      } else {
         container.innerHTML = `
           ${subFilterBarHTML}
           <div class="empty-state" style="margin-top: 16px;">
             <p class="empty-state-text">No se encontraron registros de ${currentDirectoryTab}.</p>
+
             <button class="btn btn-primary" id="btnEmptyCreateDirItem">Crear Primero</button>
           </div>
         `;
-      }
       document.getElementById('btnEmptyCreateDirItem')?.addEventListener('click', () => openAddDirectoryItemModal());
     } else {
       if (currentDirectoryTab === 'jugadores') {
@@ -18092,7 +18080,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const tagOptions = existingTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
     showModal('Añadir Nuevo Enlace', `
-      <form id="newLinkForm">
+      <form id="newLinkForm" onsubmit="return false;">
         <div class="form-group mb-3">
           <label class="form-label">Nombre / Título del Sitio</label>
           <input type="text" id="lTitle" class="form-control" placeholder="Ej: Transfermarkt / RFEF" required>
@@ -18217,7 +18205,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </button>
         <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">EDICIÓN DE ENLACE</span>
       </div>
-      <form id="editLinkForm">
+      <form id="editLinkForm" onsubmit="return false;">
         <div class="form-group mb-3">
           <label class="form-label">Nombre / Título del Sitio</label>
           <input type="text" id="elTitle" class="form-control" value="${escapeHtml(link.titulo)}" required>
