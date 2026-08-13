@@ -12557,11 +12557,11 @@
           </span>
           ${['TODOS', 'Masculino', 'Femenino'].map(gender => {
             const isActive = currentGenderFilter === gender;
-            return \`
-            <button type="button" class="btn-dir-subfilter \${isActive ? 'active' : ''}" data-type="genero" data-val="\${escapeHtml(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid \${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: \${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: \${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
-              \${escapeHtml(gender)}
+            return `
+            <button type="button" class="btn-dir-subfilter ${isActive ? 'active' : ''}" data-type="genero" data-val="${escapeHtml(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+              ${escapeHtml(gender)}
             </button>
-            \`;
+            `;
           }).join('')}
         </div>
       ` : '';
