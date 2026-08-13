@@ -14960,24 +14960,96 @@
       return;
     }
 
-    container.innerHTML = teams.map(team => `
-      <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-        ⭐ ${escapeHtml(team)}
-        <button type="button" class="btn-remove-priority-team" data-team="${escapeHtml(team)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
-          <i data-lucide="x" style="width: 12px; height: 12px;"></i>
-        </button>
-      </span>
-    `).join('');
+    container.innerHTML = `
+      <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+        ⭐ Ver Equipos Prioritarios (${teams.length})
+      </button>
+    `;
 
-    container.querySelectorAll('.btn-remove-priority-team').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const teamToRemove = btn.dataset.team;
-        state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
-        saveState();
-        renderCartelera();
-      };
+    document.getElementById('btnViewPriorityTeams').onclick = () => openViewPriorityTeamsModal();
+  }
+
+  function openViewPriorityTeamsModal() {
+    ensureCarteleraState();
+    const teams = state.cartelera.priorityTeams || [];
+    
+    // Group teams by Category and Federation by looking them up in directory
+    const grouped = {};
+    
+    teams.forEach(teamName => {
+      const lowerName = teamName.toLowerCase().trim();
+      const dirTeam = (state.directory.equipos || []).find(e => (e.nombre || e.equipo || '').toLowerCase().trim() === lowerName);
+      
+      const cat = dirTeam?.categoria || dirTeam?.competicion || dirTeam?.liga || 'Sin Categoría / Desconocida';
+      const fed = dirTeam?.federacion || 'Sin Federación';
+      
+      const groupKey = `${cat} | ${fed}`;
+      if (!grouped[groupKey]) {
+        grouped[groupKey] = {
+          categoria: cat,
+          federacion: fed,
+          teams: []
+        };
+      }
+      grouped[groupKey].teams.push(teamName);
     });
+
+    const sortedKeys = Object.keys(grouped).sort();
+    let contentHtml = '';
+    
+    sortedKeys.forEach(key => {
+      const g = grouped[key];
+      contentHtml += `
+        <div style="margin-bottom: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;">
+          <div style="background: var(--bg-subtle); padding: 8px 12px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 13px; color: var(--primary-blue);">${escapeHtml(g.categoria)}</strong>
+            <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px;">${escapeHtml(g.federacion)}</span>
+          </div>
+          <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
+            ${g.teams.map(t => `
+              <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                ⭐ ${escapeHtml(t)}
+                <button type="button" class="btn-remove-priority-team-modal" data-team="${escapeHtml(t)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
+                  <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+                </button>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+    
+    if (sortedKeys.length === 0) {
+       contentHtml = '<p style="text-align:center; color: var(--text-muted); font-size: 13px; font-style: italic;">No hay equipos prioritarios.</p>';
+    }
+
+    showModal('⭐ Ver Equipos Prioritarios', `
+      <div style="max-height: 420px; overflow-y: auto; padding-right: 4px;">
+        ${contentHtml}
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+        <button type="button" class="btn btn-secondary" onclick="hideModal()">Cerrar</button>
+      </div>
+    `);
+
+    const modalBody = document.querySelector('.modal-body');
+    if (modalBody) {
+      modalBody.querySelectorAll('.btn-remove-priority-team-modal').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const teamToRemove = btn.dataset.team;
+          state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
+          saveState();
+          renderCartelera();
+          
+          if (state.cartelera.priorityTeams.length === 0) {
+            hideModal();
+          } else {
+            openViewPriorityTeamsModal();
+          }
+        };
+      });
+    }
 
     if (window.lucide) window.lucide.createIcons();
   }
