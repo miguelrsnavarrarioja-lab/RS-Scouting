@@ -17549,6 +17549,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const link = state.links.find(l => l.id === id);
         if (link) {
           link.favorito = !link.favorito;
+          saveToFirebase('enlaces', link);
           saveState();
           renderEnlaces();
         }
@@ -17575,6 +17576,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           const link = state.links.find(l => l.id === draggedLinkId);
           if (link) {
             link.etiqueta = targetTag;
+            saveToFirebase('enlaces', link);
             saveState();
             renderEnlaces();
           }
@@ -17712,6 +17714,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const link = state.links.find(l => l.id === id);
         if (link) {
           link.favorito = !link.favorito;
+          saveToFirebase('enlaces', link);
           saveState();
           renderEnlaces();
         }
@@ -17780,6 +17783,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           const link = state.links.find(l => l.id === draggedLinkId);
           if (link) {
             link.favCol = targetCol;
+            saveToFirebase('enlaces', link);
             saveState();
             renderEnlaces();
           }
@@ -17862,6 +17866,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const link = state.links.find(l => l.id === id);
         if (link) {
           link.favorito = !link.favorito;
+          saveToFirebase('enlaces', link);
           saveState();
           renderEnlaces();
         }
@@ -18048,15 +18053,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const tagCustom = document.getElementById('lTagCustom').value.trim();
       const etiqueta = (tagSelect === '__custom__' && tagCustom) ? tagCustom : (tagSelect !== '__custom__' ? tagSelect : 'General');
 
-      state.links.push({
+      const newLink = {
         id: 'l_' + Date.now(),
         titulo: title,
         url: url,
         etiqueta: etiqueta,
         logo: document.getElementById('lLogo').value.trim(),
         favorito: document.getElementById('lFav').checked
-      });
+      };
+      state.links.push(newLink);
 
+      saveToFirebase('enlaces', newLink);
       saveState();
       hideModal();
       renderEnlaces();
@@ -18177,6 +18184,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       link.logo = document.getElementById('elLogo').value.trim();
       link.favorito = document.getElementById('elFav').checked;
 
+      saveToFirebase('enlaces', link);
       saveState();
       hideModal();
       renderEnlaces();
