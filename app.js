@@ -325,7 +325,8 @@
       navarraPrimeraRegionalG5Seeded: !!state.directory?.navarraPrimeraRegionalG5Seeded,
       dhjGroup3Seeded: !!state.directory?.dhjGroup3Seeded,
       dhjGroup2Seeded: !!state.directory?.dhjGroup2Seeded,
-      deletedTombstones: state.deletedTombstones
+      deletedTombstones: state.deletedTombstones,
+      notifications: state.notifications || []
     });
     
     markLocalWrite('configuracion', 'app_settings');
@@ -506,6 +507,11 @@
         }
         if (configData && configData.cartelera) {
           state.cartelera = configData.cartelera;
+          if (typeof renderCartelera === 'function') renderCartelera();
+        }
+        if (Array.isArray(configData?.notifications)) {
+          state.notifications = configData.notifications;
+          if (typeof renderNotificationsUI === 'function') renderNotificationsUI();
         }
         state.links = (Array.isArray(enlaces) && enlaces.length > 0) ? enlaces : (state.links || []);
 
@@ -625,6 +631,9 @@
           if (configData.cartelera) {
             // Merge priorityTeams from config (calendarios are handled separately now)
             state.cartelera.priorityTeams = configData.cartelera.priorityTeams || [];
+          }
+          if (Array.isArray(configData.notifications)) {
+            state.notifications = configData.notifications;
           }
           
           if (typeof renderAllViews === 'function') renderAllViews();
@@ -12858,31 +12867,31 @@
       if (currentDirectoryTab === 'jugadores') {
         container.innerHTML = `
           ${bulkToolbarHTML}
-          <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+          <div class="table-responsive" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;">
+            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
               <thead>
-                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: var(--bg-subtle);">
-                  <th style="padding: 10px 12px; width: 20%;">NOMBRE</th>
-                  <th style="padding: 10px 12px; width: 10%;">AÑO</th>
-                  <th style="padding: 10px 12px; width: 20%;">EQUIPO</th>
-                  <th style="padding: 10px 12px; width: 12%;">POS. 1</th>
-                  <th style="padding: 10px 12px; width: 12%;">POS. 2</th>
-                  <th style="padding: 10px 12px; width: 12%;">LATERALIDAD</th>
-                  <th style="padding: 10px 12px; width: 14%;">PROYECCIÓN</th>
+                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
+                  <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
+                  <th style="padding: 12px 16px; width: 10%;">AÑO</th>
+                  <th style="padding: 12px 16px; width: 20%;">EQUIPO</th>
+                  <th style="padding: 12px 16px; width: 12%;">POS. 1</th>
+                  <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
+                  <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
+                  <th style="padding: 12px 16px; width: 12%;">PROYECCIÓN</th>
                 </tr>
               </thead>
               <tbody>
                 ${pageItems.map(j => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
-                    <td style="padding: 8px 12px;">
-                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                    <td style="padding: 10px 16px;">
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 6px;">
                         <i data-lucide="user" style="width: 14px; height: 14px;"></i> ${escapeHtml(j.nombre)}
                       </a>
                     </td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.equipo || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(j.equipo || '-')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || j.rendimientoRS || '-')}</td>
                   </tr>
@@ -13501,48 +13510,33 @@
       } else if (currentDirectoryTab === 'staff') {
         container.innerHTML = `
           ${bulkToolbarHTML}
-          <div class="directory-cards-grid">
-            ${pageItems.map(s => {
-              const staffColor = '#059669';
-
-              return `
-              <div class="entity-card" style="border-top: 5px solid ${staffColor} !important; background: linear-gradient(180deg, ${staffColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
-                <!-- LÍNEA 1: Checkbox + Foto/Avatar 48px (izquierda) y Eliminar (derecha) -->
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${staffColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${s.foto || s.imagen ? `<img src="${s.foto || s.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${staffColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
-                    </div>
-                  </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${s.id}" style="width: 28px; height: 28px;" title="Eliminar">
-                    <i data-lucide="trash-2" style="width: 14px;"></i>
-                  </button>
-                </div>
-
-                <!-- LÍNEA 2: NOMBRE DEL MIEMBRO DE STAFF EN UNA SOLA LÍNEA -->
-                <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title staff-name-link cursor-pointer" data-id="${s.id}" title="${escapeHtml(s.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
-                    ${escapeHtml(s.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
-                  </h3>
-                </div>
-
-                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
-                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
-                  ${escapeHtml(s.cargo || 'Cargo N/A')}
-                </div>
-
-                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
-                  <div><strong>Equipo/Club:</strong> ${escapeHtml(s.equipo || s.club || s.seleccion || 'N/A')}</div>
-                  <div><strong>Email:</strong> ${escapeHtml(s.email || s.correo || 'N/A')}</div>
-                  <div><strong>Teléfono:</strong> ${escapeHtml(s.telefono || 'N/A')}</div>
-                </div>
-
-                <button type="button" class="btn btn-secondary btn-open-staff-modal" data-id="${s.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${staffColor}40;">
-                  <i data-lucide="user-check"></i> Ver / Editar Ficha de Staff
-                </button>
-              </div>
-            `;
-            }).join('')}
+          <div class="table-responsive" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;">
+            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
+                  <th style="padding: 12px 16px; width: 25%;">NOMBRE</th>
+                  <th style="padding: 12px 16px; width: 20%;">CARGO</th>
+                  <th style="padding: 12px 16px; width: 20%;">EQUIPO / ENTIDAD</th>
+                  <th style="padding: 12px 16px; width: 20%;">EMAIL</th>
+                  <th style="padding: 12px 16px; width: 15%;">TELÉFONO</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pageItems.map(s => `
+                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
+                    <td style="padding: 10px 16px;">
+                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 6px;">
+                        <i data-lucide="user-check" style="width: 14px; height: 14px;"></i> ${escapeHtml(s.nombre)}
+                      </a>
+                    </td>
+                    <td style="padding: 10px 16px;">${escapeHtml(s.cargo || 'Cargo N/A')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(s.equipo || s.club || s.seleccion || 'N/A')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(s.email || s.correo || 'N/A')}</td>
+                    <td style="padding: 10px 16px;">${escapeHtml(s.telefono || 'N/A')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
           ${paginationBarHTML}
         `;
@@ -15020,6 +15014,7 @@
       if (t.fecha && t.hora && !t.completada && !t.archivada && !t.notified) {
         if (t.fecha < currentDateStr || (t.fecha === currentDateStr && t.hora <= currentTimeStr)) {
           t.notified = true;
+          if (window.saveToFirebase) saveToFirebase('agenda', t);
           stateUpdated = true;
 
           state.notifications.unshift({
@@ -15083,12 +15078,17 @@
         <h4 style="font-size: 14px; font-weight: 800; margin: 0 0 4px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h4>
         <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Programado para las <strong>${escapeHtml(task.hora)} hs</strong> (${escapeHtml(task.fecha)}).</p>
       </div>
-      <div class="toast-actions" style="display: flex; gap: 8px; margin-top: 12px;">
-        <button class="btn btn-sm btn-primary btn-view-toast-task" style="flex: 1; font-size: 11px; padding: 6px 10px;">
-          <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ver Ficha
-        </button>
-        <button class="btn btn-sm btn-secondary btn-dismiss-toast" style="font-size: 11px; padding: 6px 10px;">
-          Entendido
+      <div class="toast-actions" style="display: flex; flex-direction: column; gap: 6px; margin-top: 12px;">
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm btn-primary btn-view-toast-task" style="flex: 1; font-size: 11px; padding: 6px 10px;">
+            <i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ver Ficha
+          </button>
+          <button class="btn btn-sm btn-secondary btn-dismiss-toast" style="font-size: 11px; padding: 6px 10px;">
+            Marcar Leída
+          </button>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary btn-send-to-center" style="font-size: 11px; padding: 6px 10px; width: 100%;">
+          <i data-lucide="bell" style="width: 12px; height: 12px;"></i> Mandar al centro de notificaciones
         </button>
       </div>
     `;
@@ -15097,6 +15097,11 @@
     if (window.lucide) window.lucide.createIcons();
 
     toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
+    toast.querySelector('.btn-send-to-center')?.addEventListener('click', () => {
+      saveState();
+      renderNotificationsUI();
+      toast.remove();
+    });
     toast.querySelector('.btn-dismiss-toast').addEventListener('click', () => {
       const notif = state.notifications.find(n => n.taskId === task.id && !n.read);
       if (notif) {
