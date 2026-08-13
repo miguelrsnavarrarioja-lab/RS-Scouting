@@ -3484,6 +3484,7 @@
         currentDirectoryTab = tab.dataset.dir;
         currentSubCategoryFilter = 'TODOS';
         currentFederationFilter = 'TODAS';
+        currentGenderFilter = 'TODOS';
         currentDirectoryPage = 1;
         renderDirectorio();
       });
@@ -10287,6 +10288,7 @@
   let currentSubCategoryFilter = 'TODOS';
   let currentSubGroupFilter = 'TODOS';
   let currentFederationFilter = 'TODAS';
+  let currentGenderFilter = 'TODOS';
   let currentComunidadFilter = 'TODAS';
   const DIR_PAGE_SIZE = 25;
 
@@ -12343,6 +12345,7 @@
         currentDirectoryTab = tabOverride;
         currentSubCategoryFilter = 'TODOS';
         currentFederationFilter = 'TODAS';
+        currentGenderFilter = 'TODOS';
         currentDirectoryPage = 1;
 
       }
@@ -12417,6 +12420,15 @@
         return itemCom.toLowerCase().trim() === filterCom || 
                itemFed.toLowerCase().includes(filterCom) ||
                getFedAcronym(itemFed).toLowerCase() === filterCom;
+      });
+    }
+
+    if (currentDirectoryTab === 'selecciones' && currentGenderFilter !== 'TODOS') {
+      subFilteredItems = subFilteredItems.filter(item => {
+        const selName = (item.nombre || item.seleccion || '').toLowerCase();
+        if (currentGenderFilter === 'Masculino') return selName.includes('masculin');
+        if (currentGenderFilter === 'Femenino') return selName.includes('femenin');
+        return true;
       });
     }
 
@@ -12537,7 +12549,25 @@
       });
 
       const allComs = ['TODAS', ...comList];
+      
+      const genderBarHTML = currentDirectoryTab === 'selecciones' ? `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="users" style="width: 14px;"></i> Género:
+          </span>
+          ${['TODOS', 'Masculino', 'Femenino'].map(gender => {
+            const isActive = currentGenderFilter === gender;
+            return \`
+            <button type="button" class="btn-dir-subfilter \${isActive ? 'active' : ''}" data-type="genero" data-val="\${escapeHtml(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid \${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: \${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: \${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+              \${escapeHtml(gender)}
+            </button>
+            \`;
+          }).join('')}
+        </div>
+      ` : '';
+
       subFilterBarHTML = `
+        ${genderBarHTML}
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="globe" style="width: 14px;"></i> Comunidades:
@@ -13743,6 +13773,8 @@
           currentFederationFilter = val;
         } else if (type === 'comunidad') {
           currentComunidadFilter = val;
+        } else if (type === 'genero') {
+          currentGenderFilter = val;
         }
         currentDirectoryPage = 1;
         renderDirectorio();
