@@ -300,10 +300,9 @@
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       customTabOrder: state.customTabOrder || [],
       customClubTypes: state.customClubTypes || [],
-      directoryFederationsOrder: state.directoryFederationsOrder || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       agendaCategories: state.agendaCategories || [],
-      cartelera: state.cartelera || {},
+      cartelera: { priorityTeams: state.cartelera?.priorityTeams || [] },
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
       federacionesSeeded: !!state.directory?.federacionesSeeded,
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
@@ -328,6 +327,8 @@
       dhjGroup2Seeded: !!state.directory?.dhjGroup2Seeded,
       deletedTombstones: state.deletedTombstones
     });
+    
+    markLocalWrite('configuracion', 'app_settings');
     db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
       .catch(e => console.warn('Error sync configuracion:', e));
   }
@@ -374,6 +375,7 @@
             const batch = db.batch();
             chunk.forEach(item => {
               if (item && item.id) {
+                markLocalWrite(colName, item.id);
                 const ref = db.collection(colName).doc(String(item.id));
                 batch.set(ref, item, { merge: true });
               }
@@ -387,9 +389,26 @@
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
         customTabOrder: state.customTabOrder || [],
         agendaCategories: state.agendaCategories || [],
-        cartelera: state.cartelera || {}
+        cartelera: { priorityTeams: state.cartelera?.priorityTeams || [] }
       });
+      markLocalWrite('configuracion', 'app_settings');
       await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
+
+      // Save Cartelera Calendars to their own collection
+      if (state.cartelera && Array.isArray(state.cartelera.calendarios)) {
+        for (let i = 0; i < state.cartelera.calendarios.length; i += 450) {
+          const chunk = state.cartelera.calendarios.slice(i, i + 450);
+          const batch = db.batch();
+          chunk.forEach(cal => {
+            if (cal && cal.id) {
+              markLocalWrite('cartelera_calendarios', cal.id);
+              const ref = db.collection('cartelera_calendarios').doc(String(cal.id));
+              batch.set(ref, cal, { merge: true });
+            }
+          });
+          await batch.commit();
+        }
+      }
 
       console.log('✅ Sincronización completa finalizada en Firebase');
       setFirebaseHeaderStatus('synced');
@@ -607,8 +626,108 @@
 
   function initFirebaseRealtimeListener() {
     if (!db) return;
+    
+    console.log('📡 Iniciando escuchas en tiempo real (onSnapshot)...');
 
-    // Ejecutar la carga inicial completa desde las colecciones independientes de Firebase
+    // 1. Escuchar la configuración global (incluyendo el estado de la UI)
+    db.collection('configuracion').doc('app_settings').onSnapshot(doc => {
+      if (isRecentLocalWrite('configuracion', 'app_settings')) return;
+      
+      if (doc.exists) {
+        const configData = doc.data();
+        if (configData) {
+          state.settings = Object.assign({}, state.settings, configData);
+          if (configData.appName) {
+            state.settings.appName = configData.appName;
+            try { localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName); } catch (e) {}
+            updateAppNameUI(configData.appName);
+          }
+          if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) state.favColumns = configData.favColumns;
+          if (Array.isArray(configData.customTabOrder)) state.customTabOrder = configData.customTabOrder;
+          if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
+            state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
+          }
+          if (configData.clubesNavarraSeeded) state.directory.clubesNavarraSeeded = true;
+          if (configData.federacionesSeeded) state.directory.federacionesSeeded = true;
+          if (configData.clubesAragonSeeded) state.directory.clubesAragonSeeded = true;
+          if (configData.equiposAragonSeeded) state.directory.equiposAragonSeeded = true;
+          if (configData.federacionesSeleccionesSeeded) state.directory.federacionesSeleccionesSeeded = true;
+          if (Array.isArray(configData.directoryFederationsOrder)) state.directoryFederationsOrder = configData.directoryFederationsOrder;
+          if (Array.isArray(configData.directoryCategoriesOrder)) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') state.deletedTombstones = configData.deletedTombstones;
+          
+          if (configData.cartelera) {
+            // Merge priorityTeams from config (calendarios are handled separately now)
+            state.cartelera.priorityTeams = configData.cartelera.priorityTeams || [];
+          }
+          
+          if (typeof renderAllViews === 'function') renderAllViews();
+        }
+      }
+    }, err => {
+      console.error('Error escuchando configuracion:', err);
+    });
+
+    // 2. Factory genérico para escuchar colecciones
+    const listenCollection = (colName, arrayGetter, arraySetter) => {
+      db.collection(colName).onSnapshot(snap => {
+        let currentArray = arrayGetter() || [];
+        let hasChanges = false;
+
+        snap.docChanges().forEach(change => {
+          const docId = change.doc.id;
+          const data = change.doc.data();
+          
+          if (isRecentLocalWrite(colName, docId)) return; // Anti-echo
+          
+          hasChanges = true;
+          
+          if (change.type === 'added' || change.type === 'modified') {
+            const idx = currentArray.findIndex(item => String(item.id) === String(docId) || String(item.codigo) === String(docId));
+            if (idx !== -1) {
+              currentArray[idx] = data;
+            } else {
+              currentArray.push(data);
+            }
+          } else if (change.type === 'removed') {
+            currentArray = currentArray.filter(item => String(item.id) !== String(docId) && String(item.codigo) !== String(docId));
+          }
+        });
+
+        if (hasChanges) {
+          arraySetter(currentArray);
+          if (typeof renderAllViews === 'function') renderAllViews();
+        }
+      }, err => {
+        console.error(`Error escuchando ${colName}:`, err);
+      });
+    };
+
+    // 3. Conectar todas las colecciones al estado
+    state.directory = state.directory || {};
+    
+    listenCollection('jugadores', () => state.directory.jugadores, arr => state.directory.jugadores = arr);
+    listenCollection('clubes', () => state.directory.clubes, arr => state.directory.clubes = arr);
+    listenCollection('equipos', () => state.directory.equipos, arr => state.directory.equipos = arr);
+    listenCollection('federaciones', () => state.directory.federaciones, arr => state.directory.federaciones = arr);
+    listenCollection('selecciones', () => state.directory.selecciones, arr => state.directory.selecciones = arr);
+    listenCollection('convocatorias', () => state.directory.convocatorias, arr => state.directory.convocatorias = arr);
+    listenCollection('torneos', () => state.directory.torneos, arr => state.directory.torneos = arr);
+    listenCollection('staff', () => state.directory.staff, arr => state.directory.staff = arr);
+    listenCollection('agencias', () => state.directory.agencias, arr => state.directory.agencias = arr);
+    listenCollection('agentes', () => state.directory.agentes, arr => state.directory.agentes = arr);
+    listenCollection('estadios', () => state.directory.estadios, arr => state.directory.estadios = arr);
+    
+    listenCollection('partidos', () => state.matches, arr => state.matches = arr);
+    listenCollection('informes', () => state.reports, arr => state.reports = arr);
+    listenCollection('agenda', () => state.agenda, arr => state.agenda = arr);
+    listenCollection('enlaces', () => state.links, arr => state.links = arr);
+    
+    // Escucha para la nueva colección de calendarios de la cartelera
+    state.cartelera = state.cartelera || { calendarios: [], priorityTeams: [] };
+    listenCollection('cartelera_calendarios', () => state.cartelera.calendarios, arr => state.cartelera.calendarios = arr);
+
+    // Carga inicial (fallback for seeding si las colecciones están vacías)
     loadFromFirebase();
   }
 
@@ -4804,9 +4923,9 @@
       };
 
       if (!state.directory.clubes) state.directory.clubes = [];
-      if (isEdit) {
-        const idx = state.directory.clubes.findIndex(c => c && (String(c.id) === String(clubId) || (c.codigo && String(c.codigo) === String(clubId))));
-        if (idx !== -1) state.directory.clubes[idx] = updatedClub;
+      const idx = state.directory.clubes.findIndex(c => c && (String(c.id) === String(clubId) || (c.codigo && String(c.codigo) === String(clubId))));
+      if (idx !== -1) {
+        state.directory.clubes[idx] = updatedClub;
       } else {
         state.directory.clubes.unshift(updatedClub);
       }
@@ -5752,9 +5871,9 @@
       };
 
       if (!state.directory.equipos) state.directory.equipos = [];
-      if (isEdit) {
-        const idx = state.directory.equipos.findIndex(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
-        if (idx !== -1) state.directory.equipos[idx] = updatedTeam;
+      const eqIdx = state.directory.equipos.findIndex(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
+      if (eqIdx !== -1) {
+        state.directory.equipos[eqIdx] = updatedTeam;
       } else {
         state.directory.equipos.unshift(updatedTeam);
       }
@@ -6719,9 +6838,9 @@
       };
 
       if (!state.directory.federaciones) state.directory.federaciones = [];
-      if (isEdit) {
-        const idx = state.directory.federaciones.findIndex(f => f && (String(f.id) === String(federationId) || (f.codigo && String(f.codigo) === String(federationId))));
-        if (idx !== -1) state.directory.federaciones[idx] = updatedFed;
+      const idx = state.directory.federaciones.findIndex(f => f && (String(f.id) === String(federationId) || (f.codigo && String(f.codigo) === String(federationId))));
+      if (idx !== -1) {
+        state.directory.federaciones[idx] = updatedFed;
       } else {
         state.directory.federaciones.unshift(updatedFed);
       }
@@ -7220,9 +7339,9 @@
       };
 
       if (!state.directory.selecciones) state.directory.selecciones = [];
-      if (isEdit) {
-        const idx = state.directory.selecciones.findIndex(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
-        if (idx !== -1) state.directory.selecciones[idx] = updatedSel;
+      const idx = state.directory.selecciones.findIndex(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
+      if (idx !== -1) {
+        state.directory.selecciones[idx] = updatedSel;
       } else {
         state.directory.selecciones.unshift(updatedSel);
       }
@@ -8028,9 +8147,9 @@
       };
 
       if (!state.directory.convocatorias) state.directory.convocatorias = [];
-      if (isEdit) {
-        const idx = state.directory.convocatorias.findIndex(c => c && (String(c.id) === String(convocatoriaId) || (c.codigo && String(c.codigo) === String(convocatoriaId))));
-        if (idx !== -1) state.directory.convocatorias[idx] = updatedConv;
+      const idx = state.directory.convocatorias.findIndex(c => c && (String(c.id) === String(convocatoriaId) || (c.codigo && String(c.codigo) === String(convocatoriaId))));
+      if (idx !== -1) {
+        state.directory.convocatorias[idx] = updatedConv;
       } else {
         state.directory.convocatorias.unshift(updatedConv);
       }
@@ -8593,9 +8712,9 @@
       };
 
       if (!state.directory.torneos) state.directory.torneos = [];
-      if (isEdit) {
-        const idx = state.directory.torneos.findIndex(t => t && (String(t.id) === String(tournamentId) || (t.codigo && String(t.codigo) === String(tournamentId))));
-        if (idx !== -1) state.directory.torneos[idx] = updatedTrn;
+      const idx = state.directory.torneos.findIndex(t => t && (String(t.id) === String(tournamentId) || (t.codigo && String(t.codigo) === String(tournamentId))));
+      if (idx !== -1) {
+        state.directory.torneos[idx] = updatedTrn;
       } else {
         state.directory.torneos.unshift(updatedTrn);
       }
@@ -8923,9 +9042,9 @@
       };
 
       if (!state.directory.staff) state.directory.staff = [];
-      if (isEdit) {
-        const idx = state.directory.staff.findIndex(s => s && (String(s.id) === String(staffId) || (s.codigo && String(s.codigo) === String(staffId))));
-        if (idx !== -1) state.directory.staff[idx] = updatedStaff;
+      const idx = state.directory.staff.findIndex(s => s && (String(s.id) === String(staffId) || (s.codigo && String(s.codigo) === String(staffId))));
+      if (idx !== -1) {
+        state.directory.staff[idx] = updatedStaff;
       } else {
         state.directory.staff.unshift(updatedStaff);
       }
@@ -9289,9 +9408,9 @@
       };
 
       if (!state.directory.agencias) state.directory.agencias = [];
-      if (isEdit) {
-        const idx = state.directory.agencias.findIndex(a => a && (String(a.id) === String(agencyId) || (a.codigo && String(a.codigo) === String(agencyId))));
-        if (idx !== -1) state.directory.agencias[idx] = updatedAgency;
+      const idx = state.directory.agencias.findIndex(a => a && (String(a.id) === String(agencyId) || (a.codigo && String(a.codigo) === String(agencyId))));
+      if (idx !== -1) {
+        state.directory.agencias[idx] = updatedAgency;
       } else {
         state.directory.agencias.unshift(updatedAgency);
       }
@@ -9715,9 +9834,9 @@
       };
 
       if (!state.directory.agentes) state.directory.agentes = [];
-      if (isEdit) {
-        const idx = state.directory.agentes.findIndex(a => a && (String(a.id) === String(agentId) || (a.codigo && String(a.codigo) === String(agentId))));
-        if (idx !== -1) state.directory.agentes[idx] = updatedAgent;
+      const idx = state.directory.agentes.findIndex(a => a && (String(a.id) === String(agentId) || (a.codigo && String(a.codigo) === String(agentId))));
+      if (idx !== -1) {
+        state.directory.agentes[idx] = updatedAgent;
       } else {
         state.directory.agentes.unshift(updatedAgent);
       }
@@ -10083,9 +10202,9 @@
       };
 
       if (!state.directory.estadios) state.directory.estadios = [];
-      if (isEdit) {
-        const idx = state.directory.estadios.findIndex(e => e && (String(e.id) === String(stadiumId) || (e.codigo && String(e.codigo) === String(stadiumId))));
-        if (idx !== -1) state.directory.estadios[idx] = updatedStadium;
+      const idx = state.directory.estadios.findIndex(e => e && (String(e.id) === String(stadiumId) || (e.codigo && String(e.codigo) === String(stadiumId))));
+      if (idx !== -1) {
+        state.directory.estadios[idx] = updatedStadium;
       } else {
         state.directory.estadios.unshift(updatedStadium);
       }
@@ -15229,11 +15348,14 @@
     let html = '';
     sortedJornadas.forEach(jorName => {
       const jorMatches = groupedByJornada[jorName];
+      const realDateMatch = jorMatches.find(m => m.fechaRealJornada);
+      const realDateText = realDateMatch ? `<span style="color: var(--text-muted); font-size: 13px; font-weight: 600; margin-left: 6px;">(${realDateMatch.fechaRealJornada})</span>` : '';
+
       html += `
         <div style="grid-column: 1 / -1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color);">
             <h3 style="font-size: 16px; font-weight: 800; color: var(--primary-blue, #2563eb); margin: 0; display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="calendar" style="width: 18px; height: 18px;"></i> ${escapeHtml(jorName)}
+              <i data-lucide="calendar" style="width: 18px; height: 18px;"></i> ${escapeHtml(jorName)} ${realDateText}
             </h3>
             <span class="badge" style="font-size: 11px; font-weight: 800; background: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 4px 10px; border-radius: 9999px;">${jorMatches.length} partidos</span>
           </div>
@@ -15881,28 +16003,38 @@
           <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: DHJ Grupo 2)">
         </div>
 
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 800; font-size: 13px;">Federación (Opcional)</label>
+            <input type="text" id="importFederacion" class="form-control" placeholder="Ej: RFEF, Navarra...">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 800; font-size: 13px;">Grupo (Opcional)</label>
+            <input type="text" id="importGrupo" class="form-control" placeholder="Ej: Grupo 2">
+          </div>
+        </div>
+
         <div class="form-group mb-3">
           <label class="form-label" style="font-weight: 800; font-size: 13px;">Pegar Texto del Calendario o Fixture (Cuadro Amplio)</label>
           <textarea id="importRawText" class="form-control" rows="14" placeholder="Pega aquí todo el texto copiado del calendario de la federación o web...
 
 Ejemplo:
-Jornada 1
+Jornada 1 - 12/10/2025
 Real Zaragoza vs Huesca
-Danok Bat vs Oberena
-
-Jornada 2
-Huesca vs Danok Bat
-Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-height: 1.5; min-height: 280px;"></textarea>
+Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-height: 1.5; min-height: 280px;"></textarea>
         </div>
 
         <div style="font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); padding: 10px 14px; border-radius: var(--radius-md);" class="mb-4">
-          💡 <strong>Procesamiento Inteligente:</strong> Detecta encabezados de <code>Jornada 1</code>, enfrentamientos <code>Local vs Visitante</code>, <code>Local - Visitante</code> y fechas/horas automáticamente.
+          💡 <strong>Procesamiento Inteligente:</strong> Detecta encabezados de <code>Jornada 1</code>, fechas reales, enfrentamientos <code>Local vs Visitante</code>, <code>Local - Visitante</code> y fechas/horas automáticamente.
         </div>
       </form>
     `, () => {
       const selValue = document.getElementById('importCompSelect')?.value;
       const customValue = document.getElementById('importCompCustom')?.value.trim();
       let compName = selValue === '__custom__' ? customValue : selValue;
+      
+      const fedValue = document.getElementById('importFederacion')?.value.trim() || '';
+      const grpValue = document.getElementById('importGrupo')?.value.trim() || '';
 
       if (!compName) {
         alert('Por favor selecciona o escribe el nombre de la categoría/competición.');
@@ -15917,7 +16049,7 @@ Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-h
         return false;
       }
 
-      parseCalendarText(rawText, compName);
+      parseCalendarText(rawText, compName, fedValue, grpValue);
       hideModal();
     });
 
@@ -15944,15 +16076,24 @@ Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-h
     reader.readAsText(file);
   }
 
-  function parseCalendarText(rawText, calendarName) {
+  function parseCalendarText(rawText, calendarName, federacion = '', grupo = '') {
     const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const matches = [];
     let currentJornada = 'Jornada 1';
+    let currentFechaReal = '';
 
     lines.forEach((line, idx) => {
       if (/jornada\s*\d+/i.test(line)) {
         const matchJor = line.match(/jornada\s*\d+/i);
         if (matchJor) currentJornada = matchJor[0].charAt(0).toUpperCase() + matchJor[0].slice(1);
+        
+        // Extraer fecha real (ej: 12/10/2025 o 12-10-25)
+        const dateMatch = line.match(/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/);
+        if (dateMatch) {
+          currentFechaReal = dateMatch[0];
+        } else {
+          currentFechaReal = '';
+        }
         return;
       }
 
@@ -15962,11 +16103,14 @@ Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-h
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: currentJornada,
+            fechaRealJornada: currentFechaReal,
             fecha: new Date().toISOString().split('T')[0],
             hora: '17:00',
             local: parts[0].trim(),
             visitante: parts[1].trim(),
-            competicion: calendarName || 'Liga Importada'
+            competicion: calendarName || 'Liga Importada',
+            federacion: federacion,
+            grupo: grupo
           });
         }
       }
@@ -15978,11 +16122,14 @@ Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-h
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: 'Jornada 1',
+            fechaRealJornada: currentFechaReal,
             fecha: new Date().toISOString().split('T')[0],
             hora: '17:00',
             local: l,
             visitante: 'Rival',
-            competicion: calendarName || 'Calendario'
+            competicion: calendarName || 'Calendario',
+            federacion: federacion,
+            grupo: grupo
           });
         }
       });
@@ -18372,6 +18519,14 @@ Oberena vs Real Zaragoza" style="font-family: monospace; font-size: 12px; line-h
 
     // Initial view render
     renderView('dashboard');
+    
+    // Refresh app state when returning to foreground
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔄 App visible again, checking sync and re-rendering...');
+        if (typeof renderAllViews === 'function') renderAllViews();
+      }
+    });
   });
 
 })();
