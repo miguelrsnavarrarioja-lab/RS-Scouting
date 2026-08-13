@@ -4042,11 +4042,88 @@
             </div>
           </div>
         </form>
+            </div>
+          </div>
+        </form>
       </div>
     `;
 
+    const card = document.getElementById('generalModalCard');
+    if (card) card.classList.add('large');
 
+    showModal(titleText, modalHTML, () => {
+      const p = isEdit ? player : { id: 'jug_' + Date.now() };
 
+      p.nombre = document.getElementById('pfNombre')?.value.trim() || p.nombre || '';
+      p.dorsal = document.getElementById('pfDorsal')?.value.trim() || '';
+      const activeEstado = document.querySelector('#pfEstadoGroup .status-pill-btn.active');
+      p.estado = activeEstado ? activeEstado.dataset.val : (p.estado || 'ALTA');
+      p.equipo = document.getElementById('pfEquipo')?.value.trim() || '';
+      p.equipoSecundario = document.getElementById('pfEquipoSecundario')?.value.trim() || '';
+      p.seleccion = document.getElementById('pfSeleccion')?.value.trim() || '';
+      p.anoNac = document.getElementById('pfAnoNac')?.value.trim() || '';
+      p.ano = p.anoNac;
+      p.fechaNac = document.getElementById('pfFechaNac')?.value.trim() || '';
+      p.sexo = document.getElementById('pfSexo')?.value || 'MASCULINO';
+      p.comunidad = document.getElementById('pfComunidad')?.value || '';
+      p.localidad = document.getElementById('pfLocalidad')?.value.trim() || '';
+
+      p.pierna = document.getElementById('pfPierna')?.value || 'DERECHA';
+      p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
+      p.proyeccion = document.getElementById('pfProyeccion')?.value || '';
+      p.posicionPrincipal = document.getElementById('pfPosicion')?.value || '';
+      p.posicion = p.posicionPrincipal;
+      p.posicionSecundaria = document.getElementById('pfPosicionSecundaria')?.value || '';
+      p.observacionesDeportivas = document.getElementById('pfObservaciones')?.value.trim() || '';
+
+      p.finContrato = document.getElementById('pfFinContrato')?.value.trim() || '';
+      p.agencia = document.getElementById('pfAgencia')?.value.trim() || '';
+      p.agente = document.getElementById('pfAgente')?.value.trim() || '';
+      p.agenteRepresentante = p.agente;
+      p.instagram = document.getElementById('pfInstagram')?.value.trim() || '';
+      p.twitter = document.getElementById('pfTwitter')?.value.trim() || '';
+      p.transfermarkt = document.getElementById('pfTransfermarkt')?.value.trim() || '';
+      p.besoccer = document.getElementById('pfBesoccer')?.value.trim() || '';
+      p.telefono = document.getElementById('pfTelefono')?.value.trim() || '';
+
+      p.gestorRebound = document.getElementById('pfGestorRebound')?.value || 'NINGUNA / CLUB CONVENIDO';
+      p.rendimientoAcumulado = document.getElementById('pfRendimientoAcumulado')?.value.trim() || '';
+      p.potencial = document.getElementById('pfPotencial')?.value || '3';
+      p.minutos = document.getElementById('pfMinutos')?.value.trim() || '';
+      p.rendimientoRS = document.getElementById('pfRendimientoRS')?.value || 'A';
+      p.descFisica = document.getElementById('pfDescFisica')?.value.trim() || '';
+      p.descTecnica = document.getElementById('pfDescTecnica')?.value.trim() || '';
+      p.descEmocional = document.getElementById('pfDescEmocional')?.value.trim() || '';
+      p.perfilRS = document.getElementById('pfPerfilRS')?.value || '';
+      p.comentarioGeneral = document.getElementById('pfComentarioGeneral')?.value.trim() || '';
+
+      p.historialEntrenadores = document.getElementById('pfHistorialEntrenadores')?.value.trim() || '';
+      p.opinionTecnica = document.getElementById('pfOpinionTecnica')?.value.trim() || '';
+
+      p.lesiones = [...localLesiones];
+      p.paises = [...localPaises];
+      p.trayectoria = [...localTrayectoria];
+      p.controlSeguimiento = typeof controlSeguimiento !== 'undefined' ? controlSeguimiento : (p.controlSeguimiento || []);
+      
+      if (typeof photoData !== 'undefined') {
+        p.foto = photoData;
+      }
+
+      if (!isEdit) {
+        if (!state.directory.jugadores) state.directory.jugadores = [];
+        state.directory.jugadores.unshift(p);
+      } else {
+        const idx = state.directory.jugadores.findIndex(j => j.id === p.id);
+        if (idx !== -1) state.directory.jugadores[idx] = p;
+      }
+
+      saveToFirebase('jugadores', p);
+      saveState();
+      hideModal();
+      if (typeof renderDirectorio === 'function') renderDirectorio();
+      if (typeof renderPlantillaTable === 'function') renderPlantillaTable();
+      showToast(`Ficha de "${p.nombre}" guardada con éxito`, 'success');
+    });
 // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
     const panes = document.querySelectorAll('.player-tab-pane');
@@ -12755,52 +12832,37 @@
       if (currentDirectoryTab === 'jugadores') {
         container.innerHTML = `
           ${bulkToolbarHTML}
-          <div class="directory-cards-grid">
-            ${pageItems.map(j => {
-              let jPriColor = '#2563eb';
-              if (j.equipo) {
-                const clubMatch = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase().trim() === j.equipo.toLowerCase().trim());
-                if (clubMatch && clubMatch.colorPrimary) jPriColor = clubMatch.colorPrimary;
-              }
-
-              return `
-              <div class="entity-card" style="border-top: 5px solid ${jPriColor} !important; background: linear-gradient(180deg, ${jPriColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
-                <!-- LÍNEA 1: Checkbox + Avatar/Foto amplio 48px (izquierda) y Eliminar (derecha) -->
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${jPriColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${j.foto ? `<img src="${j.foto}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${jPriColor}; font-size: 16px;">${j.nombre ? j.nombre.charAt(0) : 'J'}</span>`}
-                    </div>
-                  </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${j.id}" style="width: 28px; height: 28px;" title="Eliminar">
-                    <i data-lucide="trash-2" style="width: 14px;"></i>
-                  </button>
-                </div>
-
-                <!-- LÍNEA 2: NOMBRE DEL JUGADOR EN UNA SOLA LÍNEA -->
-                <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title player-name-link cursor-pointer" data-id="${j.id}" title="${escapeHtml(j.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
-                    ${escapeHtml(j.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
-                  </h3>
-                </div>
-
-                <!-- LÍNEA 3 EN ADELANTE: Demás datos -->
-                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
-                  ${escapeHtml(j.posicion || j.posicionPrincipal || 'Sin Posición')} | ${escapeHtml(j.equipo || 'Sin Equipo')}
-                </div>
-
-                <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
-                  <div><strong>Estado:</strong> <span class="match-category-tag" style="background-color: var(--bg-subtle); color: var(--text-muted);">${escapeHtml(j.estado || 'ALTA')}</span></div>
-                  <div><strong>Sub:</strong> <span class="match-category-tag" style="background-color: var(--primary-blue-light); color: ${jPriColor}; font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(calculateSubCategory(j.ano || j.anoNac) || j.sub || 'Sub19')}</span> ${j.ano ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.ano)})</span>` : ''}</div>
-                  ${j.disponibilidad ? `<div><strong>Disponibilidad:</strong> ${escapeHtml(j.disponibilidad)}</div>` : ''}
-                </div>
-
-                <button type="button" class="btn btn-secondary btn-open-player-modal" data-id="${j.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${jPriColor}40;">
-                  <i data-lucide="user-check"></i> Ver / Editar Ficha Técnica
-                </button>
-              </div>
-            `;
-            }).join('')}
+          <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: var(--bg-subtle);">
+                  <th style="padding: 10px 12px; width: 20%;">NOMBRE</th>
+                  <th style="padding: 10px 12px; width: 10%;">AÑO</th>
+                  <th style="padding: 10px 12px; width: 20%;">EQUIPO</th>
+                  <th style="padding: 10px 12px; width: 12%;">POS. 1</th>
+                  <th style="padding: 10px 12px; width: 12%;">POS. 2</th>
+                  <th style="padding: 10px 12px; width: 12%;">LATERALIDAD</th>
+                  <th style="padding: 10px 12px; width: 14%;">PROYECCIÓN</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pageItems.map(j => `
+                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
+                    <td style="padding: 8px 12px;">
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                        <i data-lucide="user" style="width: 14px; height: 14px;"></i> ${escapeHtml(j.nombre)}
+                      </a>
+                    </td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.equipo || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || j.rendimientoRS || '-')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
           ${paginationBarHTML}
         `;
