@@ -1143,24 +1143,42 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         </div>
 
         <!-- Selector de Liga y Selector de Jornada -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: center;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: center; margin-bottom: 16px;">
           <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Competición / Calendario</label>
-            <select id="carteleraCalendarSelect" class="form-control">
-              <option value="all">🏆 Todos los Calendarios</option>
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría</label>
+            <select id="carteleraFilterCategoria" class="form-control">
+              <option value="all">🏆 Todas</option>
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtrar Jornada / Evento</label>
-            <select id="carteleraJornadaSelect" class="form-control">
-              <option value="all">Todas las Jornadas</option>
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Federación</label>
+            <select id="carteleraFilterFederacion" class="form-control">
+              <option value="all">Todas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Jornada</label>
+            <select id="carteleraFilterJornada" class="form-control">
+              <option value="all">Todas</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Fecha</label>
+            <select id="carteleraFilterFecha" class="form-control">
+              <option value="all">Todas</option>
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtro de Interés</label>
-            <select id="carteleraInterestFilter" class="form-control">
+            <select id="carteleraFilterInteres" class="form-control">
               <option value="all">Todos los partidos</option>
               <option value="priority" selected>⭐ Solo Destacados (Equipos Prioritarios)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Equipo</label>
+            <select id="carteleraFilterEquipo" class="form-control">
+              <option value="all">Todos</option>
             </select>
           </div>
         </div>
@@ -1360,6 +1378,6 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <!-- App Script -->
-  <script src="app.js?v=1786388347"></script>
+  <script src="app.js?v=1786388455"></script>
 </body>
 </html>

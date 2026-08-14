@@ -15806,11 +15806,12 @@
   // --------------------------------------------------------------------------
   // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
   // --------------------------------------------------------------------------
-  let selectedCarteleraCalendar = 'all';
+  let selectedCarteleraCategoria = 'all';
+  let selectedCarteleraFederacion = 'all';
   let selectedCarteleraJornada = 'all';
-  let selectedCarteleraInterest = 'priority';
-  let selectedCarteleraFedTab = 'all';
-  let selectedCarteleraCompTab = 'all';
+  let selectedCarteleraFecha = 'all';
+  let selectedCarteleraInteres = 'priority';
+  let selectedCarteleraEquipo = 'all';
   let selectedCarteleraSubview = 'destacados'; // 'destacados' | 'jornadas'
 
   function ensureCarteleraState() {
@@ -15834,8 +15835,7 @@
     ensureCarteleraState();
     initCarteleraListeners();
     renderCarteleraPriorityTeams();
-    renderCarteleraSelectors();
-    renderCarteleraFilterPills();
+    renderCarteleraFilters();
     renderCarteleraMatches();
   }
 
@@ -15943,161 +15943,71 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
-  function renderCarteleraFilterPills() {
-    const container = document.getElementById('carteleraFilterPillsContainer');
-    if (!container) return;
-
+  function renderCarteleraFilters() {
     const calendarios = state.cartelera.calendarios || [];
-
-    // Collect federations
-    const fedMap = {};
-    let totalAll = 0;
-    calendarios.forEach(cal => {
-      (cal.partidos || []).forEach(m => {
-        const fed = (m.federacion || cal.federacion || 'General').trim();
-        fedMap[fed] = (fedMap[fed] || 0) + 1;
-        totalAll++;
-      });
-    });
-    const feds = Object.keys(fedMap).sort();
-    const allFeds = ['all', ...feds];
-
-    // Collect categories (filtered by selected federation)
-    const compMap = {};
-    let totalComp = 0;
-    calendarios.forEach(cal => {
-      (cal.partidos || []).forEach(m => {
-        const fed = (m.federacion || cal.federacion || 'General').trim();
-        if (selectedCarteleraFedTab === 'all' || selectedCarteleraFedTab === fed) {
-          const comp = (m.competicion || cal.nombre || 'General').trim();
-          compMap[comp] = (compMap[comp] || 0) + 1;
-          totalComp++;
-        }
-      });
-    });
-    const comps = Object.keys(compMap).sort();
-    const allComps = ['all', ...comps];
-
-    // Collect jornadas (filtered by fed + cat)
+    const fedSet = new Set();
+    const compSet = new Set();
     const jorSet = new Set();
+    const fechaSet = new Set();
+    const equipoSet = new Set();
+
     calendarios.forEach(cal => {
       (cal.partidos || []).forEach(m => {
         const fed = (m.federacion || cal.federacion || 'General').trim();
         const comp = (m.competicion || cal.nombre || 'General').trim();
-        if ((selectedCarteleraFedTab === 'all' || selectedCarteleraFedTab === fed) &&
-            (selectedCarteleraCompTab === 'all' || selectedCarteleraCompTab === comp)) {
-          if (m.jornada) jorSet.add(m.jornada);
-        }
+        const jor = (m.jornada || '').trim();
+        const fecha = (m.fecha || '').trim();
+        const loc = (m.local || '').trim();
+        const vis = (m.visitante || '').trim();
+        
+        if (fed) fedSet.add(fed);
+        if (comp) compSet.add(comp);
+        if (jor) jorSet.add(jor);
+        if (fecha) fechaSet.add(fecha);
+        if (loc) equipoSet.add(loc);
+        if (vis) equipoSet.add(vis);
       });
     });
-    const jornadas = Array.from(jorSet).sort((a, b) => {
-      const numA = parseInt((a.match(/\d+/) || [0])[0]);
-      const numB = parseInt((b.match(/\d+/) || [0])[0]);
-      return numA - numB;
-    });
-    const allJornadas = ['all', ...jornadas];
 
-    // Build HTML identical to Directory dir-subfilter-container
-    let html = `
-      <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 100px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="building-2" style="width: 14px;"></i> Federación:
-          </span>
-          ${allFeds.map(f => {
-            const isActive = selectedCarteleraFedTab === f;
-            const label = f === 'all' ? `TODAS` : escapeHtml(f);
-            return `
-              <button type="button" class="btn-cartelera-filter ${isActive ? 'active' : ''}" data-filtertype="fed" data-val="${escapeHtml(f)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-                ${label}
-              </button>`;
-          }).join('')}
-        </div>
-
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed var(--border-light); padding-top: 8px;">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 100px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="trophy" style="width: 14px;"></i> Categoría:
-          </span>
-          ${allComps.map(c => {
-            const isActive = selectedCarteleraCompTab === c;
-            const label = c === 'all' ? `TODAS` : escapeHtml(c);
-            return `
-              <button type="button" class="btn-cartelera-filter ${isActive ? 'active' : ''}" data-filtertype="comp" data-val="${escapeHtml(c)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? '#059669' : 'var(--border-light)'}; background: ${isActive ? '#059669' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-                ${label}
-              </button>`;
-          }).join('')}
-        </div>
-
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed var(--border-light); padding-top: 8px;">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 100px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="calendar-days" style="width: 14px;"></i> Jornada:
-          </span>
-          ${allJornadas.map(j => {
-            const isActive = selectedCarteleraJornada === j;
-            const label = j === 'all' ? `TODAS` : escapeHtml(j);
-            return `
-              <button type="button" class="btn-cartelera-filter ${isActive ? 'active' : ''}" data-filtertype="jornada" data-val="${escapeHtml(j)}" style="padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? '#7c3aed' : 'var(--border-light)'}; background: ${isActive ? '#7c3aed' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-                ${label}
-              </button>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-
-    container.innerHTML = html;
-
-    // Bind click events
-    container.querySelectorAll('.btn-cartelera-filter').forEach(btn => {
-      btn.onclick = () => {
-        const type = btn.dataset.filtertype;
-        const val = btn.dataset.val;
-        if (type === 'fed') {
-          selectedCarteleraFedTab = val;
-          selectedCarteleraCompTab = 'all';
-          selectedCarteleraJornada = 'all';
-        } else if (type === 'comp') {
-          selectedCarteleraCompTab = val;
-          selectedCarteleraJornada = 'all';
-        } else if (type === 'jornada') {
-          selectedCarteleraJornada = val;
+    const populateSelect = (id, optionsSet, selectedValue, defaultLabel) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      
+      const arr = Array.from(optionsSet).sort((a,b) => {
+        if (id === 'carteleraFilterJornada') {
+           const numA = parseInt((a.match(/\d+/) || [0])[0]);
+           const numB = parseInt((b.match(/\d+/) || [0])[0]);
+           return numA - numB;
         }
-        renderCarteleraFilterPills();
-        renderCarteleraMatches();
-      };
-    });
+        return a.localeCompare(b);
+      });
+      
+      let html = `<option value="all">${defaultLabel}</option>`;
+      arr.forEach(val => {
+        let label = val;
+        if (id === 'carteleraFilterFederacion') {
+           label = label.replace('FNF - Federación Navarra de Fútbol', 'FNF');
+        }
+        if (id === 'carteleraFilterJornada') {
+           label = label.replace(/jornada\s*/i, '');
+        }
+        if (id === 'carteleraFilterFecha') {
+           const parts = label.split('-');
+           if (parts.length === 3) label = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        html += `<option value="${escapeHtml(val)}" ${selectedValue === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      });
+      el.innerHTML = html;
+    };
 
-    if (window.lucide) window.lucide.createIcons();
-  }
-
-  function renderCarteleraSelectors() {
-    const calSelect = document.getElementById('carteleraCalendarSelect');
-    const jorSelect = document.getElementById('carteleraJornadaSelect');
-    if (!calSelect || !jorSelect) return;
-
-    const calendarios = state.cartelera.calendarios || [];
-
-    let calHtml = `<option value="all">🏆 Todos los Calendarios (${calendarios.length})</option>`;
-    calendarios.forEach(cal => {
-      calHtml += `<option value="${cal.id}" ${selectedCarteleraCalendar === cal.id ? 'selected' : ''}>${escapeHtml(cal.nombre)}</option>`;
-    });
-    calSelect.innerHTML = calHtml;
-
-    // Collect all jornadas for active calendar filter
-    const jornadasSet = new Set();
-    calendarios.forEach(cal => {
-      if (selectedCarteleraCalendar === 'all' || selectedCarteleraCalendar === cal.id) {
-        (cal.partidos || []).forEach(m => {
-          if (m.jornada) jornadasSet.add(m.jornada);
-        });
-      }
-    });
-
-    const jornadasList = Array.from(jornadasSet).sort();
-    let jorHtml = `<option value="all">Todas las Jornadas</option>`;
-    jornadasList.forEach(j => {
-      jorHtml += `<option value="${escapeHtml(j)}" ${selectedCarteleraJornada === j ? 'selected' : ''}>${escapeHtml(j)}</option>`;
-    });
-    jorSelect.innerHTML = jorHtml;
+    populateSelect('carteleraFilterCategoria', compSet, selectedCarteleraCategoria, '🏆 Todas');
+    populateSelect('carteleraFilterFederacion', fedSet, selectedCarteleraFederacion, 'Todas');
+    populateSelect('carteleraFilterJornada', jorSet, selectedCarteleraJornada, 'Todas');
+    populateSelect('carteleraFilterFecha', fechaSet, selectedCarteleraFecha, 'Todas');
+    populateSelect('carteleraFilterEquipo', equipoSet, selectedCarteleraEquipo, 'Todos');
+    
+    const intEl = document.getElementById('carteleraFilterInteres');
+    if (intEl) intEl.value = selectedCarteleraInteres;
   }
 
   function renderCarteleraMatches() {
@@ -16110,7 +16020,7 @@
 
     let allMatches = [];
     calendarios.forEach(cal => {
-      if (selectedCarteleraCalendar === 'all' || selectedCarteleraCalendar === cal.id) {
+      
         (cal.partidos || []).forEach(m => {
           const locLower = (m.local || '').toLowerCase();
           const visLower = (m.visitante || '').toLowerCase();
@@ -16132,24 +16042,28 @@
             isClash
           });
         });
-      }
-    });
+      });
 
-    // Apply Federación filter (Level 1)
-    if (selectedCarteleraFedTab !== 'all') {
-      allMatches = allMatches.filter(m => (m.federacion || 'General') === selectedCarteleraFedTab);
+    // Apply Categoria filter
+    if (selectedCarteleraCategoria !== 'all') {
+      allMatches = allMatches.filter(m => m.competicion === selectedCarteleraCategoria);
     }
-
-    // Apply Competition subtab filter (Level 2)
-    if (selectedCarteleraCompTab !== 'all') {
-      allMatches = allMatches.filter(m => m.competicion === selectedCarteleraCompTab);
+    // Apply Federación filter
+    if (selectedCarteleraFederacion !== 'all') {
+      allMatches = allMatches.filter(m => (m.federacion || 'General') === selectedCarteleraFederacion);
     }
-
     // Apply Jornada filter
     if (selectedCarteleraJornada !== 'all') {
       allMatches = allMatches.filter(m => m.jornada === selectedCarteleraJornada);
     }
-
+    // Apply Fecha filter
+    if (selectedCarteleraFecha !== 'all') {
+      allMatches = allMatches.filter(m => m.fecha === selectedCarteleraFecha);
+    }
+    // Apply Equipo filter
+    if (selectedCarteleraEquipo !== 'all') {
+      allMatches = allMatches.filter(m => m.local === selectedCarteleraEquipo || m.visitante === selectedCarteleraEquipo);
+    }
     // Apply Buscador Rápido search filter
     if (searchVal) {
       allMatches = allMatches.filter(m => {
@@ -16157,9 +16071,8 @@
         return text.includes(searchVal);
       });
     }
-
-    // Apply Interest filter (Destacados shows priority matches first or filtered)
-    if (selectedCarteleraInterest === 'priority') {
+    // Apply Interest filter
+    if (selectedCarteleraInteres === 'priority') {
       allMatches = allMatches.filter(m => m.isHighInterest);
     }
 
@@ -16965,33 +16878,23 @@
       searchInput.oninput = () => renderCarteleraMatches();
     }
 
-    const calSelect = document.getElementById('carteleraCalendarSelect');
-    if (calSelect && !calSelect.dataset.initialized) {
-      calSelect.dataset.initialized = 'true';
-      calSelect.onchange = (e) => {
-        selectedCarteleraCalendar = e.target.value;
-        selectedCarteleraJornada = 'all';
-        renderCartelera();
-      };
-    }
-
-    const jorSelect = document.getElementById('carteleraJornadaSelect');
-    if (jorSelect && !jorSelect.dataset.initialized) {
-      jorSelect.dataset.initialized = 'true';
-      jorSelect.onchange = (e) => {
-        selectedCarteleraJornada = e.target.value;
-        renderCarteleraMatches();
-      };
-    }
-
-    const intFilter = document.getElementById('carteleraInterestFilter');
-    if (intFilter && !intFilter.dataset.initialized) {
-      intFilter.dataset.initialized = 'true';
-      intFilter.onchange = (e) => {
-        selectedCarteleraInterest = e.target.value;
-        renderCarteleraMatches();
-      };
-    }
+    const bindSelect = (id, setter) => {
+      const el = document.getElementById(id);
+      if (el && !el.dataset.initialized) {
+        el.dataset.initialized = 'true';
+        el.onchange = (e) => {
+          setter(e.target.value);
+          renderCarteleraMatches();
+        };
+      }
+    };
+    
+    bindSelect('carteleraFilterCategoria', val => selectedCarteleraCategoria = val);
+    bindSelect('carteleraFilterFederacion', val => selectedCarteleraFederacion = val);
+    bindSelect('carteleraFilterJornada', val => selectedCarteleraJornada = val);
+    bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
+    bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
+    bindSelect('carteleraFilterEquipo', val => selectedCarteleraEquipo = val);
 
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
     if (btnExportPdf && !btnExportPdf.dataset.initialized) {
