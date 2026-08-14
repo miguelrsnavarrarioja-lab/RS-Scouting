@@ -16625,10 +16625,17 @@
     const printWin = window.open('', '_blank');
     if (!printWin) return alert('Por favor permite las ventanas emergentes en tu navegador para generar el PDF');
 
+    const fmtDate = (d) => {
+      if (!d) return 'Sin fecha';
+      const p = d.split('-');
+      if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+      return d;
+    };
+
     const rowsHtml = matchesList.map((m, idx) => `
       <tr style="${(m.isHighInterest || m.isPriority) ? 'background-color: #fffbeb;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
         <td style="padding: 10px 12px; font-weight: 700; white-space: nowrap; border: 1px solid #000;">
-          ${m.fecha ? formatDateSpanish(m.fecha) : 'Sin fecha'}<br>
+          ${fmtDate(m.fecha)}<br>
           <span style="font-size: 11px; color: #2563eb;">⏰ ${m.hora || '17:00'} hs</span>
         </td>
         <td style="padding: 10px 12px; border: 1px solid #000;">
@@ -16650,7 +16657,7 @@
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Cartelera de Partidos Filtrada</title>
+        <title>Cartelera de Partidos</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 30px; background: #ffffff; }
           h2 { margin-top: 0; color: #1e293b; font-size: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
@@ -16679,12 +16686,10 @@
           </tbody>
         </table>
         <script>
-          window.onload = () => {
-            setTimeout(() => {
-              window.print();
-              window.close();
-            }, 500);
+          window.onafterprint = function() {
+            window.close();
           };
+          window.print();
         </script>
       </body>
       </html>
