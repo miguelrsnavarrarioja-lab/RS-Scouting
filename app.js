@@ -449,7 +449,7 @@
       const [
         jugadores, clubes, equipos, federaciones, selecciones,
         convocatorias, torneos, staff, agencias, agentes, estadios,
-        partidos, informes, agenda, agendaCategories, enlaces
+        partidos, informes, agenda, agendaCategories, enlaces, cartelera_calendarios
       ] = await Promise.all([
         fetchCol('jugadores'),
         fetchCol('clubes'),
@@ -466,7 +466,8 @@
         fetchCol('informes'),
         fetchCol('agenda'),
         fetchCol('agendaCategories'),
-        fetchCol('enlaces')
+        fetchCol('enlaces'),
+        fetchCol('cartelera_calendarios')
       ]);
 
       let configData = null;
@@ -507,8 +508,13 @@
         }
         if (configData && configData.cartelera) {
           state.cartelera = configData.cartelera;
-          if (typeof renderCartelera === 'function') renderCartelera();
+        } else {
+          ensureCarteleraState();
         }
+        if (Array.isArray(cartelera_calendarios) && cartelera_calendarios.length > 0) {
+          state.cartelera.calendarios = cartelera_calendarios;
+        }
+        if (typeof renderCartelera === 'function') renderCartelera();
         if (Array.isArray(configData?.notifications)) {
           state.notifications = configData.notifications;
           if (typeof renderNotificationsUI === 'function') renderNotificationsUI();
