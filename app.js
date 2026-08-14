@@ -16598,111 +16598,15 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
-  function openExportMatchesPDFModal() {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+  function generateMatchesPDF() {
+    let matchesList = [...(currentCarteleraFilteredMatches || [])];
 
-    showModal('📄 Exportar Hoja de Partidos a PDF', `
-      <form id="formExportMatchesPDF">
-        <div class="form-group mb-3">
-          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Título del Documento PDF</label>
-          <input type="text" id="pdfExportDocTitle" class="form-control" value="Cartelera de Scouting - Planificación de Partidos" required>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">📅 Fecha de Inicio (Desde)</label>
-            <input type="date" id="pdfExportStartDate" class="form-control" value="${todayStr}" required>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">📅 Fecha de Fin (Hasta)</label>
-            <input type="date" id="pdfExportEndDate" class="form-control" value="${nextWeekStr}" required>
-          </div>
-        </div>
-
-        <div class="form-group mb-4">
-          <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtro de Partidos a Incluir</label>
-          <select id="pdfExportFilterType" class="form-control">
-            <option value="all">Todos los partidos en ese rango de fechas</option>
-            <option value="priority" selected>⭐ Solo partidos de Equipos Prioritarios</option>
-          </select>
-        </div>
-
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: #2563eb; border-color: #2563eb;">
-            <i data-lucide="printer"></i> Generar y Descargar PDF
-          </button>
-        </div>
-      </form>
-    `);
-
-    document.getElementById('formExportMatchesPDF').onsubmit = (e) => {
-      e.preventDefault();
-      const docTitle = document.getElementById('pdfExportDocTitle').value.trim();
-      const startDate = document.getElementById('pdfExportStartDate').value;
-      const endDate = document.getElementById('pdfExportEndDate').value;
-      const filterType = document.getElementById('pdfExportFilterType').value;
-
-      generateMatchesPDF(docTitle, startDate, endDate, filterType);
-      hideModal();
-    };
-
-    if (window.lucide) window.lucide.createIcons();
-  }
-
-  function generateMatchesPDF(docTitle, startDate, endDate, filterType) {
-    const priorityTeamsLower = (state.cartelera?.priorityTeams || []).map(t => t.toLowerCase().trim());
-    let matchesList = [];
-
-    // Gather from state.cartelera.calendarios
-    (state.cartelera?.calendarios || []).forEach(cal => {
-      (cal.partidos || []).forEach(m => {
-        const matchDate = m.fecha;
-        if (matchDate && matchDate >= startDate && matchDate <= endDate) {
-          const locLower = (m.local || '').toLowerCase();
-          const visLower = (m.visitante || '').toLowerCase();
-          const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt) || pt.includes(locLower) || pt.includes(visLower));
-
-          matchesList.push({
-            ...m,
-            competicion: m.competicion || cal.nombre,
-            isPriority
-          });
-        }
-      });
-    });
-
-    // Gather from state.matches (programmed matches)
-    (state.matches || []).forEach(m => {
-      const matchDate = m.fecha;
-      if (matchDate && matchDate >= startDate && matchDate <= endDate) {
-        const locLower = (m.localTeam || '').toLowerCase();
-        const visLower = (m.visitanteTeam || '').toLowerCase();
-        const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt) || pt.includes(locLower) || pt.includes(visLower));
-
-        matchesList.push({
-          id: m.id,
-          local: m.localTeam,
-          visitante: m.visitanteTeam,
-          fecha: m.fecha,
-          hora: m.time || m.hora || '17:00',
-          jornada: m.categoria || 'Partido Programado',
-          competicion: m.competicion || 'Liga',
-          estadio: m.estadio || '',
-          isPriority
-        });
-      }
-    });
-
-    // Apply priority filter if selected
-    if (filterType === 'priority') {
-      matchesList = matchesList.filter(m => m.isPriority);
+    if (matchesList.length === 0) {
+      showToast('⚠️ No hay partidos en la tabla filtrada actual para exportar.');
+      return;
     }
 
-    // Deduplicate matches by local vs visitante and fecha
+    // Deduplicate matches just in case
     const seen = new Set();
     matchesList = matchesList.filter(m => {
       const key = `${m.local}_${m.visitante}_${m.fecha}`;
@@ -16718,28 +16622,19 @@
       return dateA - dateB;
     });
 
-    if (matchesList.length === 0) {
-      alert(`No se encontraron partidos en el rango de fechas seleccionado (${startDate} al ${endDate}).`);
-      return;
-    }
-
-    // Build print HTML document
     const printWin = window.open('', '_blank');
     if (!printWin) return alert('Por favor permite las ventanas emergentes en tu navegador para generar el PDF');
 
-    const formattedStartDate = formatDateSpanish(startDate);
-    const formattedEndDate = formatDateSpanish(endDate);
-
     const rowsHtml = matchesList.map((m, idx) => `
-      <tr style="${m.isPriority ? 'background-color: #fffbeb;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
+      <tr style="${(m.isHighInterest || m.isPriority) ? 'background-color: #fffbeb;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
         <td style="padding: 10px 12px; font-weight: 700; white-space: nowrap; border: 1px solid #000;">
           ${m.fecha ? formatDateSpanish(m.fecha) : 'Sin fecha'}<br>
           <span style="font-size: 11px; color: #2563eb;">⏰ ${m.hora || '17:00'} hs</span>
         </td>
         <td style="padding: 10px 12px; border: 1px solid #000;">
-          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.local)}</strong> vs 
-          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.visitante)}</strong>
-          ${m.isPriority ? '<span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 6px; border: 1px solid #000;">⭐ PRIORITARIO</span>' : ''}
+          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.local || m.localTeam || 'Local')}</strong> vs 
+          <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.visitante || m.visitanteTeam || 'Visitante')}</strong>
+          ${(m.isHighInterest || m.isPriority) ? '<span style="background: #f59e0b; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 6px; border: 1px solid #000;">⭐ PRIORITARIO</span>' : ''}
         </td>
         <td style="padding: 10px 12px; font-size: 12px; color: #475569; border: 1px solid #000;">
           <strong>${escapeHtml(m.competicion || 'Liga')}</strong><br>
@@ -16755,116 +16650,45 @@
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${escapeHtml(docTitle)}</title>
-        <meta charset="utf-8">
+        <title>Cartelera de Partidos Filtrada</title>
         <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            color: #0f172a;
-            margin: 30px;
-            background: #ffffff;
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 16px;
-            margin-bottom: 24px;
-          }
-          .header-title h1 {
-            font-size: 22px;
-            margin: 0 0 6px 0;
-            color: #0f172a;
-          }
-          .header-title p {
-            margin: 0;
-            font-size: 13px;
-            color: #475569;
-          }
-          .logo-box {
-            text-align: right;
-          }
-          .logo-box h2 {
-            font-size: 16px;
-            margin: 0;
-            color: #2563eb;
-            font-weight: 800;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            border: 1px solid #000;
-          }
-          th, td {
-            border: 1px solid #000;
-          }
-          th {
-            background-color: #f1f5f9;
-            color: #0f172a;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 10px 12px;
-            text-align: left;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .footer {
-            margin-top: 40px;
-            padding-top: 16px;
-            border-top: 1px solid #e2e8f0;
-            font-size: 11px;
-            color: #94a3b8;
-            display: flex;
-            justify-content: space-between;
-          }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 30px; background: #ffffff; }
+          h2 { margin-top: 0; color: #1e293b; font-size: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+          th { background-color: #f1f5f9; padding: 12px; text-align: left; font-weight: 800; border: 1px solid #000; }
+          td { border: 1px solid #000; padding: 10px; }
           @media print {
-            body { margin: 15mm; }
+            body { margin: 0; padding: 20px; }
+            @page { margin: 1cm; size: A4 portrait; }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div class="header-title">
-            <h1>${escapeHtml(docTitle)}</h1>
-            <p><strong>Rango de fechas:</strong> ${formattedStartDate} al ${formattedEndDate} &bull; Total partidos: ${matchesList.length}</p>
-          </div>
-          <div class="logo-box">
-            <h2>MS FÚTBOL SCOUT</h2>
-            <span style="font-size: 11px; color: #64748b;">Cartelera & Agenda de Scouting</span>
-          </div>
-        </div>
-
+        <h2>Cartelera de Partidos Filtrada</h2>
         <table>
           <thead>
             <tr>
-              <th>Fecha y Hora</th>
-              <th>Enfrentamiento (Partido)</th>
-              <th>Competición / Jornada</th>
-              <th>Estadio / Sede</th>
+              <th style="width: 15%;">Fecha / Hora</th>
+              <th style="width: 45%;">Encuentro</th>
+              <th style="width: 20%;">Categoría / Jornada</th>
+              <th style="width: 20%;">Ubicación</th>
             </tr>
           </thead>
           <tbody>
             ${rowsHtml}
           </tbody>
         </table>
-
-        <div class="footer">
-          <span>Generado automáticamente por MS Fútbol Scout</span>
-          <span>Fecha de exportación: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-
         <script>
-          window.onload = function() {
-            setTimeout(function() { window.print(); }, 500);
+          window.onload = () => {
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 500);
           };
         </script>
       </body>
       </html>
     `);
-
     printWin.document.close();
   }
 
