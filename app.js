@@ -907,9 +907,11 @@
     const players = state.directory?.jugadores || [];
     const agenda = state.agenda || [];
     
-    const totalVistos = matches.filter(m => m.estado === 'visto').length;
-    const scheduledMatches = matches.filter(m => m.estado === 'programado').length;
-    const directMatches = matches.filter(m => m.estado === 'directo').length;
+    const nowForKpis = new Date();
+    const todayStrForKpis = nowForKpis.toISOString().split('T')[0];
+    const totalVistos = reports.filter(r => r.completado).length;
+    const scheduledMatches = reports.filter(r => !r.completado && r.date > todayStrForKpis).length;
+    const directMatches = reports.filter(r => !r.completado && r.date <= todayStrForKpis).length;
     const pendingTasks = agenda.filter(a => !a.completada && !a.archivada);
     const highPriorityTasks = pendingTasks.filter(a => a.prioridad === 'Alta').length;
 
@@ -1684,6 +1686,15 @@
             <button class="btn btn-primary btn-edit-report" data-repid="${r.id}" style="flex: 1;">
               <i data-lucide="edit"></i> Abrir Informe
             </button>
+            ${!r.completado ? `
+            <button class="btn btn-success btn-complete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800;">
+              <i data-lucide="check-circle"></i> Completar Informe
+            </button>
+            ` : `
+            <button class="btn btn-secondary btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light);">
+              <i data-lucide="refresh-cw"></i> Reabrir
+            </button>
+            `}
             <button class="btn btn-outline-danger btn-delete-report" data-repid="${r.id}">
               <i data-lucide="trash-2"></i>
             </button>
@@ -1694,6 +1705,34 @@
 
       container.querySelectorAll('.btn-edit-report').forEach(btn => {
         btn.addEventListener('click', () => openMatchReportEditor(btn.dataset.repid));
+      });
+      container.querySelectorAll('.btn-complete-report').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const repId = btn.dataset.repid;
+          const report = state.reports.find(r => r.id === repId);
+          if (report) {
+            report.completado = true;
+            saveToFirebase('informes', report);
+            saveState();
+            renderPartidosList();
+            renderDashboard(); // Actualizar KPIs
+            if (typeof showNotification === 'function') showNotification('Informe completado', 'success');
+          }
+        });
+      });
+      container.querySelectorAll('.btn-uncomplete-report').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const repId = btn.dataset.repid;
+          const report = state.reports.find(r => r.id === repId);
+          if (report) {
+            report.completado = false;
+            saveToFirebase('informes', report);
+            saveState();
+            renderPartidosList();
+            renderDashboard(); // Actualizar KPIs
+            if (typeof showNotification === 'function') showNotification('Informe reabierto', 'success');
+          }
+        });
       });
       container.querySelectorAll('.btn-delete-report').forEach(btn => {
         btn.addEventListener('click', () => {
