@@ -17028,7 +17028,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     };
 
     state.cartelera.calendarios.push(newCal);
-    selectedCarteleraCalendar = newCal.id;
+    // filter globals are managed in the UI now
     saveState();
     
     if (typeof saveToFirebase === 'function') {
