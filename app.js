@@ -15805,8 +15805,8 @@
         (cal.partidos || []).forEach(m => {
           const locLower = (m.local || '').toLowerCase();
           const visLower = (m.visitante || '').toLowerCase();
-          const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
-          const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
+          const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt) || pt.includes(locLower));
+          const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt) || pt.includes(visLower));
           const isHighInterest = isPriorityLocal || isPriorityVisitante;
           const isClash = isPriorityLocal && isPriorityVisitante;
 
@@ -15849,6 +15849,11 @@
       });
     }
 
+    // Apply Interest filter (Destacados shows priority matches first or filtered)
+    if (selectedCarteleraInterest === 'priority') {
+      allMatches = allMatches.filter(m => m.isHighInterest);
+    }
+
     // IF SUBVIEW IS JORNADAS, group and display matches by Jornada 1, Jornada 2...
     if (selectedCarteleraSubview === 'jornadas') {
       renderCarteleraJornadasGrid(allMatches);
@@ -15856,13 +15861,6 @@
     }
 
     // ELSE SUBVIEW IS DESTACADOS
-    // Apply Interest filter (Destacados shows priority matches first or filtered)
-    if (selectedCarteleraInterest === 'priority') {
-      const priorityMatches = allMatches.filter(m => m.isHighInterest);
-      if (priorityMatches.length > 0) {
-        allMatches = priorityMatches;
-      }
-    }
 
     // Sort: Clash/HighInterest first, then by date/jornada
     allMatches.sort((a, b) => {
@@ -16032,13 +16030,13 @@
                 ${jorMatches.map(m => {
                   const locLower = (m.local || '').toLowerCase();
                   const visLower = (m.visitante || '').toLowerCase();
-                  const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
-                  const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
+                  const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt) || pt.includes(locLower));
+                  const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt) || pt.includes(visLower));
                   const isHighInterest = isPriorityLocal || isPriorityVisitante;
-                  const locStyle = isPriorityLocal ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-                  const visStyle = isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-                  const bgStyle = isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '';
-                  const borderLeft = isHighInterest ? 'border-left: 3px solid rgba(245, 158, 11, 0.6);' : 'border-left: 3px solid transparent;';
+                  const locStyle = isPriorityLocal ? 'color: #15803d; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+                  const visStyle = isPriorityVisitante ? 'color: #15803d; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+                  const bgStyle = isHighInterest ? 'background: rgba(34, 197, 94, 0.06);' : '';
+                  const borderLeft = isHighInterest ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : 'border-left: 4px solid transparent;';
                   const isClash = (isPriorityLocal && isPriorityVisitante) ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
                   return `
@@ -16302,24 +16300,7 @@
         }
       });
 
-      (state.cartelera?.calendarios || []).forEach(cal => {
-        (cal.partidos || []).forEach(m => {
-          let matchesFilter = false;
-          if (currentTab === 'tab-category') {
-            const selectedCat = catEl.value;
-            const matchesCat = (selectedCat === 'all') || (m.competicion === selectedCat) || (cal.nombre === selectedCat);
-            matchesFilter = matchesCat;
-          } else {
-            const selectedFed = fedEl.value;
-            const matchesFed = (selectedFed === 'all') || (m.federacion === selectedFed);
-            matchesFilter = matchesFed;
-          }
-          if (matchesFilter) {
-            if (m.local) teamSet.add(m.local);
-            if (m.visitante) teamSet.add(m.visitante);
-          }
-        });
-      });
+      // Se eliminó la lectura de calendarios para que solo salgan los equipos del directorio
 
       const teamsList = Array.from(teamSet).sort();
 
@@ -16457,7 +16438,7 @@
         if (matchDate && matchDate >= startDate && matchDate <= endDate) {
           const locLower = (m.local || '').toLowerCase();
           const visLower = (m.visitante || '').toLowerCase();
-          const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt));
+          const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt) || pt.includes(locLower) || pt.includes(visLower));
 
           matchesList.push({
             ...m,
@@ -16474,7 +16455,7 @@
       if (matchDate && matchDate >= startDate && matchDate <= endDate) {
         const locLower = (m.localTeam || '').toLowerCase();
         const visLower = (m.visitanteTeam || '').toLowerCase();
-        const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt));
+        const isPriority = priorityTeamsLower.some(pt => locLower.includes(pt) || visLower.includes(pt) || pt.includes(locLower) || pt.includes(visLower));
 
         matchesList.push({
           id: m.id,
