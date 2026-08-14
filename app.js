@@ -6525,6 +6525,136 @@
     });
 
     // --------------------------------------------------------------------------
+    // CAMPOGRAMA: Smart player distribution (each player appears in ONE slot only)
+    // --------------------------------------------------------------------------
+    function distributePlayersToSlots(squadPlayers, slotPositions) {
+      // Build a map: slotIndex -> [] of player objects
+      const slotMap = {};
+      slotPositions.forEach((_, idx) => { slotMap[idx] = []; });
+
+      // Track which players have already been assigned to a slot
+      const assignedPlayerIds = new Set();
+
+      // Helper: check if a player position matches a slot code
+      function posMatchesSlot(posStr, slotCode) {
+        if (!posStr || !slotCode) return false;
+        const p = posStr.toUpperCase().trim();
+        const s = slotCode.toUpperCase().trim();
+        return p === s;
+      }
+
+      // PASS 1: Exact primary-position matches only
+      slotPositions.forEach((posCode, idx) => {
+        squadPlayers.forEach(p => {
+          if (assignedPlayerIds.has(p.id)) return;
+          const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+          if (posMatchesSlot(pPrimary, posCode)) {
+            slotMap[idx].push(p);
+            assignedPlayerIds.add(p.id);
+          }
+        });
+      });
+
+      // PASS 2: Fuzzy primary-position matches (e.g. MC matches MCD slot if no exact)
+      slotPositions.forEach((posCode, idx) => {
+        if (slotMap[idx].length > 0) return; // slot already has players
+        const codeUpper = posCode.toUpperCase().trim();
+        squadPlayers.forEach(p => {
+          if (assignedPlayerIds.has(p.id)) return;
+          const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+          if (pPrimary && (pPrimary.includes(codeUpper) || codeUpper.includes(pPrimary))) {
+            slotMap[idx].push(p);
+            assignedPlayerIds.add(p.id);
+          }
+        });
+      });
+
+      // PASS 3: Redistribute overcrowded slots — move extras to secondary position slots
+      // If a slot has 3+ players, try to move players whose secondary position matches
+      // another slot that has fewer players
+      const MAX_PER_SLOT = 2;
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < 10) {
+        changed = false;
+        iterations++;
+        slotPositions.forEach((posCode, idx) => {
+          while (slotMap[idx].length > MAX_PER_SLOT) {
+            // Try to move one player to another slot via secondary position
+            let moved = false;
+            for (let pi = slotMap[idx].length - 1; pi >= 0; pi--) {
+              const player = slotMap[idx][pi];
+              const secPos = (player.posicionSecundaria || '').toUpperCase().trim();
+              if (!secPos) continue;
+
+              // Find a target slot that matches the secondary position and has fewer players
+              for (let targetIdx = 0; targetIdx < slotPositions.length; targetIdx++) {
+                if (targetIdx === idx) continue;
+                const targetCode = slotPositions[targetIdx].toUpperCase().trim();
+                if (posMatchesSlot(secPos, targetCode) && slotMap[targetIdx].length < MAX_PER_SLOT) {
+                  // Move player to target slot
+                  slotMap[idx].splice(pi, 1);
+                  slotMap[targetIdx].push(player);
+                  moved = true;
+                  changed = true;
+                  break;
+                }
+              }
+              if (moved) break;
+            }
+            // Also try fuzzy secondary match if exact didn't work
+            if (!moved) {
+              for (let pi = slotMap[idx].length - 1; pi >= 0; pi--) {
+                const player = slotMap[idx][pi];
+                const secPos = (player.posicionSecundaria || '').toUpperCase().trim();
+                if (!secPos) continue;
+                for (let targetIdx = 0; targetIdx < slotPositions.length; targetIdx++) {
+                  if (targetIdx === idx) continue;
+                  const targetCode = slotPositions[targetIdx].toUpperCase().trim();
+                  if ((secPos.includes(targetCode) || targetCode.includes(secPos)) && slotMap[targetIdx].length < MAX_PER_SLOT) {
+                    slotMap[idx].splice(pi, 1);
+                    slotMap[targetIdx].push(player);
+                    moved = true;
+                    changed = true;
+                    break;
+                  }
+                }
+                if (moved) break;
+              }
+            }
+            if (!moved) break; // Can't redistribute further, stop
+          }
+        });
+      }
+
+      // PASS 4: Assign remaining unassigned players via their secondary position
+      squadPlayers.forEach(p => {
+        if (assignedPlayerIds.has(p.id)) return;
+        const secPos = (p.posicionSecundaria || '').toUpperCase().trim();
+        if (!secPos) return;
+        for (let idx = 0; idx < slotPositions.length; idx++) {
+          const slotCode = slotPositions[idx].toUpperCase().trim();
+          if (posMatchesSlot(secPos, slotCode) && slotMap[idx].length < MAX_PER_SLOT) {
+            slotMap[idx].push(p);
+            assignedPlayerIds.add(p.id);
+            return;
+          }
+        }
+        // Fuzzy secondary
+        for (let idx = 0; idx < slotPositions.length; idx++) {
+          const slotCode = slotPositions[idx].toUpperCase().trim();
+          if ((secPos.includes(slotCode) || slotCode.includes(secPos)) && slotMap[idx].length < MAX_PER_SLOT) {
+            slotMap[idx].push(p);
+            assignedPlayerIds.add(p.id);
+            return;
+          }
+        }
+      });
+
+      return slotMap;
+    }
+
+    // --------------------------------------------------------------------------
     // CAMPOGRAMA TAB LOGIC & PDF EXPORT
     // --------------------------------------------------------------------------
     function renderTeamCampogramaPins() {
@@ -6546,16 +6676,13 @@
       const curPrimaryColor = document.getElementById('tfColorPrimary')?.value || colorPrimary || '#2563eb';
       const curTextColor = getContrastColor(curPrimaryColor);
 
+      // Distribute players so each appears in only one slot
+      const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
+
       // Render pitch position cards with player names underneath
       container.innerHTML = positions.map((posCoords, slotIdx) => {
         const posCode = defaultPositions[slotIdx] || 'MC';
-
-        // Find squad players matching this position code (primary or secondary)
-        const matchingPlayers = squadPlayers.filter(p => {
-          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const codeUpper = posCode.toUpperCase().trim();
-          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
-        });
+        const matchingPlayers = slotMap[slotIdx] || [];
 
         let playersHTML = '';
         if (matchingPlayers.length > 0) {
@@ -6634,14 +6761,12 @@
       const printWin = window.open('', '_blank');
       if (!printWin) return alert('Por favor permite las ventanas emergentes para exportar el PDF');
 
+      const pdfSlotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
+
       const pitchPinsHTML = positions.map((posCoords, slotIdx) => {
         const posCode = defaultPositions[slotIdx] || 'MC';
 
-        const matchingPlayers = squadPlayers.filter(p => {
-          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const codeUpper = posCode.toUpperCase().trim();
-          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
-        });
+        const matchingPlayers = pdfSlotMap[slotIdx] || [];
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
         const txtColor = getContrastColor(curPrimaryColor);
@@ -7833,15 +7958,14 @@
       const curPrimaryColor = document.getElementById('sfColorPrimary')?.value || colorPrimary || '#2563eb';
       const curTextColor = getContrastColor(curPrimaryColor);
 
+      // Distribute players so each appears in only one slot
+      const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
+
       // Render pitch position cards with player names underneath
       container.innerHTML = positions.map((posCoords, slotIdx) => {
         const posCode = defaultPositions[slotIdx] || 'MC';
 
-        const matchingPlayers = squadPlayers.filter(p => {
-          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const codeUpper = posCode.toUpperCase().trim();
-          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
-        });
+        const matchingPlayers = slotMap[slotIdx] || [];
 
         let playersHTML = '';
         if (matchingPlayers.length > 0) {
@@ -7928,14 +8052,12 @@
       const printWin = window.open('', '_blank');
       if (!printWin) return alert('Por favor permite las ventanas emergentes para exportar el PDF');
 
+      const pdfSlotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
+
       const pitchPinsHTML = positions.map((posCoords, slotIdx) => {
         const posCode = defaultPositions[slotIdx] || 'MC';
 
-        const matchingPlayers = squadPlayers.filter(p => {
-          const p1 = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
-          const codeUpper = posCode.toUpperCase().trim();
-          return p1 && (p1 === codeUpper || p1.includes(codeUpper) || codeUpper.includes(p1));
-        });
+        const matchingPlayers = pdfSlotMap[slotIdx] || [];
 
         let namesText = matchingPlayers.length > 0 ? matchingPlayers.map(p => escapeHtml(p.nombre || p.jugador)).join('<br>') : 'Sin asignar';
         const txtColor = getContrastColor(curPrimaryColor);
