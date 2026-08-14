@@ -2698,14 +2698,14 @@
   };
 
   const OPTIONS_PERFIL_RS = {
-    "PORTEROS": ['PORTERÍA (Def)', 'ÁREA GRANDE (Def)', 'SOBRIO (Def)', 'INICIO DE JUEGO (Of)'],
-    "LATERALES": ['1x1 DEFENSIVO (Def)', 'LECTURA DEFENSIVA (Def)', 'JUEGO COMBINATIVO (Of)', 'PROFUNDIDAD (Of)'],
-    "CENTRALES": ['DEFENSA DE ÁREA (Def)', 'DEFENSA DE CAMPO ABIERTO (Def)', 'LECTURA DEFENSIVA (Def)', 'INICIO DE JUEGO (Of)'],
-    "MEDIOCENTROS": ['RIGOR POSICIONAL (Def)', 'DESPLIEGUE (Def)', 'INICIO DE JUEGO (Of)', 'PROFUNDIDAD (Of)'],
-    "INTERIORES": ['RIGOR POSICIONAL (Def)', 'DESPLIEGUE (Def)', 'ORGANIZADOR (Of)', 'BOX TO BOX (Of)'],
-    "MEDIAPUNTAS": ['ELABORADOR (Of)', 'JUEGO ENTRE LÍNEAS (Of)', 'PROFUNDO CON BALÓN (Of)', 'PROFUNDO EN EL ESPACIO (Of)'],
-    "BANDAS": ['1x1 OFENSIVO (Of)', 'COMBINATIVO (Of)', 'PROFUNDO FUERA-FUERA (Of)', 'RUPTURA FUERA-DENTRO (Of)'],
-    "PUNTAS": ['ÁREA (Of)', 'REFERENCIA (Of)', 'APOYO (Of)', 'ESPACIO (Of)']
+    "PORTEROS": ['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)'],
+    "LATERALES": ['1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)'],
+    "CENTRALES": ['Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Lectura defensiva (Def)', 'Inicio de juego (Of)'],
+    "MEDIOCENTROS": ['Rigor posicional (Def)', 'Despliegue (Def)', 'Inicio de juego (Of)', 'Profundidad (Of)'],
+    "INTERIORES": ['Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)'],
+    "MEDIAPUNTAS": ['Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)'],
+    "BANDAS": ['1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)'],
+    "PUNTAS": ['Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)']
   };
 
   const POSITION_TO_PERFIL_GROUP = {
@@ -2751,7 +2751,7 @@
   function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
     let html = `
     <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 8px;">
-      <div class="form-control select-compact custom-dropdown-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); } else { m.classList.add('hidden'); }">
+      <div class="form-control select-compact custom-dropdown-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeHtml(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeHtml(placeholder).replace(/'/g, "\\'")}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
         <span>+ ${escapeHtml(placeholder)}</span>
         <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
       </div>
@@ -2760,7 +2760,7 @@
     for (const [groupLabel, items] of Object.entries(optionsObj)) {
       html += `<div style="padding: 6px 12px; font-weight: 800; font-size: 11px; background: var(--bg-subtle); color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; z-index: 1;">${escapeHtml(groupLabel)}</div>`;
       items.forEach(item => {
-        html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light);" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
+        html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
       });
     }
     html += `</div></div>`;
@@ -2769,14 +2769,11 @@
 
   function buildFilteredPerfilKeepOpenHTML(pos, targetId) {
     let filteredObj = {};
-    if (pos && pos !== 'PO') {
-      for (const [group, items] of Object.entries(OPTIONS_PERFIL_RS)) {
-        if (group !== 'PORTEROS (PO)') {
-          filteredObj[group] = items;
-        }
-      }
-    } else if (pos === 'PO') {
-      filteredObj['PORTEROS (PO)'] = OPTIONS_PERFIL_RS['PORTEROS (PO)'];
+    const normPos = (pos || '').toUpperCase().trim();
+    const groupKey = POSITION_TO_PERFIL_GROUP[normPos];
+    
+    if (groupKey && OPTIONS_PERFIL_RS[groupKey]) {
+      filteredObj[groupKey] = OPTIONS_PERFIL_RS[groupKey];
     } else {
       filteredObj = OPTIONS_PERFIL_RS;
     }
@@ -3161,14 +3158,16 @@
         const targetTextarea = modalContent.querySelector('#' + targetId);
         if (targetTextarea) {
           const current = targetTextarea.value.trim();
-          if (!current) {
-            targetTextarea.value = val;
+          let parts = current ? current.split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (parts.includes(val)) {
+            parts = parts.filter(p => p !== val);
+            e.currentTarget.innerHTML = escapeHtml(val);
           } else {
-            const parts = current.split(',').map(s => s.trim());
-            if (!parts.includes(val)) {
-              targetTextarea.value = current + ', ' + val;
-            }
+            parts.push(val);
+            e.currentTarget.innerHTML = escapeHtml(val) + ` <i data-lucide="check" style="width:14px; height:14px; color:var(--primary-color); float:right;"></i>`;
+            if (window.lucide) window.lucide.createIcons();
           }
+          targetTextarea.value = parts.join(', ');
         }
       });
     });
@@ -3361,6 +3360,17 @@
 
       // Sync to player's directory profile
       syncPlayerMatchReportToDirectory(pName, pNum, teamName, evalObj);
+      saveToFirebase('directorio', state.directory); // Ensure persistence immediately
+
+      // Persist the evaluation to the current Match Report in Firebase immediately
+      if (currentEditingReportId) {
+        const idx = state.reports.findIndex(r => r.id === currentEditingReportId);
+        if (idx !== -1) {
+          if (!state.reports[idx].playerEvaluations) state.reports[idx].playerEvaluations = {};
+          state.reports[idx].playerEvaluations[evalKey] = evalObj;
+          saveToFirebase('informes', state.reports[idx]);
+        }
+      }
 
       hideModal();
       if (modalFooter) modalFooter.style.display = '';
@@ -3460,7 +3470,9 @@
           const evalKey = `${repId}_${t}_${pNum}`;
           if (state.matchPlayerEvaluations[evalKey]) {
             if (r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
-              state.matchPlayerEvaluations[evalKey].minutos = 90;
+              if (!state.matchPlayerEvaluations[evalKey].minutos) {
+                state.matchPlayerEvaluations[evalKey].minutos = 90;
+              }
             }
             if (pName) {
               syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
@@ -3569,6 +3581,7 @@
           matchingMatch.fecha = reportObj.date;
           matchingMatch.hora = reportObj.time;
           matchingMatch.estado = 'visto';
+          saveToFirebase('partidos', matchingMatch);
         }
       }
 
@@ -4223,34 +4236,6 @@
             </div>
 
             <div class="player-section-title mb-2 mt-4">
-              <i data-lucide="activity"></i> ESTADÍSTICAS INDIVIDUALES ACUMULADAS
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;" class="mb-4">
-              ${[
-                { label: 'Goles', key: 'goles', icon: '⚽️' },
-                { label: 'Asistencias', key: 'asistencias', icon: '👟' },
-                { label: 'Tiros Puerta', key: 'tirosPuerta', icon: '🎯' },
-                { label: 'Tiros Fuera', key: 'tirosFuera', icon: '❌' },
-                { label: 'Pases Buenos', key: 'pasesBuenos', icon: '✅' },
-                { label: 'Pases Malos', key: 'pasesMalos', icon: '⚠️' },
-                { label: 'Regates Éxito', key: 'regatesExito', icon: '✨' },
-                { label: 'Regates Fallo', key: 'regatesFallidos', icon: '📉' },
-                { label: 'Recuperaciones', key: 'recuperaciones', icon: '🛡️' },
-                { label: 'Pérdidas', key: 'perdidas', icon: '🗑️' },
-                { label: 'Duelos Gan.', key: 'duelosGanados', icon: '⚔️' },
-                { label: 'Duelos Per.', key: 'duelosPerdidos', icon: '📉' },
-                { label: 'Aéreo Gan.', key: 'aereoGanado', icon: '✈️' },
-                { label: 'Amarillas', key: 'amarillas', icon: '🟨' },
-                { label: 'Rojas', key: 'rojas', icon: '🟥' }
-              ].map(s => `
-                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light);">
-                  <span style="font-size: 12px; color: var(--text-secondary);" title="${s.label}">${s.icon} <span style="display:none; @media(min-width: 768px){display:inline;}">${s.label}</span></span>
-                  <strong style="font-size: 14px; color: var(--text-primary);">${stats[s.key] || 0}</strong>
-                </div>
-              `).join('')}
-            </div>
-
-            <div class="player-section-title mb-2 mt-4">
               <i data-lucide="file-text"></i> DESCRIPCIONES Y OBSERVACIONES
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
@@ -4316,33 +4301,62 @@
                 <select id="pfPerfilRS" class="form-control">
                   <option value="">Seleccionar Perfil RS...</option>
                   <optgroup label="PORTEROS">
-                    ${['PORTERÍA (Def)', 'ÁREA GRANDE (Def)', 'SOBRIO (Def)', 'INICIO DE JUEGO (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="LATERALES">
-                    ${['1x1 DEFENSIVO (Def)', 'LECTURA DEFENSIVA (Def)', 'JUEGO COMBINATIVO (Of)', 'PROFUNDIDAD (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="CENTRALES">
-                    ${['DEFENSA DE ÁREA (Def)', 'DEFENSA DE CAMPO ABIERTO (Def)', 'LECTURA DEFENSIVA (Def)', 'INICIO DE JUEGO (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Lectura defensiva (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="MEDIOCENTROS">
-                    ${['RIGOR POSICIONAL (Def)', 'DESPLIEGUE (Def)', 'INICIO DE JUEGO (Of)', 'PROFUNDIDAD (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Inicio de juego (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="INTERIORES">
-                    ${['RIGOR POSICIONAL (Def)', 'DESPLIEGUE (Def)', 'ORGANIZADOR (Of)', 'BOX TO BOX (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="MEDIAPUNTAS">
-                    ${['ELABORADOR (Of)', 'JUEGO ENTRE LÍNEAS (Of)', 'PROFUNDO CON BALÓN (Of)', 'PROFUNDO EN EL ESPACIO (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="BANDAS">
-                    ${['1x1 OFENSIVO (Of)', 'COMBINATIVO (Of)', 'PROFUNDO FUERA-FUERA (Of)', 'RUPTURA FUERA-DENTRO (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
                   <optgroup label="PUNTAS">
-                    ${['ÁREA (Of)', 'REFERENCIA (Of)', 'APOYO (Of)', 'ESPACIO (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+                    ${['Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
                   </optgroup>
-                  ${perfilRS && !['PORTERÍA (Def)', 'ÁREA GRANDE (Def)', 'SOBRIO (Def)', 'INICIO DE JUEGO (Of)', '1x1 DEFENSIVO (Def)', 'LECTURA DEFENSIVA (Def)', 'JUEGO COMBINATIVO (Of)', 'PROFUNDIDAD (Of)', 'DEFENSA DE ÁREA (Def)', 'DEFENSA DE CAMPO ABIERTO (Def)', 'RIGOR POSICIONAL (Def)', 'DESPLIEGUE (Def)', 'ORGANIZADOR (Of)', 'BOX TO BOX (Of)', 'ELABORADOR (Of)', 'JUEGO ENTRE LÍNEAS (Of)', 'PROFUNDO CON BALÓN (Of)', 'PROFUNDO EN EL ESPACIO (Of)', '1x1 OFENSIVO (Of)', 'COMBINATIVO (Of)', 'PROFUNDO FUERA-FUERA (Of)', 'RUPTURA FUERA-DENTRO (Of)', 'ÁREA (Of)', 'REFERENCIA (Of)', 'APOYO (Of)', 'ESPACIO (Of)'].includes(perfilRS) ? `<option value="${escapeHtml(perfilRS)}" selected>${escapeHtml(perfilRS)}</option>` : ''}
+                  ${perfilRS && !['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)', '1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)', 'Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)', 'Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)', '1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)', 'Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].includes(perfilRS) ? `<option value="${escapeHtml(perfilRS)}" selected>${escapeHtml(perfilRS)}</option>` : ''}
                 </select>
               </div>
             </div>
+
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="activity"></i> ESTADÍSTICAS INDIVIDUALES ACUMULADAS
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;" class="mb-4">
+              ${[
+                { label: 'Goles', key: 'goles', icon: '⚽️' },
+                { label: 'Asistencias', key: 'asistencias', icon: '👟' },
+                { label: 'Tiros Puerta', key: 'tirosPuerta', icon: '🎯' },
+                { label: 'Tiros Fuera', key: 'tirosFuera', icon: '❌' },
+                { label: 'Pases Buenos', key: 'pasesBuenos', icon: '✅' },
+                { label: 'Pases Malos', key: 'pasesMalos', icon: '⚠️' },
+                { label: 'Regates Éxito', key: 'regatesExito', icon: '✨' },
+                { label: 'Regates Fallo', key: 'regatesFallidos', icon: '📉' },
+                { label: 'Recuperaciones', key: 'recuperaciones', icon: '🛡️' },
+                { label: 'Pérdidas', key: 'perdidas', icon: '🗑️' },
+                { label: 'Duelos Gan.', key: 'duelosGanados', icon: '⚔️' },
+                { label: 'Duelos Per.', key: 'duelosPerdidos', icon: '📉' },
+                { label: 'Aéreo Gan.', key: 'aereoGanado', icon: '✈️' },
+                { label: 'Amarillas', key: 'amarillas', icon: '🟨' },
+                { label: 'Rojas', key: 'rojas', icon: '🟥' }
+              ].map(s => `
+                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light);">
+                  <span style="font-size: 12px; color: var(--text-secondary);" title="${s.label}">${s.icon} <span style="display:none; @media(min-width: 768px){display:inline;}">${s.label}</span></span>
+                  <strong style="font-size: 14px; color: var(--text-primary);">${stats[s.key] || 0}</strong>
+                </div>
+              `).join('')}
+            </div>
+
 
             <div class="form-group">
               <label class="form-label">COMENTARIO GENERAL</label>
