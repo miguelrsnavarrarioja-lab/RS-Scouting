@@ -15812,7 +15812,8 @@
   let selectedCarteleraFecha = 'all';
   let selectedCarteleraInteres = 'priority';
   let selectedCarteleraEquipo = 'all';
-  let selectedCarteleraSubview = 'destacados'; // 'destacados' | 'jornadas'
+  let selectedCarteleraSubview = 'destacados';
+  let currentCarteleraFilteredMatches = []; // 'destacados' | 'jornadas'
 
   function ensureCarteleraState() {
     if (!state.cartelera) {
@@ -16075,6 +16076,8 @@
     if (selectedCarteleraInteres === 'priority') {
       allMatches = allMatches.filter(m => m.isHighInterest);
     }
+
+    currentCarteleraFilteredMatches = allMatches;
 
     // IF SUBVIEW IS JORNADAS, group and display matches by Jornada 1, Jornada 2...
     if (selectedCarteleraSubview === 'jornadas') {
@@ -16899,7 +16902,7 @@
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
     if (btnExportPdf && !btnExportPdf.dataset.initialized) {
       btnExportPdf.dataset.initialized = 'true';
-      btnExportPdf.onclick = () => openExportMatchesPDFModal();
+      btnExportPdf.onclick = () => generateMatchesPDF();
     }
 
     const btnPaste = document.getElementById('btnPasteCalendarText');
