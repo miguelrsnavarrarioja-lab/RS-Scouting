@@ -16870,14 +16870,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         return;
       }
 
-      if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\\s{2,}/)) {
+      if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\s{2,}/) || line.includes('\t')) {
         let parts;
         if (line.includes(' vs ') || line.includes(' VS ')) {
-          parts = line.split(/\\s+(?:vs|VS)\\s+/);
+          parts = line.split(/\s+(?:vs|VS)\s+/);
         } else if (line.includes(' - ')) {
-          parts = line.split(/\\s+-\\s+/);
+          parts = line.split(/\s+-\s+/);
         } else {
-          parts = line.split(/\\s{2,}/);
+          parts = line.split(/[\t]+|\s{2,}/);
         }
         if (parts.length >= 2) {
           matches.push({
