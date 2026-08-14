@@ -16941,6 +16941,20 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     let currentJornada = 'Jornada 1';
     let currentFechaReal = '';
 
+    const convertFechaReal = (f) => {
+        if (!f) return '';
+        const p = f.split(/[\/\-\.]/);
+        if (p.length === 3) {
+            let [d, m, y] = p;
+            if (y.length === 2) y = (parseInt(y) > 50 ? '19' : '20') + y;
+            d = d.padStart(2, '0');
+            m = m.padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        return '';
+    };
+
+
     lines.forEach((line, idx) => {
       if (/jornada\s*\d+/i.test(line)) {
         const matchJor = line.match(/jornada\s*\d+/i);
@@ -16970,7 +16984,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: currentJornada,
             fechaRealJornada: currentFechaReal,
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
             local: parts[0].trim(),
             visitante: parts[1].trim(),
@@ -16989,7 +17003,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: 'Jornada 1',
             fechaRealJornada: currentFechaReal,
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
             local: l,
             visitante: 'Rival',
