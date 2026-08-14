@@ -907,11 +907,11 @@
           <div class="importador-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <i data-lucide="wand-2" class="title-icon" style="color: var(--primary-blue, #2563eb); width: 28px; height: 28px;"></i>
-              <h2 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-dark, #1e293b);">Importador de Jugadores y Staff</h2>
+              <h2 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-dark, #1e293b);">Importador de Jugadores, Staff y Clubes</h2>
             </div>
             <div style="display: flex; gap: 8px;">
               <span class="badge" style="background: var(--primary-blue-light, #eff6ff); color: var(--primary-blue, #2563eb); border: 1px solid var(--primary-blue, #2563eb); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">
-                🏃 Jugadores + 👔 Staff
+                🏃 Jugadores + 👔 Staff + 🛡️ Clubes
               </span>
             </div>
           </div>
@@ -923,8 +923,38 @@
         <!-- PASO 1: PEGAR DATOS Y VALORES POR DEFECTO -->
         <div id="importerStep1Container">
           <form id="importerForm" onsubmit="return false;">
-            <!-- Equipo Principal de Destino -->
+            <!-- Tipo de Importación -->
             <div class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
+              <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                🔄 TIPO DE IMPORTACIÓN
+              </label>
+              <div style="display: flex; gap: 16px; margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer;">
+                  <input type="radio" name="importerType" value="plantillas" checked onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de la federación. Ejemplo:\\nAlbisu Muñoz, Unai\\n...'; document.getElementById('importerEquipoDestinoContainer').style.display = 'block'; document.getElementById('importerFederacionDestinoContainer').style.display = 'none'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'table\'></i> Procesar y Abrir Hoja de Cálculo Interactiva'; if(window.lucide) window.lucide.createIcons();"> Plantillas (Jugadores y Staff)
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer;">
+                  <input type="radio" name="importerType" value="clubes" onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de clubes de la federación.\\nEjemplo:\\nCódigo\\tNombre\\tLocalidad\\tProvincia\\tEquipos\\n1001\\tREAL ZARAGOZA S.A.D.\\tZaragoza\\tZaragoza\\t15'; document.getElementById('importerEquipoDestinoContainer').style.display = 'none'; document.getElementById('importerFederacionDestinoContainer').style.display = 'block'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'save\'></i> Importar Clubes y Guardar Directamente'; if(window.lucide) window.lucide.createIcons();"> Clubes
+                </label>
+              </div>
+            </div>
+
+            <!-- Federación de Destino (Solo Clubes) -->
+            <div id="importerFederacionDestinoContainer" class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0); display: none;">
+              <div class="form-group mb-0">
+                <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                  🛡️ FEDERACIÓN (Opcional - se asignará a todos los clubes extraídos)
+                </label>
+                
+                <div style="margin-top: 6px;">
+                  <select id="importerDefaultFederacionSelect" class="form-control font-bold" style="font-size: 14px; padding: 10px;">
+                    <option value="" selected>-- Seleccionar de las Federaciones del Directorio --</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Equipo Principal de Destino -->
+            <div id="importerEquipoDestinoContainer" class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
               <div class="form-group mb-0">
                 <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
                   👕 EQUIPO PRINCIPAL DE DESTINO (Opcional - se asignará a todos los registros extraídos)

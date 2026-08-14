@@ -1025,6 +1025,7 @@
         if (item) {
           item.completada = e.target.checked;
           item.estado = e.target.checked ? 'done' : 'todo';
+          saveToFirebase('agenda', item);
           saveState();
           renderDashboard();
           if (typeof renderAgenda === 'function') renderAgenda();
@@ -1074,6 +1075,7 @@
         if (item) {
           item.completada = e.target.checked;
           item.estado = e.target.checked ? 'done' : 'todo';
+          saveToFirebase('agenda', item);
           saveState();
           renderDashboard();
           if (typeof renderAgenda === 'function') renderAgenda();
@@ -1224,10 +1226,12 @@
   function renderCalendarListView(filtered) {
     const container = document.getElementById('calendarMatchesContainer');
     const agendaEvents = (state.agenda || []).filter(t => t.fecha);
+    const reportsEvents = (state.reports || []).filter(r => r.fecha);
 
     const combined = [
       ...filtered.map(m => ({ ...m, _type: 'match' })),
-      ...agendaEvents.map(a => ({ ...a, _type: 'agenda' }))
+      ...agendaEvents.map(a => ({ ...a, _type: 'agenda' })),
+      ...reportsEvents.map(r => ({ ...r, _type: 'informe' }))
     ].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
     if (combined.length === 0) {
@@ -1274,7 +1278,7 @@
               </div>
             </div>
           `;
-        } else {
+        } else if (item._type === 'agenda') {
           const catObj = (state.agendaCategories || []).find(c => c.id === item.categoria);
           const catLabel = catObj ? catObj.label : item.categoria;
           const colorObj = getCategoryColor(item.categoria);
@@ -1292,6 +1296,22 @@
                 <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)} | ${escapeHtml(item.hora || '12:00')} hs</div>
                 <div><i data-lucide="tag" style="width: 14px;"></i> Categoría: ${escapeHtml(catLabel)}</div>
                 <div><i data-lucide="alert-circle" style="width: 14px;"></i> Prioridad: ${escapeHtml(item.prioridad)}</div>
+              </div>
+            </div>
+          `;
+        } else if (item._type === 'informe') {
+          return `
+            <div class="match-card btn-open-report" data-repid="${item.id}" style="border-left: 5px solid var(--primary); background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Informe Técnico">
+              <div class="match-card-header">
+                <span class="match-category-tag" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700;">📊 Informe Técnico</span>
+                <span class="match-status-badge visto">✓ Guardado</span>
+              </div>
+              <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
+                ${escapeHtml(item.titulo || (item.equipoLocal ? `${item.equipoLocal} vs ${item.equipoVisitante}` : 'Informe sin título'))}
+              </div>
+              <div class="match-card-details">
+                <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)}</div>
+                <div><i data-lucide="user" style="width: 14px;"></i> Autor: ${escapeHtml(item.autor || 'N/A')}</div>
               </div>
             </div>
           `;
@@ -1342,7 +1362,13 @@
       return d.getFullYear() === year && d.getMonth() === month;
     });
 
-    document.getElementById('monthMatchCountDisplay').textContent = monthMatches.length + monthAgendaTasks.length;
+    const monthReports = (state.reports || []).filter(r => {
+      if (!r.fecha) return false;
+      const d = new Date(r.fecha);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    document.getElementById('monthMatchCountDisplay').textContent = monthMatches.length + monthAgendaTasks.length + monthReports.length;
 
     const grid = document.getElementById('monthDaysGrid');
     let cellsHTML = '';
@@ -1365,6 +1391,7 @@
       
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
       const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
+      const dayReports = (state.reports || []).filter(r => r.fecha === dateStr);
 
       cellsHTML += `
         <div class="month-day-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
@@ -1383,6 +1410,11 @@
                 </div>
               `;
             }).join('')}
+            ${dayReports.map(r => `
+                <div class="day-match-pill day-informe-pill" data-repid="${r.id}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
+                  <span>📊 ${escapeHtml(r.titulo || (r.equipoLocal ? `${r.equipoLocal} vs ${r.equipoVisitante}` : 'Informe'))}</span>
+                </div>
+            `).join('')}
           </div>
         </div>
       `;
@@ -1406,6 +1438,13 @@
         if (agendaPill) {
           e.stopPropagation();
           openAgendaTaskDetailModal(agendaPill.dataset.agid);
+          return;
+        }
+
+        const informePill = e.target.closest('.day-informe-pill');
+        if (informePill) {
+          e.stopPropagation();
+          openMatchReportEditor(informePill.dataset.repid);
           return;
         }
 
@@ -2631,19 +2670,21 @@
     });
 
     if (playerInDir) {
-      if (evalData.descFisica) playerInDir.descFisica = evalData.descFisica;
-      if (evalData.descTecnica) playerInDir.descTecnica = evalData.descTecnica;
-      if (evalData.descEmocional) playerInDir.descEmocional = evalData.descEmocional;
-      if (evalData.perfilRS) playerInDir.perfilRS = evalData.perfilRS;
+      function mergeUniqueCsv(oldStr, newStr) {
+        if (!oldStr) return newStr || '';
+        if (!newStr) return oldStr || '';
+        const set = new Set([...oldStr.split(','), ...newStr.split(',')].map(s => s.trim()).filter(s => s));
+        return Array.from(set).join(', ');
+      }
+
+      if (evalData.descFisica) playerInDir.descFisica = mergeUniqueCsv(playerInDir.descFisica, evalData.descFisica);
+      if (evalData.descTecnica) playerInDir.descTecnica = mergeUniqueCsv(playerInDir.descTecnica, evalData.descTecnica);
+      if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
+      if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
       if (evalData.comentarioGeneral) playerInDir.comentarioGeneral = evalData.comentarioGeneral;
       if (evalData.tags && evalData.tags.length > 0) playerInDir.tags = evalData.tags;
       
-      // Store/accumulate stats
-      if (evalData.stats) {
-        playerInDir.stats = evalData.stats;
-      }
-
       // Append/update match evaluation history
       if (!playerInDir.historialEvaluaciones) playerInDir.historialEvaluaciones = [];
       const repId = currentEditingReportId || 'temp';
@@ -2665,6 +2706,21 @@
 
       if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
       else playerInDir.historialEvaluaciones.push(evalRecord);
+
+      // Recalculate global stats by summing all match histories
+      const totalStats = {
+        goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
+        regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
+        duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
+      };
+      playerInDir.historialEvaluaciones.forEach(h => {
+        if (h.stats) {
+          for (const key in totalStats) {
+            totalStats[key] += (h.stats[key] || 0);
+          }
+        }
+      });
+      playerInDir.stats = totalStats;
 
       saveToFirebase('jugadores', playerInDir);
       saveState();
@@ -2709,7 +2765,7 @@
         descTecnica: playerInDir.descTecnica || '',
         descEmocional: playerInDir.descEmocional || '',
         perfilRS: playerInDir.perfilRS || '',
-        stats: playerInDir.stats || {
+        stats: {
           goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
           regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
           duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
@@ -11375,7 +11431,6 @@
       "Beti Kozkor K.E.",
       "C.A. Cirbonero",
       "C.D. Aoiz",
-      "C.D. Avance Ezkabarte",
       "C.D. Beti Onak",
       "C.D. Cantolagua",
       "C.D. Cortes",
@@ -12439,14 +12494,12 @@
 
     const teamsToCreate = [
       "BADALONA, C.F.",
-      "C. Gimnástic Manresa",
       "C.D. Oberena",
       "C.E. Sabadell F.C.",
       "C.F. Damm",
       "Club Atlético Osasuna",
       "F.C. Barcelona",
       "Girona FC",
-      "MONZÓN FÚTBOL BASE - AT. Gigamontrans",
       "RCD Espanyol de Barcelona",
       "Real Zaragoza",
       "S.D. Huesca",
@@ -12520,7 +12573,6 @@
 
     const teamsToCreate = [
       "Antiguoko Kirol Elkartea",
-      "ARRATIA, C.D.",
       "Athletic Club",
       "CD Betoño",
       "CyD Leonesa",
@@ -13006,8 +13058,9 @@
                 ${pageItems.map(j => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
                     <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 6px;">
-                        <i data-lucide="user" style="width: 14px; height: 14px;"></i> ${escapeHtml(j.nombre)}
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                        <img src="${j.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
+                        <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(j.nombre)}</span>
                       </a>
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
@@ -13647,8 +13700,9 @@
                 ${pageItems.map(s => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
                     <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline; display: inline-flex; align-items: center; gap: 6px;">
-                        <i data-lucide="user-check" style="width: 14px; height: 14px;"></i> ${escapeHtml(s.nombre)}
+                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                        <img src="${s.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
+                        <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(s.nombre)}</span>
                       </a>
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(s.cargo || 'Cargo N/A')}</td>
@@ -14377,6 +14431,33 @@
     }
   }
 
+  function populateImporterFederacionesSelect() {
+    const select = document.getElementById('importerDefaultFederacionSelect');
+    if (!select || !state || !state.directory) return;
+
+    const fedList = state.directory.federaciones || [];
+    const namesSet = new Set();
+    const allFeds = [];
+
+    fedList.forEach(f => {
+      const name = f.nombre || f.federacion;
+      if (name && !namesSet.has(name.toLowerCase().trim())) {
+        namesSet.add(name.toLowerCase().trim());
+        allFeds.push(name);
+      }
+    });
+
+    allFeds.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
+    const currentVal = select.value;
+    let html = `<option value="">-- Seleccionar de las Federaciones del Directorio (${allFeds.length} federaciones) --</option>`;
+    allFeds.forEach(f => {
+      const isSelected = currentVal && currentVal === f ? 'selected' : '';
+      html += `<option value="${escapeHtml(f)}" ${isSelected}>${escapeHtml(f)}</option>`;
+    });
+    select.innerHTML = html;
+  }
+
   // Populate on input focus/click to guarantee data is present
   document.getElementById('importerDefaultEquipo')?.addEventListener('focus', populateImporterEquiposDatalist);
   document.getElementById('importerDefaultEquipo')?.addEventListener('click', populateImporterEquiposDatalist);
@@ -14394,6 +14475,9 @@
   // Populate datalist on tab navigation / initialization
   if (typeof populateImporterEquiposDatalist === 'function') {
     populateImporterEquiposDatalist();
+  }
+  if (typeof populateImporterFederacionesSelect === 'function') {
+    populateImporterFederacionesSelect();
   }
 
   function formatFederationName(rawLine) {
@@ -14452,10 +14536,108 @@
     return '';
   }
 
+  function processClubesImport(rawText) {
+    const lines = rawText.split('\n');
+    let countNew = 0;
+    let countUpd = 0;
+    const federacionSelectVal = document.getElementById('importerDefaultFederacionSelect')?.value || '';
+
+    if (!state.directory.clubes) state.directory.clubes = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      if (trimmed.toLowerCase().includes('código') || trimmed.toLowerCase().includes('localidad')) return; // Cabeceras
+
+      // Intentar separar por tabulaciones primero
+      let parts = trimmed.split('\t').map(s => s.trim());
+      if (parts.length < 5) {
+        // Fallback: separar por 2 o más espacios (si lo copian de un sitio sin tabs)
+        parts = trimmed.split(/\s{2,}/).map(s => s.trim());
+      }
+      
+      if (parts.length >= 5) {
+        const codigo = parts[0];
+        const nombre = parts[1];
+        const localidad = parts[2];
+        const provincia = parts[3];
+        const numEquipos = parts[4];
+
+        if (!nombre) return;
+
+        const formattedName = formatFederationName(nombre);
+
+        const newClub = {
+          id: 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          codigo: codigo,
+          nombre: formattedName,
+          club: formattedName,
+          localidad: formatFederationName(localidad),
+          provincia: formatFederationName(provincia),
+          numeroEquipos: numEquipos,
+          comunidad: getTeamComunidad(provincia) || provincia,
+          federacion: federacionSelectVal
+        };
+
+        const existingIdx = state.directory.clubes.findIndex(c => (c.codigo && c.codigo === codigo) || (c.nombre && c.nombre === newClub.nombre));
+        if (existingIdx !== -1) {
+          state.directory.clubes[existingIdx] = Object.assign({}, state.directory.clubes[existingIdx], newClub);
+          saveToFirebase('clubes', state.directory.clubes[existingIdx]);
+          countUpd++;
+        } else {
+          state.directory.clubes.unshift(newClub);
+          saveToFirebase('clubes', newClub);
+          countNew++;
+        }
+      }
+    });
+
+    saveState();
+    
+    // Mostrar vista de éxito directamente sin pasar por Excel
+    const step2Container = document.getElementById('importerStep2ExcelContainer');
+    document.getElementById('importerStep1Container').classList.add('hidden');
+    step2Container.classList.remove('hidden');
+    step2Container.innerHTML = `
+        <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 36px; text-align: center; box-shadow: 0 10px 25px -5px rgba(22,163,74,0.15);">
+          <div style="width: 56px; height: 56px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
+          </div>
+          
+          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
+            🎉 ¡Importación de Clubes Completada con Éxito!
+          </h3>
+          
+          <p style="font-size: 14px; color: #166534; margin: 0 0 24px 0; max-width: 600px; margin-left: auto; margin-right: auto;">
+            Se han guardado en el directorio local y Firebase: <strong>${countNew} nuevos y ${countUpd} actualizados</strong>.
+          </p>
+
+          <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="resetImporterToStep1()" style="font-weight: 800; padding: 12px 24px; cursor: pointer;">
+              🔄 Realizar Nueva Importación
+            </button>
+            <button type="button" class="btn btn-primary btn-lg" onclick="navigateToDirectoryTab('clubes')" style="font-weight: 800; padding: 12px 28px; cursor: pointer;">
+              📁 Ir al Directorio de Clubes
+            </button>
+          </div>
+        </div>
+      `;
+    if (window.lucide) window.lucide.createIcons();
+    showToast(\`☁️ \${countNew + countUpd} clubes guardados en Firebase\`, 'success');
+  }
+
   function processImporterText() {
     const rawText = document.getElementById('importerRawText')?.value.trim();
     if (!rawText) {
       alert('Por favor pega primero la lista de la federación en el campo de texto.');
+      return;
+    }
+
+    const typeRadio = document.querySelector('input[name="importerType"]:checked');
+    const importType = typeRadio ? typeRadio.value : 'plantillas';
+
+    if (importType === 'clubes') {
+      processClubesImport(rawText);
       return;
     }
 
@@ -15274,21 +15456,7 @@
       state.cartelera.priorityTeams = [];
     }
     
-    // v2: Wipe old hardcoded default priority teams once so only user-chosen ones persist
-    if (!state.cartelera.wipedOldPriorityTeamsV2) {
-      state.cartelera.priorityTeams = [];
-      state.cartelera.wipedOldPriorityTeamsV2 = true;
-      saveState();
-      if (typeof syncAllToFirebase === 'function') syncAllToFirebase(false);
-    }
 
-    // Purge ALL previous imported test calendars completely to start 100% fresh
-    if (!state.cartelera.wipedOldImportedData || (state.cartelera.calendarios && state.cartelera.calendarios.some(c => c && (c.nombre || '').toLowerCase().includes('pdf') || c.id === 'cal_sample_dh'))) {
-      state.cartelera.calendarios = [];
-      state.cartelera.wipedOldImportedData = true;
-      saveState();
-      if (typeof syncAllToFirebase === 'function') syncAllToFirebase(false);
-    }
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
     }
@@ -17004,6 +17172,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (task) {
           task.estado = cardsList.dataset.status;
           task.completada = (task.estado === 'done');
+          saveToFirebase('agenda', task);
           saveState();
           renderAgenda();
           renderCalendario();
@@ -17017,6 +17186,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (task) {
           task.estado = sel.value;
           task.completada = (sel.value === 'done');
+          saveToFirebase('agenda', task);
           saveState();
           renderAgenda();
           renderCalendario();
