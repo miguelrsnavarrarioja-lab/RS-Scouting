@@ -5979,6 +5979,7 @@
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
                     <th style="padding: 8px 12px; width: 22%;">PLANTILLA</th>
+                    <th style="padding: 8px 12px; width: 5%;">DORSAL</th>
                     <th style="padding: 8px 12px; width: 6%;">AÑO</th>
                     <th style="padding: 8px 12px; width: 14%;">POS. PRINC.</th>
                     <th style="padding: 8px 12px; width: 14%;">POS. SEC.</th>
@@ -6024,7 +6025,7 @@
     `;
 
     const card = document.getElementById('generalModalCard');
-    card.classList.add('large');
+    card.classList.add('xlarge');
 
     showModal(titleText, modalHTML, () => {
       const nameVal = document.getElementById('tfNombre').value.trim();
@@ -6494,7 +6495,7 @@
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
 
       if (localPlantillaList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 12px; text-align: center; color: var(--text-muted);">Sin jugadores vinculados en la plantilla</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="padding: 12px; text-align: center; color: var(--text-muted);">Sin jugadores vinculados en la plantilla</td></tr>`;
       } else {
         tbody.innerHTML = localPlantillaList.map((j, idx) => {
           const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
@@ -6505,6 +6506,7 @@
           );
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
+          let dorsalHTML = '-';
           let anoHTML = '-';
           let posPriHTML = '-';
           let posSecHTML = '-';
@@ -6514,6 +6516,8 @@
 
           if (foundPlayer) {
             nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            const dorsalVal = foundPlayer.dorsal || '';
+            dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${foundPlayer.id}" value="${escapeHtml(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
             anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${foundPlayer.id}" value="${escapeHtml(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
@@ -6563,6 +6567,7 @@
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 6px 12px;">${nameHTML}</td>
+              <td style="padding: 6px 4px;">${dorsalHTML}</td>
               <td style="padding: 6px 4px;">${anoHTML}</td>
               <td style="padding: 6px 4px;">${posPriHTML}</td>
               <td style="padding: 6px 4px;">${posSecHTML}</td>
@@ -13105,8 +13110,9 @@
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
                   <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
-                  <th style="padding: 12px 16px; width: 10%;">AÑO</th>
-                  <th style="padding: 12px 16px; width: 20%;">EQUIPO</th>
+                  <th style="padding: 12px 16px; width: 5%;">DORSAL</th>
+                  <th style="padding: 12px 16px; width: 8%;">AÑO</th>
+                  <th style="padding: 12px 16px; width: 17%;">EQUIPO</th>
                   <th style="padding: 12px 16px; width: 12%;">POS. 1</th>
                   <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
                   <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
@@ -13122,6 +13128,7 @@
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(j.nombre)}</span>
                       </a>
                     </td>
+                    <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.equipo || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
