@@ -1877,6 +1877,12 @@
       competicionesListOptions.innerHTML = Array.from(compSet).map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
     }
 
+    // Restore matchPlayerEvaluations from report data if it exists
+    if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
+    if (repData && repData.playerEvaluations) {
+      Object.assign(state.matchPlayerEvaluations, repData.playerEvaluations);
+    }
+
     const categoriasListOptions = document.getElementById('reportCategoriasDatalistOptions');
     if (categoriasListOptions) {
       const catSet = new Set(['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8', 'Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín', 'Benjamín', 'Prebenjamín']);
@@ -2152,6 +2158,40 @@
     } else {
       badgeLabel.innerHTML = `<i data-lucide="shield" style="width: 24px; height: 24px;"></i>`;
       if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Auto-fill player names based on dorsals if team changes
+    if (teamName) {
+      const containers = [
+        document.getElementById(`${team}TitularesRows`),
+        document.getElementById(`${team}SuplentesRows`)
+      ];
+      containers.forEach(container => {
+        if (!container) return;
+        container.querySelectorAll('.lineup-row').forEach(row => {
+          const numInput = row.querySelector('input.num');
+          const nameInput = row.querySelector('input.name');
+          const posSelect = row.querySelector('select.pos');
+          if (numInput && numInput.value && nameInput && !nameInput.value.trim()) {
+            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numInput.value);
+            if (matchedPlayer) {
+              nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
+              const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
+              if (posSelect && matchedPos) {
+                const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
+                if (optExists) posSelect.value = matchedPos;
+                else {
+                  const newOpt = document.createElement('option');
+                  newOpt.value = matchedPos;
+                  newOpt.textContent = matchedPos;
+                  newOpt.selected = true;
+                  posSelect.appendChild(newOpt);
+                }
+              }
+            }
+          }
+        });
+      });
     }
 
     renderPitchPins(team);
@@ -3495,7 +3535,14 @@
         localTitulares: matchTacticalSystems.local?.principal?.titulares || [],
         localSuplentes: matchTacticalSystems.local?.principal?.suplentes || [],
         visitanteTitulares: matchTacticalSystems.visitante?.principal?.titulares || [],
-        visitanteSuplentes: matchTacticalSystems.visitante?.principal?.suplentes || []
+        visitanteSuplentes: matchTacticalSystems.visitante?.principal?.suplentes || [],
+
+        playerEvaluations: Object.keys(state.matchPlayerEvaluations || {}).reduce((acc, key) => {
+          if (key.startsWith(repId + '_')) {
+            acc[key] = state.matchPlayerEvaluations[key];
+          }
+          return acc;
+        }, {})
       };
 
       if (!Array.isArray(state.reports)) state.reports = [];
