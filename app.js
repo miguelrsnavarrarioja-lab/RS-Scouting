@@ -1235,13 +1235,22 @@
   function renderCalendarListView(filtered) {
     const container = document.getElementById('calendarMatchesContainer');
     const agendaEvents = (state.agenda || []).filter(t => t.fecha);
-    const reportsEvents = (state.reports || []).filter(r => r.fecha);
+    const reportsEvents = (state.reports || []).filter(r => r.date || r.fecha);
 
     const combined = [
       ...filtered.map(m => ({ ...m, _type: 'match' })),
       ...agendaEvents.map(a => ({ ...a, _type: 'agenda' })),
-      ...reportsEvents.map(r => ({ ...r, _type: 'informe' }))
-    ].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+      ...reportsEvents.map(r => ({ 
+        ...r, 
+        _type: 'informe',
+        fecha: r.date || r.fecha,
+        hora: r.time || r.hora
+      }))
+    ].sort((a, b) => {
+      const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00') + ':00');
+      const dateB = new Date((b.fecha || '9999-12-31') + 'T' + (b.hora || '00:00') + ':00');
+      return dateA - dateB;
+    });
 
     if (combined.length === 0) {
       container.innerHTML = `
@@ -1316,10 +1325,10 @@
                 <span class="match-status-badge visto">✓ Guardado</span>
               </div>
               <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
-                ${escapeHtml(item.titulo || (item.equipoLocal ? `${item.equipoLocal} vs ${item.equipoVisitante}` : 'Informe sin título'))}
+                ${escapeHtml(item.titulo || (item.localTeam ? `${item.localTeam} vs ${item.visitanteTeam}` : 'Informe sin título'))}
               </div>
               <div class="match-card-details">
-                <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)}</div>
+                <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)} | ${escapeHtml(item.hora || '')}</div>
                 <div><i data-lucide="user" style="width: 14px;"></i> Autor: ${escapeHtml(item.autor || 'N/A')}</div>
               </div>
             </div>
@@ -1372,8 +1381,9 @@
     });
 
     const monthReports = (state.reports || []).filter(r => {
-      if (!r.fecha) return false;
-      const d = new Date(r.fecha);
+      const f = r.date || r.fecha;
+      if (!f) return false;
+      const d = new Date(f);
       return d.getFullYear() === year && d.getMonth() === month;
     });
 
@@ -1400,7 +1410,7 @@
       
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
       const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
-      const dayReports = (state.reports || []).filter(r => r.fecha === dateStr);
+      const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr);
 
       cellsHTML += `
         <div class="month-day-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
@@ -1567,7 +1577,7 @@
     const reports = state.reports || [];
     const catMap = {};
     reports.forEach(r => {
-      const cat = (r.categoria || r.competicion || '').trim();
+      const cat = (r.competicion || '').trim();
       if (cat) {
         catMap[cat] = (catMap[cat] || 0) + 1;
       }
@@ -1579,7 +1589,7 @@
       <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="filter" style="width: 14px;"></i> Categoría:
+            <i data-lucide="trophy" style="width: 14px;"></i> Competición:
           </span>
           <button type="button" class="player-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosCategoryTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
             TODOS (${reports.length})
@@ -1621,18 +1631,25 @@
 
     const searchVal = document.getElementById('reportsSearchInput')?.value.toLowerCase() || '';
     const filtered = state.reports.filter(r => {
-      const cat = (r.categoria || r.competicion || '').trim();
+      const cat = (r.competicion || '').trim();
       const matchesCat = (currentPartidosCategoryTab === 'all') || (cat === currentPartidosCategoryTab);
       const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
       const matchesSearch = !searchVal || text.includes(searchVal);
       return matchesCat && matchesSearch;
     });
 
+    // Sort by date from earliest to latest
+    filtered.sort((a, b) => {
+      const dateA = new Date((a.date || '9999-12-31') + 'T' + (a.time || '00:00') + ':00');
+      const dateB = new Date((b.date || '9999-12-31') + 'T' + (b.time || '00:00') + ':00');
+      return dateA - dateB;
+    });
+
     const container = document.getElementById('reportsListContainer');
     if (filtered.length === 0) {
       const emptyMsg = currentPartidosCategoryTab === 'all'
         ? 'No hay informes técnicos de partido guardados.'
-        : `No hay informes guardados en la categoría "${escapeHtml(currentPartidosCategoryTab)}".`;
+        : `No hay informes guardados en la competición "${escapeHtml(currentPartidosCategoryTab)}".`;
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
           <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
