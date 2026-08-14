@@ -14623,7 +14623,7 @@
         </div>
       `;
     if (window.lucide) window.lucide.createIcons();
-    showToast(\`☁️ \${countNew + countUpd} clubes guardados en Firebase\`, 'success');
+    showToast(`☁️ ${countNew + countUpd} clubes guardados en Firebase`, 'success');
   }
 
   function processImporterText() {
