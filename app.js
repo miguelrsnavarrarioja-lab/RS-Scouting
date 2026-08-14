@@ -1325,7 +1325,7 @@
                 <span class="match-status-badge visto">✓ Guardado</span>
               </div>
               <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
-                ${escapeHtml(item.titulo || (item.localTeam ? `${item.localTeam} vs ${item.visitanteTeam}` : 'Informe sin título'))}
+                ${escapeHtml(item.localTeam ? `${item.localTeam}-${item.visitanteTeam} (${item.competicion || ''})` : (item.titulo || 'Informe sin título'))}
               </div>
               <div class="match-card-details">
                 <div><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(item.fecha)} | ${escapeHtml(item.hora || '')}</div>
@@ -1431,7 +1431,7 @@
             }).join('')}
             ${dayReports.map(r => `
                 <div class="day-match-pill day-informe-pill" data-repid="${r.id}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
-                  <span>📊 ${escapeHtml(r.titulo || (r.equipoLocal ? `${r.equipoLocal} vs ${r.equipoVisitante}` : 'Informe'))}</span>
+                  <span>📊 ${escapeHtml(r.localTeam ? `${r.localTeam}-${r.visitanteTeam} (${r.competicion || ''})` : (r.titulo || 'Informe sin título'))}</span>
                 </div>
             `).join('')}
           </div>
@@ -1569,6 +1569,7 @@
   let timerInterval = null;
   let timerSeconds = 0;
   let currentPartidosCategoryTab = 'all';
+  let currentPartidosMonthTab = 'all';
 
   function renderMatchCategorySubtabs() {
     const container = document.getElementById('matchCategorySubtabsBar');
@@ -1576,14 +1577,28 @@
 
     const reports = state.reports || [];
     const catMap = {};
+    const monthMap = {};
+    
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
     reports.forEach(r => {
       const cat = (r.competicion || '').trim();
       if (cat) {
         catMap[cat] = (catMap[cat] || 0) + 1;
       }
+      
+      const dateStr = r.date || r.fecha;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
+        }
+      }
     });
 
     const categories = Object.keys(catMap).sort();
+    const months = Object.keys(monthMap).sort((a,b) => b.localeCompare(a)); // Descending order
 
     let html = `
       <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
@@ -1591,7 +1606,7 @@
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="trophy" style="width: 14px;"></i> Competición:
           </span>
-          <button type="button" class="player-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosCategoryTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+          <button type="button" class="player-subtab cat-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosCategoryTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
             TODOS (${reports.length})
           </button>
     `;
@@ -1600,8 +1615,32 @@
       const count = catMap[cat];
       const isActive = currentPartidosCategoryTab === cat;
       html += `
-          <button type="button" class="player-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+          <button type="button" class="player-subtab cat-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
             ${escapeHtml(cat).toUpperCase()} (${count})
+          </button>
+      `;
+    });
+
+    html += `
+        </div>
+        
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="calendar" style="width: 14px;"></i> Mes:
+          </span>
+          <button type="button" class="player-subtab month-subtab ${currentPartidosMonthTab === 'all' ? 'active' : ''}" data-partidosmonth="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosMonthTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosMonthTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosMonthTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            TODOS
+          </button>
+    `;
+
+    months.forEach(monthKey => {
+      const count = monthMap[monthKey];
+      const isActive = currentPartidosMonthTab === monthKey;
+      const [y, m] = monthKey.split('-');
+      const monthLabel = `${monthNames[parseInt(m)-1]} ${y}`;
+      html += `
+          <button type="button" class="player-subtab month-subtab ${isActive ? 'active' : ''}" data-partidosmonth="${monthKey}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            ${monthLabel} (${count})
           </button>
       `;
     });
@@ -1613,9 +1652,16 @@
 
     container.innerHTML = html;
 
-    container.querySelectorAll('.player-subtab').forEach(tab => {
+    container.querySelectorAll('.cat-subtab').forEach(tab => {
       tab.addEventListener('click', () => {
         currentPartidosCategoryTab = tab.dataset.partidoscat || 'all';
+        renderPartidosList();
+      });
+    });
+
+    container.querySelectorAll('.month-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentPartidosMonthTab = tab.dataset.partidosmonth || 'all';
         renderPartidosList();
       });
     });
@@ -1633,9 +1679,26 @@
     const filtered = state.reports.filter(r => {
       const cat = (r.competicion || '').trim();
       const matchesCat = (currentPartidosCategoryTab === 'all') || (cat === currentPartidosCategoryTab);
+      
+      let matchesMonth = true;
+      if (currentPartidosMonthTab !== 'all') {
+        const dateStr = r.date || r.fecha;
+        if (dateStr) {
+          const d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            matchesMonth = (monthKey === currentPartidosMonthTab);
+          } else {
+            matchesMonth = false;
+          }
+        } else {
+          matchesMonth = false;
+        }
+      }
+
       const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
       const matchesSearch = !searchVal || text.includes(searchVal);
-      return matchesCat && matchesSearch;
+      return matchesCat && matchesMonth && matchesSearch;
     });
 
     // Sort by date from earliest to latest
@@ -1647,9 +1710,7 @@
 
     const container = document.getElementById('reportsListContainer');
     if (filtered.length === 0) {
-      const emptyMsg = currentPartidosCategoryTab === 'all'
-        ? 'No hay informes técnicos de partido guardados.'
-        : `No hay informes guardados en la competición "${escapeHtml(currentPartidosCategoryTab)}".`;
+      const emptyMsg = 'No hay informes técnicos que coincidan con los filtros seleccionados.';
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
           <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
@@ -18319,6 +18380,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const c = l.favCol || state.favColumns[0] || 'Columna 1';
         return c === colName;
       });
+      colLinks.sort((a, b) => (a.order || 0) - (b.order || 0));
 
       // Handle unassigned favorites to fallback into first column
       if (colIdx === 0) {
@@ -18393,24 +18455,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   }
 
   function attachFavoritosBoardEvents(boardContainer) {
-    let draggedLinkId = null;
-
     boardContainer.querySelectorAll('.link-card').forEach(card => {
-      card.addEventListener('dragstart', (e) => {
-        e.stopPropagation();
-        draggedLinkId = card.dataset.id;
-        card.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', card.dataset.id);
-      });
-
-      card.addEventListener('dragend', (e) => {
-        e.stopPropagation();
-        draggedLinkId = null;
-        boardContainer.querySelectorAll('.link-card').forEach(c => c.classList.remove('dragging', 'drag-over'));
-        boardContainer.querySelectorAll('.column-cards-list').forEach(l => l.classList.remove('drag-over-list'));
-      });
-
       card.addEventListener('click', (e) => {
         if (e.target.closest('.btn-toggle-fav') || e.target.closest('.btn-logo-click') || e.target.closest('.link-drag-handle')) return;
         openLinkDetailModal(card.dataset.id);
@@ -18483,33 +18528,32 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
     });
 
-    boardContainer.querySelectorAll('.column-cards-list').forEach(cardsList => {
-      cardsList.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        cardsList.classList.add('drag-over-list');
-      });
-
-      cardsList.addEventListener('dragleave', () => {
-        cardsList.classList.remove('drag-over-list');
-      });
-
-      cardsList.addEventListener('drop', (e) => {
-        e.preventDefault();
-        cardsList.classList.remove('drag-over-list');
-        const targetCol = cardsList.dataset.favCol;
-
-        if (draggedLinkId && targetCol) {
-          const link = state.links.find(l => l.id === draggedLinkId);
-          if (link) {
-            link.favCol = targetCol;
-            saveToFirebase('enlaces', link);
+    if (window.Sortable) {
+      boardContainer.querySelectorAll('.column-cards-list').forEach(cardsList => {
+        new Sortable(cardsList, {
+          group: 'fav-columns',
+          animation: 150,
+          handle: '.link-drag-handle',
+          onEnd: (evt) => {
+            const targetCol = evt.to.dataset.favCol;
+            Array.from(evt.to.children).forEach((child, index) => {
+              const linkId = child.dataset.id;
+              if (linkId) {
+                const link = state.links.find(l => l.id === linkId);
+                if (link) {
+                  link.favCol = targetCol;
+                  link.order = index;
+                  saveToFirebase('enlaces', link);
+                }
+              }
+            });
             saveState();
-            renderEnlaces();
           }
-        }
+        });
       });
-    });
+    } else {
+      console.warn("SortableJS no encontrado para Favoritos.");
+    }
   }
 
   function renderEnlacesGrid() {
