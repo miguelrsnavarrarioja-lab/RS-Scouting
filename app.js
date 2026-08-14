@@ -15924,11 +15924,11 @@
     `;
 
     html += allMatches.map(m => {
-      const locStyle = m.isPriorityLocal ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-      const visStyle = m.isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-      const bgStyle = m.isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '';
-      const borderLeft = m.isHighInterest ? 'border-left: 3px solid rgba(245, 158, 11, 0.6);' : 'border-left: 3px solid transparent;';
-      const isClash = m.isClash ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
+      const locStyle = m.isPriorityLocal ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
+      const visStyle = m.isPriorityVisitante ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
+      const bgStyle = m.isClash ? 'background: rgba(34, 197, 94, 0.06);' : (m.isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '');
+      const borderLeft = m.isClash ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : (m.isHighInterest ? 'border-left: 4px solid rgba(245, 158, 11, 0.6);' : 'border-left: 4px solid transparent;');
+      const clashIcon = m.isClash ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
       return `
         <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
@@ -15936,7 +15936,7 @@
             <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 6px; border-radius: 4px;">${escapeHtml(m.jornada || '-')}</span>
           </td>
           <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${isClash}</td>
+          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${clashIcon}</td>
           <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
           <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
           <td style="padding: 8px 12px;">
@@ -16033,16 +16033,17 @@
                   const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt) || pt.includes(locLower));
                   const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt) || pt.includes(visLower));
                   const isHighInterest = isPriorityLocal || isPriorityVisitante;
-                  const locStyle = isPriorityLocal ? 'color: #15803d; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-                  const visStyle = isPriorityVisitante ? 'color: #15803d; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
-                  const bgStyle = isHighInterest ? 'background: rgba(34, 197, 94, 0.06);' : '';
-                  const borderLeft = isHighInterest ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : 'border-left: 4px solid transparent;';
-                  const isClash = (isPriorityLocal && isPriorityVisitante) ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
+                  const isClashBool = isPriorityLocal && isPriorityVisitante;
+                  const locStyle = isPriorityLocal ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
+                  const visStyle = isPriorityVisitante ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
+                  const bgStyle = isClashBool ? 'background: rgba(34, 197, 94, 0.06);' : (isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '');
+                  const borderLeft = isClashBool ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : (isHighInterest ? 'border-left: 4px solid rgba(245, 158, 11, 0.6);' : 'border-left: 4px solid transparent;');
+                  const clashIcon = isClashBool ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
                   return `
                     <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
                       <td style="padding: 8px 12px; ${borderLeft} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${isClash}</td>
+                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${clashIcon}</td>
                       <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
                       <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
                       <td style="padding: 8px 12px;">
