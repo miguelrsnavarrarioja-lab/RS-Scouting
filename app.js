@@ -873,6 +873,7 @@
     else if (tabName === 'enlaces') renderEnlaces();
     else if (tabName === 'importador') {
       if (typeof populateImporterEquiposDatalist === 'function') populateImporterEquiposDatalist();
+      if (typeof populateImporterFederacionesSelect === 'function') populateImporterFederacionesSelect();
     }
     else if (tabName === 'configuracion') renderConfiguracion();
     
@@ -5933,11 +5934,12 @@
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
                     <th style="padding: 8px 12px; width: 22%;">PLANTILLA</th>
-                    <th style="padding: 8px 12px; width: 8%;">AÑO</th>
+                    <th style="padding: 8px 12px; width: 6%;">AÑO</th>
                     <th style="padding: 8px 12px; width: 14%;">POS. PRINC.</th>
                     <th style="padding: 8px 12px; width: 14%;">POS. SEC.</th>
-                    <th style="padding: 8px 12px; width: 12%;">LATERAL.</th>
-                    <th style="padding: 8px 12px; width: 17%;">PROYECCIÓN</th>
+                    <th style="padding: 8px 12px; width: 10%;">LATERAL.</th>
+                    <th style="padding: 8px 12px; width: 14%;">ESTADO</th>
+                    <th style="padding: 8px 12px; width: 15%;">PROYECCIÓN</th>
                     <th style="padding: 8px 12px; text-align: right; width: 5%;">ELIM.</th>
                   </tr>
                 </thead>
@@ -6462,6 +6464,7 @@
           let posPriHTML = '-';
           let posSecHTML = '-';
           let lateralidadHTML = '-';
+          let estadoHTML = '-';
           let rendRSHTML = '-';
 
           if (foundPlayer) {
@@ -6471,6 +6474,7 @@
             const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             const posSec = foundPlayer.posicionSecundaria || '';
             const pierna = foundPlayer.pierna || '';
+            const estado = foundPlayer.estado || 'ALTA';
             const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
             
             const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
@@ -6496,9 +6500,18 @@
               return opts;
             };
 
+            const estadoOpts = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
+            const generateEstadoOptions = (selected) => {
+              let opts = `<option value="">--</option>`;
+              opts += estadoOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !estadoOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              return opts;
+            };
+
             posPriHTML = `<select class="form-control inline-edit-select" data-field="posicionPrincipal" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posPri)}</select>`;
             posSecHTML = `<select class="form-control inline-edit-select" data-field="posicionSecundaria" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posSec)}</select>`;
             lateralidadHTML = `<select class="form-control inline-edit-select" data-field="pierna" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePiernaOptions(pierna)}</select>`;
+            estadoHTML = `<select class="form-control inline-edit-select" data-field="estado" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateEstadoOptions(estado)}</select>`;
             rendRSHTML = `<select class="form-control inline-edit-select" data-field="proyeccion" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateProyOptions(proyeccion)}</select>`;
           }
 
@@ -6509,6 +6522,7 @@
               <td style="padding: 6px 4px;">${posPriHTML}</td>
               <td style="padding: 6px 4px;">${posSecHTML}</td>
               <td style="padding: 6px 4px;">${lateralidadHTML}</td>
+              <td style="padding: 6px 4px;">${estadoHTML}</td>
               <td style="padding: 6px 4px;">${rendRSHTML}</td>
               <td style="padding: 6px 12px; text-align: right;">
                 <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${idx}" style="width: 24px; height: 24px; padding: 0;">
@@ -15848,54 +15862,57 @@
       return;
     }
 
-    container.innerHTML = allMatches.map(m => {
-      const starBadge = m.isClash
-        ? `<span class="badge" style="background: #f59e0b; color: #ffffff; font-weight: 800; font-size: 11px; padding: 4px 10px; border-radius: 9999px;">⭐ Duelo de Interés Alto ⭐</span>`
-        : m.isHighInterest
-        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 9999px;">⭐ Equipo Prioritario</span>`
-        : `<span class="badge" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; padding: 4px 8px; border-radius: 4px;">Partido</span>`;
+    let html = `
+      <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
+              <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
+              <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
+              <th style="padding: 10px 12px; width: 16%;">LOCAL</th>
+              <th style="padding: 10px 12px; width: 16%;">VISITANTE</th>
+              <th style="padding: 10px 12px; width: 10%;">FECHA ORIG.</th>
+              <th style="padding: 10px 12px; width: 14%;">FECHA ASIGN.</th>
+              <th style="padding: 10px 12px; width: 10%;">HORA</th>
+              <th style="padding: 10px 12px; text-align: right; width: 14%;">ACCIONES</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    html += allMatches.map(m => {
+      const locStyle = m.isPriorityLocal ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+      const visStyle = m.isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+      const bgStyle = m.isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '';
+      const borderLeft = m.isHighInterest ? 'border-left: 3px solid rgba(245, 158, 11, 0.6);' : 'border-left: 3px solid transparent;';
+      const isClash = m.isClash ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
       return `
-        <div class="match-card" style="border: ${m.isHighInterest ? '2px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-color)'}; position: relative;">
-          <div class="match-card-header" style="margin-bottom: 12px;">
-            ${starBadge}
-            <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 8px; border-radius: 6px;">${escapeHtml(m.jornada || 'Partido')}</span>
-          </div>
-
-          <div class="match-card-teams" style="margin-bottom: 14px;">
-            <span class="match-team-name" style="${m.isPriorityLocal ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.local)}</span>
-            <span class="match-vs">vs</span>
-            <span class="match-team-name text-right" style="${m.isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.visitante)}</span>
-          </div>
-
-          <div class="match-card-details mb-3" style="font-size: 12px; color: var(--text-muted); background: var(--bg-subtle, #f8fafc); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-light, #e2e8f0);">
-            <div style="font-weight: 700; color: var(--text-main); margin-bottom: 6px; font-size: 11px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="display: flex; align-items: center; gap: 4px;">
-                <i data-lucide="calendar-clock" style="width: 13px; color: var(--primary-blue);"></i> Fecha y Hora Definitiva:
-              </span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
-              <div>
-                <label style="font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px; color: var(--text-muted);">Fecha</label>
-                <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; font-weight: 700; height: 28px; padding: 2px 6px;">
-              </div>
-              <div>
-                <label style="font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px; color: var(--text-muted);">Hora</label>
-                <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; font-weight: 700; height: 28px; padding: 2px 6px;">
-              </div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border-light);">
-              <span><i data-lucide="trophy" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.competicion || 'Liga')} (${escapeHtml(m.federacion || 'RFEF')})</span>
-              ${m.estadio ? `<span><i data-lucide="map-pin" style="width: 12px; vertical-align: middle;"></i> ${escapeHtml(m.estadio)}</span>` : ''}
-            </div>
-          </div>
-
-          <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="width: 100%; font-weight: 800; background: var(--primary-blue, #2563eb); padding: 10px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; gap: 8px;">
-            <i data-lucide="zap" style="width: 16px; height: 16px; color: #f59e0b;"></i> Abrir Informe en Directo
-          </button>
-        </div>
+        <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
+          <td style="padding: 8px 12px; ${borderLeft}">
+            <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 6px; border-radius: 4px;">${escapeHtml(m.jornada || '-')}</span>
+          </td>
+          <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
+          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${isClash}</td>
+          <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
+          <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
+          <td style="padding: 8px 12px;">
+            <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+          </td>
+          <td style="padding: 8px 12px;">
+            <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+          </td>
+          <td style="padding: 8px 12px; text-align: right;">
+            <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+              <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
+            </button>
+          </td>
+        </tr>
       `;
     }).join('');
+
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
 
     bindCarteleraMatchEvents(container, allMatches);
     if (window.lucide) window.lucide.createIcons();
@@ -15953,39 +15970,54 @@
             <span class="badge" style="font-size: 11px; font-weight: 800; background: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 4px 10px; border-radius: 9999px;">${jorMatches.length} partidos</span>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;">
-            ${jorMatches.map(m => {
-              const locLower = (m.local || '').toLowerCase();
-              const visLower = (m.visitante || '').toLowerCase();
-              const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
-              const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
-              const isHighInterest = isPriorityLocal || isPriorityVisitante;
+          <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
+                  <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
+                  <th style="padding: 10px 12px; width: 18%;">LOCAL</th>
+                  <th style="padding: 10px 12px; width: 18%;">VISITANTE</th>
+                  <th style="padding: 10px 12px; width: 11%;">FECHA ORIG.</th>
+                  <th style="padding: 10px 12px; width: 14%;">FECHA ASIGN.</th>
+                  <th style="padding: 10px 12px; width: 10%;">HORA</th>
+                  <th style="padding: 10px 12px; text-align: right; width: 15%;">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${jorMatches.map(m => {
+                  const locLower = (m.local || '').toLowerCase();
+                  const visLower = (m.visitante || '').toLowerCase();
+                  const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt));
+                  const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt));
+                  const isHighInterest = isPriorityLocal || isPriorityVisitante;
+                  const locStyle = isPriorityLocal ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+                  const visStyle = isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : 'font-weight: 700; color: var(--text-main);';
+                  const bgStyle = isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '';
+                  const borderLeft = isHighInterest ? 'border-left: 3px solid rgba(245, 158, 11, 0.6);' : 'border-left: 3px solid transparent;';
+                  const isClash = (isPriorityLocal && isPriorityVisitante) ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
-              return `
-                <div class="match-card" style="border: ${isHighInterest ? '2px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-color)'}; background: var(--bg-subtle, #f8fafc); padding: 12px; border-radius: var(--radius-md);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 11px; font-weight: 800; color: var(--text-muted);">${escapeHtml(m.competicion || '')}</span>
-                    ${isHighInterest ? '<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px;">⭐ DESTACADO</span>' : ''}
-                  </div>
-                  <div class="match-card-teams" style="margin-bottom: 10px; font-size: 13px;">
-                    <span class="match-team-name" style="${isPriorityLocal ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.local)}</span>
-                    <span class="match-vs">vs</span>
-                    <span class="match-team-name text-right" style="${isPriorityVisitante ? 'color: #b45309; font-weight: 900;' : ''}">${escapeHtml(m.visitante)}</span>
-                  </div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
-                    <div>
-                      <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
-                    </div>
-                    <div>
-                      <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
-                    </div>
-                  </div>
-                  <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="width: 100%; font-weight: 800; font-size: 11px; padding: 6px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    <i data-lucide="zap" style="width: 14px; height: 14px; color: #f59e0b;"></i> Abrir Informe en Directo
-                  </button>
-                </div>
-              `;
-            }).join('')}
+                  return `
+                    <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
+                      <td style="padding: 8px 12px; ${borderLeft} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
+                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${isClash}</td>
+                      <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
+                      <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
+                      <td style="padding: 8px 12px;">
+                        <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                      </td>
+                      <td style="padding: 8px 12px;">
+                        <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                      </td>
+                      <td style="padding: 8px 12px; text-align: right;">
+                        <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+                          <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
@@ -16003,7 +16035,10 @@
         const newDate = e.target.value;
         (state.cartelera.calendarios || []).forEach(cal => {
           const target = (cal.partidos || []).find(p => p.id === matchId);
-          if (target) target.fecha = newDate;
+          if (target) {
+            target.fecha = newDate;
+            saveToFirebase('cartelera_calendarios', cal);
+          }
         });
         saveState();
       };
@@ -16015,7 +16050,10 @@
         const newTime = e.target.value;
         (state.cartelera.calendarios || []).forEach(cal => {
           const target = (cal.partidos || []).find(p => p.id === matchId);
-          if (target) target.hora = newTime;
+          if (target) {
+            target.hora = newTime;
+            saveToFirebase('cartelera_calendarios', cal);
+          }
         });
         saveState();
       };
@@ -17266,7 +17304,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </button>
         </div>
       </div>
-    `, null);
+    `, () => { hideModal(); });
 
     const statusSel = document.getElementById('agDetailStatusSelect');
     if (statusSel) {
@@ -18657,6 +18695,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   }
 
   const configInputEl = document.getElementById('configAppNameInput');
+  const btnSaveAppName = document.getElementById('btnSaveAppName');
   if (configInputEl) {
     const handleAppNameChange = (e) => {
       const val = e.target.value.trim() || 'RS Scouting';
@@ -18670,6 +18709,28 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     };
     configInputEl.addEventListener('input', handleAppNameChange);
     configInputEl.addEventListener('change', handleAppNameChange);
+  }
+
+  if (btnSaveAppName && configInputEl) {
+    btnSaveAppName.addEventListener('click', async () => {
+      const val = configInputEl.value.trim() || 'RS Scouting';
+      if (!state.settings) state.settings = {};
+      state.settings.appName = val;
+      try {
+        localStorage.setItem('RS_SCOUTING_APP_NAME', val);
+      } catch (err) {}
+      updateAppNameUI(val);
+      saveState();
+      
+      if (window.db) {
+        try {
+          await db.collection('configuracion').doc('app_settings').set({ appName: val }, { merge: true });
+          showNotification('Nombre de la aplicación guardado permanentemente', 'success');
+        } catch (e) {
+          showNotification('Error al guardar el nombre: ' + e.message, 'error');
+        }
+      }
+    });
   }
 
   // Helper de Exportación JSON seguro usando Blob
