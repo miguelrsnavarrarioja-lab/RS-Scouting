@@ -2036,8 +2036,8 @@
     renderPlayerRows('visitante', matchTacticalSystems.visitante.principal.titulares, matchTacticalSystems.visitante.principal.suplentes);
 
     // Update crest badges & pitch pin colors
-    updateMatchTeamBadgeAndColor('local');
-    updateMatchTeamBadgeAndColor('visitante');
+    updateMatchTeamBadgeAndColor('local', true);
+    updateMatchTeamBadgeAndColor('visitante', true);
 
     if (window.lucide) window.lucide.createIcons();
   }
@@ -2112,7 +2112,7 @@
     return '';
   }
 
-  function updateMatchTeamBadgeAndColor(team) {
+  function updateMatchTeamBadgeAndColor(team, isInit = false) {
     const teamInput = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam');
     const badgeLabel = document.getElementById(`${team}TeamBadge`);
     if (!teamInput || !badgeLabel) return;
@@ -2146,10 +2146,17 @@
         const fedInput = document.getElementById('reportFederacion');
         const estInput = document.getElementById('reportEstadio');
 
-        if (compVal && compInput) compInput.value = compVal;
-        if (catVal && catInput) catInput.value = catVal;
-        if (fedVal && fedInput) fedInput.value = fedVal;
-        if (estVal && estInput) estInput.value = estVal;
+        if (!isInit) {
+          if (compVal && compInput) compInput.value = compVal;
+          if (catVal && catInput) catInput.value = catVal;
+          if (fedVal && fedInput) fedInput.value = fedVal;
+          if (estVal && estInput) estInput.value = estVal;
+        } else {
+          if (compVal && compInput && !compInput.value) compInput.value = compVal;
+          if (catVal && catInput && !catInput.value) catInput.value = catVal;
+          if (fedVal && fedInput && !fedInput.value) fedInput.value = fedVal;
+          if (estVal && estInput && !estInput.value) estInput.value = estVal;
+        }
       }
     }
 
