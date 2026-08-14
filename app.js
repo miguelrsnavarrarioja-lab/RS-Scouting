@@ -2425,10 +2425,21 @@
     const teamNameLower = teamName ? teamName.trim().toLowerCase() : '';
 
     // First search for player belonging to teamName with matching dorsal
+    const equipos = state.directory.equipos || [];
+    const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamNameLower);
+    
     let match = jugadores.find(p => {
       const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
       const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
-      const matchesTeam = !teamNameLower || pTeam === teamNameLower || pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam);
+      let matchesTeam = !teamNameLower || pTeam === teamNameLower || pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam);
+      
+      if (!matchesTeam && targetTeam && targetTeam.plantilla) {
+        const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+        matchesTeam = targetTeam.plantilla.some(item => {
+          const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+          return itemName === pName;
+        });
+      }
       return matchesTeam && pDorsal === dStr;
     });
 
@@ -2519,7 +2530,7 @@
           if (numVal) {
             const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
             if (matchedPlayer) {
-              if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
+              if (nameInput && !nameInput.value.trim()) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
               const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
               if (posSelect && matchedPos) {
                 const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
@@ -2697,6 +2708,41 @@
     return html;
   }
 
+  function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
+    let html = `
+    <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 8px;">
+      <div class="form-control select-compact custom-dropdown-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); } else { m.classList.add('hidden'); }">
+        <span>+ ${escapeHtml(placeholder)}</span>
+        <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+      </div>
+      <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
+    `;
+    for (const [groupLabel, items] of Object.entries(optionsObj)) {
+      html += `<div style="padding: 6px 12px; font-weight: 800; font-size: 11px; background: var(--bg-subtle); color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; z-index: 1;">${escapeHtml(groupLabel)}</div>`;
+      items.forEach(item => {
+        html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light);" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
+      });
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  function buildFilteredPerfilKeepOpenHTML(pos, targetId) {
+    let filteredObj = {};
+    if (pos && pos !== 'PO') {
+      for (const [group, items] of Object.entries(OPTIONS_PERFIL_RS)) {
+        if (group !== 'PORTEROS (PO)') {
+          filteredObj[group] = items;
+        }
+      }
+    } else if (pos === 'PO') {
+      filteredObj['PORTEROS (PO)'] = OPTIONS_PERFIL_RS['PORTEROS (PO)'];
+    } else {
+      filteredObj = OPTIONS_PERFIL_RS;
+    }
+    return buildKeepOpenDropdownHTML(filteredObj, 'Añadir perfil RS...', targetId);
+  }
+
   function getCurrentMatchMinute() {
     if (typeof timerSeconds === 'number' && timerSeconds > 0) {
       return Math.min(90, Math.max(1, Math.floor(timerSeconds / 60)));
@@ -2738,10 +2784,12 @@
       const evalRecord = {
         reportId: repId,
         fecha: document.getElementById('reportDate')?.value || new Date().toISOString().split('T')[0],
+        competicion: document.getElementById('reportCompeticion')?.value || 'Sin Especificar',
         equipo: teamName,
         dorsal: pNum,
         minutos: evalData.minutos || 0,
         rendimiento: evalData.rendimiento,
+        rendimientoRS: evalData.rendimientoRS,
         potencial: evalData.potencial,
         descFisica: evalData.descFisica,
         descTecnica: evalData.descTecnica,
@@ -2753,23 +2801,73 @@
       if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
       else playerInDir.historialEvaluaciones.push(evalRecord);
 
-      // Recalculate global stats by summing all match histories
-      const totalStats = {
-        goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
-        regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-        duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
-      };
-      playerInDir.historialEvaluaciones.forEach(h => {
-        if (h.stats) {
-          for (const key in totalStats) {
-            totalStats[key] += (h.stats[key] || 0);
-          }
-        }
-      });
-      playerInDir.stats = totalStats;
+      recalculatePlayerAggregates(playerInDir);
 
       saveToFirebase('jugadores', playerInDir);
       saveState();
+    }
+  }
+
+  function recalculatePlayerAggregates(player) {
+    if (!player.historialEvaluaciones || player.historialEvaluaciones.length === 0) return;
+    
+    // Recalculate global stats
+    const totalStats = {
+      goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
+      regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
+      duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
+    };
+    
+    let sumRend = 0, countRend = 0;
+    let sumPot = 0, countPot = 0;
+    let sumRendRS = 0, countRendRS = 0;
+    const letterToNum = { 'A+': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 };
+    const minsByComp = {};
+    
+    player.historialEvaluaciones.forEach(h => {
+      // Group minutes by competition
+      const comp = h.competicion || 'Sin Especificar';
+      if (!minsByComp[comp]) minsByComp[comp] = 0;
+      minsByComp[comp] += (parseInt(h.minutos) || 0);
+
+      // Sum stats
+      if (h.stats) {
+        for (const key in totalStats) {
+          totalStats[key] += (h.stats[key] || 0);
+        }
+      }
+      
+      // Calculate averages
+      if (h.rendimiento && letterToNum[h.rendimiento]) { sumRend += letterToNum[h.rendimiento]; countRend++; }
+      if (h.potencial && !isNaN(parseInt(h.potencial))) { sumPot += parseInt(h.potencial); countPot++; }
+      if (h.rendimientoRS && letterToNum[h.rendimientoRS]) { sumRendRS += letterToNum[h.rendimientoRS]; countRendRS++; }
+    });
+    
+    player.stats = totalStats;
+    player.minutosPorCompeticion = minsByComp;
+    
+    const numToLetter = (num) => {
+      if (num >= 4.5) return 'A+';
+      if (num >= 3.5) return 'A';
+      if (num >= 2.5) return 'B';
+      if (num >= 1.5) return 'C';
+      return 'D';
+    };
+
+    if (countRend > 0) {
+      const avg = sumRend / countRend;
+      player.rendimientoAcumuladoAvgNum = avg.toFixed(1);
+      player.rendimientoAcumulado = numToLetter(avg);
+    }
+    if (countPot > 0) {
+      const avg = sumPot / countPot;
+      player.potencialAvgNum = avg.toFixed(1);
+      player.potencial = Math.round(avg).toString();
+    }
+    if (countRendRS > 0) {
+      const avg = sumRendRS / countRendRS;
+      player.rendimientoRSAvgNum = avg.toFixed(1);
+      player.rendimientoRS = numToLetter(avg);
     }
   }
 
@@ -2937,33 +3035,25 @@
           <div class="player-match-main-grid">
             <div class="desc-card-box">
               <div class="desc-card-title">1. DESCRIPCIÓN FÍSICA</div>
-              <select class="form-control select-compact mb-2 pm-desc-select" data-target="pmDescFisica">
-                ${buildOptgroupsHTML(OPTIONS_DESC_FISICA, 'Añadir rasgo físico...')}
-              </select>
+              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_FISICA, 'Añadir rasgo físico...', 'pmDescFisica')}
               <textarea id="pmDescFisica" class="desc-card-textarea" placeholder="Escribe o selecciona rasgos físicos...">${escapeHtml(pEval.descFisica)}</textarea>
             </div>
 
             <div class="desc-card-box">
               <div class="desc-card-title">2. DESCRIPCIÓN TÉCNICA</div>
-              <select class="form-control select-compact mb-2 pm-desc-select" data-target="pmDescTecnica">
-                ${buildOptgroupsHTML(OPTIONS_DESC_TECNICA, 'Añadir acción técnica...')}
-              </select>
+              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_TECNICA, 'Añadir acción técnica...', 'pmDescTecnica')}
               <textarea id="pmDescTecnica" class="desc-card-textarea" placeholder="Escribe o selecciona acciones técnicas...">${escapeHtml(pEval.descTecnica)}</textarea>
             </div>
 
             <div class="desc-card-box">
               <div class="desc-card-title">3. DESCRIPCIÓN EMOCIONAL</div>
-              <select class="form-control select-compact mb-2 pm-desc-select" data-target="pmDescEmocional">
-                ${buildOptgroupsHTML(OPTIONS_DESC_EMOCIONAL, 'Añadir rasgo emocional...')}
-              </select>
+              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_EMOCIONAL, 'Añadir rasgo emocional...', 'pmDescEmocional')}
               <textarea id="pmDescEmocional" class="desc-card-textarea" placeholder="Escribe o selecciona rasgos emocionales...">${escapeHtml(pEval.descEmocional)}</textarea>
             </div>
 
             <div class="desc-card-box">
               <div class="desc-card-title">4. PERFIL DEL JUGADOR (RS)</div>
-              <select class="form-control select-compact mb-2 pm-desc-select" data-target="pmPerfilRS">
-                ${buildFilteredPerfilRSHTML(pPos)}
-              </select>
+              ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
               <textarea id="pmPerfilRS" class="desc-card-textarea" placeholder="Escribe o selecciona perfiles RS...">${escapeHtml(pEval.perfilRS)}</textarea>
             </div>
           </div>
@@ -3013,12 +3103,22 @@
       modalContent.querySelector('#valPotencialDisplay').textContent = e.target.value;
     });
 
-    // Description Selectors: Append Multiple Options
-    modalContent.querySelectorAll('.pm-desc-select').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const val = e.target.value;
-        if (!val) return;
-        const targetTextarea = modalContent.querySelector('#' + sel.dataset.target);
+    // Custom Dropdown Handling
+    modalContent.querySelectorAll('.custom-dropdown-trigger').forEach(trigger => {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = trigger.nextElementSibling;
+        menu.classList.toggle('hidden');
+      });
+    });
+
+    modalContent.querySelectorAll('.custom-dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = e.currentTarget.dataset.val;
+        const targetId = e.currentTarget.dataset.target;
+        if (!val || !targetId) return;
+        const targetTextarea = modalContent.querySelector('#' + targetId);
         if (targetTextarea) {
           const current = targetTextarea.value.trim();
           if (!current) {
@@ -3030,8 +3130,12 @@
             }
           }
         }
-        sel.value = '';
       });
+    });
+
+    // Close custom dropdowns when clicking outside
+    modalContent.addEventListener('click', () => {
+      modalContent.querySelectorAll('.custom-dropdown-menu').forEach(m => m.classList.add('hidden'));
     });
 
     // Rendimiento RS Pills
@@ -3677,6 +3781,10 @@
     const posicionSecundaria = player.posicionSecundaria || '';
     const observacionesDeportivas = player.observacionesDeportivas || '';
 
+    if (isEdit) {
+      recalculatePlayerAggregates(player);
+    }
+
     let localLesiones = Array.isArray(player.lesiones) 
       ? [...player.lesiones] 
       : (player.lesiones ? player.lesiones.split(',').map(s => s.trim()).filter(Boolean) : []);
@@ -3698,9 +3806,18 @@
     const gestorRebound = player.gestorRebound || 'NINGUNA / CLUB CONVENIDO';
 
     const rendimientoAcumulado = player.rendimientoAcumulado || '';
-    const potencial = player.potencial || '3';
+    const rendimientoAcumuladoNum = player.rendimientoAcumuladoAvgNum ? ` (${player.rendimientoAcumuladoAvgNum})` : '';
+    const potencial = player.potencial || '';
+    const potencialNum = player.potencialAvgNum ? ` (${player.potencialAvgNum})` : '';
+    const rendimientoRS = player.rendimientoRS || '';
+    const rendimientoRSNum = player.rendimientoRSAvgNum ? ` (${player.rendimientoRSAvgNum})` : '';
+    
+    // Fallback for minutes if not grouped
     const minutos = player.minutos || '';
-    const rendimientoRS = player.rendimientoRS || 'A';
+    const minutosPorComp = player.minutosPorCompeticion || {};
+    
+    const stats = player.stats || {};
+
     const descFisica = player.descFisica || '';
     const descTecnica = player.descTecnica || '';
     const descEmocional = player.descEmocional || '';
@@ -4007,12 +4124,12 @@
               `).join('')}
             </div>
 
-            <div class="player-section-title mb-2">
-              <i data-lucide="bar-chart-2"></i> RENDIMIENTO ACUMULADO & OBSERVACIONES
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="bar-chart-2"></i> RENDIMIENTO PROMEDIO
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
-                <label class="form-label">RENDIMIENTO ACUMULADO (A-D)</label>
+                <label class="form-label">RENDIMIENTO ACUMULADO (A-D) ${rendimientoAcumuladoNum}</label>
                 <select id="pfRendAcumulado" class="form-control">
                   <option value="">Seleccionar...</option>
                   <option value="A+" ${rendimientoAcumulado === 'A+' ? 'selected' : ''}>A+</option>
@@ -4023,7 +4140,7 @@
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">POTENCIAL (1-5)</label>
+                <label class="form-label">POTENCIAL (1-5) ${potencialNum}</label>
                 <select id="pfPotencial" class="form-control">
                   <option value="1" ${potencial === '1' ? 'selected' : ''}>1 - Bajo</option>
                   <option value="2" ${potencial === '2' ? 'selected' : ''}>2 - Medio Bajo</option>
@@ -4036,11 +4153,16 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
-                <label class="form-label">MINUTOS JUGADOS</label>
-                <input type="number" id="pfMinutos" class="form-control" placeholder="Ej: 1450" value="${escapeHtml(minutos)}">
+                <label class="form-label">MINUTOS JUGADOS (POR COMPETICIÓN)</label>
+                <div class="form-control" style="background: var(--bg-body); height: auto; min-height: 42px; display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+                  ${Object.keys(minutosPorComp).length > 0 
+                    ? Object.entries(minutosPorComp).map(([c, m]) => `<div style="display:flex; justify-content:space-between; font-size:13px;"><span>${escapeHtml(c)}:</span> <strong>${m} min</strong></div>`).join('')
+                    : `<div style="color: var(--text-muted); font-size:13px;">Sin minutos registrados</div>`}
+                </div>
+                <input type="hidden" id="pfMinutos" value="${escapeHtml(minutos)}">
               </div>
               <div class="form-group">
-                <label class="form-label">RENDIMIENTO RS</label>
+                <label class="form-label">RENDIMIENTO RS ${rendimientoRSNum}</label>
                 <select id="pfRendRS" class="form-control">
                   <option value="">Seleccionar...</option>
                   <option value="A+" ${rendimientoRS === 'A+' ? 'selected' : ''}>A+</option>
@@ -4053,6 +4175,37 @@
               </div>
             </div>
 
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="activity"></i> ESTADÍSTICAS INDIVIDUALES ACUMULADAS
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;" class="mb-4">
+              ${[
+                { label: 'Goles', key: 'goles', icon: '⚽️' },
+                { label: 'Asistencias', key: 'asistencias', icon: '👟' },
+                { label: 'Tiros Puerta', key: 'tirosPuerta', icon: '🎯' },
+                { label: 'Tiros Fuera', key: 'tirosFuera', icon: '❌' },
+                { label: 'Pases Buenos', key: 'pasesBuenos', icon: '✅' },
+                { label: 'Pases Malos', key: 'pasesMalos', icon: '⚠️' },
+                { label: 'Regates Éxito', key: 'regatesExito', icon: '✨' },
+                { label: 'Regates Fallo', key: 'regatesFallidos', icon: '📉' },
+                { label: 'Recuperaciones', key: 'recuperaciones', icon: '🛡️' },
+                { label: 'Pérdidas', key: 'perdidas', icon: '🗑️' },
+                { label: 'Duelos Gan.', key: 'duelosGanados', icon: '⚔️' },
+                { label: 'Duelos Per.', key: 'duelosPerdidos', icon: '📉' },
+                { label: 'Aéreo Gan.', key: 'aereoGanado', icon: '✈️' },
+                { label: 'Amarillas', key: 'amarillas', icon: '🟨' },
+                { label: 'Rojas', key: 'rojas', icon: '🟥' }
+              ].map(s => `
+                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light);">
+                  <span style="font-size: 12px; color: var(--text-secondary);" title="${s.label}">${s.icon} <span style="display:none; @media(min-width: 768px){display:inline;}">${s.label}</span></span>
+                  <strong style="font-size: 14px; color: var(--text-primary);">${stats[s.key] || 0}</strong>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="file-text"></i> DESCRIPCIONES Y OBSERVACIONES
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN FÍSICA</label>
@@ -6515,7 +6668,10 @@
           let rendRSHTML = '-';
 
           if (foundPlayer) {
-            nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+              <img src="${foundPlayer.foto || 'Foto Jugador General.png'}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light); flex-shrink: 0;">
+              <span style="text-decoration: underline;">${escapeHtml(nameStr)}</span>
+            </a>`;
             const dorsalVal = foundPlayer.dorsal || '';
             dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${foundPlayer.id}" value="${escapeHtml(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
