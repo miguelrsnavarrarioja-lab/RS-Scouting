@@ -16716,6 +16716,7 @@
     
     // Gather available categories from state.directory.equipos & state.cartelera
     const catSet = new Set([
+      ...(typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : []),
       'División de Honor Juvenil',
       'Liga Nacional Juvenil',
       'Preferente Juvenil',
@@ -16863,8 +16864,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         return;
       }
 
-      if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ')) {
-        const parts = line.split(/\s+(?:vs|-|VS)\s+/);
+      if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\\s{2,}/)) {
+        let parts;
+        if (line.includes(' vs ') || line.includes(' VS ')) {
+          parts = line.split(/\\s+(?:vs|VS)\\s+/);
+        } else if (line.includes(' - ')) {
+          parts = line.split(/\\s+-\\s+/);
+        } else {
+          parts = line.split(/\\s{2,}/);
+        }
         if (parts.length >= 2) {
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
@@ -16911,6 +16919,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     state.cartelera.calendarios.push(newCal);
     selectedCarteleraCalendar = newCal.id;
     saveState();
+    
+    if (typeof saveToFirebase === 'function') {
+      saveToFirebase('cartelera_calendarios', newCal);
+    }
 
     if (typeof showToast === 'function') {
       showToast(`✅ Calendario "${newCal.nombre}" importado con ${matches.length} partidos`);
