@@ -16163,19 +16163,22 @@
       const newTeams = new Set();
       state.cartelera.priorityTeams.forEach(t => {
         if (t.includes('|||')) {
-          newTeams.add(t);
+          if (!t.startsWith('all|||')) {
+             newTeams.add(t);
+          } else {
+             migratedAny = true; // Force save to eliminate 'all|||'
+          }
         } else {
           migratedAny = true;
-          let found = false;
           (state.directory.equipos || []).forEach(e => {
             const eName = (e.nombre || e.equipo || '').toLowerCase().trim();
             if (eName === t.toLowerCase().trim()) {
-              const cat = e.categoria || e.competicion || e.liga || 'all';
-              newTeams.add(`${cat}|||${t}`);
-              found = true;
+              const cat = e.categoria || e.competicion || e.liga;
+              if (cat) {
+                 newTeams.add(`${cat}|||${t}`);
+              }
             }
           });
-          if (!found) newTeams.add(`all|||${t}`);
         }
       });
       if (migratedAny) {
@@ -16973,8 +16976,8 @@
         const parts = t.split('|||');
         return { cat: parts[0].toLowerCase().trim(), team: parts[1].toLowerCase().trim() };
       }
-      return { cat: 'all', team: t.toLowerCase().trim() };
-    });
+      return null;
+    }).filter(Boolean);
 
     // Sort Jornada keys naturally
     const sortedJornadas = Object.keys(groupedByJornada).sort((a, b) => {
@@ -17019,11 +17022,11 @@
                   const matchCatLower = (m.competicion || m.categoria || m.liga || '').toLowerCase().trim();
 
                   const isPriorityLocal = priorityItems.some(pt => {
-                    if (pt.cat !== 'all' && pt.cat !== matchCatLower) return false;
+                    if (pt.cat !== matchCatLower) return false;
                     return locLower.includes(pt.team) || pt.team.includes(locLower);
                   });
                   const isPriorityVisitante = priorityItems.some(pt => {
-                    if (pt.cat !== 'all' && pt.cat !== matchCatLower) return false;
+                    if (pt.cat !== matchCatLower) return false;
                     return visLower.includes(pt.team) || pt.team.includes(visLower);
                   });
                   const isHighInterest = isPriorityLocal || isPriorityVisitante;
@@ -17305,10 +17308,7 @@
       }
 
       listEl.innerHTML = teamsList.map(tObj => {
-        const key = `${tObj.category}|||${tObj.team}`;
-        // Fallback backward compatibility check
-        const isLegacyChecked = currentPrioritySet.has(tObj.team.toLowerCase().trim());
-        const isChecked = currentPrioritySet.has(key.toLowerCase()) || isLegacyChecked;
+        const isChecked = currentPrioritySet.has(key.toLowerCase());
         
         const displayName = tObj.category !== 'all' ? `${tObj.team} <span style="color:#888; font-size:10px;">(${tObj.category})</span>` : tObj.team;
 
@@ -17340,7 +17340,8 @@
       
       const selectedFromChecks = Array.from(listEl.querySelectorAll('.chk-priority-team:checked')).map(c => c.value);
       const customVal = customInputEl.value.trim();
-      let customTeams = customVal ? customVal.split(',').map(t => 'all|||' + t.trim()).filter(Boolean) : [];
+      let customCat = currentTab === 'tab-category' && catEl.value !== 'all' ? catEl.value : 'General';
+      let customTeams = customVal ? customVal.split(',').map(t => `${customCat}|||` + t.trim()).filter(Boolean) : [];
 
       if (!state.cartelera) ensureCarteleraState();
       if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
@@ -17351,8 +17352,7 @@
       
       const currentLowerMap = new Map();
       state.cartelera.priorityTeams.forEach(t => {
-         // Normalize legacy to 'all|||team' if it doesn't have |||
-         const key = t.includes('|||') ? t : `all|||${t}`;
+         const key = t;
          currentLowerMap.set(key.toLowerCase(), key);
       });
 
