@@ -2238,8 +2238,9 @@
     if (!teamName || !state.directory) return '';
     if (state.directory.staff && Array.isArray(state.directory.staff)) {
       const foundStaff = state.directory.staff.find(s => {
-        const t = s.equipo || s.team || '';
-        const teamMatch = t && (t.toLowerCase().includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(t.toLowerCase()));
+        const t = (s.equipo || s.team || '').trim().toLowerCase();
+        const tn = teamName.trim().toLowerCase();
+        const teamMatch = t && tn && (t === tn || (t.length > 3 && tn.includes(t)) || (tn.length > 3 && t.includes(tn)));
         const cargo = (s.cargo || s.puesto || '').toUpperCase();
         const isCoach = !cargo || cargo.includes('ENTRENADOR') || cargo.includes('TÉCNICO') || cargo.includes('COACH');
         return teamMatch && isCoach;
@@ -2258,8 +2259,9 @@
     let coaches = [];
     if (state.directory.staff && Array.isArray(state.directory.staff)) {
       coaches = state.directory.staff.filter(s => {
-        const t = s.equipo || s.team || '';
-        const teamMatch = t && (t.toLowerCase().includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(t.toLowerCase()));
+        const t = (s.equipo || s.team || '').trim().toLowerCase();
+        const tn = teamName.trim().toLowerCase();
+        const teamMatch = t && tn && (t === tn || (t.length > 3 && tn.includes(t)) || (tn.length > 3 && t.includes(tn)));
         const cargo = (s.cargo || s.puesto || '').toUpperCase();
         const isCoach = !cargo || cargo.includes('ENTRENADOR') || cargo.includes('TÉCNICO') || cargo.includes('COACH');
         return teamMatch && isCoach;
@@ -2721,7 +2723,7 @@
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
-    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC', 'POR', 'LD', 'LI', 'DFC', 'MCO', 'ED', 'EI'];
+    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
     const formationSelect = document.getElementById(`${team}FormationSelect`);
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
@@ -2941,14 +2943,14 @@
   };
 
   const POSITION_TO_PERFIL_GROUP = {
-    'PO': 'PORTEROS', 'POR': 'PORTEROS',
-    'DBD': 'LATERALES', 'DBZ': 'LATERALES', 'LD': 'LATERALES', 'LI': 'LATERALES',
-    'DCD': 'CENTRALES', 'DCZ': 'CENTRALES', 'DFC': 'CENTRALES',
+    'PO': 'PORTEROS',
+    'DBD': 'LATERALES', 'DBZ': 'LATERALES',
+    'DCD': 'CENTRALES', 'DCZ': 'CENTRALES', 'DC': 'CENTRALES',
     'MCD': 'MEDIOCENTROS', 'MCZ': 'MEDIOCENTROS', 'MC': 'MEDIOCENTROS',
-    'MVD': 'INTERIORES', 'MVZ': 'INTERIORES', 'ID': 'INTERIORES', 'IZ': 'INTERIORES',
-    'MPD': 'MEDIAPUNTAS', 'MPZ': 'MEDIAPUNTAS', 'MP': 'MEDIAPUNTAS', 'MCO': 'MEDIAPUNTAS',
-    'ACD': 'BANDAS', 'ACZ': 'BANDAS', 'ED': 'BANDAS', 'EI': 'BANDAS', 'MBD': 'BANDAS', 'MBZ': 'BANDAS',
-    'AC': 'PUNTAS', 'DC': 'PUNTAS'
+    'MVD': 'INTERIORES', 'MVZ': 'INTERIORES',
+    'MPD': 'MEDIAPUNTAS', 'MPZ': 'MEDIAPUNTAS', 'MP': 'MEDIAPUNTAS',
+    'ACD': 'BANDAS', 'ACZ': 'BANDAS', 'MBD': 'BANDAS', 'MBZ': 'BANDAS',
+    'AC': 'PUNTAS'
   };
 
   function buildFilteredPerfilRSHTML(pPos) {
