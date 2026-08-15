@@ -16156,6 +16156,36 @@
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
     }
+
+    // Migrate legacy priority teams (strings without |||) to explicitly include their category from the directory
+    if (state.cartelera.priorityTeams.length > 0) {
+      let migratedAny = false;
+      const newTeams = new Set();
+      state.cartelera.priorityTeams.forEach(t => {
+        if (t.includes('|||')) {
+          newTeams.add(t);
+        } else {
+          migratedAny = true;
+          let found = false;
+          (state.directory.equipos || []).forEach(e => {
+            const eName = (e.nombre || e.equipo || '').toLowerCase().trim();
+            if (eName === t.toLowerCase().trim()) {
+              const cat = e.categoria || e.competicion || e.liga || 'all';
+              newTeams.add(`${cat}|||${t}`);
+              found = true;
+            }
+          });
+          if (!found) newTeams.add(`all|||${t}`);
+        }
+      });
+      if (migratedAny) {
+        state.cartelera.priorityTeams = Array.from(newTeams);
+        // Persist migration immediately
+        if (typeof saveState === 'function') {
+           setTimeout(() => saveState(), 100);
+        }
+      }
+    }
   }
 
   // --------------------------------------------------------------------------
