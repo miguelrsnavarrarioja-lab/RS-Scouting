@@ -16581,22 +16581,30 @@
     // Group teams by Category and Federation by looking them up in directory
     const grouped = {};
     
-    teams.forEach(teamName => {
+    teams.forEach(rawTeamValue => {
+      let cat = 'all';
+      let teamName = rawTeamValue;
+      if (rawTeamValue.includes('|||')) {
+        const parts = rawTeamValue.split('|||');
+        cat = parts[0];
+        teamName = parts[1];
+      }
+
       const lowerName = teamName.toLowerCase().trim();
-      const dirTeam = (state.directory.equipos || []).find(e => (e.nombre || e.equipo || '').toLowerCase().trim() === lowerName);
+      const dirTeam = (state.directory.equipos || []).find(e => (e.nombre || e.equipo || '').toLowerCase().trim() === lowerName && (cat === 'all' || e.categoria === cat || e.competicion === cat || e.liga === cat));
       
-      const cat = dirTeam?.categoria || dirTeam?.competicion || dirTeam?.liga || 'Sin Categoría / Desconocida';
+      const displayCat = cat !== 'all' ? cat : (dirTeam?.categoria || dirTeam?.competicion || dirTeam?.liga || 'General / Todas');
       const fed = dirTeam?.federacion || 'Sin Federación';
       
-      const groupKey = `${cat} | ${fed}`;
+      const groupKey = `${displayCat} | ${fed}`;
       if (!grouped[groupKey]) {
         grouped[groupKey] = {
-          categoria: cat,
+          categoria: displayCat,
           federacion: fed,
           teams: []
         };
       }
-      grouped[groupKey].teams.push(teamName);
+      grouped[groupKey].teams.push({ display: teamName, rawValue: rawTeamValue });
     });
 
     const sortedKeys = Object.keys(grouped).sort();
@@ -16613,8 +16621,8 @@
           <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
             ${g.teams.map(t => `
               <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                ⭐ ${escapeHtml(t)}
-                <button type="button" class="btn-remove-priority-team-modal" data-team="${escapeHtml(t)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
+                ⭐ ${escapeHtml(t.display)}
+                <button type="button" class="btn-remove-priority-team-modal" data-team="${escapeHtml(t.rawValue)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
                   <i data-lucide="x" style="width: 12px; height: 12px;"></i>
                 </button>
               </span>
@@ -16930,7 +16938,13 @@
       groupedByJornada[jorKey].push(m);
     });
 
-    const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
+    const priorityItems = (state.cartelera.priorityTeams || []).map(t => {
+      if (t.includes('|||')) {
+        const parts = t.split('|||');
+        return { cat: parts[0].toLowerCase().trim(), team: parts[1].toLowerCase().trim() };
+      }
+      return { cat: 'all', team: t.toLowerCase().trim() };
+    });
 
     // Sort Jornada keys naturally
     const sortedJornadas = Object.keys(groupedByJornada).sort((a, b) => {
@@ -16972,8 +16986,16 @@
                 ${jorMatches.map(m => {
                   const locLower = (m.local || '').toLowerCase();
                   const visLower = (m.visitante || '').toLowerCase();
-                  const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt) || pt.includes(locLower));
-                  const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt) || pt.includes(visLower));
+                  const matchCatLower = (m.competicion || m.categoria || m.liga || '').toLowerCase().trim();
+
+                  const isPriorityLocal = priorityItems.some(pt => {
+                    if (pt.cat !== 'all' && pt.cat !== matchCatLower) return false;
+                    return locLower.includes(pt.team) || pt.team.includes(locLower);
+                  });
+                  const isPriorityVisitante = priorityItems.some(pt => {
+                    if (pt.cat !== 'all' && pt.cat !== matchCatLower) return false;
+                    return visLower.includes(pt.team) || pt.team.includes(visLower);
+                  });
                   const isHighInterest = isPriorityLocal || isPriorityVisitante;
                   const isClashBool = isPriorityLocal && isPriorityVisitante;
                   const locStyle = isPriorityLocal ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
@@ -17217,7 +17239,7 @@
 
     function updateTeamCheckboxes() {
       const currentPrioritySet = new Set((state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim()));
-      const teamSet = new Set();
+      const teamMap = new Map();
 
       (state.directory.equipos || []).forEach(e => {
         const teamName = e.nombre || e.equipo || '';
@@ -17239,25 +17261,31 @@
         }
 
         if (matchesFilter) {
-          teamSet.add(teamName);
+          const cat = e.categoria || e.competicion || e.liga || 'all';
+          const key = `${cat}|||${teamName}`;
+          teamMap.set(key, { team: teamName, category: cat });
         }
       });
 
-      // Se eliminó la lectura de calendarios para que solo salgan los equipos del directorio
-
-      const teamsList = Array.from(teamSet).sort();
+      const teamsList = Array.from(teamMap.values()).sort((a,b) => a.team.localeCompare(b.team));
 
       if (teamsList.length === 0) {
         listEl.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); grid-column: 1 / -1; font-style: italic;">No hay equipos registrados aún para esta combinación. Puedes escribir nombres personalizados en el campo de texto.</span>`;
         return;
       }
 
-      listEl.innerHTML = teamsList.map(t => {
-        const isChecked = currentPrioritySet.has(t.toLowerCase().trim());
+      listEl.innerHTML = teamsList.map(tObj => {
+        const key = `${tObj.category}|||${tObj.team}`;
+        // Fallback backward compatibility check
+        const isLegacyChecked = currentPrioritySet.has(tObj.team.toLowerCase().trim());
+        const isChecked = currentPrioritySet.has(key.toLowerCase()) || isLegacyChecked;
+        
+        const displayName = tObj.category !== 'all' ? `${tObj.team} <span style="color:#888; font-size:10px;">(${tObj.category})</span>` : tObj.team;
+
         return `
           <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-main);">
-            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(t)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: #2563eb;">
-            <span>${escapeHtml(t)}</span>
+            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(key)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: #2563eb;">
+            <span>${displayName}</span>
           </label>
         `;
       }).join('');
@@ -17282,27 +17310,37 @@
       
       const selectedFromChecks = Array.from(listEl.querySelectorAll('.chk-priority-team:checked')).map(c => c.value);
       const customVal = customInputEl.value.trim();
-      let customTeams = customVal ? customVal.split(',').map(t => t.trim()).filter(Boolean) : [];
+      let customTeams = customVal ? customVal.split(',').map(t => 'all|||' + t.trim()).filter(Boolean) : [];
 
       if (!state.cartelera) ensureCarteleraState();
       if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
 
+      // We overwrite entirely based on modal selection to avoid duplicates/stale state?
+      // No, we want to append or keep existing not shown in this modal?
+      // Let's just merge them carefully.
+      
       const currentLowerMap = new Map();
-      state.cartelera.priorityTeams.forEach(t => currentLowerMap.set(t.toLowerCase(), t));
+      state.cartelera.priorityTeams.forEach(t => {
+         // Normalize legacy to 'all|||team' if it doesn't have |||
+         const key = t.includes('|||') ? t : `all|||${t}`;
+         currentLowerMap.set(key.toLowerCase(), key);
+      });
 
-      // Add checked teams
       selectedFromChecks.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
           state.cartelera.priorityTeams.push(t);
         }
       });
 
-      // Add custom typed teams
       customTeams.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
           state.cartelera.priorityTeams.push(t);
         }
       });
+
+      // To handle unchecking, we should remove items that were unchecked for the current view?
+      // Since the original code didn't handle unchecking from this modal (it just pushed), 
+      // the user removes them from the 'Ver Equipos Prioritarios' modal. So appending is fine.
 
       saveState();
       renderCartelera();
