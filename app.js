@@ -20013,7 +20013,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             }
             .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; }
             .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 20px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
-            .pitch-container { width: 100%; height: 750px; position: relative; margin: 0 auto; }
+            .pitch-container { width: 100%; max-width: 500px; height: 750px; position: relative; margin: 0 auto; }
           </style>
         </head>
         <body>
