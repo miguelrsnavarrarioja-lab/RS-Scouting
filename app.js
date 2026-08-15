@@ -257,6 +257,7 @@
 
   function updateAppNameUI(name) {
     const currentName = name || (typeof state !== 'undefined' && state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem(APP_NAME_STORAGE_KEY); } catch(e){} })() || 'RS Scouting';
+    document.title = `${currentName} | Pro Football Scouting System`;
     document.querySelectorAll('#appBrandName, .app-brand-name').forEach(el => {
       el.textContent = currentName;
     });
@@ -19844,6 +19845,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Poblar selector de Categorías (Años)
     const selCat = document.getElementById('selMapasCategoria');
+    const selComp = document.getElementById('selMapasCompeticion');
     const players = state.directory?.jugadores || [];
     const anios = new Set();
     players.forEach(p => {
@@ -19856,8 +19858,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     selCat.innerHTML = `<option value="">-- Todas las categorías --</option>` + 
       sortedAnios.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
 
+    // Poblar selector de Competición
+    const competiciones = state.customCompeticiones || [];
+    selComp.innerHTML = `<option value="">-- Todas las competiciones --</option>` + 
+      competiciones.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
     // Assign events
     selCat.onchange = renderMapasPins;
+    selComp.onchange = renderMapasPins;
     document.getElementById('selMapasSistema').onchange = renderMapasPins;
     
     const btnExport = document.getElementById('btnExportMapasPDF');
@@ -19871,6 +19879,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (!container) return;
     
     const selCat = document.getElementById('selMapasCategoria')?.value;
+    const selComp = document.getElementById('selMapasCompeticion')?.value;
     const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
     
     container.innerHTML = '';
@@ -19880,12 +19889,25 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
 
     const players = state.directory?.jugadores || [];
+    const equipos = state.directory?.equipos || [];
     
-    // Filter by year and 11 IDEAL
+    // Helper to get player's competition
+    const getPlayerComp = (p) => {
+      if (!p.equipo) return null;
+      const team = equipos.find(eq => eq.nombre === p.equipo || eq.equipo === p.equipo);
+      if (team) return team.competicion || team.liga;
+      return null;
+    };
+
+    // Filter by year, competicion and 11 IDEAL
     const filteredPlayers = players.filter(p => {
       const is11Ideal = (p.controlSeguimiento || []).includes('11 IDEAL');
       if (!is11Ideal) return false;
       if (selCat && String(p.ano).trim() !== selCat) return false;
+      if (selComp) {
+        const pComp = getPlayerComp(p);
+        if (pComp !== selComp) return false;
+      }
       return true;
     });
 
@@ -19962,6 +19984,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   function exportarMapasPDF() {
     const selCat = document.getElementById('selMapasCategoria')?.value || 'Todas las categorías';
+    const selComp = document.getElementById('selMapasCompeticion')?.value || 'Todas las competiciones';
     const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
     const pitch = document.getElementById('mapasCampogramaPitch');
     if (!pitch) return;
@@ -19990,12 +20013,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             }
             .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; }
             .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 20px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
-            .pitch-container { width: 100%; height: 600px; position: relative; margin: 0 auto; }
+            .pitch-container { width: 100%; height: 750px; position: relative; margin: 0 auto; }
           </style>
         </head>
         <body>
           <div class="header-main">Mapas (11 Ideal)</div>
-          <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} | Sistema Táctico: ${escapeHtml(sysSelect)}</div>
+          <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} | Competición: ${escapeHtml(selComp)} | Sistema Táctico: ${escapeHtml(sysSelect)}</div>
           
           <div class="pitch-container">
             ${clone.outerHTML}
