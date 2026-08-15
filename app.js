@@ -2724,37 +2724,33 @@
         const nameInput = row.querySelector('input.name');
         const posSelect = row.querySelector('select.pos');
 
-        let numDebounceTimer;
-        numInput?.addEventListener('input', () => {
-          clearTimeout(numDebounceTimer);
-          numDebounceTimer = setTimeout(() => {
-            const numVal = numInput.value;
-            const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
-            
-            if (numVal) {
-              const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
-              if (matchedPlayer) {
-                if (nameInput && !nameInput.value.trim()) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
-                // Se ha comentado la actualización de la posición para que se mantenga la del esquema del partido
-                /*
-                const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
-                if (posSelect && matchedPos) {
-                  const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
-                  if (optExists) {
-                    posSelect.value = matchedPos;
-                  } else {
-                    const newOpt = document.createElement('option');
-                    newOpt.value = matchedPos;
-                    newOpt.textContent = matchedPos;
-                    newOpt.selected = true;
-                    posSelect.appendChild(newOpt);
-                  }
+        numInput?.addEventListener('change', () => {
+          const numVal = numInput.value;
+          const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
+          
+          if (numVal) {
+            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
+            if (matchedPlayer) {
+              if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
+              // Se ha comentado la actualización de la posición para que se mantenga la del esquema del partido
+              /*
+              const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
+              if (posSelect && matchedPos) {
+                const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
+                if (optExists) {
+                  posSelect.value = matchedPos;
+                } else {
+                  const newOpt = document.createElement('option');
+                  newOpt.value = matchedPos;
+                  newOpt.textContent = matchedPos;
+                  newOpt.selected = true;
+                  posSelect.appendChild(newOpt);
                 }
-                */
               }
+              */
+              renderPitchPins(team);
             }
-            renderPitchPins(team);
-          }, 500);
+          }
         });
 
         nameInput?.addEventListener('input', () => {
