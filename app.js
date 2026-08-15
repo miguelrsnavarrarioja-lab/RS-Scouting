@@ -17675,6 +17675,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     };
 
 
+    const cleanTeamName = (name) => {
+      if (!name) return '';
+      // Remove trailing squad letters like "B", "A", B, A (case insensitive)
+      return name.trim().replace(/\s+"?[a-zA-Z]"?$/i, '').trim();
+    };
+
     lines.forEach((line, idx) => {
       if (/jornada\s*\d+/i.test(line)) {
         const matchJor = line.match(/jornada\s*\d+/i);
@@ -17706,8 +17712,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: parts[0].trim(),
-            visitante: parts[1].trim(),
+            local: cleanTeamName(parts[0]),
+            visitante: cleanTeamName(parts[1]),
             competicion: calendarName || 'Liga Importada',
             federacion: federacion,
             grupo: grupo
@@ -17725,7 +17731,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: l,
+            local: cleanTeamName(l),
             visitante: 'Rival',
             competicion: calendarName || 'Calendario',
             federacion: federacion,
@@ -18856,7 +18862,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         e.stopPropagation();
         e.preventDefault();
         const id = btn.dataset.id;
-        const link = state.links.find(l => l.id === id);
+        const link = state.links.find(l => String(l.id) === String(id));
         if (link) {
           link.favorito = !link.favorito;
           saveToFirebase('enlaces', link);
@@ -18883,7 +18889,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const targetTag = cardsList.dataset.tagCol;
 
         if (draggedLinkId && targetTag) {
-          const link = state.links.find(l => l.id === draggedLinkId);
+          const link = state.links.find(l => String(l.id) === String(draggedLinkId));
           if (link) {
             link.etiqueta = targetTag;
             saveToFirebase('enlaces', link);
@@ -19005,7 +19011,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         e.stopPropagation();
         e.preventDefault();
         const id = btn.dataset.id;
-        const link = state.links.find(l => l.id === id);
+        const link = state.links.find(l => String(l.id) === String(id));
         if (link) {
           link.favorito = !link.favorito;
           saveToFirebase('enlaces', link);
@@ -19026,10 +19032,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           state.links.forEach(l => {
             if (l.favCol === oldName) {
               l.favCol = cleanName;
+              saveToFirebase('enlaces', l);
             }
           });
           saveState();
           renderEnlaces();
+          if (typeof showToast === 'function') {
+            showToast(`Nombre de la columna actualizado a "${cleanName}"`, 'success');
+          }
         }
       });
     };
@@ -19068,7 +19078,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             Array.from(evt.to.children).forEach((child, index) => {
               const linkId = child.dataset.id;
               if (linkId) {
-                const link = state.links.find(l => l.id === linkId);
+                const link = state.links.find(l => String(l.id) === String(linkId));
                 if (link) {
                   link.favCol = targetCol;
                   link.order = index;
@@ -19156,7 +19166,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         e.stopPropagation();
         e.preventDefault();
         const id = btn.dataset.id;
-        const link = state.links.find(l => l.id === id);
+        const link = state.links.find(l => String(l.id) === String(id));
         if (link) {
           link.favorito = !link.favorito;
           saveToFirebase('enlaces', link);
@@ -19224,7 +19234,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   }
 
   function openLinkDetailModal(linkId) {
-    const link = state.links.find(l => l.id === linkId);
+    const link = state.links.find(l => String(l.id) === String(linkId));
     if (!link) return;
 
     showModal('Ficha General del Enlace', `
@@ -19402,7 +19412,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   });
 
   function openEditLinkModal(linkId) {
-    const link = state.links.find(l => l.id === linkId);
+    const link = state.links.find(l => String(l.id) === String(linkId));
     if (!link) return;
 
     const existingTags = getExistingTagsList();
