@@ -3237,17 +3237,17 @@
 
             <div class="form-group mb-1">
               <label class="form-label" style="font-size: 10px; font-weight: 800;">MINUTOS JUGADOS</label>
-              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 60px; font-weight: 800; text-align: center;">
-                <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="flex: 1; margin: 0; padding: 6px; display: flex; align-items: center; justify-content: center;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 32px; box-sizing: border-box; padding: 0;">
+                <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; height: 32px; border-radius: 6px; box-sizing: border-box; font-size: 11px; border: 1px solid var(--border-light); font-weight: 800; width: 100%;">
                   🚫 NO JUEGA
                 </button>
               </div>
-              <div class="minutes-salir-row" style="display: flex; gap: 8px;">
-                <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="flex: 1;">
+              <div class="minutes-salir-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="margin: 0; width: 100%; height: 32px; box-sizing: border-box; font-size: 11px;">
                   <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
                 </button>
-                <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="flex: 1;">
+                <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="margin: 0; width: 100%; height: 32px; box-sizing: border-box; font-size: 11px;">
                   <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
                 </button>
               </div>
