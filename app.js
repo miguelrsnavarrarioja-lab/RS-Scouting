@@ -1570,6 +1570,7 @@
   let timerSeconds = 0;
   let currentPartidosCategoryTab = 'all';
   let currentPartidosMonthTab = 'all';
+  let currentPartidosStatusTab = 'all';
 
   function renderMatchCategorySubtabs() {
     const container = document.getElementById('matchCategorySubtabsBar');
@@ -1600,8 +1601,29 @@
     const categories = Object.keys(catMap).sort();
     const months = Object.keys(monthMap).sort((a,b) => b.localeCompare(a)); // Descending order
 
+    let countCompletado = 0;
+    let countIncompleto = 0;
+    reports.forEach(r => {
+      if (r.completado) countCompletado++;
+      else countIncompleto++;
+    });
+
     let html = `
       <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-bottom: 1px dashed var(--border-light); padding-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="file-check-2" style="width: 14px;"></i> Estado:
+          </span>
+          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'all' ? 'active' : ''}" data-partidosstatus="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            TODOS (${reports.length})
+          </button>
+          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'incompleto' ? 'active' : ''}" data-partidosstatus="incompleto" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'incompleto' ? 'var(--alert-red, #ef4444)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'incompleto' ? 'var(--alert-red, #ef4444)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'incompleto' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            SIN COMPLETAR (${countIncompleto})
+          </button>
+          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'completado' ? 'active' : ''}" data-partidosstatus="completado" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'completado' ? 'var(--success-green, #22c55e)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'completado' ? 'var(--success-green, #22c55e)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'completado' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            COMPLETADOS (${countCompletado})
+          </button>
+        </div>
         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="trophy" style="width: 14px;"></i> Competición:
@@ -1652,6 +1674,13 @@
 
     container.innerHTML = html;
 
+    container.querySelectorAll('.status-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentPartidosStatusTab = tab.dataset.partidosstatus || 'all';
+        renderPartidosList();
+      });
+    });
+
     container.querySelectorAll('.cat-subtab').forEach(tab => {
       tab.addEventListener('click', () => {
         currentPartidosCategoryTab = tab.dataset.partidoscat || 'all';
@@ -1698,14 +1727,24 @@
 
       const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
       const matchesSearch = !searchVal || text.includes(searchVal);
-      return matchesCat && matchesMonth && matchesSearch;
+      
+      let matchesStatus = true;
+      if (currentPartidosStatusTab === 'completado') matchesStatus = !!r.completado;
+      if (currentPartidosStatusTab === 'incompleto') matchesStatus = !r.completado;
+
+      return matchesCat && matchesMonth && matchesSearch && matchesStatus;
     });
 
-    // Sort by date from earliest to latest
+    // Ordenar los informes según estado (Incompletos primero, luego Completados) y luego por fecha más reciente
     filtered.sort((a, b) => {
-      const dateA = new Date((a.date || '9999-12-31') + 'T' + (a.time || '00:00') + ':00');
-      const dateB = new Date((b.date || '9999-12-31') + 'T' + (b.time || '00:00') + ':00');
-      return dateA - dateB;
+      // Primero ordenar por completado vs incompleto
+      if (a.completado && !b.completado) return 1;
+      if (!a.completado && b.completado) return -1;
+      
+      // Si tienen el mismo estado, ordenar por fecha de más reciente a más antigua
+      const dateA = new Date((a.date || '9999-12-31') + 'T' + (a.time || '00:00') + ':00').getTime();
+      const dateB = new Date((b.date || '9999-12-31') + 'T' + (b.time || '00:00') + ':00').getTime();
+      return dateB - dateA;
     });
 
     const container = document.getElementById('reportsListContainer');
@@ -2280,6 +2319,9 @@
     }
 
     renderPitchPins(team);
+    if (typeof updateTeamPlayersDatalist === 'function') {
+      updateTeamPlayersDatalist(team);
+    }
   }
 
   const updateReportEquiposDatalist = () => {
@@ -2570,15 +2612,46 @@
 
     if (match) return match;
 
-    // Fallback: search for any player with matching dorsal if team not matched
-    if (teamNameLower) {
+    // Fallback: search for any player with matching dorsal only if team not specified
+    if (!teamNameLower) {
       match = jugadores.find(p => {
         const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
         return pDorsal === dStr;
       });
     }
 
-    return match;
+    return match || null;
+  }
+
+  function updateTeamPlayersDatalist(team) {
+    const datalist = document.getElementById(`${team}PlayersDatalist`);
+    if (!datalist) return;
+    const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim().toLowerCase() || '';
+    if (!teamName) {
+      datalist.innerHTML = '';
+      return;
+    }
+    const jugadores = state.directory.jugadores || [];
+    const equipos = state.directory.equipos || [];
+    const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
+    
+    let teamPlayers = jugadores.filter(p => {
+      const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+      let matchesTeam = pTeam === teamName || pTeam.includes(teamName) || teamName.includes(pTeam);
+      if (!matchesTeam && targetTeam && targetTeam.plantilla) {
+        const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+        matchesTeam = targetTeam.plantilla.some(item => {
+          const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+          return itemName === pName;
+        });
+      }
+      return matchesTeam;
+    });
+
+    datalist.innerHTML = teamPlayers.map(p => {
+      const pName = p.nombre || p.jugador || p.name || '';
+      return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
+    }).join('');
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
@@ -2589,7 +2662,7 @@
 
     // Titulares (11)
     const titContainer = document.getElementById(`${team}TitularesRows`);
-    let titHTML = '';
+    let titHTML = `<datalist id="${team}PlayersDatalist"></datalist>`;
     for (let i = 0; i < 11; i++) {
       const defaultPosForIdx = defaultPositions[i] || (i === 0 ? 'PO' : 'MC');
       const p = titulares[i] || { num: '', name: '', pos: defaultPosForIdx };
@@ -2599,7 +2672,7 @@
       titHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}">
+          <input type="text" class="form-control name flex-grow" list="${team}PlayersDatalist" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}">
           <select class="form-control pos select-compact">
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -2620,7 +2693,7 @@
       supHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" placeholder="Suplente..." value="${escapeHtml(p.name)}">
+          <input type="text" class="form-control name flex-grow" list="${team}PlayersDatalist" placeholder="Suplente..." value="${escapeHtml(p.name)}">
           <select class="form-control pos select-compact">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
@@ -2633,6 +2706,9 @@
 
     // Attach listeners for auto-completing player name by dorsal number
     attachLineupRowListeners(team);
+
+    // Initial populate datalist
+    updateTeamPlayersDatalist(team);
   }
 
   function attachLineupRowListeners(team) {
@@ -2648,30 +2724,37 @@
         const nameInput = row.querySelector('input.name');
         const posSelect = row.querySelector('select.pos');
 
+        let numDebounceTimer;
         numInput?.addEventListener('input', () => {
-          const numVal = numInput.value;
-          const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
-          
-          if (numVal) {
-            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
-            if (matchedPlayer) {
-              if (nameInput && !nameInput.value.trim()) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
-              const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
-              if (posSelect && matchedPos) {
-                const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
-                if (optExists) {
-                  posSelect.value = matchedPos;
-                } else {
-                  const newOpt = document.createElement('option');
-                  newOpt.value = matchedPos;
-                  newOpt.textContent = matchedPos;
-                  newOpt.selected = true;
-                  posSelect.appendChild(newOpt);
+          clearTimeout(numDebounceTimer);
+          numDebounceTimer = setTimeout(() => {
+            const numVal = numInput.value;
+            const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
+            
+            if (numVal) {
+              const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
+              if (matchedPlayer) {
+                if (nameInput && !nameInput.value.trim()) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
+                // Se ha comentado la actualización de la posición para que se mantenga la del esquema del partido
+                /*
+                const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
+                if (posSelect && matchedPos) {
+                  const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
+                  if (optExists) {
+                    posSelect.value = matchedPos;
+                  } else {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = matchedPos;
+                    newOpt.textContent = matchedPos;
+                    newOpt.selected = true;
+                    posSelect.appendChild(newOpt);
+                  }
                 }
+                */
               }
             }
-          }
-          renderPitchPins(team);
+            renderPitchPins(team);
+          }, 500);
         });
 
         nameInput?.addEventListener('input', () => {
@@ -3926,6 +4009,26 @@
     const posicionSecundaria = player.posicionSecundaria || '';
     const observacionesDeportivas = player.observacionesDeportivas || '';
 
+    let posicionesVistas = new Set();
+    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+    if (pNameLower) {
+      (state.reports || []).forEach(rep => {
+        const checkPlayer = (pObj) => {
+           if (!pObj) return;
+           const name = (pObj.name || '').toLowerCase().trim();
+           if (name === pNameLower && pObj.pos) {
+             posicionesVistas.add(pObj.pos);
+           }
+        };
+        (rep.localTitulares || []).forEach(checkPlayer);
+        (rep.localSuplentes || []).forEach(checkPlayer);
+        (rep.visitanteTitulares || []).forEach(checkPlayer);
+        (rep.visitanteSuplentes || []).forEach(checkPlayer);
+      });
+    }
+    let posicionesVistasStr = Array.from(posicionesVistas).join(', ');
+    if (!posicionesVistasStr) posicionesVistasStr = 'Ninguna registrada';
+
     if (isEdit) {
       recalculatePlayerAggregates(player);
     }
@@ -4176,7 +4279,7 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">POSICIÓN PRINCIPAL</label>
-                <select id="pfPosPrincipal" class="form-control">
+                <select id="pfPosicion" class="form-control">
                   <option value="">Seleccionar...</option>
                   ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
                   ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeHtml(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
@@ -4184,11 +4287,18 @@
               </div>
               <div class="form-group">
                 <label class="form-label">POSICIÓN SECUNDARIA</label>
-                <select id="pfPosSecundaria" class="form-control">
+                <select id="pfPosicionSecundaria" class="form-control">
                   <option value="">Seleccionar...</option>
                   ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
                   ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeHtml(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
                 </select>
+              </div>
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">POSICIONES VISTAS (EN INFORMES)</label>
+              <div style="padding: 8px 12px; background: var(--bg-surface-hover); border: 1px solid var(--border-light); border-radius: var(--radius-md); color: var(--text-secondary); font-size: 13px; font-weight: 500;">
+                ${escapeHtml(posicionesVistasStr)}
               </div>
             </div>
 
