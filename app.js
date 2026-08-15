@@ -2984,8 +2984,8 @@
 
   function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
     let html = `
-    <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 8px;">
-      <div class="form-control select-compact custom-dropdown-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeHtml(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeHtml(placeholder).replace(/'/g, "\\'")}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
+    <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 0;">
+      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeHtml(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeHtml(placeholder).replace(/'/g, "\\'")}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
         <span>+ ${escapeHtml(placeholder)}</span>
         <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
       </div>
@@ -3059,14 +3059,14 @@
         equipo: teamName,
         dorsal: pNum,
         minutos: evalData.minutos || 0,
-        rendimiento: evalData.rendimiento,
-        rendimientoRS: evalData.rendimientoRS,
-        potencial: evalData.potencial,
-        descFisica: evalData.descFisica,
-        descTecnica: evalData.descTecnica,
-        descEmocional: evalData.descEmocional,
-        perfilRS: evalData.perfilRS,
-        stats: evalData.stats
+        rendimiento: evalData.rendimiento || 'C',
+        rendimientoRS: evalData.rendimientoRS || 'C',
+        potencial: evalData.potencial || '3',
+        descFisica: evalData.descFisica || '',
+        descTecnica: evalData.descTecnica || '',
+        descEmocional: evalData.descEmocional || '',
+        perfilRS: evalData.perfilRS || '',
+        stats: evalData.stats || {}
       };
 
       if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
@@ -3254,18 +3254,28 @@
         <div id="pmTabDatos" class="pm-tab-pane" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
           
           <!-- LÍNEA 1: Rendimiento, Potencial, Rendimiento RS, Perfil RS -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 16px;">
-            <div class="rating-score-box">
-              <div class="rating-score-title">RENDIMIENTO</div>
-              <div class="rating-score-value" id="valRendimientoDisplay">${escapeHtml(pEval.rendimiento)}</div>
-              <input type="range" id="pmRendimientoRange" min="1" max="4" value="${pEval.rendimiento === 'A' ? 4 : (pEval.rendimiento === 'B' ? 3 : (pEval.rendimiento === 'C' ? 2 : 1))}" style="width: 100%; margin-top: 4px;">
+          <div style="display: flex; gap: 16px;">
+            <!-- Rendimiento -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+              <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO</div>
+              <div class="rs-pills-row" id="pmRendimientoGroup">
+                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
+              </div>
             </div>
-            <div class="rating-score-box">
-              <div class="rating-score-title">POTENCIAL</div>
-              <div class="rating-score-value" style="color: #ec4899;" id="valPotencialDisplay">${escapeHtml(pEval.potencial)}</div>
-              <input type="range" id="pmPotencialRange" min="1" max="5" value="${escapeHtml(pEval.potencial)}" style="width: 100%; margin-top: 4px;">
+
+            <!-- Potencial -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+              <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">POTENCIAL</div>
+              <div class="rs-pills-row" id="pmPotencialGroup">
+                ${[1,2,3,4,5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : '#fff'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
+              </div>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+
+            <!-- Rendimiento RS -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
@@ -3274,17 +3284,19 @@
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
               </div>
             </div>
-            <div class="form-group" style="margin: 0; padding-top: 4px;">
-              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block;">PERFIL DEL JUGADOR (RS)</label>
+
+            <!-- Perfil RS -->
+            <div class="form-group" style="margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end;">
+              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">PERFIL DEL JUGADOR (RS)</label>
               ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
-              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
             </div>
           </div>
 
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
           <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
             ${['🏆 11 Ideal', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}" style="font-size: 11px; padding: 10px 4px;">
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}" style="font-size: 11px; height: 38px; padding: 0 4px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -3334,34 +3346,34 @@
         <div id="pmTabDescripciones" class="pm-tab-pane hidden" style="padding: 16px; overflow-y: auto; max-height: calc(90vh - 150px);">
           
           <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">1. DESCRIPCIÓN FÍSICA</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
             ${Object.keys(OPTIONS_DESC_FISICA).map(key => `
               <div class="desc-card-box" style="padding: 8px;">
                 <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                 ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_FISICA[key] }, '+ Añadir...', `pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 50px;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
               </div>
             `).join('')}
           </div>
 
           <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
             ${Object.keys(OPTIONS_DESC_TECNICA).map(key => `
               <div class="desc-card-box" style="padding: 8px;">
                 <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                 ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_TECNICA[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 60px;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
               </div>
             `).join('')}
           </div>
 
           <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">3. DESCRIPCIÓN EMOCIONAL</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
             ${Object.keys(OPTIONS_DESC_EMOCIONAL).map(key => `
               <div class="desc-card-box" style="padding: 8px;">
                 <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                 ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_EMOCIONAL[key] }, '+ Añadir...', `pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 60px;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
               </div>
             `).join('')}
           </div>
@@ -3400,15 +3412,27 @@
     const modalContent = document.getElementById('generalModalCard');
     if (modalContent) modalContent.classList.add('xlarge');
 
-    // Range Sliders
-    const rendMap = ['D', 'C', 'B', 'A'];
-    modalContent.querySelector('#pmRendimientoRange')?.addEventListener('input', (e) => {
-      const val = rendMap[parseInt(e.target.value) - 1] || 'C';
-      modalContent.querySelector('#valRendimientoDisplay').textContent = val;
+    // Pill Button Handlers
+    modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
     });
 
-    modalContent.querySelector('#pmPotencialRange')?.addEventListener('input', (e) => {
-      modalContent.querySelector('#valPotencialDisplay').textContent = e.target.value;
+    modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
+          b.classList.remove('active');
+          b.style.background = '#fff';
+          b.style.color = '#ec4899';
+          b.style.borderColor = 'rgba(236,72,153,0.3)';
+        });
+        btn.classList.add('active');
+        btn.style.background = '#ec4899';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#ec4899';
+      });
     });
 
     // Custom Dropdown Handling
@@ -3584,8 +3608,8 @@
       const isSalir = btnSalir?.classList.contains('active') || false;
 
       const evalObj = {
-        rendimiento: modalContent.querySelector('#valRendimientoDisplay').textContent,
-        potencial: modalContent.querySelector('#valPotencialDisplay').textContent,
+        rendimiento: modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C',
+        potencial: modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active')?.dataset.val || '3',
         rendimientoRS: activeRSBtn ? activeRSBtn.dataset.val : 'C',
         tags: activeTags,
         entra: isEntra,
@@ -3627,6 +3651,15 @@
           state.reports[idx].playerEvaluations[evalKey] = evalObj;
           saveToFirebase('informes', state.reports[idx]);
         }
+      }
+
+      // Update UI visually
+      if (typeof renderPlayerRows === 'function') {
+        renderPlayerRows('local');
+        renderPlayerRows('visitante');
+      }
+      if (typeof updatePlayerMarkers === 'function') {
+        updatePlayerMarkers();
       }
 
       hideModal();
