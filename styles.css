@@ -189,12 +189,16 @@ a {
 }
 
 .brand-logo-img {
-  max-width: 180px;
-  max-height: 68px;
+  max-width: 220px;
+  max-height: 85px;
   width: auto;
-  height: 68px;
+  height: 85px;
   object-fit: contain;
+  transition: transform 0.2s ease;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.12));
+}
+.brand-logo-img:hover {
+  transform: scale(1.05);
 }
 
 .brand-text {

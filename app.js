@@ -16152,6 +16152,12 @@
       state.cartelera.priorityTeams = [];
     }
     
+    if (localStorage && !localStorage.getItem('rs_scouting_priority_wiped_v3')) {
+      state.cartelera.priorityTeams = [];
+      localStorage.setItem('rs_scouting_priority_wiped_v3', 'true');
+      if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
+    }
+    
 
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
@@ -17166,7 +17172,7 @@
 
     const groups = Array.from(groupSet);
 
-    const catOptions = `<option value="all">-- Todas las Categorías --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    const catOptions = `<option value="all">-- Todas las Competiciones --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
     const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
@@ -17181,14 +17187,14 @@
       <form id="formAddPriorityTeamModal">
         
         <div class="priority-tabs">
-          <button type="button" class="priority-tab active" data-tab="tab-category">Filtrar por Categoría</button>
+          <button type="button" class="priority-tab active" data-tab="tab-category">Filtrar por Competición</button>
           <button type="button" class="priority-tab" data-tab="tab-federation">Filtrar por Federación</button>
         </div>
 
         <div id="tab-category" class="priority-tab-content active">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
             <div class="form-group" style="margin: 0;">
-              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría / Competición</label>
+              <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Competición</label>
               <select id="modalPriorityCat" class="form-control">
                 ${catOptions}
               </select>
@@ -17224,13 +17230,13 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <label class="form-label" style="font-size: 12px; font-weight: 700; margin: 0;">
               Equipos disponibles (Marca los que deseas seguir):
+              Equipos (Marca los de seguimiento):
             </label>
             <button type="button" class="btn btn-sm btn-secondary" id="btnSelectAllModalTeams" style="font-size: 11px; padding: 2px 8px;">
               Seleccionar Todos
             </button>
           </div>
           <div id="modalPriorityTeamsList" style="max-height: 180px; overflow-y: auto; background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
-            <!-- Checkboxes rendered dynamically -->
           </div>
         </div>
 
@@ -19638,16 +19644,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
   }
 
-  const btnHeaderThemeToggle = document.getElementById('btnHeaderThemeToggle');
-  if (btnHeaderThemeToggle) {
-    btnHeaderThemeToggle.addEventListener('click', () => {
-      const currentTheme = document.body.className === 'theme-dark' ? 'dark' : 'light';
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      if (!state.settings) state.settings = {};
-      state.settings.theme = newTheme;
-      saveState();
-      setTheme(newTheme);
-    });
+  function initThemeToggle() {
+    const btnHeaderThemeToggle = document.getElementById('btnHeaderThemeToggle');
+    if (btnHeaderThemeToggle) {
+      btnHeaderThemeToggle.addEventListener('click', () => {
+        const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        if (!state.settings) state.settings = {};
+        state.settings.theme = newTheme;
+        saveState();
+        setTheme(newTheme);
+      });
+    }
   }
 
   const configInputEl = document.getElementById('configAppNameInput');
