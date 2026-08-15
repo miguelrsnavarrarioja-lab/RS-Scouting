@@ -16800,12 +16800,20 @@
         (cal.partidos || []).forEach(m => {
           const locLower = (m.local || '').toLowerCase();
           const visLower = (m.visitante || '').toLowerCase();
-          const isPriorityLocal = priorityTeamsLower.some(pt => locLower.includes(pt) || pt.includes(locLower));
-          const isPriorityVisitante = priorityTeamsLower.some(pt => visLower.includes(pt) || pt.includes(visLower));
+          const comp = m.competicion || cal.nombre || 'General';
+
+          const isPriority = (teamLower, matchComp) => priorityTeamsLower.some(pt => {
+             const parts = pt.split('|||');
+             const ptCat = parts.length > 1 ? parts[0] : 'all';
+             const ptTeam = parts.length > 1 ? parts[1] : pt;
+             if (ptCat !== 'all' && matchComp.toLowerCase() !== ptCat) return false;
+             return ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
+          });
+
+          const isPriorityLocal = isPriority(locLower, comp);
+          const isPriorityVisitante = isPriority(visLower, comp);
           const isHighInterest = isPriorityLocal || isPriorityVisitante;
           const isClash = isPriorityLocal && isPriorityVisitante;
-
-          const comp = m.competicion || cal.nombre;
           const fed = m.federacion || cal.federacion || 'General';
 
           allMatches.push({
@@ -16990,14 +16998,6 @@
       groupedByJornada[jorKey].push(m);
     });
 
-    const priorityItems = (state.cartelera.priorityTeams || []).map(t => {
-      if (t.includes('|||')) {
-        const parts = t.split('|||');
-        return { cat: parts[0].toLowerCase().trim(), team: parts[1].toLowerCase().trim() };
-      }
-      return null;
-    }).filter(Boolean);
-
     // Sort Jornada keys naturally
     const sortedJornadas = Object.keys(groupedByJornada).sort((a, b) => {
       const numA = parseInt(a.replace(/\D/g, '')) || 0;
@@ -17038,18 +17038,10 @@
                 ${jorMatches.map(m => {
                   const locLower = (m.local || '').toLowerCase();
                   const visLower = (m.visitante || '').toLowerCase();
-                  const matchCatLower = (m.competicion || m.categoria || m.liga || '').toLowerCase().trim();
-
-                  const isPriorityLocal = priorityItems.some(pt => {
-                    if (pt.cat !== matchCatLower) return false;
-                    return locLower.includes(pt.team) || pt.team.includes(locLower);
-                  });
-                  const isPriorityVisitante = priorityItems.some(pt => {
-                    if (pt.cat !== matchCatLower) return false;
-                    return visLower.includes(pt.team) || pt.team.includes(visLower);
-                  });
-                  const isHighInterest = isPriorityLocal || isPriorityVisitante;
-                  const isClashBool = isPriorityLocal && isPriorityVisitante;
+                  const isPriorityLocal = !!m.isPriorityLocal;
+                  const isPriorityVisitante = !!m.isPriorityVisitante;
+                  const isHighInterest = !!m.isHighInterest;
+                  const isClashBool = !!m.isClash;
                   const locStyle = isPriorityLocal ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
                   const visStyle = isPriorityVisitante ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
                   const bgStyle = isClashBool ? 'background: rgba(34, 197, 94, 0.06);' : (isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '');
