@@ -874,6 +874,7 @@
     else if (tabName === 'calendario') renderCalendario();
     else if (tabName === 'partidos') renderPartidosList();
     else if (tabName === 'directorio') renderDirectorio();
+    else if (tabName === 'comparativa') renderComparativa();
     else if (tabName === 'cartelera') renderCartelera();
     else if (tabName === 'agenda') renderAgenda();
     else if (tabName === 'enlaces') renderEnlaces();
