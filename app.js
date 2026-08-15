@@ -3200,15 +3200,15 @@
 
         <div class="player-match-subtabs">
           <button type="button" class="player-match-subtab active" data-tab="pmTabDatos">DATOS PARTIDO JUGADOR</button>
-          <button type="button" class="player-match-subtab" data-tab="pmTabEstadisticas">📊 ESTADÍSTICAS INDIVIDUALES</button>
           <button type="button" class="player-match-subtab" data-tab="pmTabDescripciones">📝 DESCRIPCIONES</button>
+          <button type="button" class="player-match-subtab" data-tab="pmTabEstadisticas">📊 ESTADÍSTICAS INDIVIDUALES</button>
         </div>
 
         <!-- TAB 1: DATOS PARTIDO JUGADOR -->
         <div id="pmTabDatos" class="pm-tab-pane" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
           
-          <!-- LÍNEA 1: Rendimiento, Potencial y Rendimiento RS -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px;">
+          <!-- LÍNEA 1: Rendimiento, Potencial, Rendimiento RS, Perfil RS -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: 16px;">
             <div class="rating-score-box">
               <div class="rating-score-title">RENDIMIENTO</div>
               <div class="rating-score-value" id="valRendimientoDisplay">${escapeHtml(pEval.rendimiento)}</div>
@@ -3219,14 +3219,19 @@
               <div class="rating-score-value" style="color: #ec4899;" id="valPotencialDisplay">${escapeHtml(pEval.potencial)}</div>
               <input type="range" id="pmPotencialRange" min="1" max="5" value="${escapeHtml(pEval.potencial)}" style="width: 100%; margin-top: 4px;">
             </div>
-            <div>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'A' ? 'active' : ''}" data-val="A">A</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'B' ? 'active' : ''}" data-val="B">B</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'C' ? 'active' : ''}" data-val="C">C</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D">D</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
               </div>
+            </div>
+            <div class="form-group" style="margin: 0; padding-top: 4px;">
+              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block;">PERFIL DEL JUGADOR (RS)</label>
+              ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
+              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
             </div>
           </div>
 
@@ -3262,16 +3267,15 @@
             </div>
           </div>
 
-          <!-- LÍNEA 4: Comentario General (75%) y Perfil RS (25%) -->
+          <!-- LÍNEA 4: Comentario General (75%) y Posición Alternativa (25%) -->
           <div style="display: flex; gap: 16px;">
             <div class="form-group" style="flex: 3;">
               <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
               <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones adicionales...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
             </div>
             <div class="form-group" style="flex: 1;">
-              <label class="form-label" style="font-size: 10px; font-weight: 800;">PERFIL DEL JUGADOR (RS)</label>
-              ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
-              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 70px; margin-top: 4px;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+              <label class="form-label" style="font-size: 10px; font-weight: 800;">POSICIÓN ALTERNATIVA</label>
+              <input type="text" id="pmPosicionAlternativa" class="form-control" placeholder="Ej: MBD" value="${escapeHtml(pEval.posicionAlternativa || '')}" style="font-weight: 800; text-align: center; height: 38px;">
             </div>
           </div>
         </div>
@@ -3566,6 +3570,7 @@
         minutoSalida: isSalir ? minutoSalida : 0,
         minutos: parseInt(modalContent.querySelector('#pmMinutos').value) || 0,
         comentarioGeneral: modalContent.querySelector('#pmComentarioGeneral')?.value || '',
+        posicionAlternativa: modalContent.querySelector('#pmPosicionAlternativa')?.value || '',
         perfilRS: modalContent.querySelector('#pmPerfilRS')?.value || '',
         stats: pStats
       };
