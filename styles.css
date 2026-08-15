@@ -169,11 +169,17 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.brand:hover {
+  transform: scale(1.02);
 }
 
 .brand-badge {
-  min-width: 58px;
-  height: 58px;
+  min-width: 68px;
+  height: 68px;
   border-radius: var(--radius-md);
   background: transparent;
   display: flex;
@@ -183,10 +189,10 @@ a {
 }
 
 .brand-logo-img {
-  max-width: 160px;
-  max-height: 58px;
+  max-width: 180px;
+  max-height: 68px;
   width: auto;
-  height: 58px;
+  height: 68px;
   object-fit: contain;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.12));
 }

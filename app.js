@@ -852,6 +852,13 @@
   function initNavigation() {
     const navTabs = document.querySelectorAll('.nav-tab');
     const tabViews = document.querySelectorAll('.tab-view');
+    const brandLogo = document.querySelector('.brand');
+
+    if (brandLogo) {
+      brandLogo.addEventListener('click', () => {
+        navigateToTab('dashboard');
+      });
+    }
 
     navTabs.forEach(tab => {
       tab.addEventListener('click', () => {
@@ -19545,6 +19552,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (b.dataset.theme === theme) b.classList.add('active');
       else b.classList.remove('active');
     });
+    
+    const headerToggle = document.getElementById('btnHeaderThemeToggle');
+    if (headerToggle) {
+      headerToggle.innerHTML = theme === 'dark' ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  const btnHeaderThemeToggle = document.getElementById('btnHeaderThemeToggle');
+  if (btnHeaderThemeToggle) {
+    btnHeaderThemeToggle.addEventListener('click', () => {
+      const currentTheme = document.body.className === 'theme-dark' ? 'dark' : 'light';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      if (!state.settings) state.settings = {};
+      state.settings.theme = newTheme;
+      saveState();
+      setTheme(newTheme);
+    });
   }
 
   const configInputEl = document.getElementById('configAppNameInput');
@@ -19578,11 +19603,31 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (window.db) {
         try {
           await db.collection('configuracion').doc('app_settings').set({ appName: val }, { merge: true });
-          showNotification('Nombre de la aplicación guardado permanentemente', 'success');
         } catch (e) {
-          showNotification('Error al guardar el nombre: ' + e.message, 'error');
+          console.warn('Error al guardar el nombre: ' + e.message);
         }
       }
+
+      // Ventana emergente (Modal) confirmando el cambio
+      const modalHtml = `
+        <div class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+          <div class="modal-card" style="background: var(--bg-card, #ffffff); border-radius: 12px; padding: 24px; width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color, #e2e8f0);">
+            <div style="margin-bottom: 16px; color: #10b981; display: flex; justify-content: center;">
+              <i data-lucide="check-circle" style="width: 48px; height: 48px;"></i>
+            </div>
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary, #1e293b); font-weight: 800;">¡Cambio Guardado!</h3>
+            <p style="margin: 0 0 24px 0; font-size: 14px; color: var(--text-secondary, #64748b);">El nombre de la aplicación se ha actualizado a <strong>${val}</strong>.</p>
+            <button id="btnConfirmAppNameChange" class="btn btn-primary" style="width: 100%; font-weight: 700; padding: 10px; border-radius: 8px;">Aceptar</button>
+          </div>
+        </div>
+      `;
+      const div = document.createElement('div');
+      div.innerHTML = modalHtml;
+      document.body.appendChild(div);
+      if (window.lucide) window.lucide.createIcons();
+      document.getElementById('btnConfirmAppNameChange').addEventListener('click', () => {
+        div.remove();
+      });
     });
   }
 
