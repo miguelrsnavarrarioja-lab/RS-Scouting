@@ -515,6 +515,19 @@
         if (Array.isArray(cartelera_calendarios) && cartelera_calendarios.length > 0) {
           state.cartelera.calendarios = cartelera_calendarios;
         }
+
+        if (localStorage && !localStorage.getItem('rs_scouting_hard_wipe_v4')) {
+          if (Array.isArray(state.cartelera.calendarios)) {
+             state.cartelera.calendarios.forEach(cal => {
+                if (cal.id) deleteFromFirebase('cartelera_calendarios', cal.id);
+             });
+          }
+          state.cartelera.calendarios = [];
+          state.cartelera.priorityTeams = [];
+          localStorage.setItem('rs_scouting_hard_wipe_v4', 'true');
+          saveState();
+        }
+
         if (typeof renderCartelera === 'function') renderCartelera();
         if (Array.isArray(configData?.notifications)) {
           state.notifications = configData.notifications;
