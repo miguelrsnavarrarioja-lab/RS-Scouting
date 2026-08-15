@@ -17301,7 +17301,7 @@
         if (currentTab === 'tab-category') {
           const selectedCat = catEl.value;
           const selectedGroup = groupCatEl.value;
-          const matchesCat = (selectedCat === 'all') || (e.categoria === selectedCat) || (e.competicion === selectedCat) || (e.liga === selectedCat);
+          const matchesCat = (selectedCat === 'all') || (e.competicion === selectedCat) || (e.categoria === selectedCat) || (e.liga === selectedCat);
           const matchesGroup = (selectedGroup === 'Todos los Grupos' || !selectedGroup) || (e.grupo === selectedGroup);
           matchesFilter = matchesCat && matchesGroup;
         } else {
@@ -17313,7 +17313,7 @@
         }
 
         if (matchesFilter) {
-          const cat = e.categoria || e.competicion || e.liga || 'all';
+          const cat = e.competicion || e.categoria || e.liga || 'all';
           const key = `${cat}|||${teamName}`;
           teamMap.set(key, { team: teamName, category: cat });
         }
@@ -17327,6 +17327,7 @@
       }
 
       listEl.innerHTML = teamsList.map(tObj => {
+        const key = `${tObj.category}|||${tObj.team}`;
         const isChecked = currentPrioritySet.has(key.toLowerCase());
         
         const displayName = tObj.category !== 'all' ? `${tObj.team} <span style="color:#888; font-size:10px;">(${tObj.category})</span>` : tObj.team;
