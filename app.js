@@ -1795,11 +1795,13 @@
         reports: grouped[k].reports
       })).sort((a, b) => b.sortKey - a.sortKey);
 
-      container.innerHTML = sortedGroups.map(g => {
+      container.innerHTML = sortedGroups.map((g, idx) => {
+        const groupId = 'week-group-' + g.sortKey + '-' + idx;
         const headerHTML = `
-          <div style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px;">
-            <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">
-              ${g.label}
+          <div class="week-group-header" data-group-id="${groupId}" style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px; cursor: pointer; user-select: none;">
+            <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+              <span>${g.label}</span>
+              <i data-lucide="chevron-up" class="week-group-icon" style="width: 18px; color: var(--text-muted); transition: transform 0.2s;"></i>
             </h3>
           </div>
         `;
@@ -1823,7 +1825,7 @@
           vLogo = getLogo(r.visitanteTeam);
 
           return `
-          <div class="match-card" style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="match-card" data-group-id="${groupId}" style="display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s;">
             <div class="match-card-header" style="justify-content: flex-start; padding-bottom: 4px;">
               <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
             </div>
@@ -1871,6 +1873,25 @@
         }).join('');
         return headerHTML + cardsHTML;
       }).join('');
+
+      container.querySelectorAll('.week-group-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const groupId = header.dataset.groupId;
+          const cards = container.querySelectorAll(`.match-card[data-group-id="${groupId}"]`);
+          const icon = header.querySelector('.week-group-icon');
+          
+          if (!cards.length) return;
+          const isHidden = cards[0].style.display === 'none';
+          
+          if (isHidden) {
+            cards.forEach(c => c.style.display = 'flex');
+            if (icon) icon.style.transform = 'rotate(0deg)';
+          } else {
+            cards.forEach(c => c.style.display = 'none');
+            if (icon) icon.style.transform = 'rotate(180deg)';
+          }
+        });
+      });
 
       container.querySelectorAll('.btn-edit-report').forEach(btn => {
         btn.addEventListener('click', () => openMatchReportEditor(btn.dataset.repid));
