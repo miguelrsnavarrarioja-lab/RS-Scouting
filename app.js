@@ -2901,9 +2901,9 @@
     'DBD': 'LATERALES', 'DBZ': 'LATERALES', 'LD': 'LATERALES', 'LI': 'LATERALES',
     'DCD': 'CENTRALES', 'DCZ': 'CENTRALES', 'DFC': 'CENTRALES',
     'MCD': 'MEDIOCENTROS', 'MCZ': 'MEDIOCENTROS', 'MC': 'MEDIOCENTROS',
-    'MBD': 'INTERIORES', 'MBZ': 'INTERIORES', 'MVD': 'INTERIORES', 'MVZ': 'INTERIORES',
+    'MVD': 'INTERIORES', 'MVZ': 'INTERIORES', 'ID': 'INTERIORES', 'IZ': 'INTERIORES',
     'MPD': 'MEDIAPUNTAS', 'MPZ': 'MEDIAPUNTAS', 'MP': 'MEDIAPUNTAS', 'MCO': 'MEDIAPUNTAS',
-    'ACD': 'BANDAS', 'ACZ': 'BANDAS', 'ED': 'BANDAS', 'EI': 'BANDAS',
+    'ACD': 'BANDAS', 'ACZ': 'BANDAS', 'ED': 'BANDAS', 'EI': 'BANDAS', 'MBD': 'BANDAS', 'MBZ': 'BANDAS',
     'AC': 'PUNTAS', 'DC': 'PUNTAS'
   };
 
@@ -3201,25 +3201,24 @@
         <div class="player-match-subtabs">
           <button type="button" class="player-match-subtab active" data-tab="pmTabDatos">DATOS PARTIDO JUGADOR</button>
           <button type="button" class="player-match-subtab" data-tab="pmTabEstadisticas">📊 ESTADÍSTICAS INDIVIDUALES</button>
+          <button type="button" class="player-match-subtab" data-tab="pmTabDescripciones">📝 DESCRIPCIONES</button>
         </div>
 
         <!-- TAB 1: DATOS PARTIDO JUGADOR -->
-        <div id="pmTabDatos" class="pm-tab-pane player-match-content-grid">
-          <div class="player-match-sidebar">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <div class="rating-score-box">
-                <div class="rating-score-title">RENDIMIENTO</div>
-                <div class="rating-score-value" id="valRendimientoDisplay">${escapeHtml(pEval.rendimiento)}</div>
-                <input type="range" id="pmRendimientoRange" min="1" max="4" value="${pEval.rendimiento === 'A' ? 4 : (pEval.rendimiento === 'B' ? 3 : (pEval.rendimiento === 'C' ? 2 : 1))}" style="width: 100%; margin-top: 4px;">
-              </div>
-
-              <div class="rating-score-box">
-                <div class="rating-score-title">POTENCIAL</div>
-                <div class="rating-score-value" style="color: #ec4899;" id="valPotencialDisplay">${escapeHtml(pEval.potencial)}</div>
-                <input type="range" id="pmPotencialRange" min="1" max="5" value="${escapeHtml(pEval.potencial)}" style="width: 100%; margin-top: 4px;">
-              </div>
+        <div id="pmTabDatos" class="pm-tab-pane" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- LÍNEA 1: Rendimiento, Potencial y Rendimiento RS -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px;">
+            <div class="rating-score-box">
+              <div class="rating-score-title">RENDIMIENTO</div>
+              <div class="rating-score-value" id="valRendimientoDisplay">${escapeHtml(pEval.rendimiento)}</div>
+              <input type="range" id="pmRendimientoRange" min="1" max="4" value="${pEval.rendimiento === 'A' ? 4 : (pEval.rendimiento === 'B' ? 3 : (pEval.rendimiento === 'C' ? 2 : 1))}" style="width: 100%; margin-top: 4px;">
             </div>
-
+            <div class="rating-score-box">
+              <div class="rating-score-title">POTENCIAL</div>
+              <div class="rating-score-value" style="color: #ec4899;" id="valPotencialDisplay">${escapeHtml(pEval.potencial)}</div>
+              <input type="range" id="pmPotencialRange" min="1" max="5" value="${escapeHtml(pEval.potencial)}" style="width: 100%; margin-top: 4px;">
+            </div>
             <div>
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
@@ -3229,63 +3228,88 @@
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D">D</button>
               </div>
             </div>
+          </div>
 
-            <div class="tags-control-grid" id="pmTagsGroup">
-              ${['🏆 11 Ideal', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
-                <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
-                  ${escapeHtml(tag)}
-                </button>
-              `).join('')}
+          <!-- LÍNEA 2: Botones de 11 ideal y tags -->
+          <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
+            ${['🏆 11 Ideal', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}" style="font-size: 11px; padding: 10px 4px;">
+                ${escapeHtml(tag)}
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- LÍNEA 3: Minutos, No Juega, Entra y Sale -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: center;">
+            <div>
+              <label class="form-label" style="font-size: 10px; font-weight: 800; display: block; text-align: center;">MINUTOS JUGADOS</label>
+              <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
-
-            <div class="form-group mb-1">
-              <label class="form-label" style="font-size: 10px; font-weight: 800;">MINUTOS JUGADOS</label>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 32px; box-sizing: border-box; padding: 0;">
-                <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; height: 32px; border-radius: 6px; box-sizing: border-box; font-size: 11px; border: 1px solid var(--border-light); font-weight: 800; width: 100%;">
-                  🚫 NO JUEGA
-                </button>
-              </div>
-              <div class="minutes-salir-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="margin: 0; width: 100%; height: 32px; box-sizing: border-box; font-size: 11px;">
-                  <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
-                </button>
-                <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="margin: 0; width: 100%; height: 32px; box-sizing: border-box; font-size: 11px;">
-                  <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
-                </button>
-              </div>
+            <div style="padding-top: 18px;">
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="margin: 0; display: flex; align-items: center; justify-content: center; height: 38px; border-radius: 6px; box-sizing: border-box; font-size: 11px; font-weight: 800; width: 100%;">
+                🚫 NO JUEGA
+              </button>
             </div>
-
-            <div class="form-group">
-              <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
-              <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 60px;" placeholder="Observaciones adicionales...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
+            <div style="padding-top: 18px;">
+              <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
+                <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
+              </button>
+            </div>
+            <div style="padding-top: 18px;">
+              <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
+                <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
+              </button>
             </div>
           </div>
 
-          <div class="player-match-main-grid">
-            <div class="desc-card-box">
-              <div class="desc-card-title">1. DESCRIPCIÓN FÍSICA</div>
-              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_FISICA, 'Añadir rasgo físico...', 'pmDescFisica')}
-              <textarea id="pmDescFisica" class="desc-card-textarea" placeholder="Escribe o selecciona rasgos físicos...">${escapeHtml(pEval.descFisica)}</textarea>
+          <!-- LÍNEA 4: Comentario General (75%) y Perfil RS (25%) -->
+          <div style="display: flex; gap: 16px;">
+            <div class="form-group" style="flex: 3;">
+              <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
+              <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones adicionales...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
             </div>
-
-            <div class="desc-card-box">
-              <div class="desc-card-title">2. DESCRIPCIÓN TÉCNICA</div>
-              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_TECNICA, 'Añadir acción técnica...', 'pmDescTecnica')}
-              <textarea id="pmDescTecnica" class="desc-card-textarea" placeholder="Escribe o selecciona acciones técnicas...">${escapeHtml(pEval.descTecnica)}</textarea>
-            </div>
-
-            <div class="desc-card-box">
-              <div class="desc-card-title">3. DESCRIPCIÓN EMOCIONAL</div>
-              ${buildKeepOpenDropdownHTML(OPTIONS_DESC_EMOCIONAL, 'Añadir rasgo emocional...', 'pmDescEmocional')}
-              <textarea id="pmDescEmocional" class="desc-card-textarea" placeholder="Escribe o selecciona rasgos emocionales...">${escapeHtml(pEval.descEmocional)}</textarea>
-            </div>
-
-            <div class="desc-card-box">
-              <div class="desc-card-title">4. PERFIL DEL JUGADOR (RS)</div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" style="font-size: 10px; font-weight: 800;">PERFIL DEL JUGADOR (RS)</label>
               ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
-              <textarea id="pmPerfilRS" class="desc-card-textarea" placeholder="Escribe o selecciona perfiles RS...">${escapeHtml(pEval.perfilRS)}</textarea>
+              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 70px; margin-top: 4px;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
             </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: DESCRIPCIONES -->
+        <div id="pmTabDescripciones" class="pm-tab-pane hidden" style="padding: 16px; overflow-y: auto; max-height: calc(90vh - 150px);">
+          
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">1. DESCRIPCIÓN FÍSICA</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+            ${Object.keys(OPTIONS_DESC_FISICA).map(key => `
+              <div class="desc-card-box" style="padding: 8px;">
+                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_FISICA[key] }, '+ Añadir...', `pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 50px;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+              </div>
+            `).join('')}
+          </div>
+
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+            ${Object.keys(OPTIONS_DESC_TECNICA).map(key => `
+              <div class="desc-card-box" style="padding: 8px;">
+                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_TECNICA[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 60px;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+              </div>
+            `).join('')}
+          </div>
+
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">3. DESCRIPCIÓN EMOCIONAL</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            ${Object.keys(OPTIONS_DESC_EMOCIONAL).map(key => `
+              <div class="desc-card-box" style="padding: 8px;">
+                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_EMOCIONAL[key] }, '+ Añadir...', `pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 60px;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+              </div>
+            `).join('')}
           </div>
         </div>
 
@@ -3541,13 +3565,23 @@
         sustituido: isSalir,
         minutoSalida: isSalir ? minutoSalida : 0,
         minutos: parseInt(modalContent.querySelector('#pmMinutos').value) || 0,
-        comentarioGeneral: modalContent.querySelector('#pmComentarioGeneral').value,
-        descFisica: modalContent.querySelector('#pmDescFisica').value,
-        descTecnica: modalContent.querySelector('#pmDescTecnica').value,
-        descEmocional: modalContent.querySelector('#pmDescEmocional').value,
-        perfilRS: modalContent.querySelector('#pmPerfilRS').value,
+        comentarioGeneral: modalContent.querySelector('#pmComentarioGeneral')?.value || '',
+        perfilRS: modalContent.querySelector('#pmPerfilRS')?.value || '',
         stats: pStats
       };
+
+      Object.keys(OPTIONS_DESC_FISICA).forEach(key => {
+        const fieldKey = 'descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        evalObj[fieldKey] = modalContent.querySelector('#pmDescFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+      });
+      Object.keys(OPTIONS_DESC_TECNICA).forEach(key => {
+        const fieldKey = 'descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        evalObj[fieldKey] = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+      });
+      Object.keys(OPTIONS_DESC_EMOCIONAL).forEach(key => {
+        const fieldKey = 'descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        evalObj[fieldKey] = modalContent.querySelector('#pmDescEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+      });
 
       state.matchPlayerEvaluations[evalKey] = evalObj;
 
