@@ -3256,7 +3256,7 @@
           <!-- LÍNEA 1: Rendimiento, Potencial, Rendimiento RS, Perfil RS -->
           <div style="display: flex; gap: 16px;">
             <!-- Rendimiento -->
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO</div>
               <div class="rs-pills-row" id="pmRendimientoGroup">
                 <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
@@ -3267,7 +3267,7 @@
             </div>
 
             <!-- Potencial -->
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">POTENCIAL</div>
               <div class="rs-pills-row" id="pmPotencialGroup">
                 ${[1,2,3,4,5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : '#fff'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
@@ -3275,7 +3275,7 @@
             </div>
 
             <!-- Rendimiento RS -->
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end;">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
@@ -3286,7 +3286,7 @@
             </div>
 
             <!-- Perfil RS -->
-            <div class="form-group" style="margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end;">
+            <div class="form-group" style="margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start;">
               <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">PERFIL DEL JUGADOR (RS)</label>
               ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
               <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
