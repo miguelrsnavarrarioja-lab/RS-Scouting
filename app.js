@@ -1762,71 +1762,114 @@
       `;
       document.getElementById('btnEmptyCreateReport')?.addEventListener('click', () => openMatchReportEditor());
     } else {
-      container.innerHTML = filtered.map(r => {
-        let lLogo = '';
-        let vLogo = '';
-        
-        const getLogo = (teamName) => {
-          if(!teamName) return '';
-          const eq = (state.directory.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
-          if(eq && eq.clubVinculado) {
-            const c = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
-            if(c && c.logo) return c.logo;
+      const grouped = {};
+      filtered.forEach(r => {
+        let label = 'Sin Fecha';
+        let sortKey = 0;
+        if (r.date || r.fecha) {
+          const d = new Date(r.date || r.fecha);
+          if (!isNaN(d.getTime())) {
+            const dayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1;
+            const monday = new Date(d);
+            monday.setDate(d.getDate() - dayOfWeek);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const m1 = monday.getMonth();
+            const m2 = sunday.getMonth();
+            if (m1 === m2) {
+              label = `Semana del ${monday.getDate()} al ${sunday.getDate()} de ${months[m1]}`;
+            } else {
+              label = `Semana del ${monday.getDate()} de ${months[m1]} al ${sunday.getDate()} de ${months[m2]}`;
+            }
+            sortKey = monday.getTime();
           }
-          const c2 = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === teamName.toLowerCase());
-          if(c2 && c2.logo) return c2.logo;
-          return '';
-        };
+        }
+        if (!grouped[label]) grouped[label] = { sortKey, reports: [] };
+        grouped[label].reports.push(r);
+      });
 
-        lLogo = getLogo(r.localTeam);
-        vLogo = getLogo(r.visitanteTeam);
+      const sortedGroups = Object.keys(grouped).map(k => ({
+        label: k,
+        sortKey: grouped[k].sortKey,
+        reports: grouped[k].reports
+      })).sort((a, b) => b.sortKey - a.sortKey);
 
-        return `
-        <div class="match-card" style="display: flex; flex-direction: column; gap: 8px;">
-          <div class="match-card-header" style="justify-content: flex-start; padding-bottom: 4px;">
-            <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
+      container.innerHTML = sortedGroups.map(g => {
+        const headerHTML = `
+          <div style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px;">
+            <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">
+              ${g.label}
+            </h3>
           </div>
+        `;
+        const cardsHTML = g.reports.map(r => {
+          let lLogo = '';
+          let vLogo = '';
+          
+          const getLogo = (teamName) => {
+            if(!teamName) return '';
+            const eq = (state.directory.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
+            if(eq && eq.clubVinculado) {
+              const c = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
+              if(c && c.logo) return c.logo;
+            }
+            const c2 = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === teamName.toLowerCase());
+            if(c2 && c2.logo) return c2.logo;
+            return '';
+          };
 
-          <!-- Línea 1 y 2: Escudo y Nombre Equipos -->
-          <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              ${lLogo ? `<img src="${lLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
-              <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
+          lLogo = getLogo(r.localTeam);
+          vLogo = getLogo(r.visitanteTeam);
+
+          return `
+          <div class="match-card" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="match-card-header" style="justify-content: flex-start; padding-bottom: 4px;">
+              <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              ${vLogo ? `<img src="${vLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
-              <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
+
+            <!-- Línea 1 y 2: Escudo y Nombre Equipos -->
+            <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${lLogo ? `<img src="${lLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
+                <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${vLogo ? `<img src="${vLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
+                <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
+              </div>
+            </div>
+
+            <div class="match-card-details" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
+              <!-- Línea 3: Fecha -->
+              <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
+              <!-- Línea 4: Resultado y Lugar -->
+              <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')} &nbsp;|&nbsp; <strong style="color: var(--primary-blue); font-size: 13px;">Res: ${r.localScore} - ${r.visitanteScore}</strong></div>
+              <!-- Competición -->
+              <div style="margin-top: 4px; font-weight: 600; color: var(--text-muted);"><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(r.competicion || r.categoria || 'Amistoso')}</div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+              <button class="btn btn-primary btn-edit-report" data-repid="${r.id}" style="flex: 1;">
+                <i data-lucide="edit"></i> Abrir Informe
+              </button>
+              ${!r.completado ? `
+              <button class="btn btn-success btn-complete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800;">
+                <i data-lucide="check-circle"></i> Completar Informe
+              </button>
+              ` : `
+              <button class="btn btn-secondary btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light);">
+                <i data-lucide="refresh-cw"></i> Reabrir
+              </button>
+              `}
+              <button class="btn btn-outline-danger btn-delete-report" data-repid="${r.id}">
+                <i data-lucide="trash-2"></i>
+              </button>
             </div>
           </div>
-
-          <div class="match-card-details" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
-            <!-- Línea 3: Fecha -->
-            <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
-            <!-- Línea 4: Resultado y Lugar -->
-            <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')} &nbsp;|&nbsp; <strong style="color: var(--primary-blue); font-size: 13px;">Res: ${r.localScore} - ${r.visitanteScore}</strong></div>
-            <!-- Competición -->
-            <div style="margin-top: 4px; font-weight: 600; color: var(--text-muted);"><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(r.competicion || r.categoria || 'Amistoso')}</div>
-          </div>
-
-          <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button class="btn btn-primary btn-edit-report" data-repid="${r.id}" style="flex: 1;">
-              <i data-lucide="edit"></i> Abrir Informe
-            </button>
-            ${!r.completado ? `
-            <button class="btn btn-success btn-complete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800;">
-              <i data-lucide="check-circle"></i> Completar Informe
-            </button>
-            ` : `
-            <button class="btn btn-secondary btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light);">
-              <i data-lucide="refresh-cw"></i> Reabrir
-            </button>
-            `}
-            <button class="btn btn-outline-danger btn-delete-report" data-repid="${r.id}">
-              <i data-lucide="trash-2"></i>
-            </button>
-          </div>
-        </div>
-      `;
+          `;
+        }).join('');
+        return headerHTML + cardsHTML;
       }).join('');
 
       container.querySelectorAll('.btn-edit-report').forEach(btn => {
