@@ -13305,8 +13305,8 @@
       if (!state.directoryCategoriesOrder) state.directoryCategoriesOrder = [];
 
       categories.sort((a, b) => {
-        const idxA = state.directoryCategoriesOrder.indexOf(a);
-        const idxB = state.directoryCategoriesOrder.indexOf(b);
+        const idxA = state.directoryCategoriesOrder.findIndex(c => c.toLowerCase().trim() === a.toLowerCase().trim());
+        const idxB = state.directoryCategoriesOrder.findIndex(c => c.toLowerCase().trim() === b.toLowerCase().trim());
         if (idxA !== -1 && idxB !== -1) return idxA - idxB;
         if (idxA !== -1) return -1;
         if (idxB !== -1) return 1;
@@ -14706,18 +14706,39 @@
         
         container.querySelectorAll('.btn-cat-draggable').forEach(b => {
           const val = b.dataset.val;
-          if (val && val !== 'TODOS' && !state.directoryCategoriesOrder.includes(val)) {
-            state.directoryCategoriesOrder.push(val);
+          if (val && val !== 'TODOS') {
+            const exists = state.directoryCategoriesOrder.some(c => c.toLowerCase().trim() === val.toLowerCase().trim());
+            if (!exists) state.directoryCategoriesOrder.push(val);
           }
         });
 
-        const fromIdx = state.directoryCategoriesOrder.indexOf(draggedCatName);
-        const toIdx = state.directoryCategoriesOrder.indexOf(targetCatName);
+        const fromIdx = state.directoryCategoriesOrder.findIndex(c => c.toLowerCase().trim() === draggedCatName.toLowerCase().trim());
+        const toIdx = state.directoryCategoriesOrder.findIndex(c => c.toLowerCase().trim() === targetCatName.toLowerCase().trim());
 
         if (fromIdx !== -1 && toIdx !== -1) {
           state.directoryCategoriesOrder.splice(fromIdx, 1);
-          state.directoryCategoriesOrder.splice(toIdx, 0, draggedCatName);
-          saveState();
+          
+          const newTargetIdx = state.directoryCategoriesOrder.findIndex(c => c.toLowerCase().trim() === targetCatName.toLowerCase().trim());
+          if (newTargetIdx !== -1) {
+            state.directoryCategoriesOrder.splice(newTargetIdx, 0, draggedCatName);
+          } else {
+            state.directoryCategoriesOrder.push(draggedCatName);
+          }
+          
+          // Deduplicate keeping the first occurrence
+          const seen = new Set();
+          state.directoryCategoriesOrder = state.directoryCategoriesOrder.filter(c => {
+            const lower = c.toLowerCase().trim();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+          });
+          
+          if (typeof saveStateImmediate === 'function') {
+            saveStateImmediate();
+          } else {
+            saveState();
+          }
           renderDirectorio();
         }
       });
@@ -15956,7 +15977,395 @@
 
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
+  }
+
+  // --------------------------------------------------------------------------
+  // X. SECTION: COMPARATIVA DE JUGADORES
+  // --------------------------------------------------------------------------
+  let comparativaState = {
+    mode: 'individual', // 'individual' or 'multiple'
+    individualPlayerId: '',
+    multiplePlayerIds: ['', '', '']
+  };
+
+  function calculatePlayerStats(playerId) {
+    if (!playerId) return null;
+    const directoryPlayers = state.directory?.jugadores || [];
+    const player = directoryPlayers.find(p => String(p.id) === String(playerId));
+    if (!player) return null;
+
+    let totalNota = 0;
+    let countNota = 0;
+    let positions = new Set();
+    let valoraciones = [];
+    let appearances = 0;
+
+    (state.reports || []).forEach(rep => {
+      let playedInThisMatch = false;
+      let matchDesc = `${rep.localTeam || 'Local'} vs ${rep.visitanteTeam || 'Visitante'} (${rep.date || 'Sin fecha'})`;
+      let playerEntries = [];
+      
+      const checkSystem = (sys) => {
+        if (!sys) return;
+        ['titulares', 'suplentes'].forEach(grp => {
+           (sys[grp] || []).forEach(row => {
+             ['player1', 'player2', 'player3', 'player4', 'player5', 'player6'].forEach(col => {
+                if (row[col] && String(row[col].id) === String(playerId)) {
+                   playerEntries.push(row[col]);
+                }
+             });
+           });
+        });
+      };
+
+      if (rep.localSystems) {
+         Object.values(rep.localSystems).forEach(sys => checkSystem(sys));
+      }
+      if (rep.visitanteSystems) {
+         Object.values(rep.visitanteSystems).forEach(sys => checkSystem(sys));
+      }
+
+      if (playerEntries.length > 0) {
+        playedInThisMatch = true;
+        
+        const entryWithNota = playerEntries.find(e => e.nota) || playerEntries[0];
+        if (entryWithNota && entryWithNota.nota) {
+          totalNota += Number(entryWithNota.nota);
+          countNota++;
+        }
+        
+        const entryWithValoracion = playerEntries.find(e => e.valoracion && e.valoracion.trim()) || null;
+        if (entryWithValoracion) {
+          valoraciones.push({ text: entryWithValoracion.valoracion, match: matchDesc, date: rep.date });
+        }
+        
+        playerEntries.forEach(e => {
+          if (e.pos) positions.add(e.pos);
+        });
+      }
+
+      if (playedInThisMatch) appearances++;
+    });
+
+    const avgNota = countNota > 0 ? (totalNota / countNota).toFixed(1) : 'N/A';
+    
+    valoraciones.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    return {
+      ...player,
+      appearances,
+      avgNota,
+      positions: Array.from(positions),
+      valoraciones
+    };
+  }
+
+  function getPlayerOptionsHTML(selectedId) {
+    const players = state.directory?.jugadores || [];
+    const sorted = [...players].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+    let html = `<option value="">-- Seleccionar Jugador --</option>`;
+    sorted.forEach(p => {
+      const isSelected = String(p.id) === String(selectedId) ? 'selected' : '';
+      const teamStr = p.equipo ? ` (${p.equipo})` : '';
+      html += `<option value="${escapeHtml(p.id)}" ${isSelected}>${escapeHtml(p.nombre)}${escapeHtml(teamStr)}</option>`;
+    });
+    return html;
+  }
+
+  function renderComparativa() {
+    const container = document.getElementById('comparativaContent');
+    if (!container) return;
+
+    document.querySelectorAll('.comp-mode-tab').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.comp-mode-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        comparativaState.mode = btn.dataset.mode;
+        renderComparativaContent();
+      };
+    });
+
+    document.querySelectorAll('.comp-mode-tab').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.comp-mode-tab[data-mode="${comparativaState.mode}"]`)?.classList.add('active');
+
+    const btnExport = document.getElementById('btnExportComparativaPDF');
+    if (btnExport) {
+      btnExport.onclick = () => {
+        exportarComparativaPDF();
+      };
     }
+
+    renderComparativaContent();
+  }
+
+  function renderComparativaContent() {
+    const container = document.getElementById('comparativaContent');
+    if (!container) return;
+
+    if (comparativaState.mode === 'individual') {
+      const stats = calculatePlayerStats(comparativaState.individualPlayerId);
+      
+      let profileHTML = '';
+      if (stats) {
+        profileHTML = `
+          <div style="display: flex; gap: 24px; margin-top: 24px; flex-wrap: wrap;">
+            
+            <!-- Izquierda: Datos Físicos y Resumen -->
+            <div style="flex: 1; min-width: 300px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px;">
+               <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+                  <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--primary-blue, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
+                    ${(stats.nombre || 'J').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main, #1e293b);">${escapeHtml(stats.nombre)}</h2>
+                    <div style="color: var(--text-muted, #64748b); font-size: 14px; font-weight: 600;">${escapeHtml(stats.equipo || 'Sin Equipo')}</div>
+                  </div>
+               </div>
+
+               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+                  <div style="background: var(--bg-subtle, #f8fafc); padding: 12px; border-radius: var(--radius-md, 6px);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Posición Principal</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.posicion || '-')}</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Año / Edad</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.ano || '-')}</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Altura</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${stats.altura ? escapeHtml(stats.altura) + ' cm' : '-'}</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Peso</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${stats.peso ? escapeHtml(stats.peso) + ' kg' : '-'}</div>
+                  </div>
+               </div>
+               
+               <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 12px; color: var(--text-main); border-bottom: 2px solid var(--border-light); padding-bottom: 8px;">Rendimiento (Informes)</h3>
+               <div style="display: flex; gap: 16px; align-items: center; justify-content: space-around; text-align: center;">
+                 <div>
+                   <div style="font-size: 32px; font-weight: 900; color: var(--primary-blue, #2563eb);">${stats.avgNota}</div>
+                   <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Nota Media</div>
+                 </div>
+                 <div>
+                   <div style="font-size: 32px; font-weight: 900; color: var(--status-success, #10b981);">${stats.appearances}</div>
+                   <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Partidos</div>
+                 </div>
+               </div>
+               
+               <div style="margin-top: 20px;">
+                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">Posiciones Vistas</div>
+                 <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                   ${stats.positions.length > 0 ? stats.positions.map(pos => `<span style="background: var(--bg-subtle); border: 1px solid var(--border-light); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: var(--text-main);">${escapeHtml(pos)}</span>`).join('') : '<span style="font-size: 12px; color: var(--text-muted);">Sin posiciones registradas</span>'}
+                 </div>
+               </div>
+               
+            </div>
+
+            <!-- Derecha: Timeline de Valoraciones -->
+            <div style="flex: 2; min-width: 300px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px;">
+              <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 16px; color: var(--text-main); border-bottom: 2px solid var(--border-light); padding-bottom: 8px;">Muro de Valoraciones (${stats.valoraciones.length})</h3>
+              <div style="max-height: 500px; overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 12px;">
+                ${stats.valoraciones.length > 0 ? stats.valoraciones.map(v => `
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md); border-left: 4px solid var(--primary-blue);">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--primary-blue); margin-bottom: 4px;">${escapeHtml(v.match)}</div>
+                    <div style="font-size: 13px; color: var(--text-main); font-weight: 500; line-height: 1.5;">${escapeHtml(v.text).replace(/\n/g, '<br>')}</div>
+                  </div>
+                `).join('') : '<div style="color: var(--text-muted); font-size: 13px; font-style: italic;">No hay valoraciones escritas en informes para este jugador.</div>'}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Seleccionar Jugador</label>
+          <select id="compIndividualSelect" class="form-control" style="max-width: 400px; font-weight: 600;">
+            ${getPlayerOptionsHTML(comparativaState.individualPlayerId)}
+          </select>
+        </div>
+        ${profileHTML}
+      `;
+
+      document.getElementById('compIndividualSelect').onchange = (e) => {
+        comparativaState.individualPlayerId = e.target.value;
+        renderComparativaContent();
+      };
+      
+    } else {
+      const maxSlots = 3;
+      let selectorsHTML = `<div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">`;
+      
+      for(let i=0; i<maxSlots; i++) {
+        selectorsHTML += `
+          <div style="flex: 1; min-width: 200px;">
+            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Jugador ${i+1}</label>
+            <select class="form-control comp-multi-select" data-index="${i}" style="font-weight: 600;">
+              ${getPlayerOptionsHTML(comparativaState.multiplePlayerIds[i])}
+            </select>
+          </div>
+        `;
+      }
+      selectorsHTML += `</div>`;
+
+      let tableHTML = '';
+      const selectedPlayers = comparativaState.multiplePlayerIds.map(id => calculatePlayerStats(id));
+      const activePlayers = selectedPlayers.filter(p => p !== null);
+
+      if (activePlayers.length > 0) {
+        
+        const renderRow = (label, propFn) => {
+          let row = `<div style="display: flex; border-bottom: 1px solid var(--border-light); padding: 12px 0;">
+            <div style="width: 140px; font-weight: 800; color: var(--text-muted); font-size: 12px; display: flex; align-items: center;">${label}</div>`;
+          for(let i=0; i<maxSlots; i++) {
+             const p = selectedPlayers[i];
+             row += `<div style="flex: 1; text-align: center; font-weight: ${label === 'Jugador' ? '800' : '600'}; color: var(--text-main); font-size: 14px; display: flex; align-items: center; justify-content: center;">`;
+             if (p) {
+               row += propFn(p);
+             } else {
+               row += `<span style="color: var(--text-muted); font-weight: 400;">-</span>`;
+             }
+             row += `</div>`;
+          }
+          row += `</div>`;
+          return row;
+        };
+
+        const renderBarRow = (label, propName, maxVal, color) => {
+          let row = `<div style="display: flex; border-bottom: 1px solid var(--border-light); padding: 16px 0; align-items: center;">
+            <div style="width: 140px; font-weight: 800; color: var(--text-muted); font-size: 12px;">${label}</div>`;
+          for(let i=0; i<maxSlots; i++) {
+             const p = selectedPlayers[i];
+             row += `<div style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">`;
+             if (p) {
+               let val = Number(p[propName]) || 0;
+               if (propName === 'avgNota' && p[propName] === 'N/A') val = 0;
+               
+               let pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+               if (pct > 100) pct = 100;
+               
+               row += `
+                 <div style="font-size: 18px; font-weight: 900; color: var(--text-dark);">${p[propName] || 0}</div>
+                 <div style="width: 80%; height: 8px; background: var(--bg-subtle, #f8fafc); border-radius: 4px; overflow: hidden; position: relative;">
+                   <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${pct}%; background: ${color}; border-radius: 4px; transition: width 0.5s ease-out;"></div>
+                 </div>
+               `;
+             } else {
+               row += `<span style="color: var(--text-muted); font-weight: 400;">-</span>`;
+             }
+             row += `</div>`;
+          }
+          row += `</div>`;
+          return row;
+        };
+
+        tableHTML = `
+          <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px; overflow-x: auto;">
+             <div style="min-width: 600px;">
+                ${renderRow('Jugador', p => escapeHtml(p.nombre))}
+                ${renderRow('Equipo', p => escapeHtml(p.equipo || 'Sin Equipo'))}
+                ${renderRow('Año', p => escapeHtml(p.ano || '-'))}
+                ${renderRow('Altura / Peso', p => `${p.altura ? escapeHtml(p.altura)+'cm' : '-'} / ${p.peso ? escapeHtml(p.peso)+'kg' : '-'}`)}
+                ${renderRow('Posición Principal', p => escapeHtml(p.posicion || '-'))}
+                ${renderRow('Posiciones Vistas', p => p.positions.length > 0 ? p.positions.map(pos => escapeHtml(pos)).join(', ') : '-')}
+                
+                <h4 style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase;">Métricas de Rendimiento</h4>
+                ${renderBarRow('Nota Media', 'avgNota', 10, 'var(--primary-blue)')}
+                ${renderBarRow('Partidos Analizados', 'appearances', Math.max(...activePlayers.map(p => p.appearances || 0), 5), 'var(--status-success)')}
+             </div>
+          </div>
+        `;
+      } else {
+        tableHTML = `
+          <div style="padding: 40px; text-align: center; color: var(--text-muted); font-weight: 600; font-size: 14px; border: 1px dashed var(--border-light); border-radius: var(--radius-lg);">
+            Selecciona al menos un jugador para comenzar la comparativa.
+          </div>
+        `;
+      }
+
+      container.innerHTML = selectorsHTML + tableHTML;
+
+      container.querySelectorAll('.comp-multi-select').forEach(sel => {
+        sel.onchange = (e) => {
+          const idx = parseInt(e.target.dataset.index, 10);
+          comparativaState.multiplePlayerIds[idx] = e.target.value;
+          renderComparativaContent();
+        };
+      });
+    }
+  }
+
+  function exportarComparativaPDF() {
+    const container = document.getElementById('comparativaContent');
+    if (!container) return;
+    
+    const clone = container.cloneNode(true);
+    
+    clone.querySelectorAll('select').forEach(sel => {
+      const selectedText = sel.options[sel.selectedIndex]?.text || '';
+      const textNode = document.createElement('div');
+      textNode.style.fontWeight = '800';
+      textNode.style.color = '#1e293b';
+      textNode.style.fontSize = '14px';
+      textNode.style.marginBottom = '8px';
+      textNode.textContent = selectedText.includes('-- Seleccionar') ? 'Sin seleccionar' : selectedText;
+      sel.parentNode.replaceChild(textNode, sel);
+    });
+    
+    clone.querySelectorAll('label').forEach(lbl => {
+       if (lbl.textContent.includes('Seleccionar') || lbl.textContent.includes('Jugador ')) {
+          lbl.style.display = 'none';
+       }
+    });
+
+    const printWin = window.open('', '', 'width=900,height=700');
+    printWin.document.write(`
+      <html>
+        <head>
+          <title>Comparativa de Jugadores</title>
+          <style>
+            :root {
+              --primary-blue: #2563eb;
+              --primary-dark: #1e3a8a;
+              --status-success: #10b981;
+              --text-main: #1e293b;
+              --text-muted: #64748b;
+              --bg-card: #ffffff;
+              --bg-subtle: #f8fafc;
+              --border-light: #e2e8f0;
+              --radius-md: 6px;
+              --radius-lg: 12px;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: var(--text-main);
+              margin: 0;
+              padding: 20px;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            h1 { font-size: 24px; color: var(--primary-dark); margin-bottom: 20px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
+            #comparativaContent { width: 100%; }
+            
+            @media print {
+               body { margin: 0; padding: 1cm; }
+               @page { margin: 0; size: A4; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Comparativa de Rendimiento - Jugadores</h1>
+          ${clone.innerHTML}
+        </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+    }, 500);
   }
 
   function renderCartelera() {

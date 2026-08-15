@@ -60,6 +60,10 @@
           <i data-lucide="folder-open"></i>
           <span>Directorio</span>
         </button>
+        <button class="nav-tab" data-tab="comparativa">
+          <i data-lucide="bar-chart-2"></i>
+          <span>Comparativa</span>
+        </button>
         <button class="nav-tab" data-tab="cartelera">
           <i data-lucide="film"></i>
           <span>Cartelera</span>
@@ -1192,6 +1196,31 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
       <!-- Match Cards / Tables Grid -->
       <div class="cartelera-matches-grid" id="carteleraMatchesGrid" style="display: flex; flex-direction: column; gap: 18px; width: 100%;">
         <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== COMPARATIVA VIEW ==================== -->
+    <section class="tab-view" id="view-comparativa" style="display: none;">
+      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="bar-chart-2"></i> Análisis y Comparativa
+        </h1>
+        <button class="btn btn-secondary" id="btnExportComparativaPDF" title="Exportar vista actual a PDF">
+          <i data-lucide="printer"></i> Exportar PDF
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
+        <button class="btn btn-secondary comp-mode-tab active" data-mode="individual" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
+          <i data-lucide="user"></i> Análisis Individual
+        </button>
+        <button class="btn btn-secondary comp-mode-tab" data-mode="multiple" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
+          <i data-lucide="users"></i> Comparativa Múltiple (Hasta 3)
+        </button>
+      </div>
+
+      <div id="comparativaContent">
+        <!-- Rendered by app.js -->
       </div>
     </section>
 
