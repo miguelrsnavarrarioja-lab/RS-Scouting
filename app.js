@@ -890,6 +890,14 @@
     });
   }
 
+  function renderAllViews() {
+    renderDashboard();
+    const activeTab = document.querySelector('.nav-tab.active');
+    if (activeTab && activeTab.dataset.tab && activeTab.dataset.tab !== 'dashboard') {
+      renderView(activeTab.dataset.tab);
+    }
+  }
+
   function renderView(tabName) {
     if (tabName === 'dashboard') renderDashboard();
     else if (tabName === 'calendario') renderCalendario();
@@ -2946,9 +2954,26 @@
       const nameVal = nameInput ? nameInput.value.trim() : '';
       const displayText = numVal ? numVal : (posVal || (idx + 1));
 
+      const pNum = numVal || (idx + 1);
+      const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
+      const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+      
+      let badgesHTML = '';
+      if (evalObj && evalObj.stats) {
+        const stats = evalObj.stats;
+        const goles = stats.goles || 0;
+        const amarillas = stats.amarillas || 0;
+        const rojas = stats.rojas || 0;
+        
+        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+        if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
+        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+      }
+
       return `
-        <div class="pitch-pin" data-team="${team}" data-type="titular" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="left: ${pos.x}%; top: ${pos.y}%; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
+        <div class="pitch-pin" data-team="${team}" data-type="titular" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="left: ${pos.x}%; top: ${pos.y}%; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; position: absolute;">
           ${escapeHtml(displayText)}
+          ${badgesHTML}
         </div>
       `;
     }).join('');
@@ -2967,10 +2992,27 @@
         const nameVal = nameInput ? nameInput.value.trim() : '';
         const displayText = numVal ? numVal : (posVal || ('S' + (idx + 1)));
 
+        const pNum = numVal || (12 + idx);
+        const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
+        const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+        
+        let badgesHTML = '';
+        if (evalObj && evalObj.stats) {
+          const stats = evalObj.stats;
+          const goles = stats.goles || 0;
+          const amarillas = stats.amarillas || 0;
+          const rojas = stats.rojas || 0;
+          
+          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+          if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
+          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+        }
+
         return `
           <div class="bench-pin-item" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + (posVal || 'Suplente') + (numVal ? ' #' + numVal : ''))}">
-            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
+            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
               ${escapeHtml(displayText)}
+              ${badgesHTML}
             </div>
           </div>
         `;
@@ -3737,13 +3779,10 @@
         }
       }
 
-      // Update UI visually
-      if (typeof renderPlayerRows === 'function') {
-        renderPlayerRows('local');
-        renderPlayerRows('visitante');
-      }
-      if (typeof updatePlayerMarkers === 'function') {
-        updatePlayerMarkers();
+      // Update pitch visually to reflect any new stat badges (like goals)
+      if (typeof renderPitchPins === 'function') {
+        renderPitchPins('local');
+        renderPitchPins('visitante');
       }
 
       hideModal();
@@ -17395,8 +17434,132 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
-  function generateMatchesPDF() {
-    let matchesList = [...(currentCarteleraFilteredMatches || [])];
+  function showExportCarteleraModal() {
+    showModal('📄 Opciones de Exportación PDF', `
+      <div style="font-size: 13px; margin-bottom: 16px;">
+        Selecciona qué partidos quieres exportar a PDF:
+      </div>
+      <form id="formExportPDF" onsubmit="return false;">
+        <div class="mb-3" style="display: flex; flex-direction: column; gap: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="exportType" value="current" checked style="accent-color: #2563eb;">
+            <span style="font-weight: 600;">Exportar Vista Actual (Partidos filtrados en la tabla)</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="exportType" value="range" style="accent-color: #2563eb;">
+            <span style="font-weight: 600;">Exportar Rango de Fechas (Todo el calendario entre dos fechas)</span>
+          </label>
+        </div>
+
+        <div id="exportRangeControls" style="display: none; background: var(--bg-subtle); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 700;">Fecha Desde:</label>
+              <input type="date" id="exportDateFrom" class="form-control form-control-sm">
+            </div>
+            <div>
+              <label style="font-size: 11px; font-weight: 700;">Fecha Hasta:</label>
+              <input type="date" id="exportDateTo" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+            Se incluirán todos los partidos guardados de cualquier competición cuyas fechas caigan dentro de este rango. Se respetarán las marcas de Prioridad.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: #2563eb;">
+            <i data-lucide="printer"></i> Generar PDF
+          </button>
+        </div>
+      </form>
+    `, () => {
+      const type = document.querySelector('input[name="exportType"]:checked')?.value || 'current';
+      if (type === 'current') {
+        hideModal();
+        generateMatchesPDF();
+        return;
+      }
+
+      // Handle Range Export
+      const fromStr = document.getElementById('exportDateFrom')?.value;
+      const toStr = document.getElementById('exportDateTo')?.value;
+      
+      if (!fromStr || !toStr) {
+        alert('Por favor selecciona ambas fechas.');
+        return false;
+      }
+      
+      // Filter logic
+      const fromDate = new Date(fromStr + 'T00:00:00');
+      const toDate = new Date(toStr + 'T23:59:59');
+      
+      const calendarios = state.cartelera.calendarios || [];
+      const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
+      let customMatches = [];
+      
+      calendarios.forEach(cal => {
+        (cal.partidos || []).forEach(m => {
+          if (!m.fecha) return;
+          const matchDate = new Date(m.fecha + 'T12:00:00'); // roughly middle of day
+          if (matchDate >= fromDate && matchDate <= toDate) {
+            
+            // Recompute priority specifically for this match
+            const locLower = (m.local || '').toLowerCase();
+            const visLower = (m.visitante || '').toLowerCase();
+            const comp = m.competicion || cal.nombre || 'General';
+
+            const isPriority = (teamLower, matchComp) => priorityTeamsLower.some(pt => {
+               const parts = pt.split('|||');
+               const ptCat = parts.length > 1 ? parts[0] : 'all';
+               const ptTeam = parts.length > 1 ? parts[1] : pt;
+               if (ptCat !== 'all' && matchComp.toLowerCase() !== ptCat) return false;
+               return ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
+            });
+
+            const isPriorityLocal = isPriority(locLower, comp);
+            const isPriorityVisitante = isPriority(visLower, comp);
+            const isHighInterest = isPriorityLocal || isPriorityVisitante;
+            const isClash = isPriorityLocal && isPriorityVisitante;
+            const fed = m.federacion || cal.federacion || 'General';
+
+            customMatches.push({
+              ...m,
+              competicion: comp,
+              federacion: fed,
+              isPriorityLocal,
+              isPriorityVisitante,
+              isHighInterest,
+              isClash
+            });
+          }
+        });
+      });
+      
+      if (customMatches.length === 0) {
+        alert('No se encontraron partidos en ese rango de fechas en los calendarios importados.');
+        return false;
+      }
+      
+      hideModal();
+      generateMatchesPDF(customMatches);
+    });
+
+    const radios = document.querySelectorAll('input[name="exportType"]');
+    const rangeControls = document.getElementById('exportRangeControls');
+    radios.forEach(r => {
+      r.onchange = () => {
+        rangeControls.style.display = (r.value === 'range') ? 'block' : 'none';
+      };
+    });
+    
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+
+  function generateMatchesPDF(customMatches = null) {
+    let matchesList = customMatches || [...(currentCarteleraFilteredMatches || [])];
 
     if (matchesList.length === 0) {
       showToast('⚠️ No hay partidos en la tabla filtrada actual para exportar.');
@@ -17586,7 +17749,7 @@
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
     if (btnExportPdf && !btnExportPdf.dataset.initialized) {
       btnExportPdf.dataset.initialized = 'true';
-      btnExportPdf.onclick = () => generateMatchesPDF();
+      btnExportPdf.onclick = () => showExportCarteleraModal();
     }
 
     const btnPaste = document.getElementById('btnPasteCalendarText');
