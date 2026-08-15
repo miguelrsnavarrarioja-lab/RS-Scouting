@@ -2253,6 +2253,26 @@
     return '';
   }
 
+  function findAllCoachesForTeam(teamName) {
+    if (!teamName || !state.directory) return [];
+    let coaches = [];
+    if (state.directory.staff && Array.isArray(state.directory.staff)) {
+      coaches = state.directory.staff.filter(s => {
+        const t = s.equipo || s.team || '';
+        const teamMatch = t && (t.toLowerCase().includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(t.toLowerCase()));
+        const cargo = (s.cargo || s.puesto || '').toUpperCase();
+        const isCoach = !cargo || cargo.includes('ENTRENADOR') || cargo.includes('TÉCNICO') || cargo.includes('COACH');
+        return teamMatch && isCoach;
+      }).map(s => s.nombre || s.staff || '').filter(Boolean);
+    }
+    const teamObj = findTeamInDirectory(teamName);
+    if (teamObj && (teamObj.entrenador || teamObj.tecnico || teamObj.entrenadorPrincipal)) {
+      const tCoach = teamObj.entrenador || teamObj.tecnico || teamObj.entrenadorPrincipal;
+      if (!coaches.includes(tCoach)) coaches.push(tCoach);
+    }
+    return coaches;
+  }
+
   function updateMatchTeamBadgeAndColor(team, isInit = false) {
     const teamInput = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam');
     const badgeLabel = document.getElementById(`${team}TeamBadge`);
@@ -2261,11 +2281,22 @@
     const teamName = teamInput.value.trim();
     const teamObj = findTeamInDirectory(teamName);
 
-    // Auto-fill Coach if coach input is empty
+    // Auto-fill or clear Coach
     const coachInput = document.getElementById(team === 'local' ? 'localEntrenador' : 'visitanteEntrenador');
-    if (coachInput && !coachInput.value) {
+    if (coachInput) {
+      if (!isInit) coachInput.value = ''; // Vaciar al cambiar equipo, para que no arrastre de otro
+
       const coachName = findCoachForTeam(teamName);
-      if (coachName) coachInput.value = coachName;
+      if (coachName && (!isInit || !coachInput.value)) {
+        coachInput.value = coachName;
+      }
+      
+      // Update Datalist
+      const datalist = document.getElementById(`${team}CoachDatalist`);
+      if (datalist) {
+        const coaches = findAllCoachesForTeam(teamName);
+        datalist.innerHTML = coaches.map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+      }
     }
 
     let badgeSrc = '';
@@ -2658,17 +2689,28 @@
     const jugadores = state.directory.jugadores || [];
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
-    
+    // Gather all currently entered names in the lineups
+    const enteredNames = [];
+    document.querySelectorAll(`#${team}TitularesRows input.name, #${team}SuplentesRows input.name`).forEach(input => {
+      const val = input.value.trim().toLowerCase();
+      if (val) enteredNames.push(val);
+    });
+
     let teamPlayers = jugadores.filter(p => {
       const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
       let matchesTeam = pTeam === teamName || pTeam.includes(teamName) || teamName.includes(pTeam);
+      const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
-        const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
         matchesTeam = targetTeam.plantilla.some(item => {
           const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
           return itemName === pName;
         });
       }
+      
+      // Do not include if already typed in one of the inputs
+      if (enteredNames.includes(pName)) return false;
+
       return matchesTeam;
     });
 
@@ -2773,12 +2815,14 @@
               }
               */
               renderPitchPins(team);
+              updateTeamPlayersDatalist(team);
             }
           }
         });
 
         nameInput?.addEventListener('input', () => {
           renderPitchPins(team);
+          updateTeamPlayersDatalist(team);
         });
 
         posSelect?.addEventListener('change', () => {
@@ -3273,9 +3317,13 @@
               <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
               <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones adicionales...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
             </div>
-            <div class="form-group" style="flex: 1;">
+            <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
               <label class="form-label" style="font-size: 10px; font-weight: 800;">POSICIÓN ALTERNATIVA</label>
-              <input type="text" id="pmPosicionAlternativa" class="form-control" placeholder="Ej: MBD" value="${escapeHtml(pEval.posicionAlternativa || '')}" style="font-weight: 800; text-align: center; height: 38px;">
+              <select id="pmPosicionAlternativa" class="form-control" style="font-weight: 800; text-align: center; height: 38px; margin-bottom: 4px;">
+                <option value="">(Ninguna)</option>
+                ${Object.keys(POSITION_TO_PERFIL_GROUP).map(pos => `<option value="${escapeHtml(pos)}" ${pEval.posicionAlternativa === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`).join('')}
+              </select>
+              <input type="text" id="pmPosicionAlternativaNota" class="form-control" placeholder="Añadir nota sobre la posición..." value="${escapeHtml(pEval.posicionAlternativaNota || '')}" style="height: 38px; font-size: 11px; flex: 1;">
             </div>
           </div>
         </div>
@@ -3370,33 +3418,7 @@
       });
     });
 
-    modalContent.querySelectorAll('.custom-dropdown-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const val = e.currentTarget.dataset.val;
-        const targetId = e.currentTarget.dataset.target;
-        if (!val || !targetId) return;
-        const targetTextarea = modalContent.querySelector('#' + targetId);
-        if (targetTextarea) {
-          const current = targetTextarea.value.trim();
-          let parts = current ? current.split(',').map(s => s.trim()).filter(Boolean) : [];
-          if (parts.includes(val)) {
-            parts = parts.filter(p => p !== val);
-            e.currentTarget.innerHTML = escapeHtml(val);
-          } else {
-            parts.push(val);
-            e.currentTarget.innerHTML = escapeHtml(val) + ` <i data-lucide="check" style="width:14px; height:14px; color:var(--primary-color); float:right;"></i>`;
-            if (window.lucide) window.lucide.createIcons();
-          }
-          targetTextarea.value = parts.join(', ');
-        }
-      });
-    });
-
-    // Close custom dropdowns when clicking outside
-    modalContent.addEventListener('click', () => {
-      modalContent.querySelectorAll('.custom-dropdown-menu').forEach(m => m.classList.add('hidden'));
-    });
+    // (Global event listeners handle custom dropdown clicks and outside clicks)
 
     // Rendimiento RS Pills
     modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(btn => {
@@ -3571,6 +3593,7 @@
         minutos: parseInt(modalContent.querySelector('#pmMinutos').value) || 0,
         comentarioGeneral: modalContent.querySelector('#pmComentarioGeneral')?.value || '',
         posicionAlternativa: modalContent.querySelector('#pmPosicionAlternativa')?.value || '',
+        posicionAlternativaNota: modalContent.querySelector('#pmPosicionAlternativaNota')?.value || '',
         perfilRS: modalContent.querySelector('#pmPerfilRS')?.value || '',
         stats: pStats
       };
@@ -6414,9 +6437,10 @@
             <p class="mb-4" style="font-size: 12px; color: var(--text-muted);">Estilo y competiciones preferidas.</p>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-              <div class="form-group">
+              <div class="form-group" style="position: relative;">
                 <label class="form-label">ESTILO DE JUEGO</label>
-                <input type="text" id="tfEstiloJuego" class="form-control" placeholder="Ej: Posesión / Presión alta" value="${escapeHtml(estiloJuego)}">
+                ${buildKeepOpenDropdownHTML({'Estilos de Juego': ['Posesión / Combinativo', 'Juego Directo', 'Contraataque', 'Juego de Transiciones', 'Presión Alta', 'Bloque Medio', 'Bloque Bajo', 'Repliegue Intensivo', 'Juego por Bandas', 'Juego Interior']}, 'Añadir...', 'tfEstiloJuego')}
+                <textarea id="tfEstiloJuego" class="desc-card-textarea" style="height: 50px;" placeholder="Ej: Posesión / Presión alta...">${escapeHtml(estiloJuego)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">SISTEMA HABITUAL</label>
@@ -8101,9 +8125,10 @@
             <p class="mb-4" style="font-size: 12px; color: var(--text-muted);">Estilo táctico de juego.</p>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-              <div class="form-group">
+              <div class="form-group" style="position: relative;">
                 <label class="form-label">ESTILO TÁCTICO</label>
-                <input type="text" id="sfEstiloTactico" class="form-control" placeholder="Ej: Posesión / Presión alta" value="${escapeHtml(estiloTactico)}">
+                ${buildKeepOpenDropdownHTML({'Estilos Tácticos': ['Posesión / Combinativo', 'Juego Directo', 'Contraataque', 'Juego de Transiciones', 'Presión Alta', 'Bloque Medio', 'Bloque Bajo', 'Repliegue Intensivo', 'Juego por Bandas', 'Juego Interior']}, 'Añadir...', 'sfEstiloTactico')}
+                <textarea id="sfEstiloTactico" class="desc-card-textarea" style="height: 50px;" placeholder="Ej: Posesión / Presión alta...">${escapeHtml(estiloTactico)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">SISTEMA TÁCTICO HABITUAL</label>
@@ -20101,6 +20126,37 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   });
 
   document.addEventListener('click', (e) => {
+    // Custom Dropdown Item Global Handler
+    const dropdownItem = e.target.closest('.custom-dropdown-item');
+    if (dropdownItem) {
+      e.stopPropagation();
+      const val = dropdownItem.dataset.val;
+      const targetId = dropdownItem.dataset.target;
+      if (val && targetId) {
+        const targetTextarea = document.getElementById(targetId);
+        if (targetTextarea) {
+          const current = targetTextarea.value.trim();
+          let parts = current ? current.split(',').map(s => s.trim()).filter(Boolean) : [];
+          if (parts.includes(val)) {
+            parts = parts.filter(p => p !== val);
+            dropdownItem.innerHTML = escapeHtml(val);
+          } else {
+            parts.push(val);
+            dropdownItem.innerHTML = escapeHtml(val) + ` <i data-lucide="check" style="width:14px; height:14px; color:var(--primary-color); float:right;"></i>`;
+            if (window.lucide) window.lucide.createIcons();
+          }
+          targetTextarea.value = parts.join(', ');
+          targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+      return;
+    }
+
+    // Close Custom Dropdowns on outside click
+    if (!e.target.closest('.custom-dropdown-wrapper')) {
+      document.querySelectorAll('.custom-dropdown-menu:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    }
+
     const input = e.target;
     if (!input || input.tagName !== 'INPUT') return;
 
@@ -20194,6 +20250,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // 12. App Initialization
   // --------------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
+    // Inyectar selectores múltiples de Estilo de Juego para Informes de Partido
+    const matchEstilos = {'Estilos de Juego': ['Posesión / Combinativo', 'Juego Directo', 'Contraataque', 'Juego de Transiciones', 'Presión Alta', 'Bloque Medio', 'Bloque Bajo', 'Repliegue Intensivo', 'Juego por Bandas', 'Juego Interior']};
+    const localCont = document.getElementById('localEstiloJuegoContainer');
+    if(localCont) localCont.innerHTML = buildKeepOpenDropdownHTML(matchEstilos, 'Añadir estilo...', 'localEstiloJuego');
+    const visCont = document.getElementById('visitanteEstiloJuegoContainer');
+    if(visCont) visCont.innerHTML = buildKeepOpenDropdownHTML(matchEstilos, 'Añadir estilo...', 'visitanteEstiloJuego');
+
     initNavigation();
     initCalendarViewSwitcher();
     initDirectorioSubtabs();

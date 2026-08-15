@@ -594,19 +594,7 @@
 
               <div class="eval-row">
                 <label class="eval-label">ESTILO DE JUEGO</label>
-                <select class="form-control select-compact team-option-select mb-1" data-target="localEstiloJuego">
-                  <option value="">+ Seleccionar estilo de juego...</option>
-                  <option value="Combinativo">Combinativo</option>
-                  <option value="Directo">Directo</option>
-                  <option value="Contraataque">Contraataque</option>
-                  <option value="Posesión">Posesión</option>
-                  <option value="Repliegue">Repliegue</option>
-                  <option value="Presión alta">Presión alta</option>
-                  <option value="Basculaciones">Basculaciones</option>
-                  <option value="Transiciones rápidas">Transiciones rápidas</option>
-                  <option value="Juego por bandas">Juego por bandas</option>
-                  <option value="Juego interior">Juego interior</option>
-                </select>
+                <div id="localEstiloJuegoContainer" style="position: relative;"></div>
                 <textarea id="localEstiloJuego" class="form-control textarea-compact" style="height: 55px;" placeholder="Selecciona o escribe observaciones sobre el estilo de juego..."></textarea>
               </div>
 
@@ -648,7 +636,8 @@
                   </button>
                 </div>
 
-                <input type="text" id="localEntrenador" class="form-control mb-2" placeholder="Nombre entrenador (auto / manual)...">
+                <input type="text" id="localEntrenador" class="form-control mb-2" list="localCoachDatalist" placeholder="Nombre entrenador (auto / manual)...">
+                <datalist id="localCoachDatalist"></datalist>
 
                 <div class="eval-row mb-2">
                   <label class="eval-label" style="font-size: 10px;">NOTA ENTRENADOR (1-5)</label>
@@ -779,19 +768,7 @@
 
               <div class="eval-row">
                 <label class="eval-label">ESTILO DE JUEGO</label>
-                <select class="form-control select-compact team-option-select mb-1" data-target="visitanteEstiloJuego">
-                  <option value="">+ Seleccionar estilo de juego...</option>
-                  <option value="Combinativo">Combinativo</option>
-                  <option value="Directo">Directo</option>
-                  <option value="Contraataque">Contraataque</option>
-                  <option value="Posesión">Posesión</option>
-                  <option value="Repliegue">Repliegue</option>
-                  <option value="Presión alta">Presión alta</option>
-                  <option value="Basculaciones">Basculaciones</option>
-                  <option value="Transiciones rápidas">Transiciones rápidas</option>
-                  <option value="Juego por bandas">Juego por bandas</option>
-                  <option value="Juego interior">Juego interior</option>
-                </select>
+                <div id="visitanteEstiloJuegoContainer" style="position: relative;"></div>
                 <textarea id="visitanteEstiloJuego" class="form-control textarea-compact" style="height: 55px;" placeholder="Selecciona o escribe observaciones sobre el estilo de juego..."></textarea>
               </div>
 
@@ -833,7 +810,8 @@
                   </button>
                 </div>
 
-                <input type="text" id="visitanteEntrenador" class="form-control mb-2" placeholder="Nombre entrenador (auto / manual)...">
+                <input type="text" id="visitanteEntrenador" class="form-control mb-2" list="visitanteCoachDatalist" placeholder="Nombre entrenador (auto / manual)...">
+                <datalist id="visitanteCoachDatalist"></datalist>
 
                 <div class="eval-row mb-2">
                   <label class="eval-label" style="font-size: 10px;">NOTA ENTRENADOR (1-5)</label>
