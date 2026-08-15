@@ -2075,6 +2075,27 @@
       }
     };
 
+    // Auto-completar nombres vacíos si el dorsal existe ahora en la plantilla
+    const localTeamName = repData.localTeam || '';
+    const visitanteTeamName = repData.visitanteTeam || '';
+    
+    ['local', 'visitante'].forEach(team => {
+      const teamName = team === 'local' ? localTeamName : visitanteTeamName;
+      ['principal', 'secundario', 'ocasional'].forEach(role => {
+        ['titulares', 'suplentes'].forEach(group => {
+          const players = matchTacticalSystems[team]?.[role]?.[group] || [];
+          players.forEach(p => {
+            if (p.num && (!p.name || !p.name.trim())) {
+              const matchedPlayer = findPlayerByTeamAndDorsal(teamName, p.num);
+              if (matchedPlayer) {
+                p.name = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
+              }
+            }
+          });
+        });
+      });
+    });
+
     // Update active tab buttons UI
     ['local', 'visitante'].forEach(team => {
       const container = document.getElementById(`${team}RoleTabs`);
