@@ -17624,7 +17624,8 @@
     ]);
 
     (state.directory.equipos || []).forEach(e => {
-      if (e.categoria) catSet.add(e.categoria);
+      const c = e.competicion || e.categoria || e.liga;
+      if (c) catSet.add(c);
     });
 
     (state.cartelera?.calendarios || []).forEach(cal => {
@@ -17650,12 +17651,12 @@
     showModal('📥 Importador de Calendario de Partidos', `
       <form id="formImportTextCalendar" onsubmit="return false;">
         <div class="form-group mb-3">
-          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Categoría</label>
+          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Competición</label>
           <select id="importCompSelect" class="form-control mb-2" style="font-size: 13px; font-weight: 700;">
             ${catOptions}
-            <option value="__custom__">+ Otra Categoría personalizada...</option>
+            <option value="__custom__">+ Otra Competición personalizada...</option>
           </select>
-          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: DHJ)">
+          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la competición (ej: 1DIV)">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
@@ -17698,7 +17699,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const grpValue = document.getElementById('importGrupo')?.value.trim() || '';
 
       if (!compName) {
-        alert('Por favor selecciona o escribe el nombre de la categoría/competición.');
+        alert('Por favor selecciona o escribe el nombre de la competición.');
         document.getElementById('importCompSelect')?.focus();
         return false;
       }
