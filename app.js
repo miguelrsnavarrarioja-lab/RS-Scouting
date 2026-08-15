@@ -875,6 +875,7 @@
     else if (tabName === 'partidos') renderPartidosList();
     else if (tabName === 'directorio') renderDirectorio();
     else if (tabName === 'comparativa') renderComparativa();
+    else if (tabName === 'mapas') renderMapas();
     else if (tabName === 'cartelera') renderCartelera();
     else if (tabName === 'agenda') renderAgenda();
     else if (tabName === 'enlaces') renderEnlaces();
@@ -19833,6 +19834,184 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   window.alert = function (message) {
     showCustomAlertModal('Aviso del Sistema', message);
   };
+
+  // --------------------------------------------------------------------------
+  // 3.8 SECTION: MAPAS (11 IDEAL)
+  // --------------------------------------------------------------------------
+  function renderMapas() {
+    const container = document.getElementById('view-mapas');
+    if (!container) return;
+
+    // Poblar selector de Categorías (Años)
+    const selCat = document.getElementById('selMapasCategoria');
+    const players = state.directory?.jugadores || [];
+    const anios = new Set();
+    players.forEach(p => {
+      if (p.ano && String(p.ano).trim() !== '') {
+        anios.add(String(p.ano).trim());
+      }
+    });
+    
+    const sortedAnios = Array.from(anios).sort((a, b) => b.localeCompare(a));
+    selCat.innerHTML = `<option value="">-- Todas las categorías --</option>` + 
+      sortedAnios.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+
+    // Assign events
+    selCat.onchange = renderMapasPins;
+    document.getElementById('selMapasSistema').onchange = renderMapasPins;
+    
+    const btnExport = document.getElementById('btnExportMapasPDF');
+    if (btnExport) btnExport.onclick = exportarMapasPDF;
+
+    renderMapasPins();
+  }
+
+  function renderMapasPins() {
+    const container = document.getElementById('mapasCampogramaPins');
+    if (!container) return;
+    
+    const selCat = document.getElementById('selMapasCategoria')?.value;
+    const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
+    
+    container.innerHTML = '';
+    
+    // Position dictionary mapping
+    const positions = FORMATION_POSITIONS[sysSelect] || FORMATION_POSITIONS['1-4-3-3'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+
+    const players = state.directory?.jugadores || [];
+    
+    // Filter by year and 11 IDEAL
+    const filteredPlayers = players.filter(p => {
+      const is11Ideal = (p.controlSeguimiento || []).includes('11 IDEAL');
+      if (!is11Ideal) return false;
+      if (selCat && String(p.ano).trim() !== selCat) return false;
+      return true;
+    });
+
+    // Group players by position slot
+    const slotMap = {};
+    defaultPositions.forEach((_, idx) => { slotMap[idx] = []; });
+
+    filteredPlayers.forEach(p => {
+      const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+      let assigned = false;
+      
+      // Exact match
+      defaultPositions.forEach((posCode, idx) => {
+        if (!assigned && posCode.toUpperCase().trim() === pPrimary) {
+          slotMap[idx].push(p);
+          assigned = true;
+        }
+      });
+      
+      // Fuzzy match if not exactly assigned
+      if (!assigned) {
+        defaultPositions.forEach((posCode, idx) => {
+          if (!assigned && pPrimary && (pPrimary.includes(posCode) || posCode.includes(pPrimary))) {
+            slotMap[idx].push(p);
+            assigned = true;
+          }
+        });
+      }
+    });
+
+    const curPrimaryColor = '#2563eb';
+    const curTextColor = '#ffffff';
+
+    container.innerHTML = positions.map((posCoords, slotIdx) => {
+      const posCode = defaultPositions[slotIdx] || 'MC';
+      const matchingPlayers = slotMap[slotIdx] || [];
+
+      let playersHTML = '';
+      if (matchingPlayers.length > 0) {
+        playersHTML = matchingPlayers.map(p => `
+          <div class="mapas-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            ${escapeHtml(p.nombre || p.jugador)}
+          </div>
+        `).join('');
+      } else {
+        playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin jugadores</div>`;
+      }
+
+      return `
+        <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+            ${escapeHtml(posCode)}
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            ${playersHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.mapas-player-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pId = link.dataset.playerid;
+        if (pId) {
+          const card = document.querySelector('.player-card-modal');
+          if (card) card.classList.remove('large');
+          hideModal();
+          openPlayerModal(pId);
+        }
+      });
+    });
+  }
+
+  function exportarMapasPDF() {
+    const selCat = document.getElementById('selMapasCategoria')?.value || 'Todas las categorías';
+    const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
+    const pitch = document.getElementById('mapasCampogramaPitch');
+    if (!pitch) return;
+
+    const clone = pitch.cloneNode(true);
+
+    const printWin = window.open('', '', 'width=900,height=700');
+    printWin.document.write(`
+      <html>
+        <head>
+          <title>Mapas • 11 Ideal</title>
+          <style>
+            :root {
+              --primary-blue: #2563eb;
+              --primary-dark: #1e3a8a;
+              --text-main: #1e293b;
+              --radius-md: 6px;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; }
+            .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 20px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
+            .pitch-container { width: 100%; height: 600px; position: relative; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="header-main">Mapas (11 Ideal)</div>
+          <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} | Sistema Táctico: ${escapeHtml(sysSelect)}</div>
+          
+          <div class="pitch-container">
+            ${clone.outerHTML}
+          </div>
+          
+          <script>
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
+  }
 
   // Utility HTML Escape
   function escapeHtml(str) {
