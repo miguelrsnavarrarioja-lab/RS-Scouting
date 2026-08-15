@@ -3228,7 +3228,7 @@
             </div>
 
             <div class="tags-control-grid" id="pmTagsGroup">
-              ${['🚫 No juega', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
+              ${['🏆 11 Ideal', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
                 <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
                   ${escapeHtml(tag)}
                 </button>
@@ -3237,12 +3237,17 @@
 
             <div class="form-group mb-1">
               <label class="form-label" style="font-size: 10px; font-weight: 800;">MINUTOS JUGADOS</label>
-              <div class="minutes-salir-row">
-                <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 55px; font-weight: 800; text-align: center;">
-                <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada">
+              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 60px; font-weight: 800; text-align: center;">
+                <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="flex: 1; margin: 0; padding: 6px; display: flex; align-items: center; justify-content: center;">
+                  🚫 NO JUEGA
+                </button>
+              </div>
+              <div class="minutes-salir-row" style="display: flex; gap: 8px;">
+                <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="flex: 1;">
                   <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
                 </button>
-                <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida">
+                <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="flex: 1;">
                   <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
                 </button>
               </div>
@@ -3371,7 +3376,7 @@
     });
 
     // Tag Control Buttons Toggle
-    modalContent.querySelectorAll('#pmTagsGroup .tag-control-btn').forEach(btn => {
+    modalContent.querySelectorAll('.tag-control-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
       });
@@ -3519,7 +3524,7 @@
     // Save Button
     modalContent.querySelector('#btnSavePlayerMatchReport')?.addEventListener('click', () => {
       const activeRSBtn = modalContent.querySelector('#pmRendimientoRSGroup .rs-pill-btn.active');
-      const activeTags = Array.from(modalContent.querySelectorAll('#pmTagsGroup .tag-control-btn.active')).map(b => b.dataset.tag);
+      const activeTags = Array.from(modalContent.querySelectorAll('.tag-control-btn.active')).map(b => b.dataset.tag);
       const isEntra = btnEntra?.classList.contains('active') || false;
       const isSalir = btnSalir?.classList.contains('active') || false;
 
@@ -4388,7 +4393,7 @@
               <i data-lucide="map-pin"></i> CONTROL & SEGUIMIENTO ESPECIAL
             </div>
             <div class="checkbox-grid-pills mb-4" id="pfControlGroup">
-              ${['MAPA RS', 'ERF', 'SEGUIMIENTO', 'DESTACADO', 'JULEN', 'NO JUEGA', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
+              ${['MAPA RS', 'ERF', 'SEGUIMIENTO', 'DESTACADO', 'JULEN', '11 IDEAL', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
                 <label class="checkbox-pill-item">
                   <input type="checkbox" value="${tag}" ${controlSeguimiento.includes(tag) ? 'checked' : ''}>
                   <span>${tag}</span>
@@ -15977,6 +15982,7 @@
 
     if (!state.cartelera.calendarios) {
       state.cartelera.calendarios = [];
+    }
   }
 
   // --------------------------------------------------------------------------
