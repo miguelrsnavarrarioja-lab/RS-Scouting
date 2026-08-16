@@ -5162,8 +5162,13 @@ function saveCarteleraTeamsToFirebase() {
 
 
             <div class="form-group">
-              <label class="form-label">COMENTARIO GENERAL</label>
-              <textarea id="pfComentarioGeneral" class="form-control" rows="3" placeholder="Observaciones generales...">${escapeHtml(comentarioGeneral)}</textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label class="form-label" style="margin: 0;">COMENTARIO PERSONAL</label>
+                <button type="button" class="btn btn-secondary-light compact" id="btnVerComentariosPartidos" style="font-size: 11px; padding: 4px 8px;">
+                  <i data-lucide="message-square" style="width: 14px; height: 14px;"></i> Comentarios de Partidos
+                </button>
+              </div>
+              <textarea id="pfComentarioGeneral" class="form-control" rows="3" placeholder="Observaciones personales sobre el jugador...">${escapeHtml(comentarioGeneral)}</textarea>
             </div>
           </div>
 
@@ -5310,6 +5315,73 @@ function saveCarteleraTeamsToFirebase() {
         document.querySelectorAll('#pfEstadoGroup .status-pill-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
       });
+    });
+    
+    // Add logic for 'Ver Comentarios Partidos' button
+    document.getElementById('btnVerComentariosPartidos')?.addEventListener('click', () => {
+      const matchComments = [];
+      const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+      (state.informes || []).forEach(rep => {
+        if (!rep.playerEvaluations) return;
+        Object.values(rep.playerEvaluations).forEach(evalObj => {
+          const evalName = (evalObj.name || '').toLowerCase().trim();
+          if (evalName === pNameLower && evalObj.comment && evalObj.comment.trim() !== '') {
+            matchComments.push({
+              date: rep.fecha || 'Sin fecha',
+              match: `${rep.local || 'Local'} vs ${rep.visitante || 'Visitante'}`,
+              comment: evalObj.comment
+            });
+          }
+        });
+      });
+
+      // Show match comments modal
+      let container = document.getElementById('matchCommentsModal');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'matchCommentsModal';
+        container.className = 'modal-overlay hidden';
+        container.style.zIndex = '9999'; // Higher than general modal
+        document.body.appendChild(container);
+      }
+      
+      let commentsHTML = '';
+      if (matchComments.length === 0) {
+        commentsHTML = '<p style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 20px;">No hay comentarios de partidos registrados para este jugador.</p>';
+      } else {
+        commentsHTML = '<div style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 4px;">' +
+          matchComments.map(c => `
+            <div style="background: var(--bg-body); border: 1px solid var(--border-light); border-radius: 8px; padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 11px; color: var(--text-muted); font-weight: 700;">
+                <span>${escapeHtml(c.match)}</span>
+                <span>${escapeHtml(c.date)}</span>
+              </div>
+              <div style="font-size: 13px; color: var(--text-main); white-space: pre-wrap;">${escapeHtml(c.comment)}</div>
+            </div>
+          `).join('') +
+          '</div>';
+      }
+
+      container.innerHTML = `
+        <div class="modal-card" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3 class="modal-title" style="font-size: 16px;">Comentarios de Partidos: ${escapeHtml(player.nombre || 'Jugador')}</h3>
+            <button type="button" class="modal-close" id="btnCloseCommentsModal"><i data-lucide="x"></i></button>
+          </div>
+          <div class="modal-body">
+            ${commentsHTML}
+          </div>
+          <div class="modal-footer" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-primary" id="btnOkCommentsModal">Cerrar</button>
+          </div>
+        </div>
+      `;
+      container.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+
+      const closeFn = () => container.classList.add('hidden');
+      document.getElementById('btnCloseCommentsModal').addEventListener('click', closeFn);
+      document.getElementById('btnOkCommentsModal').addEventListener('click', closeFn);
     });
 
     // Trajectory add row logic with automatic coach lookup
