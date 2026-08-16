@@ -928,15 +928,12 @@ function saveCarteleraTeamsToFirebase() {
     }
     else if (tabName === 'configuracion') renderConfiguracion();
     
+    
     // Refresh lucide icons
     if (window.lucide) window.lucide.createIcons();
   }
 
-  // --------------------------------------------------------------------------
-  // 3.5 SECTION 0: DASHBOARD
-  // --------------------------------------------------------------------------
-  function renderDashboard() {
-    // 1. Update Current Date & Time Display
+  function initClock() {
     const dateDisplay = document.getElementById('dashboardDateDisplay');
     if (dateDisplay) {
       const updateClock = () => {
@@ -951,6 +948,13 @@ function saveCarteleraTeamsToFirebase() {
       if (window._dashboardClockInterval) clearInterval(window._dashboardClockInterval);
       window._dashboardClockInterval = setInterval(updateClock, 1000);
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // 3.5 SECTION 0: DASHBOARD
+  // --------------------------------------------------------------------------
+  function renderDashboard() {
+    // 1. (Reloj movido a la cabecera - gestionado por initClock)
 
     // 2. Metrics (KPIs)
     const matches = state.matches || [];
@@ -20209,26 +20213,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (b.dataset.theme === theme) b.classList.add('active');
       else b.classList.remove('active');
     });
-    
-    const headerToggle = document.getElementById('btnHeaderThemeToggle');
-    if (headerToggle) {
-      headerToggle.innerHTML = theme === 'dark' ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
-      if (window.lucide) window.lucide.createIcons();
-    }
-  }
 
-  function initThemeToggle() {
-    const btnHeaderThemeToggle = document.getElementById('btnHeaderThemeToggle');
-    if (btnHeaderThemeToggle) {
-      btnHeaderThemeToggle.addEventListener('click', () => {
-        const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        if (!state.settings) state.settings = {};
-        state.settings.theme = newTheme;
-        saveState();
-        setTheme(newTheme);
-      });
-    }
   }
 
   
@@ -20255,59 +20240,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       alert('Error al exportar la copia de seguridad: ' + e.message);
     }
   }
-  // Lateralidad Migration Listener
-  document.getElementById('btnMigrateLateralidad')?.addEventListener('click', () => {
-    if (!state.directory || !state.directory.jugadores) {
-      alert("No hay jugadores cargados en el directorio.");
-      return;
-    }
-    let updatedCount = 0;
-    state.directory.jugadores.forEach(p => {
-      // Check both pierna and lateralidad just in case
-      let currentValue = p.pierna || p.lateralidad;
-      if (currentValue) {
-        const lower = currentValue.toLowerCase().trim();
-        let newVal = currentValue;
-        
-        if (lower === 'diestra' || lower === 'diestro' || lower === 'derecha' || lower === 'diest') newVal = 'Derecha';
-        else if (lower === 'zurda' || lower === 'zurdo' || lower === 'izquierda' || lower === 'izq') newVal = 'Izquierda';
-        else if (lower.includes('ambid')) newVal = 'Ambidiestro';
-        
-        // Remove 'lateralidad' if it exists to normalize the data schema
-        if (p.lateralidad !== undefined) {
-           delete p.lateralidad;
-           // If we didn't update pierna yet, ensure it gets the value
-           if (p.pierna !== newVal) p.pierna = newVal;
-           updatedCount++;
-           if (typeof saveToFirebase === 'function') {
-             saveToFirebase('jugadores', p);
-           }
-        } else if (newVal !== p.pierna) {
-          p.pierna = newVal;
-          updatedCount++;
-          if (typeof saveToFirebase === 'function') {
-            saveToFirebase('jugadores', p);
-          }
-        }
-      }
-    });
 
-    if (updatedCount > 0) {
-      saveState();
-      renderDirectory();
-      if (typeof showToast === 'function') {
-        showToast(`🛠️ Migración completada: ${updatedCount} jugadores actualizados.`);
-      } else {
-        alert(`Migración completada: ${updatedCount} jugadores actualizados.`);
-      }
-    } else {
-      alert("No se encontraron jugadores que necesiten corrección de lateralidad.");
-    }
-  });
 
   // Backup Export JSON Listeners
   document.getElementById('btnExportBackup')?.addEventListener('click', exportBackupJSON);
-  document.getElementById('btnHeaderExportBackup')?.addEventListener('click', exportBackupJSON);
 
   // Backup Import JSON Listener
   const handleImportBackup = (file) => {
@@ -20339,13 +20275,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     handleImportBackup(e.target.files[0]);
   });
 
-  // Botón manual de sincronización con Firebase
-  document.getElementById('btnSyncFirebase')?.addEventListener('click', () => {
-    syncAllToFirebase(true);
-  });
-  document.getElementById('btnHeaderSyncFirebase')?.addEventListener('click', () => {
-    syncAllToFirebase(true);
-  });
 
   async function clearAllFirebaseData() {
     if (!db) return;
@@ -20426,14 +20355,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
   });
 
-  // Reset Sample Data
-  document.getElementById('btnResetSampleData')?.addEventListener('click', () => {
-    showCustomConfirmModal('Restaurar Demo', '¿Cargar datos de ejemplo iniciales? Esto restaurará la demo predeterminada.', () => {
-      state = JSON.parse(JSON.stringify(DEFAULT_INITIAL_STATE));
-      saveState();
-      window.location.reload();
-    });
-  });
 
   // --------------------------------------------------------------------------
   // 11. Generic Modal Helper Functions
@@ -20917,22 +20838,34 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const selCat = document.getElementById('selMapasCategoria')?.value || 'Todas las categorías';
     const selComp = document.getElementById('selMapasCompeticion')?.value || 'Todas las competiciones';
     const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
-    const pitch = document.getElementById('mapasCampogramaPitch');
-    if (!pitch) return;
+    const exportContainer = document.getElementById('mapasExportContainer');
+    if (!exportContainer) return;
 
-    const clone = pitch.cloneNode(true);
+    const clone = exportContainer.cloneNode(true);
+    
+    // Remove scrolling from table div for printing
+    const tableDiv = clone.querySelector('div');
+    if (tableDiv) {
+      tableDiv.style.maxHeight = 'none';
+      tableDiv.style.overflowY = 'visible';
+      tableDiv.style.overflowX = 'visible';
+    }
 
-    const printWin = window.open('', '', 'width=900,height=700');
+    const printWin = window.open('', '', 'width=1200,height=800');
     printWin.document.write(`
       <html>
         <head>
           <title>Mapas • 11 Ideal</title>
           <style>
+            @page { size: landscape; margin: 1cm; }
             :root {
               --primary-blue: #2563eb;
               --primary-dark: #1e3a8a;
               --text-main: #1e293b;
-              --radius-md: 6px;
+              --text-muted: #64748b;
+              --border-light: #e2e8f0;
+              --bg-card: #ffffff;
+              --radius-lg: 12px;
             }
             body {
               font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -20942,16 +20875,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
-            .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; }
-            .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 20px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; }
-            .pitch-container { width: 100%; max-width: 500px; height: 750px; position: relative; margin: 0 auto; }
+            .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; text-align: center; }
+            .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 30px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; text-align: center; }
+            .export-wrapper { width: 100%; margin: 0 auto; display: flex; justify-content: center; }
+            .data-table td, .data-table th { padding: 12px 8px !important; }
           </style>
         </head>
         <body>
           <div class="header-main">Mapas (11 Ideal)</div>
-          <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} | Competición: ${escapeHtml(selComp)} | Sistema Táctico: ${escapeHtml(sysSelect)}</div>
+          <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} &nbsp;|&nbsp; Competición: ${escapeHtml(selComp)} &nbsp;|&nbsp; Sistema Táctico: ${escapeHtml(sysSelect)}</div>
           
-          <div class="pitch-container">
+          <div class="export-wrapper">
             ${clone.outerHTML}
           </div>
           
@@ -21135,6 +21069,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     // Apply saved brand name & theme
     updateAppNameUI();
     setTheme((state && state.settings && state.settings.theme) || 'light');
+    
+    initClock();
 
     // Initial view render
     renderView('dashboard');

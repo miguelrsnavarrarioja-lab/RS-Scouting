@@ -88,23 +88,14 @@
 
       <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
         <!-- Grupo de Botones de Acción de Cabecera en la Misma Fila -->
-        <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-subtle, #f8fafc); padding: 4px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
-          <!-- 1. Sincronizar con Firebase -->
-          <button class="btn-action-icon" id="btnHeaderSyncFirebase" title="Sincronizar todo con Firebase (Nube)">
-            <i data-lucide="cloud"></i>
-          </button>
+        <div style="display: flex; align-items: center; gap: 12px; background: var(--bg-subtle, #f8fafc); padding: 4px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
+          
+          <div class="dashboard-date-badge" style="margin: 0; cursor: default;">
+            <i data-lucide="clock"></i>
+            <span id="dashboardDateDisplay">Hoy</span>
+          </div>
 
-          <!-- 2. Descargar Copia de Seguridad -->
-          <button class="btn-action-icon" id="btnHeaderExportBackup" title="Descargar Copia de Seguridad (JSON)">
-            <i data-lucide="download"></i>
-          </button>
-
-          <!-- 3. Tema Oscuro / Claro -->
-          <button class="btn-action-icon" id="btnHeaderThemeToggle" title="Cambiar tema (Oscuro/Claro)">
-            <i data-lucide="moon" id="headerThemeIcon"></i>
-          </button>
-
-          <!-- 4. Notificaciones del Sistema (Último a la derecha) -->
+          <!-- Notificaciones del Sistema -->
           <div class="notifications-dropdown-container" style="position: relative; display: inline-flex; align-items: center;">
             <button class="btn-action-icon" id="btnHeaderNotifications" title="Notificaciones del sistema">
               <i data-lucide="bell"></i>
@@ -130,12 +121,7 @@
 
     <!-- ==================== 0. DASHBOARD VIEW ==================== -->
     <section class="tab-view active" id="view-dashboard">
-      <div class="dashboard-banner" style="justify-content: flex-end; padding: 12px 20px; margin-bottom: 20px;">
-        <div class="dashboard-date-badge">
-          <i data-lucide="clock"></i>
-          <span id="dashboardDateDisplay">Hoy</span>
-        </div>
-      </div>
+
 
       <!-- MAIN HERO SECTION: LOGO ON LEFT + KPI METRICS ON RIGHT -->
       <div class="dashboard-main-hero-grid">
@@ -1258,9 +1244,9 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         </div>
       </div>
 
-      <div style="display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start;">
+      <div style="display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; align-items: flex-start; max-width: 1300px; margin: 0 auto;" id="mapasExportContainer">
         
-        <div style="flex: 1; min-width: 400px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 750px; overflow-y: auto;">
+        <div style="flex: 0 1 600px; min-width: 400px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 750px; overflow-y: auto;">
            <h3 style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 16px;">Jugadores en el 11 Ideal</h3>
            <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
              <thead>
@@ -1445,9 +1431,6 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
           <div class="config-card-body">
             <p class="text-sm text-muted mb-4">Guarda y sincroniza todos tus datos (informes, agenda, enlaces, directorio e imágenes optimizadas) en la nube de Firebase o expórtalos a tu directorio local en un archivo JSON.</p>
             <div class="btn-group-vertical">
-              <button type="button" class="btn btn-primary" id="btnSyncFirebase" style="font-weight: 700;">
-                <i data-lucide="cloud"></i> ☁️ Sincronizar Todo con Firebase Ahora
-              </button>
               <button type="button" class="btn btn-secondary" id="btnExportBackup">
                 <i data-lucide="download"></i> 💾 Guardar Copia en Archivo Local (JSON)
               </button>
@@ -1455,14 +1438,8 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
                 <i data-lucide="upload"></i> 📂 Cargar Copia desde Archivo Local (JSON)
                 <input type="file" id="inputImportBackup" accept=".json" class="hidden">
               </label>
-              <button type="button" class="btn btn-outline" id="btnMigrateLateralidad" style="margin-top: 10px; border-color: var(--primary-blue); color: var(--primary-blue);">
-                <i data-lucide="wrench"></i> 🛠️ Normalizar Lateralidades (Migración)
-              </button>
               <button type="button" class="btn btn-danger" id="btnClearAllData" style="background-color: var(--accent-red); color: white; border: none; margin-top: 10px;">
                 <i data-lucide="trash-2"></i> Borrar Todos los Datos (Limpiar Base de Datos)
-              </button>
-              <button type="button" class="btn btn-outline-danger" id="btnResetSampleData">
-                <i data-lucide="rotate-ccw"></i> Restablecer Datos de Ejemplo Iniciales
               </button>
             </div>
           </div>
