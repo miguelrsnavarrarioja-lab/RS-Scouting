@@ -1014,31 +1014,54 @@ function saveCarteleraTeamsToFirebase() {
     if (!container) return;
 
     const players = state.directory?.jugadores || [];
-    const yearCounts = {};
+    const groups = {
+      'Senior (Mayores de 2008)': 0,
+      'Juveniles (2008-2010)': 0,
+      'Cadetes (2011-2012)': 0,
+      'Infantiles (2013-2014)': 0,
+      'Alevines (2015-2016)': 0,
+      'Benjamines (2017-2018)': 0,
+      'Sin Año': 0
+    };
     
     players.forEach(p => {
-      let year = String(p.anoNac || p.ano || p.anyo || '').trim();
-      if (!year) year = 'Sin Año';
-      yearCounts[year] = (yearCounts[year] || 0) + 1;
+      let year = parseInt(String(p.anoNac || p.ano || p.anyo || '').trim(), 10);
+      if (!year || isNaN(year)) {
+        groups['Sin Año']++;
+      } else if (year >= 2017) {
+        groups['Benjamines (2017-2018)']++;
+      } else if (year >= 2015) {
+        groups['Alevines (2015-2016)']++;
+      } else if (year >= 2013) {
+        groups['Infantiles (2013-2014)']++;
+      } else if (year >= 2011) {
+        groups['Cadetes (2011-2012)']++;
+      } else if (year >= 2008) {
+        groups['Juveniles (2008-2010)']++;
+      } else {
+        groups['Senior (Mayores de 2008)']++;
+      }
     });
 
-    const sortedYears = Object.keys(yearCounts).sort((a, b) => {
-      if (a === 'Sin Año') return 1;
-      if (b === 'Sin Año') return -1;
-      return b.localeCompare(a); // descending year order
-    });
+    const orderedKeys = [
+      'Senior (Mayores de 2008)',
+      'Juveniles (2008-2010)',
+      'Cadetes (2011-2012)',
+      'Infantiles (2013-2014)',
+      'Alevines (2015-2016)',
+      'Benjamines (2017-2018)',
+      'Sin Año'
+    ];
 
-    if (sortedYears.length === 0) {
-      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay jugadores en el directorio</div>';
-      return;
-    }
-
-    container.innerHTML = sortedYears.map(year => `
+    container.innerHTML = orderedKeys.map(key => {
+      if (groups[key] === 0 && key === 'Sin Año') return '';
+      return `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(year)}</span>
-        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${yearCounts[year]}</span>
+        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(key)}</span>
+        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${groups[key]}</span>
       </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   function renderDashboardTeamsByCategory() {
@@ -1046,37 +1069,88 @@ function saveCarteleraTeamsToFirebase() {
     if (!container) return;
 
     const teams = state.directory?.equipos || [];
-    const catCounts = {};
+    const completedReports = (state.reports || []).filter(r => r.completado);
+    const vistosSet = new Set();
+    completedReports.forEach(r => {
+      if (r.equipoLocal) vistosSet.add(r.equipoLocal.toLowerCase().trim());
+      if (r.equipoVisitante) vistosSet.add(r.equipoVisitante.toLowerCase().trim());
+    });
+
+    const categoryStats = {};
     
     teams.forEach(t => {
       let cat = String(t.categoria || 'Sin Categoría').trim();
-      catCounts[cat] = (catCounts[cat] || 0) + 1;
+      const isVisto = t.nombre && vistosSet.has(t.nombre.toLowerCase().trim());
+      
+      if (!categoryStats[cat]) {
+        categoryStats[cat] = { total: 0, vistos: 0 };
+      }
+      categoryStats[cat].total++;
+      if (isVisto) {
+        categoryStats[cat].vistos++;
+      }
     });
 
-    // Sort by custom category order if available
+    const ageGroups = {
+      'Benjamines': ['BEN', 'BENB'],
+      'Alevines': ['ALV', 'ALVB'],
+      'Infantiles': ['IH', 'ITX'],
+      'Cadetes': ['CV', 'CH', 'CPR'],
+      'Juveniles': ['DHJ', 'LNJ', 'JAU'],
+      'Senior': [] // Las demas
+    };
+
+    const getAgeGroup = (cat) => {
+      cat = cat.toUpperCase();
+      for (const [groupName, cats] of Object.entries(ageGroups)) {
+        if (cats.includes(cat)) return groupName;
+      }
+      if (cat === 'SIN CATEGORÍA') return 'Sin Categoría';
+      return 'Senior';
+    };
+
+    const groupedStats = {};
+    Object.keys(categoryStats).forEach(cat => {
+      const groupName = getAgeGroup(cat);
+      if (!groupedStats[groupName]) groupedStats[groupName] = [];
+      groupedStats[groupName].push({ cat, ...categoryStats[cat] });
+    });
+
     const orderRef = state.directoryCategoriesOrder || [];
-    const sortedCats = Object.keys(catCounts).sort((a, b) => {
-      if (a === 'Sin Categoría') return 1;
-      if (b === 'Sin Categoría') return -1;
-      const idxA = orderRef.indexOf(a);
-      const idxB = orderRef.indexOf(b);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.localeCompare(b);
+    const groupOrder = ['Senior', 'Juveniles', 'Cadetes', 'Infantiles', 'Alevines', 'Benjamines', 'Sin Categoría'];
+
+    let html = '';
+    groupOrder.forEach(groupName => {
+      if (!groupedStats[groupName] || groupedStats[groupName].length === 0) return;
+      
+      groupedStats[groupName].sort((a, b) => {
+        const idxA = orderRef.indexOf(a.cat);
+        const idxB = orderRef.indexOf(b.cat);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.cat.localeCompare(b.cat);
+      });
+
+      html += `<div style="font-weight: 800; color: #475569; font-size: 11px; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px;">${escapeHtml(groupName)}</div>`;
+      
+      groupedStats[groupName].forEach(stat => {
+        html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 4px;">
+          <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(stat.cat)}</span>
+          <span style="background: ${stat.vistos >= stat.total ? '#15803d' : '#2563eb'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">
+            ${stat.vistos}/${stat.total} vistos
+          </span>
+        </div>`;
+      });
     });
 
-    if (sortedCats.length === 0) {
-      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay equipos vistos en el directorio</div>';
+    if (!html) {
+      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay equipos en el directorio</div>';
       return;
     }
 
-    container.innerHTML = sortedCats.map(cat => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(cat)}</span>
-        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${catCounts[cat]}</span>
-      </div>
-    `).join('');
+    container.innerHTML = html;
   }
 
   function renderDashboardUpcomingMatches() {
