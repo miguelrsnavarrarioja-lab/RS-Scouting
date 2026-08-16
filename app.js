@@ -12,7 +12,7 @@
 
   const DEFAULT_INITIAL_STATE = {
     settings: {
-      appName: 'RS Scouting',
+      appName: 'MS Fútbol Scout',
       theme: 'light'
     },
     matches: [],
@@ -203,7 +203,16 @@
     }
   }
 
-    function saveToFirebase(collectionName, item) {
+    
+function savePriorityTeamsToFirebase() {
+  if (typeof db !== 'undefined' && db && state.cartelera && Array.isArray(state.cartelera.priorityTeams)) {
+    db.collection('configuracion').doc('app_settings').set({ 
+      cartelera: { priorityTeams: state.cartelera.priorityTeams } 
+    }, { merge: true }).catch(e => console.error("Error al guardar equipos prioritarios en Firebase", e));
+  }
+}
+
+  function saveToFirebase(collectionName, item) {
     if (!db || !item || !item.id) return;
     markLocalWrite(collectionName, item.id);
     setFirebaseHeaderStatus('syncing');
@@ -253,10 +262,10 @@
     }
   }
 
-  const APP_NAME_STORAGE_KEY = 'RS_SCOUTING_APP_NAME';
+  const APP_NAME_STORAGE_KEY = 'MS_FUTBOL_SCOUT_APP_NAME';
 
   function updateAppNameUI(name) {
-    const currentName = name || (typeof state !== 'undefined' && state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem(APP_NAME_STORAGE_KEY); } catch(e){} })() || 'RS Scouting';
+    const currentName = name || (typeof state !== 'undefined' && state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem(APP_NAME_STORAGE_KEY); } catch(e){} })() || 'MS Fútbol Scout';
     document.title = `${currentName} | Pro Football Scouting System`;
     document.querySelectorAll('#appBrandName, .app-brand-name').forEach(el => {
       el.textContent = currentName;
@@ -268,9 +277,9 @@
   }
 
   function loadState() {
-    let savedAppName = 'RS Scouting';
+    let savedAppName = 'MS Fútbol Scout';
     try {
-      savedAppName = localStorage.getItem(APP_NAME_STORAGE_KEY) || 'RS Scouting';
+      savedAppName = localStorage.getItem(APP_NAME_STORAGE_KEY) || 'MS Fútbol Scout';
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
 
@@ -514,18 +523,6 @@
         }
         if (Array.isArray(cartelera_calendarios) && cartelera_calendarios.length > 0) {
           state.cartelera.calendarios = cartelera_calendarios;
-        }
-
-        if (localStorage && !localStorage.getItem('rs_scouting_hard_wipe_v4')) {
-          if (Array.isArray(state.cartelera.calendarios)) {
-             state.cartelera.calendarios.forEach(cal => {
-                if (cal.id) deleteFromFirebase('cartelera_calendarios', cal.id);
-             });
-          }
-          state.cartelera.calendarios = [];
-          state.cartelera.priorityTeams = [];
-          localStorage.setItem('rs_scouting_hard_wipe_v4', 'true');
-          saveState();
         }
 
         if (typeof renderCartelera === 'function') renderCartelera();
@@ -7676,7 +7673,7 @@
             <div class="header-bar">
               <div>
                 <div class="header-title">${escapeHtml(curNombre)}</div>
-                <div class="header-sub">RS Scouting • Campograma Táctico | Sistema: ${escapeHtml(curSys)} | ${escapeHtml(curCat)} (${escapeHtml(curTemp)})</div>
+                <div class="header-sub">MS Fútbol Scout • Campograma Táctico | Sistema: ${escapeHtml(curSys)} | ${escapeHtml(curCat)} (${escapeHtml(curTemp)})</div>
               </div>
               <span class="page-tag">Hoja 1 • Disposición Táctica</span>
             </div>
@@ -8968,7 +8965,7 @@
               </div>
               <div style="text-align: right;">
                 <div style="font-size: 13px; font-weight: 900; color: ${curPrimaryColor};">SISTEMA: ${escapeHtml(curSys)}</div>
-                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">RS Scouting Report</div>
+                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">MS Fútbol Scout Report</div>
               </div>
             </div>
             <div class="pitch-container">
@@ -9391,7 +9388,7 @@
           <div class="header">
             <div>
               <div class="title">${escapeHtml(pdfTitle)}</div>
-              <div style="font-size: 11px; color: #64748b; margin-top: 4px;">RS Scouting • Informe Oficial de Convocatoria</div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 4px;">MS Fútbol Scout • Informe Oficial de Convocatoria</div>
             </div>
             <span class="badge">${escapeHtml(convData.tipoActividad || 'Convocatoria')}</span>
           </div>
@@ -16816,6 +16813,7 @@
           const teamToRemove = btn.dataset.team;
           state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
           saveState();
+          savePriorityTeamsToFirebase();
           renderCartelera();
           
           if (state.cartelera.priorityTeams.length === 0) {
@@ -17482,12 +17480,14 @@
       selectedFromChecks.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
           state.cartelera.priorityTeams.push(t);
+          savePriorityTeamsToFirebase();
         }
       });
 
       customTeams.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
           state.cartelera.priorityTeams.push(t);
+          savePriorityTeamsToFirebase();
         }
       });
 
@@ -17757,7 +17757,7 @@
       <body>
         <div class="header">
           ${logoHtml}
-          <h2>RS Scouting - Cartelera de Partidos</h2>
+          <h2>MS Fútbol Scout - Cartelera de Partidos</h2>
         </div>
         <table>
           <thead>
@@ -19857,9 +19857,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // 10. SECTION 7: CONFIGURACIÓN & BACKUP JSON
   // --------------------------------------------------------------------------
   function renderConfiguracion() {
-    const savedName = (state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem('RS_SCOUTING_APP_NAME'); } catch(e){} })() || 'RS Scouting';
-    const input = document.getElementById('configAppNameInput');
-    if (input) input.value = savedName;
     setTheme((state && state.settings && state.settings.theme) || 'light');
   }
 
@@ -19900,65 +19897,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
   }
 
-  const configInputEl = document.getElementById('configAppNameInput');
-  const btnSaveAppName = document.getElementById('btnSaveAppName');
-  if (configInputEl) {
-    const handleAppNameChange = (e) => {
-      const val = e.target.value.trim() || 'RS Scouting';
-      if (!state.settings) state.settings = {};
-      state.settings.appName = val;
-      try {
-        localStorage.setItem('RS_SCOUTING_APP_NAME', val);
-      } catch (err) {}
-      updateAppNameUI(val);
-      saveState();
-    };
-    configInputEl.addEventListener('input', handleAppNameChange);
-    configInputEl.addEventListener('change', handleAppNameChange);
-  }
-
-  if (btnSaveAppName && configInputEl) {
-    btnSaveAppName.addEventListener('click', async () => {
-      const val = configInputEl.value.trim() || 'RS Scouting';
-      if (!state.settings) state.settings = {};
-      state.settings.appName = val;
-      try {
-        localStorage.setItem('RS_SCOUTING_APP_NAME', val);
-      } catch (err) {}
-      updateAppNameUI(val);
-      saveState();
-      
-      if (window.db) {
-        try {
-          await db.collection('configuracion').doc('app_settings').set({ appName: val }, { merge: true });
-        } catch (e) {
-          console.warn('Error al guardar el nombre: ' + e.message);
-        }
-      }
-
-      // Ventana emergente (Modal) confirmando el cambio
-      const modalHtml = `
-        <div class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
-          <div class="modal-card" style="background: var(--bg-card, #ffffff); border-radius: 12px; padding: 24px; width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color, #e2e8f0);">
-            <div style="margin-bottom: 16px; color: #10b981; display: flex; justify-content: center;">
-              <i data-lucide="check-circle" style="width: 48px; height: 48px;"></i>
-            </div>
-            <h3 style="margin: 0 0 8px 0; font-size: 18px; color: var(--text-primary, #1e293b); font-weight: 800;">¡Cambio Guardado!</h3>
-            <p style="margin: 0 0 24px 0; font-size: 14px; color: var(--text-secondary, #64748b);">El nombre de la aplicación se ha actualizado a <strong>${val}</strong>.</p>
-            <button id="btnConfirmAppNameChange" class="btn btn-primary" style="width: 100%; font-weight: 700; padding: 10px; border-radius: 8px;">Aceptar</button>
-          </div>
-        </div>
-      `;
-      const div = document.createElement('div');
-      div.innerHTML = modalHtml;
-      document.body.appendChild(div);
-      if (window.lucide) window.lucide.createIcons();
-      document.getElementById('btnConfirmAppNameChange').addEventListener('click', () => {
-        div.remove();
-      });
-    });
-  }
-
+  
   // Helper de Exportación JSON seguro usando Blob
   function exportBackupJSON() {
     try {
@@ -19967,7 +19906,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
       downloadAnchor.href = url;
-      downloadAnchor.download = `RS_Scouting_CopiaSeguridad_${new Date().toISOString().split('T')[0]}.json`;
+      downloadAnchor.download = `MS_Futbol_Scout_CopiaSeguridad_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -20077,7 +20016,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       state = {
         settings: {
           theme: state.settings?.theme || 'light',
-          appName: state.settings?.appName || 'RS Scouting'
+          appName: state.settings?.appName || 'MS Fútbol Scout'
         },
         matches: [],
         reports: [],
