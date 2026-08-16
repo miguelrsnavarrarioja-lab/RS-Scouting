@@ -20877,8 +20877,29 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             }
             .header-main { font-size: 24px; font-weight: 900; color: var(--primary-dark); margin-bottom: 5px; text-align: center; }
             .header-sub { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 30px; border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; text-align: center; }
-            .export-wrapper { width: 100%; margin: 0 auto; display: flex; justify-content: center; }
+            .export-wrapper { width: 100%; margin: 0 auto; display: flex; justify-content: center; overflow: hidden; }
             .data-table td, .data-table th { padding: 12px 8px !important; }
+            
+            /* Print Specific Overrides to ensure side-by-side single page */
+            #mapasExportContainer {
+              flex-wrap: nowrap !important;
+              align-items: flex-start !important;
+              gap: 20px !important;
+              transform: scale(0.85);
+              transform-origin: top center;
+              width: 100% !important;
+              max-width: 1100px !important;
+            }
+            #mapasExportContainer > div:first-child {
+              flex: 1 !important;
+              max-width: 550px !important;
+              height: 750px !important;
+              overflow: hidden !important;
+            }
+            #mapasCampogramaPitch {
+              flex-shrink: 0 !important;
+              transform: none !important; /* prevent any local scale conflicts */
+            }
           </style>
         </head>
         <body>
