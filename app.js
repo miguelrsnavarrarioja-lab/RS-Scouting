@@ -3782,8 +3782,13 @@ function saveCarteleraTeamsToFirebase() {
           <!-- LÍNEA 4: Comentario General (75%) y Posición Alternativa (25%) -->
           <div style="display: flex; gap: 16px;">
             <div class="form-group" style="flex: 3;">
-              <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
-              <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones adicionales...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label class="form-label" style="font-size: 10px; font-weight: 800; margin: 0;">COMENTARIO PERSONAL</label>
+                <button type="button" class="btn btn-secondary-light compact" id="pmBtnVerComentariosPartidos" style="font-size: 10px; padding: 2px 6px;">
+                  <i data-lucide="message-square" style="width: 12px; height: 12px;"></i> Ver Historial
+                </button>
+              </div>
+              <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones personales sobre el jugador...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
             </div>
             <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
               <label class="form-label" style="font-size: 10px; font-weight: 800;">POSICIÓN ALTERNATIVA</label>
@@ -5327,11 +5332,11 @@ function saveCarteleraTeamsToFirebase() {
         if (!rep.playerEvaluations) return;
         Object.values(rep.playerEvaluations).forEach(evalObj => {
           const evalName = (evalObj.name || '').toLowerCase().trim();
-          if (evalName === pNameLower && evalObj.comment && evalObj.comment.trim() !== '') {
+          if (evalName === pNameLower && evalObj.comentarioGeneral && evalObj.comentarioGeneral.trim() !== '') {
             matchComments.push({
               date: rep.fecha || 'Sin fecha',
               match: `${rep.local || 'Local'} vs ${rep.visitante || 'Visitante'}`,
-              comment: evalObj.comment
+              comment: evalObj.comentarioGeneral
             });
           }
         });
