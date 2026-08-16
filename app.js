@@ -3784,7 +3784,7 @@ function saveCarteleraTeamsToFirebase() {
             <div class="form-group" style="flex: 3;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <label class="form-label" style="font-size: 10px; font-weight: 800; margin: 0;">COMENTARIO PERSONAL</label>
-                <button type="button" class="btn btn-secondary-light compact" id="pmBtnVerComentariosPartidos" style="font-size: 10px; padding: 2px 6px;">
+                <button type="button" class="btn btn-secondary compact" id="pmBtnVerComentariosPartidos" style="font-size: 10px; padding: 2px 6px;">
                   <i data-lucide="message-square" style="width: 12px; height: 12px;"></i> Ver Historial
                 </button>
               </div>
@@ -5171,7 +5171,7 @@ function saveCarteleraTeamsToFirebase() {
             <div class="form-group">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                 <label class="form-label" style="margin: 0;">COMENTARIO PERSONAL</label>
-                <button type="button" class="btn btn-secondary-light compact" id="btnVerComentariosPartidos" style="font-size: 11px; padding: 4px 8px;">
+                <button type="button" class="btn btn-secondary compact" id="btnVerComentariosPartidos" style="font-size: 11px; padding: 4px 8px;">
                   <i data-lucide="message-square" style="width: 14px; height: 14px;"></i> Comentarios de Partidos
                 </button>
               </div>
