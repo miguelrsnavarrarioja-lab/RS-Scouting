@@ -1132,17 +1132,19 @@ function saveCarteleraTeamsToFirebase() {
         return a.cat.localeCompare(b.cat);
       });
 
-      html += `<div style="font-weight: 800; color: #475569; font-size: 11px; text-transform: uppercase; margin-top: 12px; margin-bottom: 4px;">${escapeHtml(groupName)}</div>`;
+      html += `<div style="break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px;">`;
+      html += `<div style="font-weight: 800; color: #475569; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">${escapeHtml(groupName)}</div>`;
       
       groupedStats[groupName].forEach(stat => {
         html += `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 4px;">
           <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(stat.cat)}</span>
-          <span style="background: ${stat.vistos >= stat.total ? '#15803d' : '#2563eb'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">
+          <span style="background: ${stat.vistos >= stat.total ? '#15803d' : '#2563eb'}; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">
             ${stat.vistos}/${stat.total} vistos
           </span>
         </div>`;
       });
+      html += `</div>`;
     });
 
     if (!html) {
