@@ -20263,19 +20263,31 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
     let updatedCount = 0;
     state.directory.jugadores.forEach(p => {
-      if (p.lateralidad) {
-        const lower = p.lateralidad.toLowerCase().trim();
-        let newVal = p.lateralidad;
-        if (lower === 'diestra' || lower === 'diestro' || lower === 'derecha') newVal = 'Derecha';
-        else if (lower === 'zurda' || lower === 'zurdo' || lower === 'izquierda') newVal = 'Izquierda';
-        else if (lower.includes('ambidiestro') || lower.includes('ambidiestra')) newVal = 'Ambidiestro';
+      // Check both pierna and lateralidad just in case
+      let currentValue = p.pierna || p.lateralidad;
+      if (currentValue) {
+        const lower = currentValue.toLowerCase().trim();
+        let newVal = currentValue;
         
-        if (newVal !== p.lateralidad) {
-          p.lateralidad = newVal;
+        if (lower === 'diestra' || lower === 'diestro' || lower === 'derecha' || lower === 'diest') newVal = 'Derecha';
+        else if (lower === 'zurda' || lower === 'zurdo' || lower === 'izquierda' || lower === 'izq') newVal = 'Izquierda';
+        else if (lower.includes('ambid')) newVal = 'Ambidiestro';
+        
+        // Remove 'lateralidad' if it exists to normalize the data schema
+        if (p.lateralidad !== undefined) {
+           delete p.lateralidad;
+           // If we didn't update pierna yet, ensure it gets the value
+           if (p.pierna !== newVal) p.pierna = newVal;
+           updatedCount++;
+           if (typeof saveToFirebase === 'function') {
+             saveToFirebase('jugadores', p);
+           }
+        } else if (newVal !== p.pierna) {
+          p.pierna = newVal;
+          updatedCount++;
           if (typeof saveToFirebase === 'function') {
             saveToFirebase('jugadores', p);
           }
-          updatedCount++;
         }
       }
     });
