@@ -317,6 +317,7 @@ function saveCarteleraTeamsToFirebase() {
     const configToSave = Object.assign({}, state.settings || {}, {
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       customTabOrder: state.customTabOrder || [],
+      dirTabOrder: state.dirTabOrder || [],
       customClubTypes: state.customClubTypes || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
@@ -411,6 +412,7 @@ function saveCarteleraTeamsToFirebase() {
       const configToSave = Object.assign({}, state.settings || {}, {
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
         customTabOrder: state.customTabOrder || [],
+        dirTabOrder: state.dirTabOrder || [],
         agendaCategories: state.agendaCategories || [],
         cartelera: { 
           priorityTeams: state.cartelera?.priorityTeams || [],
@@ -562,6 +564,9 @@ function saveCarteleraTeamsToFirebase() {
           if (Array.isArray(configData.customTabOrder)) {
             state.customTabOrder = configData.customTabOrder;
           }
+          if (Array.isArray(configData.dirTabOrder)) {
+            state.dirTabOrder = configData.dirTabOrder;
+          }
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -648,6 +653,7 @@ function saveCarteleraTeamsToFirebase() {
           }
           if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) state.favColumns = configData.favColumns;
           if (Array.isArray(configData.customTabOrder)) state.customTabOrder = configData.customTabOrder;
+          if (Array.isArray(configData.dirTabOrder)) state.dirTabOrder = configData.dirTabOrder;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -2904,7 +2910,7 @@ function saveCarteleraTeamsToFirebase() {
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
-    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
     const formationSelect = document.getElementById(`${team}FormationSelect`);
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
@@ -4293,7 +4299,38 @@ function saveCarteleraTeamsToFirebase() {
   window.navigateToDirectoryTab = navigateToDirectoryTab;
 
   function initDirectorioSubtabs() {
-    const subtabs = document.querySelectorAll('.directory-tab');
+    const bar = document.querySelector('.directory-subtabs-bar');
+    if (!bar) return;
+
+    // 1. Reorder based on saved state
+    if (state.dirTabOrder && Array.isArray(state.dirTabOrder) && state.dirTabOrder.length > 0) {
+      const tabsMap = {};
+      const subtabs = bar.querySelectorAll('.directory-tab');
+      subtabs.forEach(t => tabsMap[t.dataset.dir] = t);
+      
+      state.dirTabOrder.forEach(dir => {
+        if (tabsMap[dir]) {
+          bar.appendChild(tabsMap[dir]);
+        }
+      });
+    }
+
+    // 2. Initialize SortableJS
+    if (window.Sortable) {
+      new Sortable(bar, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: function () {
+          // Save new order
+          const newOrder = Array.from(bar.querySelectorAll('.directory-tab')).map(t => t.dataset.dir);
+          state.dirTabOrder = newOrder;
+          saveState();
+        }
+      });
+    }
+
+    // 3. Add click listeners
+    const subtabs = bar.querySelectorAll('.directory-tab');
     subtabs.forEach(tab => {
       tab.addEventListener('click', () => {
         subtabs.forEach(t => t.classList.remove('active'));
@@ -4618,16 +4655,16 @@ function saveCarteleraTeamsToFirebase() {
                 <label class="form-label">POSICIÓN PRINCIPAL</label>
                 <select id="pfPosicion" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeHtml(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
+                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeHtml(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">POSICIÓN SECUNDARIA</label>
                 <select id="pfPosicionSecundaria" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeHtml(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
+                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeHtml(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -7280,7 +7317,7 @@ function saveCarteleraTeamsToFirebase() {
             const estado = foundPlayer.estado || 'ALTA';
             const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
             
-            const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
+            const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
             const generatePosOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += posicionesOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -7680,7 +7717,7 @@ function saveCarteleraTeamsToFirebase() {
               .page-break { page-break-after: always; break-after: page; }
               .page-break:last-child { page-break-after: avoid; break-after: avoid; }
             }
-            body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 15px; background: #fff; line-height: 1.3; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 15px; background: #fff; line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid ${curPrimaryColor}; padding-bottom: 10px; margin-bottom: 15px; }
             .header-title { font-size: 20px; font-weight: 800; color: #1e293b; }
             .header-sub { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
@@ -15613,7 +15650,7 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     // Positions from player modal (only abbreviated codes)
-    const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MBD', 'MBZ', 'MCD', 'MCZ', 'MC', 'MPD', 'MPZ', 'MP', 'MVD', 'MVZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
     const cargoOptions = ['Delegado', 'Entrenador Principal', 'Segundo Entrenador', 'Preparador Físico', 'Entrenador de Porteros', 'Scout / Ojeador', 'Analista Táctico', 'Director Deportivo', 'Fisioterapeuta', 'Médico', 'Delegado de Equipo', 'Delegado de Campo', 'Utillero', 'Readaptador'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
