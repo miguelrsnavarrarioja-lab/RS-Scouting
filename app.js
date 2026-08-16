@@ -214,9 +214,18 @@ function savePriorityTeamsToFirebase() {
 
   function saveToFirebase(collectionName, item) {
     if (!db || !item || !item.id) return;
-    markLocalWrite(collectionName, item.id);
+    
+    // Sanitize item to remove undefined values which crash Firestore
+    const sanitizedItem = {};
+    for (const key in item) {
+      if (item[key] !== undefined) {
+        sanitizedItem[key] = item[key];
+      }
+    }
+    
+    markLocalWrite(collectionName, sanitizedItem.id);
     setFirebaseHeaderStatus('syncing');
-    db.collection(collectionName).doc(String(item.id)).set(item, { merge: true })
+    db.collection(collectionName).doc(String(sanitizedItem.id)).set(sanitizedItem, { merge: true })
       .then(() => {
         console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
         setFirebaseHeaderStatus('synced');
@@ -663,7 +672,7 @@ function savePriorityTeamsToFirebase() {
 
         snap.docChanges().forEach(change => {
           const docId = change.doc.id;
-          const data = change.doc.data();
+          const data = { id: docId, ...change.doc.data() };
           
           if (isRecentLocalWrite(colName, docId)) return; // Anti-echo
           
@@ -17041,7 +17050,7 @@ function savePriorityTeamsToFirebase() {
 
     let html = `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
-        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: uppercase;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
@@ -17151,7 +17160,7 @@ function savePriorityTeamsToFirebase() {
           </div>
 
           <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: uppercase;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
                   <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
@@ -18037,8 +18046,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         return;
       }
 
-      // Specific fix for Monzón Fútbol Base merged string issue
-      line = line.replace(/MONZÓN FÚTBOL BASE[\s\t]+AT\.\s*Gigamontrans/gi, 'AT. MONZÓN GIGAMONTRANS');
+      // No specific replacements to preserve the original team names as requested
 
       if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\s{2,}/) || line.includes('\t')) {
         let parts;
@@ -18056,8 +18064,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: cleanTeamName(parts[0]),
-            visitante: cleanTeamName(parts[parts.length - 1]),
+            local: cleanTeamName(parts[0]).toUpperCase(),
+            visitante: cleanTeamName(parts[parts.length - 1]).toUpperCase(),
             competicion: calendarName || 'Liga Importada',
             federacion: federacion,
             grupo: grupo
@@ -18075,8 +18083,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: cleanTeamName(l),
-            visitante: 'Rival',
+            local: cleanTeamName(l).toUpperCase(),
+            visitante: 'RIVAL',
             competicion: calendarName || 'Calendario',
             federacion: federacion,
             grupo: grupo
@@ -18433,7 +18441,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       cardsList.addEventListener('drop', (e) => {
         e.preventDefault();
         cardsList.classList.remove('drag-over-list');
-        const task = state.agenda.find(t => t.id === draggedTaskId);
+        const task = state.agenda.find(t => String(t.id) === String(draggedTaskId));
         if (task) {
           task.estado = cardsList.dataset.status;
           task.completada = (task.estado === 'done');
@@ -18447,7 +18455,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     container.querySelectorAll('.agenda-status-select').forEach(sel => {
       sel.addEventListener('change', (e) => {
         e.stopPropagation();
-        const task = state.agenda.find(t => t.id === sel.dataset.id);
+        const task = state.agenda.find(t => String(t.id) === String(sel.dataset.id));
         if (task) {
           task.estado = sel.value;
           task.completada = (sel.value === 'done');
