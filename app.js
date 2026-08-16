@@ -1036,7 +1036,7 @@ function saveCarteleraTeamsToFirebase() {
     container.innerHTML = sortedYears.map(year => `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
         <span style="font-weight: 700; color: #0f172a;">${escapeHtml(year)}</span>
-        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${yearCounts[year]}</span>
+        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${yearCounts[year]}</span>
       </div>
     `).join('');
   }
@@ -1074,7 +1074,7 @@ function saveCarteleraTeamsToFirebase() {
     container.innerHTML = sortedCats.map(cat => `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
         <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(cat)}</span>
-        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${catCounts[cat]}</span>
+        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${catCounts[cat]}</span>
       </div>
     `).join('');
   }
