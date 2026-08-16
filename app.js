@@ -17066,6 +17066,11 @@ function savePriorityTeamsToFirebase() {
           <tbody>
     `;
 
+    const formatTeamName = (str) => {
+      if (!str) return '';
+      return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+    };
+
     html += allMatches.map(m => {
       const locStyle = m.isPriorityLocal ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
       const visStyle = m.isPriorityVisitante ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
@@ -17079,8 +17084,8 @@ function savePriorityTeamsToFirebase() {
             <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 6px; border-radius: 4px;">${escapeHtml(m.jornada || '-')}</span>
           </td>
           <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${clashIcon}</td>
-          <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
+          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
+          <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(formatTeamName(m.visitante))}</td>
           <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
           <td style="padding: 8px 12px;">
             <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
@@ -17186,11 +17191,16 @@ function savePriorityTeamsToFirebase() {
                   const borderLeft = isClashBool ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : (isHighInterest ? 'border-left: 4px solid rgba(245, 158, 11, 0.6);' : 'border-left: 4px solid transparent;');
                   const clashIcon = isClashBool ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
 
+                  const formatTeamName = (str) => {
+                    if (!str) return '';
+                    return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+                  };
+
                   return `
                     <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
                       <td style="padding: 8px 12px; ${borderLeft} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(m.local)} ${clashIcon}</td>
-                      <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(m.visitante)}</td>
+                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
+                      <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(formatTeamName(m.visitante))}</td>
                       <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
                       <td style="padding: 8px 12px;">
                         <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
