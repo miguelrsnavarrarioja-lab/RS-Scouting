@@ -368,7 +368,7 @@
       <!-- Detailed Match Report Editor (Matches Informe partido 1.png & Informe 2.png) -->
       <div id="matchReportEditorState" class="match-report-editor hidden">
         <!-- Header Banner -->
-        <div class="report-header-banner">
+        <div class="report-header-banner" style="position: sticky; top: 0; z-index: 100;">
           <div class="report-header-title">
             <i data-lucide="clipboard-check" class="banner-icon"></i>
             <h2>Informe Técnico de Partido</h2>
@@ -505,8 +505,12 @@
                   <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
                 </div>
               </div>
-              <div class="formation-selector">
-                <select id="localFormationSelect" class="form-control select-compact">
+              <div class="formation-selector" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                  <input type="checkbox" id="localIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                  <span style="font-size: 11px; font-weight: 700; color: #475569;">INCLUIR FILIAL</span>
+                </label>
+                <select id="localFormationSelect" class="form-control select-compact" style="width: auto;">
                   <optgroup label="Fútbol 11">
                     <option value="1-4-3-3" selected>1-4-3-3</option>
                     <option value="1-4-4-2">1-4-4-2 (Línea)</option>
@@ -560,12 +564,6 @@
 
               <!-- 2D Interactive Pitch Field -->
               <div class="pitch-container" style="display: flex; flex-direction: column; align-items: flex-end;">
-                <div style="margin-bottom: 8px;">
-                  <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
-                    <input type="checkbox" id="localIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
-                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Incluir Filial</span>
-                  </label>
-                </div>
                 <div class="football-pitch" id="localPitchField" style="width: 100%;">
                   <div class="pitch-marking pitch-outline"></div>
                   <div class="pitch-marking pitch-center-line"></div>
@@ -687,8 +685,12 @@
                   <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
                 </div>
               </div>
-              <div class="formation-selector">
-                <select id="visitanteFormationSelect" class="form-control select-compact">
+              <div class="formation-selector" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                  <input type="checkbox" id="visitanteIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                  <span style="font-size: 11px; font-weight: 700; color: #475569;">INCLUIR FILIAL</span>
+                </label>
+                <select id="visitanteFormationSelect" class="form-control select-compact" style="width: auto;">
                   <optgroup label="Fútbol 11">
                     <option value="1-4-4-2" selected>1-4-4-2 (Línea)</option>
                     <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
@@ -742,12 +744,6 @@
 
               <!-- 2D Interactive Pitch Field -->
               <div class="pitch-container" style="display: flex; flex-direction: column; align-items: flex-end;">
-                <div style="margin-bottom: 8px;">
-                  <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
-                    <input type="checkbox" id="visitanteIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
-                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Incluir Filial</span>
-                  </label>
-                </div>
                 <div class="football-pitch" id="visitantePitchField" style="width: 100%;">
                   <div class="pitch-marking pitch-outline"></div>
                   <div class="pitch-marking pitch-center-line"></div>
