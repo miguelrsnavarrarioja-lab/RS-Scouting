@@ -3284,8 +3284,10 @@ function saveCarteleraTeamsToFirebase() {
       if (nameVal) {
         const parts = nameVal.trim().split(/\s+/);
         if (parts.length > 1) {
-          shortName = parts[0].charAt(0).toUpperCase() + '.' + parts.slice(1).join(' ');
-          if (shortName.length > 15) {
+          const firstAndSurname = parts[0] + ' ' + parts[1];
+          if (firstAndSurname.length <= 15) {
+            shortName = firstAndSurname;
+          } else {
             shortName = parts[0].charAt(0).toUpperCase() + '.' + parts[1];
           }
         } else {
