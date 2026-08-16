@@ -971,8 +971,8 @@ function saveCarteleraTeamsToFirebase() {
     const nowForKpis = new Date();
     const todayStrForKpis = nowForKpis.toISOString().split('T')[0];
     const totalVistos = reports.filter(r => r.completado).length;
-    const scheduledMatches = reports.filter(r => !r.completado && r.date > todayStrForKpis).length;
-    const directMatches = reports.filter(r => !r.completado && r.date <= todayStrForKpis).length;
+    const scheduledMatches = reports.filter(r => !r.completado && r.date >= todayStrForKpis).length;
+    const directMatches = reports.filter(r => !r.completado && r.date < todayStrForKpis).length;
     const pendingTasks = agenda.filter(a => !a.completada && !a.archivada);
     const highPriorityTasks = pendingTasks.filter(a => a.prioridad === 'Alta').length;
 
@@ -1159,10 +1159,12 @@ function saveCarteleraTeamsToFirebase() {
     const container = document.getElementById('dashboardUpcomingMatchesList');
     if (!container) return;
 
-    const matches = state.matches || [];
-    const upcoming = matches
-      .filter(m => m.estado === 'programado')
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+    const nowStr = new Date().toISOString().split('T')[0];
+    const reports = state.reports || [];
+    
+    const upcoming = reports
+      .filter(r => !r.completado && r.date >= nowStr)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 4);
 
     if (upcoming.length === 0) {
@@ -1175,22 +1177,47 @@ function saveCarteleraTeamsToFirebase() {
       return;
     }
 
-    container.innerHTML = upcoming.map(m => `
-      <div class="dashboard-widget-item match-item">
-        <div class="widget-item-main">
-          <div class="match-teams-title">
-            <strong>${escapeHtml(m.local)}</strong> <span class="vs-tag">vs</span> <strong>${escapeHtml(m.visitante)}</strong>
+    container.innerHTML = upcoming.map(r => {
+      const getLogo = (name) => {
+        if (!name) return '';
+        const eq = (state.directory?.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === name.toLowerCase());
+        return eq?.escudo || '';
+      };
+      
+      const localLogo = getLogo(r.equipoLocal);
+      const visitLogo = getLogo(r.equipoVisitante);
+      
+      const localLogoImg = localLogo ? `<img src="${escapeHtml(localLogo)}" alt="Local" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
+      const visitLogoImg = visitLogo ? `<img src="${escapeHtml(visitLogo)}" alt="Visit" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
+
+      return `
+      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${r.id}\\']').click()">
+        
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          ${localLogoImg}
+          <div style="flex: 1; text-align: center;">
+            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">
+              ${escapeHtml(r.equipoLocal || 'Local')} <span style="color: #64748b; font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(r.equipoVisitante || 'Visitante')}
+            </div>
+            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">
+              ${escapeHtml(r.categoria || 'Sin Categoría')}
+            </div>
           </div>
-          <div class="match-meta-line">
-            <span><i data-lucide="calendar"></i> ${escapeHtml(m.fecha || '')} ${m.hora ? ' (' + escapeHtml(m.hora) + ')' : ''}</span>
-            <span><i data-lucide="map-pin"></i> ${escapeHtml(m.estadio || 'Estadio por determinar')}</span>
-          </div>
+          ${visitLogoImg}
         </div>
-        <button class="btn btn-sm btn-outline btn-dashboard-view-match" data-match-id="${m.id}">
-          <i data-lucide="eye"></i> Ver
-        </button>
+
+        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-width: 70px; margin-left: 12px;">
+           <span style="font-size: 11px; font-weight: 800; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px;">
+             ${escapeHtml(r.date || '')}
+           </span>
+           <span style="font-size: 11px; font-weight: 700; color: #64748b;">
+             ${escapeHtml(r.time || '')}
+           </span>
+        </div>
+        <button class="btn btn-sm btn-outline btn-dashboard-view-match" style="display:none;" data-match-id="${r.id}"></button>
       </div>
-    `).join('');
+      `;
+    }).join('');
 
     container.querySelectorAll('.btn-dashboard-view-match').forEach(btn => {
       btn.onclick = () => {
