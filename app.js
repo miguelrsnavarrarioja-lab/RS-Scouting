@@ -1854,29 +1854,30 @@
 
           return `
           <div class="match-card" data-group-id="${groupId}" style="display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s;">
-            <div class="match-card-header" style="justify-content: flex-start; padding-bottom: 4px;">
-              <span class="match-category-tag">${escapeHtml(r.categoria || r.competicion || 'Informe Técnico')}</span>
+            <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
+              ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
+              ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
             </div>
 
-            <!-- Línea 1 y 2: Escudo y Nombre Equipos -->
+            <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
             <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
               <div style="display: flex; align-items: center; gap: 12px;">
                 ${lLogo ? `<img src="${lLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
                 <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
+                <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.localScore}</span>
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 ${vLogo ? `<img src="${vLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
                 <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
+                <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.visitanteScore}</span>
               </div>
             </div>
 
             <div class="match-card-details" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
-              <!-- Línea 3: Fecha -->
+              <!-- Fecha -->
               <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
-              <!-- Línea 4: Resultado y Lugar -->
-              <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')} &nbsp;|&nbsp; <strong style="color: var(--primary-blue); font-size: 13px;">Res: ${r.localScore} - ${r.visitanteScore}</strong></div>
-              <!-- Competición -->
-              <div style="margin-top: 4px; font-weight: 600; color: var(--text-muted);"><i data-lucide="trophy" style="width: 14px;"></i> ${escapeHtml(r.competicion || r.categoria || 'Amistoso')}</div>
+              <!-- Lugar -->
+              <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}</div>
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: 10px;">
@@ -3435,7 +3436,7 @@
               <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px;">
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%; height: 38px;">
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%;">
                 NO JUEGA
               </button>
             </div>

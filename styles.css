@@ -1372,7 +1372,7 @@ a {
 }
 
 .tag-control-btn {
-  padding: 8px 12px;
+  padding: 10px 8px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
   background: var(--bg-surface);
@@ -1385,7 +1385,9 @@ a {
   gap: 4px;
   justify-content: center;
   transition: all 0.2s ease;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  min-height: 64px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   box-shadow: var(--shadow-sm);
