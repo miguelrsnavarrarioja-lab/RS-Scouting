@@ -504,9 +504,6 @@
                   <button type="button" class="role-tab" data-role="secundario">Secundario</button>
                   <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
                 </div>
-                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
-                  <input type="checkbox" id="localIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer;"> Incluir inferior
-                </label>
               </div>
               <div class="formation-selector">
                 <select id="localFormationSelect" class="form-control select-compact">
@@ -545,6 +542,12 @@
             <div class="tactical-field-split">
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                  <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+                    <input type="checkbox" id="localIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Incluir Filial</span>
+                  </label>
+                </div>
                 <div class="lineup-table-header">
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>
@@ -683,9 +686,6 @@
                   <button type="button" class="role-tab" data-role="secundario">Secundario</button>
                   <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
                 </div>
-                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
-                  <input type="checkbox" id="visitanteIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer;"> Incluir inferior
-                </label>
               </div>
               <div class="formation-selector">
                 <select id="visitanteFormationSelect" class="form-control select-compact">
@@ -724,6 +724,12 @@
             <div class="tactical-field-split">
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+                  <label style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+                    <input type="checkbox" id="visitanteIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                    <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase;">Incluir Filial</span>
+                  </label>
+                </div>
                 <div class="lineup-table-header">
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>

@@ -3061,12 +3061,19 @@ function saveCarteleraTeamsToFirebase() {
                return itemName === pName;
              });
            }
-        } else if (targetClub && allowedInferiorCategories.length > 0) {
+        } else if (allowedInferiorCategories.length > 0) {
+          const getBaseName = (name) => {
+             return name.toLowerCase().replace(/\s+(dhj|lnj|jau|jpr|cv|ch|cpr|ih|itx|alv|alvb|ben|benb|pref|aut|reg|1 rfef|2 rfef|3 rfef|\d{2}\/\d{2}).*/g, '').trim();
+          };
+          const targetBase = targetTeam.nombre ? getBaseName(targetTeam.nombre) : '';
+
           // Does this player belong to any team of the same club with allowed inferior category?
           const playerEq = equipos.find(eq => {
             if (!eq.nombre) return false;
             const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
-            return eqClub === targetClub && allowedInferiorCategories.includes(eq.categoria);
+            const eqBase = getBaseName(eq.nombre);
+            const sameClub = (targetClub && eqClub && targetClub === eqClub) || (targetBase && eqBase && targetBase === eqBase);
+            return sameClub && allowedInferiorCategories.includes(eq.categoria);
           });
           if (playerEq && playerEq.plantilla) {
              isInferior = playerEq.plantilla.some(item => {
