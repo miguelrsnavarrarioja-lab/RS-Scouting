@@ -15464,17 +15464,14 @@ function savePriorityTeamsToFirebase() {
     
     if (!firstMatch) return false;
     
-    const surnames1 = w1.slice(1);
-    const surnames2 = w2.slice(1);
+    const s1Str = w1.slice(1).join(' ');
+    const s2Str = w2.slice(1).join(' ');
     
-    let surnameMatches = 0;
-    for (let s1 of surnames1) {
-      if (s1.length > 2 && surnames2.includes(s1)) {
-        surnameMatches++;
-      }
-    }
+    if (s1Str === s2Str) return true;
+    if (s1Str.startsWith(s2Str + ' ') || s2Str.startsWith(s1Str + ' ')) return true;
+    if (s1Str.endsWith(' ' + s2Str) || s2Str.endsWith(' ' + s1Str)) return true;
     
-    return surnameMatches >= 1;
+    return false;
   }
 
   function processImporterText() {
@@ -15846,19 +15843,10 @@ function savePriorityTeamsToFirebase() {
           federacion: row.comunidad ? `Federación de ${row.comunidad}` : 'FNF'
         };
 
-        const existingIdx = state.directory.staff.findIndex(s => 
-          s && (s.nombre || s.staff || '').toLowerCase().trim() === row.nombre.toLowerCase().trim()
-        );
-
-        if (existingIdx !== -1) {
-          state.directory.staff[existingIdx] = Object.assign({}, state.directory.staff[existingIdx], staffObj);
-          saveToFirebase('staff', state.directory.staff[existingIdx]);
-          countStaffUpd++;
-        } else {
-          state.directory.staff.unshift(staffObj);
-          saveToFirebase('staff', staffObj);
-          countStaffNew++;
-        }
+        // Si el usuario marcó la casilla (o la dejó marcada), forzamos la creación como nuevo registro
+        state.directory.staff.unshift(staffObj);
+        saveToFirebase('staff', staffObj);
+        countStaffNew++;
       } else {
         // Player object construction
         const playerObj = {
@@ -15888,19 +15876,10 @@ function savePriorityTeamsToFirebase() {
           imagen: DEFAULT_PLAYER_PHOTO_PATH
         };
 
-        const existingIdx = state.directory.jugadores.findIndex(j => 
-          j && (j.nombre || j.jugador || '').toLowerCase().trim() === row.nombre.toLowerCase().trim()
-        );
-
-        if (existingIdx !== -1) {
-          state.directory.jugadores[existingIdx] = Object.assign({}, state.directory.jugadores[existingIdx], playerObj);
-          saveToFirebase('jugadores', state.directory.jugadores[existingIdx]);
-          countJugadoresUpd++;
-        } else {
-          state.directory.jugadores.unshift(playerObj);
-          saveToFirebase('jugadores', playerObj);
-          countJugadoresNew++;
-        }
+        // Si el usuario marcó la casilla (o la dejó marcada), forzamos la creación como nuevo registro
+        state.directory.jugadores.unshift(playerObj);
+        saveToFirebase('jugadores', playerObj);
+        countJugadoresNew++;
       }
     });
 
