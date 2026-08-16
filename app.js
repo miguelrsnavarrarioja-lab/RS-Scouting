@@ -1001,8 +1001,82 @@ function saveCarteleraTeamsToFirebase() {
     // 5. Render Widget: Eventos Pendientes
     renderDashboardPendingEvents();
 
-    // 6. Init Shortcuts listeners
+    // 6. Render New Widgets
+    renderDashboardPlayersByYear();
+    renderDashboardTeamsByCategory();
+
+    // 7. Init Shortcuts listeners
     initDashboardShortcuts();
+  }
+
+  function renderDashboardPlayersByYear() {
+    const container = document.getElementById('dashboardPlayersByYear');
+    if (!container) return;
+
+    const players = state.directory?.jugadores || [];
+    const yearCounts = {};
+    
+    players.forEach(p => {
+      let year = String(p.anoNac || p.ano || p.anyo || '').trim();
+      if (!year) year = 'Sin Año';
+      yearCounts[year] = (yearCounts[year] || 0) + 1;
+    });
+
+    const sortedYears = Object.keys(yearCounts).sort((a, b) => {
+      if (a === 'Sin Año') return 1;
+      if (b === 'Sin Año') return -1;
+      return b.localeCompare(a); // descending year order
+    });
+
+    if (sortedYears.length === 0) {
+      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay jugadores en el directorio</div>';
+      return;
+    }
+
+    container.innerHTML = sortedYears.map(year => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(year)}</span>
+        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${yearCounts[year]}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderDashboardTeamsByCategory() {
+    const container = document.getElementById('dashboardTeamsByCategory');
+    if (!container) return;
+
+    const teams = state.directory?.equipos || [];
+    const catCounts = {};
+    
+    teams.forEach(t => {
+      let cat = String(t.categoria || 'Sin Categoría').trim();
+      catCounts[cat] = (catCounts[cat] || 0) + 1;
+    });
+
+    // Sort by custom category order if available
+    const orderRef = state.directoryCategoriesOrder || [];
+    const sortedCats = Object.keys(catCounts).sort((a, b) => {
+      if (a === 'Sin Categoría') return 1;
+      if (b === 'Sin Categoría') return -1;
+      const idxA = orderRef.indexOf(a);
+      const idxB = orderRef.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    if (sortedCats.length === 0) {
+      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay equipos vistos en el directorio</div>';
+      return;
+    }
+
+    container.innerHTML = sortedCats.map(cat => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(cat)}</span>
+        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${catCounts[cat]}</span>
+      </div>
+    `).join('');
   }
 
   function renderDashboardUpcomingMatches() {
@@ -13577,6 +13651,22 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
+    const filterYear = document.getElementById('dirYearFilterInput')?.value.trim() || '';
+
+    // Show/hide year filter only for Jugadores
+    const yearContainer = document.getElementById('dirYearFilterContainer');
+    if (yearContainer) {
+      if (currentDirectoryTab === 'jugadores') {
+        yearContainer.style.display = 'flex';
+      } else {
+        yearContainer.style.display = 'none';
+        const yInput = document.getElementById('dirYearFilterInput');
+        if (yInput && yInput.value) {
+          yInput.value = '';
+        }
+      }
+    }
+
     if (!state.dirActiveFilters) state.dirActiveFilters = {};
     if (!state.dirActiveFilters[currentDirectoryTab]) state.dirActiveFilters[currentDirectoryTab] = {};
     const activeFilters = state.dirActiveFilters[currentDirectoryTab];
@@ -13640,8 +13730,13 @@ function saveCarteleraTeamsToFirebase() {
       });
     }
 
-    // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER)
+    // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER) & Year Filter
     const filtered = subFilteredItems.filter(item => {
+      if (filterYear && currentDirectoryTab === 'jugadores') {
+        const itemYear = String(item.anoNac || item.ano || item.anyo || '').trim();
+        if (itemYear !== filterYear) return false;
+      }
+      
       if (!searchVal) return true;
       const itemName = String(
         item.nombre || 
@@ -15144,6 +15239,10 @@ function saveCarteleraTeamsToFirebase() {
   }
 
   document.getElementById('dirSearchInput')?.addEventListener('input', () => {
+    currentDirectoryPage = 1;
+    renderDirectorio();
+  });
+  document.getElementById('dirYearFilterInput')?.addEventListener('input', () => {
     currentDirectoryPage = 1;
     renderDirectorio();
   });
