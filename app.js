@@ -16834,13 +16834,13 @@ function savePriorityTeamsToFirebase() {
 
     calendarios.forEach(cal => {
       (cal.partidos || []).forEach(m => {
-        const fed = (m.federacion || cal.federacion || 'General').trim();
-        const comp = (m.competicion || cal.nombre || 'General').trim();
-        const grupo = (m.grupo || '').trim();
-        const jor = (m.jornada || '').trim();
-        const fecha = (m.fecha || '').trim();
-        const loc = (m.local || '').trim();
-        const vis = (m.visitante || '').trim();
+        const fed = String(m.federacion || cal.federacion || 'General').trim();
+        const comp = String(m.competicion || cal.nombre || 'General').trim();
+        const grupo = String(m.grupo || '').trim();
+        const jor = String(m.jornada || '').trim();
+        const fecha = String(m.fecha || '').trim();
+        const loc = String(m.local || '').trim();
+        const vis = String(m.visitante || '').trim();
         
         if (fed) fedSet.add(fed);
         if (comp) compSet.add(comp);
@@ -16858,11 +16858,13 @@ function savePriorityTeamsToFirebase() {
       
       const arr = Array.from(optionsSet).sort((a,b) => {
         if (id === 'carteleraFilterJornada') {
-           const numA = parseInt((a.match(/\d+/) || [0])[0]);
-           const numB = parseInt((b.match(/\d+/) || [0])[0]);
+           const matchA = String(a).match(/\d+/);
+           const matchB = String(b).match(/\d+/);
+           const numA = parseInt((matchA || [0])[0]);
+           const numB = parseInt((matchB || [0])[0]);
            return numA - numB;
         }
-        return a.localeCompare(b);
+        return String(a).localeCompare(String(b));
       });
       
       let html = `<option value="all">${defaultLabel}</option>`;
