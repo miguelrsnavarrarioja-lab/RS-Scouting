@@ -16824,6 +16824,7 @@ function savePriorityTeamsToFirebase() {
   }
 
   function renderCarteleraFilters() {
+    try {
     const calendarios = state.cartelera.calendarios || [];
     const fedSet = new Set();
     const compSet = new Set();
@@ -16894,10 +16895,17 @@ function savePriorityTeamsToFirebase() {
     
     const intEl = document.getElementById('carteleraFilterInteres');
     if (intEl) intEl.value = selectedCarteleraInteres;
+    } catch (e) {
+      const container = document.getElementById('carteleraMatchesGrid');
+      if (container) container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Filtros de Cartelera: ${e.message}<br><br>${e.stack}</div>`;
+      console.error(e);
+    }
   }
 
   function renderCarteleraMatches() {
     const container = document.getElementById('carteleraMatchesGrid');
+    if (!container) return;
+    try {
     if (!container) return;
 
     const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim());
@@ -17084,11 +17092,16 @@ function savePriorityTeamsToFirebase() {
 
     bindCarteleraMatchEvents(container, allMatches);
     if (window.lucide) window.lucide.createIcons();
+    } catch (e) {
+      container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera: ${e.message}<br><br>${e.stack}</div>`;
+      console.error(e);
+    }
   }
 
   function renderCarteleraJornadasGrid(allMatches) {
     const container = document.getElementById('carteleraMatchesGrid');
     if (!container) return;
+    try {
 
     if (allMatches.length === 0) {
       container.innerHTML = `
@@ -17193,6 +17206,10 @@ function savePriorityTeamsToFirebase() {
     container.innerHTML = html;
     bindCarteleraMatchEvents(container, allMatches);
     if (window.lucide) window.lucide.createIcons();
+    } catch (e) {
+      container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera Jornadas: ${e.message}<br><br>${e.stack}</div>`;
+      console.error(e);
+    }
   }
 
   function bindCarteleraMatchEvents(container, allMatches) {
