@@ -2900,7 +2900,34 @@ function saveCarteleraTeamsToFirebase() {
 
     renderPlayerRows(team, systemData.titulares, systemData.suplentes);
     renderPitchPins(team);
+    attachLineupRowListeners(team);
   }
+
+  // Handle dynamic substitute count changes
+  window.changeSuplentesCount = function(team, delta) {
+    saveCurrentTacticalRoleState(team); // Save current inputs to state
+    
+    const role = activeTacticalRole[team] || 'principal';
+    if (!matchTacticalSystems[team] || !matchTacticalSystems[team][role]) return;
+    
+    const systemData = matchTacticalSystems[team][role];
+    let suplentes = systemData.suplentes || [];
+    
+    if (delta > 0) {
+      // Add empty substitute
+      suplentes.push({ num: '', name: '', pos: '' });
+    } else if (delta < 0 && suplentes.length > 0) {
+      // Remove last substitute
+      suplentes.pop();
+    }
+    
+    systemData.suplentes = suplentes;
+    
+    // Re-render
+    renderPlayerRows(team, systemData.titulares, systemData.suplentes);
+    renderPitchPins(team);
+    attachLineupRowListeners(team);
+  };
 
   function updateStarterPositionsForFormation(team, formation) {
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
@@ -3152,10 +3179,20 @@ function saveCarteleraTeamsToFirebase() {
     }
     titContainer.innerHTML = titHTML;
 
-    // Suplentes (11 suplentes) - Default position empty
+    // Suplentes (dynamic count, default 7)
     const supContainer = document.getElementById(`${team}SuplentesRows`);
+    let count = suplentes.length;
+    if (count === 0) {
+      count = 7; // Default to 7 for new reports
+      for(let i=0; i<7; i++) suplentes.push({num: '', name: '', pos: ''});
+    }
+    
+    // Update the UI counter
+    const counterDisplay = document.getElementById(`${team}SuplentesCountDisplay`);
+    if (counterDisplay) counterDisplay.textContent = count;
+
     let supHTML = '';
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < count; i++) {
       const p = suplentes[i] || { num: '', name: '', pos: '' };
       const numVal = (p.num !== undefined && p.num !== null && p.num !== 0 && p.num !== '0') ? p.num : '';
       const currentPos = p.pos !== undefined ? p.pos : '';
@@ -3499,7 +3536,6 @@ function saveCarteleraTeamsToFirebase() {
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
-      if (evalData.comentarioGeneral) playerInDir.comentarioGeneral = evalData.comentarioGeneral;
       if (evalData.tags && evalData.tags.length > 0) playerInDir.tags = evalData.tags;
       
       // Append/update match evaluation history
@@ -3629,7 +3665,7 @@ function saveCarteleraTeamsToFirebase() {
         tags: playerInDir.tags || [],
         minutos: defaultMins,
         sustituido: false,
-        comentarioGeneral: playerInDir.comentarioGeneral || '',
+        comentarioGeneral: '',
         descFisica: playerInDir.descFisica || '',
         descTecnica: playerInDir.descTecnica || '',
         descEmocional: playerInDir.descEmocional || '',
