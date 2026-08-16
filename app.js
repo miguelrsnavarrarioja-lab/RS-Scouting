@@ -16254,6 +16254,7 @@ function savePriorityTeamsToFirebase() {
   let selectedCarteleraFecha = 'all';
   let selectedCarteleraInteres = 'all';
   let selectedCarteleraEquipo = 'all';
+  let selectedCarteleraGrupo = 'all';
   let selectedCarteleraSubview = 'destacados';
   let currentCarteleraFilteredMatches = []; // 'destacados' | 'jornadas'
 
