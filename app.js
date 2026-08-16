@@ -16898,7 +16898,7 @@ function savePriorityTeamsToFirebase() {
     const container = document.getElementById('carteleraMatchesGrid');
     if (!container) return;
 
-    const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim());
+    const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim());
     const calendarios = state.cartelera.calendarios || [];
     const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
 
@@ -16906,15 +16906,15 @@ function savePriorityTeamsToFirebase() {
     calendarios.forEach(cal => {
       
         (cal.partidos || []).forEach(m => {
-          const locLower = (m.local || '').toLowerCase();
-          const visLower = (m.visitante || '').toLowerCase();
-          const comp = m.competicion || cal.nombre || 'General';
+          const locLower = String(m.local || '').toLowerCase();
+          const visLower = String(m.visitante || '').toLowerCase();
+          const comp = String(m.competicion || cal.nombre || 'General');
 
           const isPriority = (teamLower, matchComp) => priorityTeamsLower.some(pt => {
              const parts = pt.split('|||');
              const ptCat = parts.length > 1 ? parts[0] : 'all';
              const ptTeam = parts.length > 1 ? parts[1] : pt;
-             if (ptCat !== 'all' && matchComp.toLowerCase() !== ptCat) return false;
+             if (ptCat !== 'all' && String(matchComp).toLowerCase() !== ptCat) return false;
              return ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
           });
 
@@ -16938,7 +16938,7 @@ function savePriorityTeamsToFirebase() {
 
     // Apply Categoria filter
     if (selectedCarteleraCategoria !== 'all') {
-      allMatches = allMatches.filter(m => m.competicion === selectedCarteleraCategoria);
+      allMatches = allMatches.filter(m => String(m.competicion).trim() === String(selectedCarteleraCategoria).trim());
     }
     // Apply Federación filter
     if (selectedCarteleraFederacion !== 'all') {
@@ -16984,8 +16984,8 @@ function savePriorityTeamsToFirebase() {
 
     // Sort: Jornada (numerically), then Fecha/Hora
     allMatches.sort((a, b) => {
-      const jorA = parseInt((a.jornada || '').match(/\d+/) || [999]);
-      const jorB = parseInt((b.jornada || '').match(/\d+/) || [999]);
+      const jorA = parseInt(String(a.jornada || '').match(/\d+/) || [999]);
+      const jorB = parseInt(String(b.jornada || '').match(/\d+/) || [999]);
       if (jorA !== jorB) return jorA - jorB;
 
       const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
