@@ -2941,17 +2941,24 @@ function saveCarteleraTeamsToFirebase() {
   });
 
   const INFERIOR_CATEGORIES_MAP = {
-    'DHJ': ['CV', 'CH', 'CPR'],
-    'LNJ': ['CV', 'CH', 'CPR'],
-    'JAU': ['CV', 'CH', 'CPR'],
+    '1 RFEF': ['2 RFEF', '3 RFEF', 'AUT', 'PREF', 'REG', 'DHJ', 'LNJ', 'JAU', 'JPR'],
+    '2 RFEF': ['3 RFEF', 'AUT', 'PREF', 'REG', 'DHJ', 'LNJ', 'JAU', 'JPR'],
+    '3 RFEF': ['AUT', 'PREF', 'REG', 'DHJ', 'LNJ', 'JAU', 'JPR'],
+    'AUT': ['PREF', 'REG', 'DHJ', 'LNJ', 'JAU', 'JPR'],
+    'PREF': ['REG', 'DHJ', 'LNJ', 'JAU', 'JPR'],
+    'REG': ['DHJ', 'LNJ', 'JAU', 'JPR'],
+    'DHJ': ['LNJ', 'JAU', 'JPR', 'CV', 'CH', 'CPR'],
+    'LNJ': ['JAU', 'JPR', 'CV', 'CH', 'CPR'],
+    'JAU': ['JPR', 'CV', 'CH', 'CPR'],
     'JPR': ['CV', 'CH', 'CPR'],
-    'CV': ['IH', 'ITX'],
-    'CH': ['IH', 'ITX'],
+    'CV': ['CH', 'CPR', 'IH', 'ITX'],
+    'CH': ['CPR', 'IH', 'ITX'],
     'CPR': ['IH', 'ITX'],
-    'IH': ['ALV', 'ALVB'],
+    'IH': ['ITX', 'ALV', 'ALVB'],
     'ITX': ['ALV', 'ALVB'],
-    'ALV': ['BEN', 'BENB'],
-    'ALVB': ['BEN', 'BENB']
+    'ALV': ['ALVB', 'BEN', 'BENB'],
+    'ALVB': ['BEN', 'BENB'],
+    'BEN': ['BENB']
   };
 
   function findPlayerByTeamAndDorsal(teamName, dorsalNum) {
@@ -3079,11 +3086,24 @@ function saveCarteleraTeamsToFirebase() {
       return matchesTeam || isInferior;
     });
 
-    datalist.innerHTML = teamPlayers.map(p => {
+    const mainPlayers = teamPlayers.filter(p => !p._isInferior);
+    const inferiorPlayers = teamPlayers.filter(p => p._isInferior);
+
+    let html = mainPlayers.map(p => {
       const pName = p.nombre || p.jugador || p.name || '';
-      const eqTag = p._isInferior ? ` [${escapeHtml(p.equipo || 'Filial')}]` : '';
-      return pName ? `<option value="${escapeHtml(pName)}${eqTag}"></option>` : '';
+      return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
     }).join('');
+
+    if (inferiorPlayers.length > 0) {
+      html += `<option value="--- JUGADORES OTRO EQUIPO ---" disabled></option>`;
+      html += inferiorPlayers.map(p => {
+        const pName = p.nombre || p.jugador || p.name || '';
+        const eqTag = ` [${escapeHtml(p.equipo || 'Filial')}]`;
+        return pName ? `<option value="${escapeHtml(pName)}${eqTag}"></option>` : '';
+      }).join('');
+    }
+
+    datalist.innerHTML = html;
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
