@@ -2311,6 +2311,12 @@ function saveCarteleraTeamsToFirebase() {
       federacionesListOptions.innerHTML = Array.from(fedSet).map(f => `<option value="${escapeHtml(f)}"></option>`).join('');
     }
 
+    // Restore "Incluir Filial" checkboxes state per report
+    const cbLocalCantera = document.getElementById('localIncludeCantera');
+    if (cbLocalCantera) cbLocalCantera.checked = repData.localIncludeCantera || false;
+    const cbVisitCantera = document.getElementById('visitanteIncludeCantera');
+    if (cbVisitCantera) cbVisitCantera.checked = repData.visitanteIncludeCantera || false;
+
     // Fill Header & General Info
     document.getElementById('reportLocalTeam').value = repData.localTeam || '';
     document.getElementById('reportVisitanteTeam').value = repData.visitanteTeam || '';
@@ -3075,18 +3081,26 @@ function saveCarteleraTeamsToFirebase() {
       
       if (!matchesTeam && includeCantera) {
         if (isSubiza) {
-           const subizaAllowedTeams = ['c. ciudad de iruña pref', 'osasuna dhj', 'valle aranguren dhj'];
-           const playerEq = equipos.find(eq => {
+           const subizaAllowedTeams = ['c. ciudad iruña pref', 'c ciudad iruña pref', 'c. ciudad de iruña pref', 'ciudad iruña pref', 'ciudad de iruña pref', 'osasuna dhj', 'valle aranguren dhj', 'valle de aranguren dhj', 'osasuna lnj'];
+           const inferiorTeams = equipos.filter(eq => {
              if (!eq.nombre) return false;
              const eqLower = eq.nombre.toLowerCase();
-             // Check if the team name matches any of the allowed
              return subizaAllowedTeams.some(allowed => eqLower.includes(allowed) || allowed.includes(eqLower));
            });
-           if (playerEq && playerEq.plantilla) {
-             isInferior = playerEq.plantilla.some(item => {
+           
+           isInferior = inferiorTeams.some(team => {
+             if (!team.plantilla) return false;
+             return team.plantilla.some(item => {
                const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
                return itemName === pName;
              });
+           });
+
+           if (!isInferior) {
+             const pTeamName = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+             if (inferiorTeams.some(team => team.nombre.toLowerCase() === pTeamName)) {
+                isInferior = true;
+             }
            }
         } else if (allowedInferiorCategories.length > 0) {
           const getBaseName = (name) => {
@@ -3284,8 +3298,9 @@ function saveCarteleraTeamsToFirebase() {
 
     const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
     const teamObj = findTeamInDirectory(teamName);
+    const parentClub = findParentClub(teamObj || { nombre: teamName });
 
-    const primaryColor = teamObj?.color1 || teamObj?.colorPrimario || teamObj?.color || (team === 'local' ? '#2563eb' : '#0284c7');
+    const primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
     const textColor = getContrastColor(primaryColor);
 
     // Get numbers and positions from Titulares and Suplentes rows
@@ -4145,6 +4160,7 @@ function saveCarteleraTeamsToFirebase() {
       const isSalir = btnSalir?.classList.contains('active') || false;
 
       const evalObj = {
+        name: pName,
         rendimiento: modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C',
         potencial: modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active')?.dataset.val || '3',
         rendimientoRS: activeRSBtn ? activeRSBtn.dataset.val : 'C',
@@ -4322,6 +4338,8 @@ function saveCarteleraTeamsToFirebase() {
         localSystems: matchTacticalSystems.local,
         visitanteSystems: matchTacticalSystems.visitante,
 
+        localIncludeCantera: document.getElementById('localIncludeCantera')?.checked || false,
+        visitanteIncludeCantera: document.getElementById('visitanteIncludeCantera')?.checked || false,
         localFormation: matchTacticalSystems.local?.principal?.formation || document.getElementById('localFormationSelect')?.value || '1-4-3-3',
         visitanteFormation: matchTacticalSystems.visitante?.principal?.formation || document.getElementById('visitanteFormationSelect')?.value || '1-4-4-2',
         localDifficulty: getDifficultyRating('local'),
@@ -5407,8 +5425,23 @@ function saveCarteleraTeamsToFirebase() {
       const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
       (state.reports || []).forEach(rep => {
         if (!rep.playerEvaluations) return;
-        Object.values(rep.playerEvaluations).forEach(evalObj => {
-          const evalName = (evalObj.name || '').toLowerCase().trim();
+        Object.entries(rep.playerEvaluations).forEach(([evalKey, evalObj]) => {
+          let evalName = (evalObj.name || '').toLowerCase().trim();
+          
+          // If name is not in evalObj, try to find it from the evalKey and lineups
+          if (!evalName && evalKey) {
+            const parts = evalKey.split('_');
+            if (parts.length >= 3) {
+              const team = parts[1];
+              const pNum = parts[2];
+              const lineup = team === 'local' ? (rep.localLineup || []) : (rep.visitanteLineup || []);
+              const playerInLineup = lineup.find(p => String(p.num) === String(pNum));
+              if (playerInLineup && playerInLineup.name) {
+                evalName = playerInLineup.name.toLowerCase().trim();
+              }
+            }
+          }
+
           if (evalName === pNameLower && evalObj.comentarioGeneral && evalObj.comentarioGeneral.trim() !== '') {
             matchComments.push({
               date: rep.fecha || 'Sin fecha',
