@@ -17050,7 +17050,7 @@ function savePriorityTeamsToFirebase() {
 
     let html = `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
-        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: uppercase;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
@@ -17160,7 +17160,7 @@ function savePriorityTeamsToFirebase() {
           </div>
 
           <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: uppercase;">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
                   <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
@@ -18030,6 +18030,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       // Remove trailing squad letters like "B", "A", B, A (case insensitive)
       return name.trim().replace(/\s+"?[a-zA-Z]"?$/i, '').trim();
     };
+    
+    const capitalizeWords = (str) => {
+      if (!str) return '';
+      return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+    };
 
     lines.forEach((line, idx) => {
       if (/jornada\s*\d+/i.test(line)) {
@@ -18064,8 +18069,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: cleanTeamName(parts[0]).toUpperCase(),
-            visitante: cleanTeamName(parts[parts.length - 1]).toUpperCase(),
+            local: capitalizeWords(cleanTeamName(parts[0])),
+            visitante: capitalizeWords(cleanTeamName(parts[parts.length - 1])),
             competicion: calendarName || 'Liga Importada',
             federacion: federacion,
             grupo: grupo
@@ -18083,8 +18088,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: cleanTeamName(l).toUpperCase(),
-            visitante: 'RIVAL',
+            local: capitalizeWords(cleanTeamName(l)),
+            visitante: 'Rival',
             competicion: calendarName || 'Calendario',
             federacion: federacion,
             grupo: grupo
