@@ -3782,12 +3782,7 @@ function saveCarteleraTeamsToFirebase() {
           <!-- LÍNEA 4: Comentario General (75%) y Posición Alternativa (25%) -->
           <div style="display: flex; gap: 16px;">
             <div class="form-group" style="flex: 3;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <label class="form-label" style="font-size: 10px; font-weight: 800; margin: 0;">COMENTARIO PERSONAL</label>
-                <button type="button" class="btn btn-secondary compact" id="pmBtnVerComentariosPartidos" style="font-size: 10px; padding: 2px 6px;">
-                  <i data-lucide="message-square" style="width: 12px; height: 12px;"></i> Ver Historial
-                </button>
-              </div>
+              <label class="form-label" style="font-size: 10px; font-weight: 800;">COMENTARIO GENERAL</label>
               <textarea id="pmComentarioGeneral" class="form-control textarea-compact" style="height: 100px;" placeholder="Observaciones personales sobre el jugador...">${escapeHtml(pEval.comentarioGeneral)}</textarea>
             </div>
             <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
@@ -5323,7 +5318,6 @@ function saveCarteleraTeamsToFirebase() {
         btn.classList.add('active');
       });
     });
-    
     // Add logic for 'Ver Comentarios Partidos' button
     document.getElementById('btnVerComentariosPartidos')?.addEventListener('click', () => {
       const matchComments = [];
