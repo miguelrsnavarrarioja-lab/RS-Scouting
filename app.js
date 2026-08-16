@@ -2834,18 +2834,38 @@
       
       // If includeCantera is true, also check if player belongs to an inferior team of the same club
       let isInferior = false;
-      if (!matchesTeam && includeCantera && targetClub && allowedInferiorCategories.length > 0) {
-        // Does this player belong to any team of the same club with allowed inferior category?
-        const playerEq = equipos.find(eq => {
-          if (!eq.nombre) return false;
-          const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
-          return eqClub === targetClub && allowedInferiorCategories.includes(eq.categoria);
-        });
-        if (playerEq && playerEq.plantilla) {
-           isInferior = playerEq.plantilla.some(item => {
-             const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-             return itemName === pName;
+      
+      // Special logic for Subiza
+      const isSubiza = targetTeam && targetTeam.nombre && targetTeam.nombre.toLowerCase().includes('subiza');
+      
+      if (!matchesTeam && includeCantera) {
+        if (isSubiza) {
+           const subizaAllowedTeams = ['c. ciudad de iruña pref', 'osasuna dhj', 'valle aranguren dhj'];
+           const playerEq = equipos.find(eq => {
+             if (!eq.nombre) return false;
+             const eqLower = eq.nombre.toLowerCase();
+             // Check if the team name matches any of the allowed
+             return subizaAllowedTeams.some(allowed => eqLower.includes(allowed) || allowed.includes(eqLower));
            });
+           if (playerEq && playerEq.plantilla) {
+             isInferior = playerEq.plantilla.some(item => {
+               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+               return itemName === pName;
+             });
+           }
+        } else if (targetClub && allowedInferiorCategories.length > 0) {
+          // Does this player belong to any team of the same club with allowed inferior category?
+          const playerEq = equipos.find(eq => {
+            if (!eq.nombre) return false;
+            const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
+            return eqClub === targetClub && allowedInferiorCategories.includes(eq.categoria);
+          });
+          if (playerEq && playerEq.plantilla) {
+             isInferior = playerEq.plantilla.some(item => {
+               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+               return itemName === pName;
+             });
+          }
         }
       }
 
