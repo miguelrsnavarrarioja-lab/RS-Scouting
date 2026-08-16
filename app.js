@@ -16827,6 +16827,7 @@ function savePriorityTeamsToFirebase() {
     const calendarios = state.cartelera.calendarios || [];
     const fedSet = new Set();
     const compSet = new Set();
+    const grupoSet = new Set();
     const jorSet = new Set();
     const fechaSet = new Set();
     const equipoSet = new Set();
@@ -16835,6 +16836,7 @@ function savePriorityTeamsToFirebase() {
       (cal.partidos || []).forEach(m => {
         const fed = (m.federacion || cal.federacion || 'General').trim();
         const comp = (m.competicion || cal.nombre || 'General').trim();
+        const grupo = (m.grupo || '').trim();
         const jor = (m.jornada || '').trim();
         const fecha = (m.fecha || '').trim();
         const loc = (m.local || '').trim();
@@ -16842,6 +16844,7 @@ function savePriorityTeamsToFirebase() {
         
         if (fed) fedSet.add(fed);
         if (comp) compSet.add(comp);
+        if (grupo) grupoSet.add(grupo);
         if (jor) jorSet.add(jor);
         if (fecha) fechaSet.add(fecha);
         if (loc) equipoSet.add(loc);
@@ -16882,6 +16885,7 @@ function savePriorityTeamsToFirebase() {
 
     populateSelect('carteleraFilterCategoria', compSet, selectedCarteleraCategoria, '🏆 Todas');
     populateSelect('carteleraFilterFederacion', fedSet, selectedCarteleraFederacion, 'Todas');
+    populateSelect('carteleraFilterGrupo', grupoSet, selectedCarteleraGrupo, 'Todos');
     populateSelect('carteleraFilterJornada', jorSet, selectedCarteleraJornada, 'Todas');
     populateSelect('carteleraFilterFecha', fechaSet, selectedCarteleraFecha, 'Todas');
     populateSelect('carteleraFilterEquipo', equipoSet, selectedCarteleraEquipo, 'Todos');
@@ -16939,6 +16943,10 @@ function savePriorityTeamsToFirebase() {
     // Apply Federación filter
     if (selectedCarteleraFederacion !== 'all') {
       allMatches = allMatches.filter(m => (m.federacion || 'General') === selectedCarteleraFederacion);
+    }
+    // Apply Grupo filter
+    if (selectedCarteleraGrupo !== 'all') {
+      allMatches = allMatches.filter(m => (m.grupo || '') === selectedCarteleraGrupo);
     }
     // Apply Jornada filter
     if (selectedCarteleraJornada !== 'all') {
@@ -17007,6 +17015,7 @@ function savePriorityTeamsToFirebase() {
         selectedCarteleraJornada = 'all';
         selectedCarteleraFedTab = 'all';
         selectedCarteleraCompTab = 'all';
+        selectedCarteleraGrupo = 'all';
         const intSel = document.getElementById('carteleraInterestFilter');
         if (intSel) intSel.value = 'all';
         const searchInp = document.getElementById('carteleraSearchInput');
@@ -17021,7 +17030,7 @@ function savePriorityTeamsToFirebase() {
 
     let html = `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
-        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
@@ -17126,7 +17135,7 @@ function savePriorityTeamsToFirebase() {
           </div>
 
           <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
                   <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
@@ -17808,6 +17817,7 @@ function savePriorityTeamsToFirebase() {
     
     bindSelect('carteleraFilterCategoria', val => selectedCarteleraCategoria = val);
     bindSelect('carteleraFilterFederacion', val => selectedCarteleraFederacion = val);
+    bindSelect('carteleraFilterGrupo', val => selectedCarteleraGrupo = val);
     bindSelect('carteleraFilterJornada', val => selectedCarteleraJornada = val);
     bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
     bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
@@ -18007,6 +18017,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         return;
       }
 
+      // Specific fix for Monzón Fútbol Base merged string issue
+      line = line.replace(/MONZÓN FÚTBOL BASE[\s\t]+AT\.\s*Gigamontrans/gi, 'AT. MONZÓN GIGAMONTRANS');
+
       if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\s{2,}/) || line.includes('\t')) {
         let parts;
         if (line.includes(' vs ') || line.includes(' VS ')) {
@@ -18024,7 +18037,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
             local: cleanTeamName(parts[0]),
-            visitante: cleanTeamName(parts[1]),
+            visitante: cleanTeamName(parts[parts.length - 1]),
             competicion: calendarName || 'Liga Importada',
             federacion: federacion,
             grupo: grupo
@@ -20677,6 +20690,53 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Initial view render
     renderView('dashboard');
+    
+    // Auto-fix for Monzón calendar issue & uppercase migration in Firebase
+    if (localStorage && !localStorage.getItem('rs_scouting_cartelera_fix_v2')) {
+      localStorage.setItem('rs_scouting_cartelera_fix_v2', 'true');
+      setTimeout(() => {
+        if (state.cartelera && Array.isArray(state.cartelera.calendarios)) {
+          let anyGlobalUpdate = false;
+          state.cartelera.calendarios.forEach(cal => {
+            let updated = false;
+            (cal.partidos || []).forEach(m => {
+              let l = m.local || '';
+              let v = m.visitante || '';
+              
+              // Case 1: Local is "S.D. Huesca MONZÓN FÚTBOL BASE", Visitante is "AT. Gigamontrans" (Away Game)
+              if (l.toUpperCase().includes('MONZÓN FÚTBOL BASE') && v.toUpperCase() === 'AT. GIGAMONTRANS') {
+                m.local = l.replace(/MONZÓN FÚTBOL BASE/gi, '').trim();
+                m.visitante = 'At. Monzón Gigamontrans';
+                updated = true;
+              }
+              // Case 2: Local is "MONZÓN FÚTBOL BASE", Visitante starts with "AT. Gigamontrans" (Home Game)
+              else if (l.toUpperCase() === 'MONZÓN FÚTBOL BASE' && v.toUpperCase().includes('AT. GIGAMONTRANS')) {
+                m.local = 'At. Monzón Gigamontrans';
+                m.visitante = v.replace(/AT\.\s*Gigamontrans/gi, '').trim();
+                updated = true;
+              }
+
+              // General cleanup just in case
+              if (m.local && m.local.toUpperCase().includes('MONZÓN FÚTBOL BASE')) {
+                 m.local = m.local.replace(/MONZÓN FÚTBOL BASE[\s\t]*AT\.\s*Gigamontrans/gi, 'At. Monzón Gigamontrans');
+              }
+              if (m.visitante && m.visitante.toUpperCase().includes('MONZÓN FÚTBOL BASE')) {
+                 m.visitante = m.visitante.replace(/MONZÓN FÚTBOL BASE[\s\t]*AT\.\s*Gigamontrans/gi, 'At. Monzón Gigamontrans');
+              }
+            });
+            if (updated) {
+               anyGlobalUpdate = true;
+               if (typeof saveToFirebase === 'function') saveToFirebase('cartelera_calendarios', cal);
+            }
+          });
+          if (anyGlobalUpdate) {
+             saveState();
+             if (typeof renderCartelera === 'function') renderCartelera();
+             console.log('✅ Cartelera Calendars Auto-Fixed & Uppercased in Firebase');
+          }
+        }
+      }, 5000); // Wait for initial Firebase load
+    }
     
     // Refresh app state when returning to foreground
     document.addEventListener('visibilitychange', () => {
