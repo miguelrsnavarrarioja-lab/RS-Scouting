@@ -315,6 +315,7 @@ function savePriorityTeamsToFirebase() {
       customTabOrder: state.customTabOrder || [],
       customClubTypes: state.customClubTypes || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
+      directoryFederationsOrder: state.directoryFederationsOrder || [],
       agendaCategories: state.agendaCategories || [],
       cartelera: { priorityTeams: state.cartelera?.priorityTeams || [] },
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
@@ -4260,7 +4261,7 @@ function savePriorityTeamsToFirebase() {
 
   function navigateToDirectoryTab(targetTab = 'jugadores') {
     currentDirectoryTab = targetTab;
-    renderView('directorio');
+    if (typeof navigateToTab === 'function') navigateToTab('directorio');
 
     const subtabs = document.querySelectorAll('.directory-tab');
     subtabs.forEach(tab => {
@@ -15872,10 +15873,19 @@ function savePriorityTeamsToFirebase() {
 
     // Show success view
     const step2Container = document.getElementById('importerStep2ExcelContainer');
-    if (step2Container) {
-      step2Container.innerHTML = `
-        <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 36px; text-align: center; box-shadow: 0 10px 25px -5px rgba(22,163,74,0.15);">
-          <div style="width: 56px; height: 56px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+    if (step2Container) step2Container.classList.add('hidden');
+    
+    let successContainer = document.getElementById('importerSuccessContainer');
+    if (!successContainer) {
+      successContainer = document.createElement('div');
+      successContainer.id = 'importerSuccessContainer';
+      successContainer.className = 'mt-4';
+      if (step2Container) step2Container.parentNode.insertBefore(successContainer, step2Container.nextSibling);
+    }
+    
+    successContainer.innerHTML = `
+      <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 36px; text-align: center; box-shadow: 0 10px 25px -5px rgba(22,163,74,0.15);">
+        <div style="width: 56px; height: 56px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
             <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
           </div>
           
@@ -15903,7 +15913,7 @@ function savePriorityTeamsToFirebase() {
         </div>
       `;
       if (window.lucide) window.lucide.createIcons();
-    }
+      successContainer.classList.remove('hidden');
 
     showToast(`☁️ ${itemsToSave.length} registros guardados en la app y en Firebase`, 'success');
   });
@@ -15922,6 +15932,11 @@ function savePriorityTeamsToFirebase() {
     const step2Container = document.getElementById('importerStep2ExcelContainer');
     if (step2Container) {
       step2Container.classList.add('hidden');
+    }
+    
+    const successContainer = document.getElementById('importerSuccessContainer');
+    if (successContainer) {
+      successContainer.classList.add('hidden');
     }
 
     const step1Container = document.getElementById('importerStep1Container');
