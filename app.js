@@ -17463,7 +17463,20 @@ function savePriorityTeamsToFirebase() {
         }
       });
 
-      const teamsList = Array.from(teamMap.values()).sort((a,b) => a.team.localeCompare(b.team));
+      let teamsList = Array.from(teamMap.values());
+
+      // Deduplicate: Si un equipo es una versión corta que le falta la temporada (ej. 26/27) o un sufijo en paréntesis, mostrar solo la versión completa
+      teamsList = teamsList.filter(t1 => {
+        const hasLonger = teamsList.some(t2 => {
+          if (t1.category !== t2.category || t1.team === t2.team) return false;
+          const escapedT1 = t1.team.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp('^' + escapedT1 + '\\s+(?:\\d{2}/\\d{2}|\\(.*?\\))$', 'i');
+          return regex.test(t2.team);
+        });
+        return !hasLonger;
+      });
+
+      teamsList.sort((a,b) => a.team.localeCompare(b.team));
 
       if (teamsList.length === 0) {
         listEl.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); grid-column: 1 / -1; font-style: italic;">No hay equipos registrados aún para esta combinación. Puedes escribir nombres personalizados en el campo de texto.</span>`;
