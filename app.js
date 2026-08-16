@@ -5132,17 +5132,17 @@ function saveCarteleraTeamsToFirebase() {
             <div class="player-section-title mb-2 mt-4">
               <i data-lucide="activity"></i> ESTADÍSTICAS INDIVIDUALES ACUMULADAS
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;" class="mb-4">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;" class="mb-4">
               ${[
                 { label: 'Goles', key: 'goles', icon: '⚽️' },
                 { label: 'Asistencias', key: 'asistencias', icon: '👟' },
-                { label: 'Tiros Puerta', key: 'tirosPuerta', icon: '🎯' },
+                { label: 'Tiros Pta', key: 'tirosPuerta', icon: '🎯' },
                 { label: 'Tiros Fuera', key: 'tirosFuera', icon: '❌' },
-                { label: 'Pases Buenos', key: 'pasesBuenos', icon: '✅' },
-                { label: 'Pases Malos', key: 'pasesMalos', icon: '⚠️' },
-                { label: 'Regates Éxito', key: 'regatesExito', icon: '✨' },
-                { label: 'Regates Fallo', key: 'regatesFallidos', icon: '📉' },
-                { label: 'Recuperaciones', key: 'recuperaciones', icon: '🛡️' },
+                { label: 'Pases OK', key: 'pasesBuenos', icon: '✅' },
+                { label: 'Pases Mal', key: 'pasesMalos', icon: '⚠️' },
+                { label: 'Regates OK', key: 'regatesExito', icon: '✨' },
+                { label: 'Regates Mal', key: 'regatesFallidos', icon: '📉' },
+                { label: 'Recuper.', key: 'recuperaciones', icon: '🛡️' },
                 { label: 'Pérdidas', key: 'perdidas', icon: '🗑️' },
                 { label: 'Duelos Gan.', key: 'duelosGanados', icon: '⚔️' },
                 { label: 'Duelos Per.', key: 'duelosPerdidos', icon: '📉' },
@@ -5150,9 +5150,12 @@ function saveCarteleraTeamsToFirebase() {
                 { label: 'Amarillas', key: 'amarillas', icon: '🟨' },
                 { label: 'Rojas', key: 'rojas', icon: '🟥' }
               ].map(s => `
-                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light);">
-                  <span style="font-size: 12px; color: var(--text-secondary);" title="${s.label}">${s.icon} <span style="display:none; @media(min-width: 768px){display:inline;}">${s.label}</span></span>
-                  <strong style="font-size: 14px; color: var(--text-primary);">${stats[s.key] || 0}</strong>
+                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light); gap: 4px; overflow: hidden;">
+                  <span style="font-size: 9px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;" title="${s.label}">
+                    <span style="font-size: 11px;">${s.icon}</span> 
+                    <span style="font-weight: 700; text-transform: uppercase;">${s.label}</span>
+                  </span>
+                  <strong style="font-size: 13px; color: var(--text-primary); flex-shrink: 0;">${stats[s.key] || 0}</strong>
                 </div>
               `).join('')}
             </div>
