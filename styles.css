@@ -1372,26 +1372,36 @@ a {
 }
 
 .tag-control-btn {
-  padding: 6px 6px;
-  border-radius: var(--radius-pill);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
-  background: #FFFFFF;
-  font-size: 9px;
+  background: var(--bg-surface);
+  font-size: 11px;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+}
+
+.tag-control-btn:hover {
+  background: var(--bg-subtle);
+  border-color: #cbd5e1;
+  color: var(--text-main);
 }
 
 .tag-control-btn.active {
-  background-color: rgba(37, 99, 235, 0.1);
-  color: var(--primary-blue);
+  background-color: var(--primary-blue);
+  color: #FFFFFF;
   border-color: var(--primary-blue);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
 }
 
 .minutes-salir-row {

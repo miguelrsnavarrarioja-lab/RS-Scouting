@@ -3421,8 +3421,8 @@
 
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
           <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
-            ${['🏆 11 Ideal', '🏃 ERF', '⭐ Destacada', '⚡ JULEN', '📊 Mapa RS', '⚽ Kirol Sport', '🤝 Club convenido', '🎯 Jugador RS Centro'].map(tag => `
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}" style="font-size: 11px; height: 38px; padding: 0 4px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;">
+            ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -3435,8 +3435,8 @@
               <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px;">
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('🚫 No juega') ? 'active' : ''}" data-tag="🚫 No juega" style="margin: 0; display: flex; align-items: center; justify-content: center; height: 38px; border-radius: 6px; box-sizing: border-box; font-size: 11px; font-weight: 800; width: 100%;">
-                🚫 NO JUEGA
+              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%; height: 38px;">
+                NO JUEGA
               </button>
             </div>
             <div style="padding-top: 18px;">
@@ -4616,7 +4616,7 @@
               <i data-lucide="map-pin"></i> CONTROL & SEGUIMIENTO ESPECIAL
             </div>
             <div class="checkbox-grid-pills mb-4" id="pfControlGroup">
-              ${['MAPA RS', 'ERF', 'SEGUIMIENTO', 'DESTACADO', 'JULEN', '11 IDEAL', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
+              ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
                 <label class="checkbox-pill-item">
                   <input type="checkbox" value="${tag}" ${controlSeguimiento.includes(tag) ? 'checked' : ''}>
                   <span>${tag}</span>
