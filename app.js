@@ -1015,18 +1015,6 @@ function saveCarteleraTeamsToFirebase() {
 
     const players = state.directory?.jugadores || [];
     const groups = {
-      'Senior (Antes de 2008)': 0,
-      'Juveniles 2008': 0,
-      'Juveniles 2009': 0,
-      'Juveniles 2010': 0,
-      'Cadetes 2011': 0,
-      'Cadetes 2012': 0,
-      'Infantiles 2013': 0,
-      'Infantiles 2014': 0,
-      'Alevines 2015': 0,
-      'Alevines 2016': 0,
-      'Benjamines 2017': 0,
-      'Benjamines 2018': 0,
       'Sin Año': 0
     };
     
@@ -1034,44 +1022,32 @@ function saveCarteleraTeamsToFirebase() {
       let year = parseInt(String(p.anoNac || p.ano || p.anyo || '').trim(), 10);
       if (!year || isNaN(year)) {
         groups['Sin Año']++;
-      } else if (year >= 2018) {
-        groups['Benjamines 2018']++;
-      } else if (year === 2017) {
-        groups['Benjamines 2017']++;
-      } else if (year === 2016) {
-        groups['Alevines 2016']++;
-      } else if (year === 2015) {
-        groups['Alevines 2015']++;
-      } else if (year === 2014) {
-        groups['Infantiles 2014']++;
-      } else if (year === 2013) {
-        groups['Infantiles 2013']++;
-      } else if (year === 2012) {
-        groups['Cadetes 2012']++;
-      } else if (year === 2011) {
-        groups['Cadetes 2011']++;
-      } else if (year === 2010) {
-        groups['Juveniles 2010']++;
-      } else if (year === 2009) {
-        groups['Juveniles 2009']++;
-      } else if (year === 2008) {
-        groups['Juveniles 2008']++;
       } else {
-        groups['Senior (Antes de 2008)']++;
+        const key = String(year);
+        if (!groups[key]) groups[key] = 0;
+        groups[key]++;
       }
     });
 
-    const orderedKeys = Object.keys(groups);
+    const orderedKeys = Object.keys(groups).sort((a, b) => {
+      if (a === 'Sin Año') return 1;
+      if (b === 'Sin Año') return -1;
+      return parseInt(b) - parseInt(a); // Descending, newest years first
+    });
 
     container.innerHTML = orderedKeys.map(key => {
       if (groups[key] === 0 && key === 'Sin Año') return '';
       return `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(key)}</span>
-        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${groups[key]}</span>
+      <div class="kpi-card" style="padding: 12px; margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; box-shadow: none; border: 1px solid var(--border-color);">
+        <span class="kpi-value" style="margin: 0; color: var(--primary-blue);">${groups[key]}</span>
+        <span class="kpi-label">${escapeHtml(key)}</span>
       </div>
       `;
     }).join('');
+    
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   }
 
   function renderDashboardTeamsByCategory() {
@@ -1142,19 +1118,19 @@ function saveCarteleraTeamsToFirebase() {
         return a.cat.localeCompare(b.cat);
       });
 
-      html += `<div style="break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px;">`;
-      html += `<div style="font-weight: 800; color: #475569; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">${escapeHtml(groupName)}</div>`;
-      
       groupedStats[groupName].forEach(stat => {
+        const iconColor = stat.vistos >= stat.total ? 'green' : 'blue';
+        const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
         html += `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 4px;">
-          <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(stat.cat)}</span>
-          <span style="background: ${stat.vistos >= stat.total ? '#15803d' : '#2563eb'}; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">
-            ${stat.vistos}/${stat.total} vistos
-          </span>
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)} - ${escapeHtml(stat.cat)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
+            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
+          </div>
         </div>`;
       });
-      html += `</div>`;
     });
 
     if (!html) {
@@ -1163,6 +1139,10 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     container.innerHTML = html;
+    
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   }
 
   function renderDashboardUpcomingMatches() {
