@@ -15446,6 +15446,37 @@ function savePriorityTeamsToFirebase() {
     showToast(`☁️ ${countNew + countUpd} clubes guardados en Firebase`, 'success');
   }
 
+  function isSamePerson(name1, name2) {
+    if (!name1 || !name2) return false;
+    const n1 = name1.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.,]/g, '').trim();
+    const n2 = name2.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.,]/g, '').trim();
+    
+    if (n1 === n2) return true;
+    
+    const w1 = n1.split(/\s+/);
+    const w2 = n2.split(/\s+/);
+    
+    if (w1.length < 2 || w2.length < 2) return false;
+    
+    const first1 = w1[0];
+    const first2 = w2[0];
+    const firstMatch = first1.startsWith(first2) || first2.startsWith(first1);
+    
+    if (!firstMatch) return false;
+    
+    const surnames1 = w1.slice(1);
+    const surnames2 = w2.slice(1);
+    
+    let surnameMatches = 0;
+    for (let s1 of surnames1) {
+      if (s1.length > 2 && surnames2.includes(s1)) {
+        surnameMatches++;
+      }
+    }
+    
+    return surnameMatches >= 1;
+  }
+
   function processImporterText() {
     const rawText = document.getElementById('importerRawText')?.value.trim();
     if (!rawText) {
@@ -15504,9 +15535,9 @@ function savePriorityTeamsToFirebase() {
       const isStaff = currentRole === 'STAFF';
       let alreadyExists = false;
       if (!isStaff && state.directory && state.directory.jugadores) {
-        alreadyExists = state.directory.jugadores.some(j => j && (j.nombre || j.jugador || '').toLowerCase().trim() === formattedName.toLowerCase().trim());
+        alreadyExists = state.directory.jugadores.some(j => j && isSamePerson(j.nombre || j.jugador || '', formattedName));
       } else if (isStaff && state.directory && state.directory.staff) {
-        alreadyExists = state.directory.staff.some(s => s && (s.nombre || s.staff || '').toLowerCase().trim() === formattedName.toLowerCase().trim());
+        alreadyExists = state.directory.staff.some(s => s && isSamePerson(s.nombre || s.staff || '', formattedName));
       }
       
       stagedExcelRows.push({
@@ -15575,9 +15606,9 @@ function savePriorityTeamsToFirebase() {
       
       let alreadyExists = false;
       if (!isStaff && state.directory && state.directory.jugadores) {
-        alreadyExists = state.directory.jugadores.some(j => j && (j.nombre || j.jugador || '').toLowerCase().trim() === (row.nombre || '').toLowerCase().trim());
+        alreadyExists = state.directory.jugadores.some(j => j && isSamePerson(j.nombre || j.jugador || '', row.nombre || ''));
       } else if (isStaff && state.directory && state.directory.staff) {
-        alreadyExists = state.directory.staff.some(s => s && (s.nombre || s.staff || '').toLowerCase().trim() === (row.nombre || '').toLowerCase().trim());
+        alreadyExists = state.directory.staff.some(s => s && isSamePerson(s.nombre || s.staff || '', row.nombre || ''));
       }
       
       const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : '#ffffff');
