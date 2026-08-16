@@ -265,21 +265,16 @@ function savePriorityTeamsToFirebase() {
   const APP_NAME_STORAGE_KEY = 'MS_FUTBOL_SCOUT_APP_NAME';
 
   function updateAppNameUI(name) {
-    const currentName = name || (typeof state !== 'undefined' && state && state.settings && state.settings.appName) || (function(){ try { return localStorage.getItem(APP_NAME_STORAGE_KEY); } catch(e){} })() || 'MS Fútbol Scout';
+    const currentName = 'MS Fútbol Scout';
     document.title = `${currentName} | Pro Football Scouting System`;
     document.querySelectorAll('#appBrandName, .app-brand-name').forEach(el => {
       el.textContent = currentName;
     });
-    const configInput = document.getElementById('configAppNameInput');
-    if (configInput && configInput.value !== currentName) {
-      configInput.value = currentName;
-    }
   }
 
   function loadState() {
     let savedAppName = 'MS Fútbol Scout';
     try {
-      savedAppName = localStorage.getItem(APP_NAME_STORAGE_KEY) || 'MS Fútbol Scout';
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {}
 
