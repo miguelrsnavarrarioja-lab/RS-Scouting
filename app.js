@@ -3279,11 +3279,27 @@ function saveCarteleraTeamsToFirebase() {
         if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
         else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
       }
+      
+      let shortName = '';
+      if (nameVal) {
+        const parts = nameVal.trim().split(/\s+/);
+        if (parts.length > 1) {
+          shortName = parts[0].charAt(0).toUpperCase() + '.' + parts.slice(1).join(' ');
+          if (shortName.length > 15) {
+            shortName = parts[0].charAt(0).toUpperCase() + '.' + parts[1];
+          }
+        } else {
+          shortName = parts[0];
+        }
+      }
 
       return `
-        <div class="pitch-pin" data-team="${team}" data-type="titular" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="left: ${pos.x}%; top: ${pos.y}%; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; position: absolute;">
-          ${escapeHtml(displayText)}
-          ${badgesHTML}
+        <div class="pitch-player-token" data-team="${team}" data-type="titular" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${pos.x}%; top: ${pos.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10; cursor: pointer;">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+            ${escapeHtml(displayText)}
+            ${badgesHTML}
+          </div>
+          ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${escapeHtml(shortName)}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -3330,7 +3346,7 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     // Attach click listeners to pitch and bench pins
-    container.querySelectorAll('.pitch-pin').forEach(pin => {
+    container.querySelectorAll('.pitch-player-token').forEach(pin => {
       pin.addEventListener('click', (e) => {
         e.stopPropagation();
         openPlayerMatchReportModal(pin.dataset.team, pin.dataset.type, parseInt(pin.dataset.idx));
