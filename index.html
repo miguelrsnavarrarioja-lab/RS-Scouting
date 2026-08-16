@@ -1111,16 +1111,26 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         
         <!-- Equipos Prioritarios Chips -->
         <div style="margin-bottom: 16px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <h3 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios de Seguimiento
+              <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios y de Interés
             </h3>
-            <button class="btn btn-sm btn-secondary" id="btnAddPriorityTeam" style="font-size: 12px; padding: 4px 10px;">
-              <i data-lucide="plus" style="width: 13px;"></i> Añadir Equipo
-            </button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-secondary" id="btnAddInterestingTeam" style="font-size: 12px; padding: 4px 10px; border-color: #9333ea; color: #7e22ce;">
+                <i data-lucide="eye" style="width: 13px;"></i> Equipo Jugadores Interesantes
+              </button>
+              <button class="btn btn-sm btn-secondary" id="btnAddPriorityTeam" style="font-size: 12px; padding: 4px 10px; border-color: #f59e0b; color: #b45309;">
+                <i data-lucide="star" style="width: 13px;"></i> Equipo Prioritario
+              </button>
+            </div>
           </div>
-          <div id="carteleraPriorityTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-            <!-- Rendered priority team chips -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div id="carteleraInterestingTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+              <!-- Rendered interesting team chips -->
+            </div>
+            <div id="carteleraPriorityTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+              <!-- Rendered priority team chips -->
+            </div>
           </div>
         </div>
 
@@ -1445,7 +1455,10 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
                 <i data-lucide="upload"></i> 📂 Cargar Copia desde Archivo Local (JSON)
                 <input type="file" id="inputImportBackup" accept=".json" class="hidden">
               </label>
-              <button type="button" class="btn btn-danger" id="btnClearAllData" style="background-color: var(--accent-red); color: white; border: none;">
+              <button type="button" class="btn btn-outline" id="btnMigrateLateralidad" style="margin-top: 10px; border-color: var(--primary-blue); color: var(--primary-blue);">
+                <i data-lucide="wrench"></i> 🛠️ Normalizar Lateralidades (Migración)
+              </button>
+              <button type="button" class="btn btn-danger" id="btnClearAllData" style="background-color: var(--accent-red); color: white; border: none; margin-top: 10px;">
                 <i data-lucide="trash-2"></i> Borrar Todos los Datos (Limpiar Base de Datos)
               </button>
               <button type="button" class="btn btn-outline-danger" id="btnResetSampleData">

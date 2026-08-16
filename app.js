@@ -35,7 +35,8 @@
     links: [],
     cartelera: {
       calendarios: [],
-      priorityTeams: []
+      priorityTeams: [],
+      interestingTeams: []
     }
   };
 
@@ -204,11 +205,14 @@
   }
 
     
-function savePriorityTeamsToFirebase() {
-  if (typeof db !== 'undefined' && db && state.cartelera && Array.isArray(state.cartelera.priorityTeams)) {
+function saveCarteleraTeamsToFirebase() {
+  if (typeof db !== 'undefined' && db && state.cartelera) {
     db.collection('configuracion').doc('app_settings').set({ 
-      cartelera: { priorityTeams: state.cartelera.priorityTeams } 
-    }, { merge: true }).catch(e => console.error("Error al guardar equipos prioritarios en Firebase", e));
+      cartelera: { 
+        priorityTeams: state.cartelera.priorityTeams || [],
+        interestingTeams: state.cartelera.interestingTeams || []
+      } 
+    }, { merge: true }).catch(e => console.error("Error al guardar equipos en Firebase", e));
   }
 }
 
@@ -317,7 +321,10 @@ function savePriorityTeamsToFirebase() {
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
       agendaCategories: state.agendaCategories || [],
-      cartelera: { priorityTeams: state.cartelera?.priorityTeams || [] },
+      cartelera: { 
+        priorityTeams: state.cartelera?.priorityTeams || [],
+        interestingTeams: state.cartelera?.interestingTeams || []
+      },
       clubesNavarraSeeded: !!state.directory?.clubesNavarraSeeded,
       federacionesSeeded: !!state.directory?.federacionesSeeded,
       clubesAragonSeeded: !!state.directory?.clubesAragonSeeded,
@@ -405,7 +412,10 @@ function savePriorityTeamsToFirebase() {
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
         customTabOrder: state.customTabOrder || [],
         agendaCategories: state.agendaCategories || [],
-        cartelera: { priorityTeams: state.cartelera?.priorityTeams || [] }
+        cartelera: { 
+          priorityTeams: state.cartelera?.priorityTeams || [],
+          interestingTeams: state.cartelera?.interestingTeams || []
+        }
       });
       markLocalWrite('configuracion', 'app_settings');
       await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
@@ -651,8 +661,9 @@ function savePriorityTeamsToFirebase() {
           if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') state.deletedTombstones = configData.deletedTombstones;
           
           if (configData.cartelera) {
-            // Merge priorityTeams from config (calendarios are handled separately now)
+            // Merge teams from config (calendarios are handled separately now)
             state.cartelera.priorityTeams = configData.cartelera.priorityTeams || [];
+            state.cartelera.interestingTeams = configData.cartelera.interestingTeams || [];
           }
           if (Array.isArray(configData.notifications)) {
             state.notifications = configData.notifications;
@@ -721,7 +732,8 @@ function savePriorityTeamsToFirebase() {
     listenCollection('enlaces', () => state.links, arr => state.links = arr);
     
     // Escucha para la nueva colección de calendarios de la cartelera
-    state.cartelera = state.cartelera || { calendarios: [], priorityTeams: [] };
+    state.cartelera = state.cartelera || { calendarios: [], priorityTeams: [], interestingTeams: [] };
+    if (!state.cartelera.interestingTeams) state.cartelera.interestingTeams = [];
     listenCollection('cartelera_calendarios', () => state.cartelera.calendarios, arr => state.cartelera.calendarios = arr);
 
     // Carga inicial (fallback for seeding si las colecciones están vacías)
@@ -16811,33 +16823,48 @@ function savePriorityTeamsToFirebase() {
   function renderCartelera() {
     ensureCarteleraState();
     initCarteleraListeners();
-    renderCarteleraPriorityTeams();
+    renderCarteleraTeams();
     renderCarteleraFilters();
     renderCarteleraMatches();
   }
 
-  function renderCarteleraPriorityTeams() {
-    const container = document.getElementById('carteleraPriorityTeamsContainer');
-    if (!container) return;
-    const teams = state.cartelera.priorityTeams || [];
-
-    if (teams.length === 0) {
-      container.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún. Haz clic en + Añadir Equipo para destacar sus partidos.</span>`;
-      return;
+  function renderCarteleraTeams() {
+    const pContainer = document.getElementById('carteleraPriorityTeamsContainer');
+    const iContainer = document.getElementById('carteleraInterestingTeamsContainer');
+    
+    if (pContainer) {
+      const pTeams = state.cartelera.priorityTeams || [];
+      if (pTeams.length === 0) {
+        pContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún.</span>`;
+      } else {
+        pContainer.innerHTML = `
+          <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+            ⭐ Ver Equipos Prioritarios (${pTeams.length})
+          </button>
+        `;
+        document.getElementById('btnViewPriorityTeams').onclick = () => openViewTeamsModal('priority');
+      }
     }
 
-    container.innerHTML = `
-      <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
-        ⭐ Ver Equipos Prioritarios (${teams.length})
-      </button>
-    `;
-
-    document.getElementById('btnViewPriorityTeams').onclick = () => openViewPriorityTeamsModal();
+    if (iContainer) {
+      const iTeams = state.cartelera.interestingTeams || [];
+      if (iTeams.length === 0) {
+        iContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos con jugadores interesantes aún.</span>`;
+      } else {
+        iContainer.innerHTML = `
+          <button type="button" class="btn btn-sm" id="btnViewInterestingTeams" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+            👁️ Ver Equipos Interesantes (${iTeams.length})
+          </button>
+        `;
+        document.getElementById('btnViewInterestingTeams').onclick = () => openViewTeamsModal('interesting');
+      }
+    }
   }
 
-  function openViewPriorityTeamsModal() {
+  function openViewTeamsModal(type) {
     ensureCarteleraState();
-    const teams = state.cartelera.priorityTeams || [];
+    const isPriority = type === 'priority';
+    const teams = isPriority ? (state.cartelera.priorityTeams || []) : (state.cartelera.interestingTeams || []);
     
     // Group teams by Category and Federation by looking them up in directory
     const grouped = {};
@@ -16880,24 +16907,32 @@ function savePriorityTeamsToFirebase() {
             <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px;">${escapeHtml(g.federacion)}</span>
           </div>
           <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
-            ${g.teams.map(t => `
-              <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                ⭐ ${escapeHtml(t.display)}
-                <button type="button" class="btn-remove-priority-team-modal" data-team="${escapeHtml(t.rawValue)}" style="background: none; border: none; padding: 0; cursor: pointer; color: #b45309; opacity: 0.7;" title="Eliminar prioridad">
+            ${g.teams.map(t => {
+              const badgeStyle = isPriority 
+                ? 'background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3);'
+                : 'background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3);';
+              const icon = isPriority ? '⭐' : '👁️';
+              const removeColor = isPriority ? '#b45309' : '#7e22ce';
+              return `
+              <span class="badge" style="${badgeStyle} font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                ${icon} ${escapeHtml(t.display)}
+                <button type="button" class="btn-remove-team-modal" data-team="${escapeHtml(t.rawValue)}" style="background: none; border: none; padding: 0; cursor: pointer; color: ${removeColor}; opacity: 0.7;" title="Eliminar equipo">
                   <i data-lucide="x" style="width: 12px; height: 12px;"></i>
                 </button>
               </span>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       `;
     });
     
     if (sortedKeys.length === 0) {
-       contentHtml = '<p style="text-align:center; color: var(--text-muted); font-size: 13px; font-style: italic;">No hay equipos prioritarios.</p>';
+       contentHtml = '<p style="text-align:center; color: var(--text-muted); font-size: 13px; font-style: italic;">No hay equipos en la lista.</p>';
     }
 
-    showModal('⭐ Ver Equipos Prioritarios', `
+    const modalTitle = isPriority ? '⭐ Ver Equipos Prioritarios' : '👁️ Ver Equipos Interesantes';
+
+    showModal(modalTitle, `
       <div style="max-height: 420px; overflow-y: auto; padding-right: 4px;">
         ${contentHtml}
       </div>
@@ -16908,19 +16943,24 @@ function savePriorityTeamsToFirebase() {
 
     const modalBody = document.querySelector('.modal-body');
     if (modalBody) {
-      modalBody.querySelectorAll('.btn-remove-priority-team-modal').forEach(btn => {
+      modalBody.querySelectorAll('.btn-remove-team-modal').forEach(btn => {
         btn.onclick = (e) => {
           e.stopPropagation();
           const teamToRemove = btn.dataset.team;
-          state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
+          if (isPriority) {
+            state.cartelera.priorityTeams = state.cartelera.priorityTeams.filter(t => t !== teamToRemove);
+          } else {
+            state.cartelera.interestingTeams = state.cartelera.interestingTeams.filter(t => t !== teamToRemove);
+          }
           saveState();
-          savePriorityTeamsToFirebase();
+          saveCarteleraTeamsToFirebase();
           renderCartelera();
           
-          if (state.cartelera.priorityTeams.length === 0) {
+          const currentList = isPriority ? state.cartelera.priorityTeams : state.cartelera.interestingTeams;
+          if (currentList.length === 0) {
             hideModal();
           } else {
-            openViewPriorityTeamsModal();
+            openViewTeamsModal(type);
           }
         };
       });
@@ -17057,6 +17097,7 @@ function savePriorityTeamsToFirebase() {
     if (!container) return;
 
     const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim());
+    const interestingTeamsLower = (state.cartelera.interestingTeams || []).map(t => String(t || '').toLowerCase().trim());
     const calendarios = state.cartelera.calendarios || [];
     const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
 
@@ -17068,7 +17109,7 @@ function savePriorityTeamsToFirebase() {
           const visLower = String(m.visitante || '').toLowerCase();
           const comp = String(m.competicion || cal.nombre || 'General');
 
-          const isPriority = (teamLower, matchComp) => priorityTeamsLower.some(pt => {
+          const isTeamInList = (teamLower, matchComp, list) => list.some(pt => {
              const parts = pt.split('|||');
              const ptCat = parts.length > 1 ? parts[0] : 'all';
              const ptTeam = parts.length > 1 ? parts[1] : pt;
@@ -17076,10 +17117,14 @@ function savePriorityTeamsToFirebase() {
              return ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
           });
 
-          const isPriorityLocal = isPriority(locLower, comp);
-          const isPriorityVisitante = isPriority(visLower, comp);
-          const isHighInterest = isPriorityLocal || isPriorityVisitante;
-          const isClash = isPriorityLocal && isPriorityVisitante;
+          const isPriorityLocal = isTeamInList(locLower, comp, priorityTeamsLower);
+          const isPriorityVisitante = isTeamInList(visLower, comp, priorityTeamsLower);
+          
+          const isInterestingLocal = isTeamInList(locLower, comp, interestingTeamsLower);
+          const isInterestingVisitante = isTeamInList(visLower, comp, interestingTeamsLower);
+
+          const isHighInterest = isPriorityLocal || isPriorityVisitante || isInterestingLocal || isInterestingVisitante;
+          const isClash = (isPriorityLocal || isInterestingLocal) && (isPriorityVisitante || isInterestingVisitante);
           const fed = m.federacion || cal.federacion || 'General';
 
           allMatches.push({
@@ -17088,6 +17133,8 @@ function savePriorityTeamsToFirebase() {
             federacion: fed,
             isPriorityLocal,
             isPriorityVisitante,
+            isInterestingLocal,
+            isInterestingVisitante,
             isHighInterest,
             isClash
           });
@@ -17127,7 +17174,9 @@ function savePriorityTeamsToFirebase() {
     }
     // Apply Interest filter
     if (selectedCarteleraInteres === 'priority') {
-      allMatches = allMatches.filter(m => m.isHighInterest);
+      allMatches = allMatches.filter(m => m.isPriorityLocal || m.isPriorityVisitante);
+    } else if (selectedCarteleraInteres === 'tracked_players') {
+      allMatches = allMatches.filter(m => m.isInterestingLocal || m.isInterestingVisitante);
     }
 
     currentCarteleraFilteredMatches = allMatches;
@@ -17210,11 +17259,35 @@ function savePriorityTeamsToFirebase() {
     };
 
     html += allMatches.map(m => {
-      const locStyle = m.isPriorityLocal ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
-      const visStyle = m.isPriorityVisitante ? (m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
-      const bgStyle = m.isClash ? 'background: rgba(34, 197, 94, 0.06);' : (m.isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '');
-      const borderLeft = m.isClash ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : (m.isHighInterest ? 'border-left: 4px solid rgba(245, 158, 11, 0.6);' : 'border-left: 4px solid transparent;');
-      const clashIcon = m.isClash ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
+      let locStyle = 'font-weight: 700; color: var(--text-main);';
+      if (m.isInterestingLocal) locStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+      else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+
+      let visStyle = 'font-weight: 700; color: var(--text-main);';
+      if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+      else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+
+      let bgStyle = '';
+      let borderLeft = 'border-left: 4px solid transparent;';
+      let clashIcon = '';
+
+      if (m.isClash) {
+        if (m.isInterestingLocal || m.isInterestingVisitante) {
+           bgStyle = 'background: rgba(147, 51, 234, 0.08);';
+           borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.8);';
+           clashIcon = '<span title="Duelo Directo Interesante">👁️</span>';
+        } else {
+           bgStyle = 'background: rgba(34, 197, 94, 0.06);';
+           borderLeft = 'border-left: 4px solid rgba(34, 197, 94, 0.8);';
+           clashIcon = '<span title="Duelo Directo Prioritario">⭐</span>';
+        }
+      } else if (m.isInterestingLocal || m.isInterestingVisitante) {
+        bgStyle = 'background: rgba(147, 51, 234, 0.04);';
+        borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.6);';
+      } else if (m.isPriorityLocal || m.isPriorityVisitante) {
+        bgStyle = 'background: rgba(245, 158, 11, 0.03);';
+        borderLeft = 'border-left: 4px solid rgba(245, 158, 11, 0.6);';
+      }
 
       return `
         <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
@@ -17323,11 +17396,38 @@ function savePriorityTeamsToFirebase() {
                   const isPriorityVisitante = !!m.isPriorityVisitante;
                   const isHighInterest = !!m.isHighInterest;
                   const isClashBool = !!m.isClash;
-                  const locStyle = isPriorityLocal ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
-                  const visStyle = isPriorityVisitante ? (isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;') : 'font-weight: 700; color: var(--text-main);';
-                  const bgStyle = isClashBool ? 'background: rgba(34, 197, 94, 0.06);' : (isHighInterest ? 'background: rgba(245, 158, 11, 0.03);' : '');
-                  const borderLeft = isClashBool ? 'border-left: 4px solid rgba(34, 197, 94, 0.8);' : (isHighInterest ? 'border-left: 4px solid rgba(245, 158, 11, 0.6);' : 'border-left: 4px solid transparent;');
-                  const clashIcon = isClashBool ? '<span title="Duelo Directo Prioritario">⭐</span>' : '';
+                  const isInterestingLocal = !!m.isInterestingLocal;
+                  const isInterestingVisitante = !!m.isInterestingVisitante;
+
+                  let locStyle = 'font-weight: 700; color: var(--text-main);';
+                  if (isInterestingLocal) locStyle = isClashBool ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+                  else if (isPriorityLocal) locStyle = isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+
+                  let visStyle = 'font-weight: 700; color: var(--text-main);';
+                  if (isInterestingVisitante) visStyle = isClashBool ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+                  else if (isPriorityVisitante) visStyle = isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+
+                  let bgStyle = '';
+                  let borderLeft = 'border-left: 4px solid transparent;';
+                  let clashIcon = '';
+
+                  if (isClashBool) {
+                    if (isInterestingLocal || isInterestingVisitante) {
+                       bgStyle = 'background: rgba(147, 51, 234, 0.08);';
+                       borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.8);';
+                       clashIcon = '<span title="Duelo Directo Interesante">👁️</span>';
+                    } else {
+                       bgStyle = 'background: rgba(34, 197, 94, 0.06);';
+                       borderLeft = 'border-left: 4px solid rgba(34, 197, 94, 0.8);';
+                       clashIcon = '<span title="Duelo Directo Prioritario">⭐</span>';
+                    }
+                  } else if (isInterestingLocal || isInterestingVisitante) {
+                    bgStyle = 'background: rgba(147, 51, 234, 0.04);';
+                    borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.6);';
+                  } else if (isPriorityLocal || isPriorityVisitante) {
+                    bgStyle = 'background: rgba(245, 158, 11, 0.03);';
+                    borderLeft = 'border-left: 4px solid rgba(245, 158, 11, 0.6);';
+                  }
 
                   const formatTeamName = (str) => {
                     if (!str) return '';
@@ -17414,8 +17514,9 @@ function savePriorityTeamsToFirebase() {
     if (window.lucide) window.lucide.createIcons();
   }
 
-  function openAddPriorityTeamModal() {
+  function openAddTeamsModal(type) {
     ensureCarteleraState();
+    const isPriority = type === 'priority';
     const catSet = new Set([
       'División de Honor Juvenil',
       'Liga Nacional Juvenil',
@@ -17471,15 +17572,20 @@ function savePriorityTeamsToFirebase() {
     const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
     const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
-    showModal('⭐ Gestor de Equipos Prioritarios de Seguimiento', `
+    const modalTitle = isPriority ? '⭐ Gestor de Equipos Prioritarios' : '👁️ Gestor de Equipos Interesantes';
+    const mainColor = isPriority ? '#2563eb' : '#9333ea';
+    const icon = isPriority ? 'check' : 'eye';
+    const btnLabel = isPriority ? 'Guardar Equipos Prioritarios' : 'Guardar Equipos Interesantes';
+
+    showModal(modalTitle, `
       <style>
         .priority-tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); margin-bottom: 12px; }
         .priority-tab { background: none; border: none; padding: 8px 16px; font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-        .priority-tab.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        .priority-tab.active { color: ${mainColor}; border-bottom: 2px solid ${mainColor}; }
         .priority-tab-content { display: none; }
         .priority-tab-content.active { display: block; }
       </style>
-      <form id="formAddPriorityTeamModal">
+      <form id="formAddTeamModal">
         
         <div class="priority-tabs">
           <button type="button" class="priority-tab active" data-tab="tab-category">Filtrar por Competición</button>
@@ -17542,8 +17648,8 @@ function savePriorityTeamsToFirebase() {
 
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
           <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: #2563eb;">
-            <i data-lucide="check"></i> Guardar Equipos Prioritarios
+          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: ${mainColor};">
+            <i data-lucide="${icon}"></i> ${btnLabel}
           </button>
         </div>
       </form>
@@ -17572,7 +17678,8 @@ function savePriorityTeamsToFirebase() {
     const btnSelectAll = document.getElementById('btnSelectAllModalTeams');
 
     function updateTeamCheckboxes() {
-      const currentPrioritySet = new Set((state.cartelera.priorityTeams || []).map(t => t.toLowerCase().trim()));
+      const currentArr = isPriority ? (state.cartelera.priorityTeams || []) : (state.cartelera.interestingTeams || []);
+      const currentPrioritySet = new Set(currentArr.map(t => t.toLowerCase().trim()));
       const teamMap = new Map();
 
       (state.directory.equipos || []).forEach(e => {
@@ -17629,7 +17736,7 @@ function savePriorityTeamsToFirebase() {
 
         return `
           <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-main);">
-            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(key)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: #2563eb;">
+            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(key)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: ${mainColor};">
             <span>${displayName}</span>
           </label>
         `;
@@ -17650,7 +17757,7 @@ function savePriorityTeamsToFirebase() {
       };
     }
 
-    document.getElementById('formAddPriorityTeamModal').onsubmit = (e) => {
+    document.getElementById('formAddTeamModal').onsubmit = (e) => {
       e.preventDefault();
       
       const selectedFromChecks = Array.from(listEl.querySelectorAll('.chk-priority-team:checked')).map(c => c.value);
@@ -17659,40 +17766,34 @@ function savePriorityTeamsToFirebase() {
       let customTeams = customVal ? customVal.split(',').map(t => `${customCat}|||` + t.trim()).filter(Boolean) : [];
 
       if (!state.cartelera) ensureCarteleraState();
-      if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
-
-      // We overwrite entirely based on modal selection to avoid duplicates/stale state?
-      // No, we want to append or keep existing not shown in this modal?
-      // Let's just merge them carefully.
+      
+      const targetList = isPriority ? 'priorityTeams' : 'interestingTeams';
+      if (!state.cartelera[targetList]) state.cartelera[targetList] = [];
       
       const currentLowerMap = new Map();
-      state.cartelera.priorityTeams.forEach(t => {
+      state.cartelera[targetList].forEach(t => {
          const key = t;
          currentLowerMap.set(key.toLowerCase(), key);
       });
 
       selectedFromChecks.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
-          state.cartelera.priorityTeams.push(t);
-          savePriorityTeamsToFirebase();
+          state.cartelera[targetList].push(t);
         }
       });
 
       customTeams.forEach(t => {
         if (!currentLowerMap.has(t.toLowerCase())) {
-          state.cartelera.priorityTeams.push(t);
-          savePriorityTeamsToFirebase();
+          state.cartelera[targetList].push(t);
         }
       });
 
-      // To handle unchecking, we should remove items that were unchecked for the current view?
-      // Since the original code didn't handle unchecking from this modal (it just pushed), 
-      // the user removes them from the 'Ver Equipos Prioritarios' modal. So appending is fine.
-
+      saveCarteleraTeamsToFirebase();
       saveState();
       renderCartelera();
       if (typeof showToast === 'function') {
-        showToast(`⭐ Equipos prioritarios actualizados (${state.cartelera.priorityTeams.length} en seguimiento)`);
+        const icon = isPriority ? '⭐' : '👁️';
+        showToast(`${icon} Lista de equipos actualizada (${state.cartelera[targetList].length} en seguimiento)`);
       }
       hideModal();
     };
@@ -17985,7 +18086,13 @@ function savePriorityTeamsToFirebase() {
     const btnAddPriority = document.getElementById('btnAddPriorityTeam');
     if (btnAddPriority && !btnAddPriority.dataset.initialized) {
       btnAddPriority.dataset.initialized = 'true';
-      btnAddPriority.onclick = () => openAddPriorityTeamModal();
+      btnAddPriority.onclick = () => openAddTeamsModal('priority');
+    }
+
+    const btnAddInteresting = document.getElementById('btnAddInterestingTeam');
+    if (btnAddInteresting && !btnAddInteresting.dataset.initialized) {
+      btnAddInteresting.dataset.initialized = 'true';
+      btnAddInteresting.onclick = () => openAddTeamsModal('interesting');
     }
 
     const searchInput = document.getElementById('carteleraSearchInput');
@@ -20148,6 +20255,43 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       alert('Error al exportar la copia de seguridad: ' + e.message);
     }
   }
+  // Lateralidad Migration Listener
+  document.getElementById('btnMigrateLateralidad')?.addEventListener('click', () => {
+    if (!state.directory || !state.directory.jugadores) {
+      alert("No hay jugadores cargados en el directorio.");
+      return;
+    }
+    let updatedCount = 0;
+    state.directory.jugadores.forEach(p => {
+      if (p.lateralidad) {
+        const lower = p.lateralidad.toLowerCase().trim();
+        let newVal = p.lateralidad;
+        if (lower === 'diestra' || lower === 'diestro' || lower === 'derecha') newVal = 'Derecha';
+        else if (lower === 'zurda' || lower === 'zurdo' || lower === 'izquierda') newVal = 'Izquierda';
+        else if (lower.includes('ambidiestro') || lower.includes('ambidiestra')) newVal = 'Ambidiestro';
+        
+        if (newVal !== p.lateralidad) {
+          p.lateralidad = newVal;
+          if (typeof saveToFirebase === 'function') {
+            saveToFirebase('jugadores', p);
+          }
+          updatedCount++;
+        }
+      }
+    });
+
+    if (updatedCount > 0) {
+      saveState();
+      renderDirectory();
+      if (typeof showToast === 'function') {
+        showToast(`🛠️ Migración completada: ${updatedCount} jugadores actualizados.`);
+      } else {
+        alert(`Migración completada: ${updatedCount} jugadores actualizados.`);
+      }
+    } else {
+      alert("No se encontraron jugadores que necesiten corrección de lateralidad.");
+    }
+  });
 
   // Backup Export JSON Listeners
   document.getElementById('btnExportBackup')?.addEventListener('click', exportBackupJSON);
