@@ -3392,7 +3392,6 @@ function saveCarteleraTeamsToFirebase() {
     container.innerHTML = pitchHTML;
 
     // Render Bench Tokens (Suplentes)
-    const supRows = document.querySelectorAll(`#${team}SuplentesRows .lineup-row`);
     const benchContainer = document.getElementById(`${team}BenchPins`);
     if (benchContainer) {
       benchContainer.innerHTML = Array.from(supRows).map((row, idx) => {
@@ -5406,7 +5405,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnVerComentariosPartidos')?.addEventListener('click', () => {
       const matchComments = [];
       const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
-      (state.informes || []).forEach(rep => {
+      (state.reports || []).forEach(rep => {
         if (!rep.playerEvaluations) return;
         Object.values(rep.playerEvaluations).forEach(evalObj => {
           const evalName = (evalObj.name || '').toLowerCase().trim();
