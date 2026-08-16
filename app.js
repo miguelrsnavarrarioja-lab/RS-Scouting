@@ -4320,7 +4320,10 @@ function savePriorityTeamsToFirebase() {
     const comunidad = player.comunidad || 'Navarra';
     const localidad = player.localidad || 'Pamplona';
 
-    const pierna = player.pierna || 'DERECHA';
+    let _piernaRaw = (player.pierna || 'Derecha').toLowerCase();
+    let pierna = 'Derecha';
+    if (_piernaRaw.includes('izq') || _piernaRaw.includes('zur')) pierna = 'Izquierda';
+    else if (_piernaRaw.includes('ambid')) pierna = 'Ambidiestro';
     const disponibilidad = player.disponibilidad || '';
     const proyeccion = player.proyeccion || '';
     const posicionPrincipal = player.posicion || player.posicionPrincipal || '';
@@ -4563,9 +4566,9 @@ function savePriorityTeamsToFirebase() {
               <div class="form-group">
                 <label class="form-label">PIERNA DOMINANTE</label>
                 <select id="pfPierna" class="form-control">
-                  <option value="DERECHA" ${pierna === 'DERECHA' ? 'selected' : ''}>DERECHA</option>
-                  <option value="IZQUIERDA" ${pierna === 'IZQUIERDA' ? 'selected' : ''}>IZQUIERDA</option>
-                  <option value="AMBIDIESTRO" ${pierna === 'AMBIDIESTRO' ? 'selected' : ''}>AMBIDIESTRO</option>
+                  <option value="Derecha" ${pierna === 'Derecha' ? 'selected' : ''}>Derecha</option>
+                  <option value="Izquierda" ${pierna === 'Izquierda' ? 'selected' : ''}>Izquierda</option>
+                  <option value="Ambidiestro" ${pierna === 'Ambidiestro' ? 'selected' : ''}>Ambidiestro</option>
                 </select>
               </div>
               <div class="form-group">
@@ -4944,7 +4947,7 @@ function savePriorityTeamsToFirebase() {
       p.comunidad = document.getElementById('pfComunidad')?.value || '';
       p.localidad = document.getElementById('pfLocalidad')?.value.trim() || '';
 
-      p.pierna = document.getElementById('pfPierna')?.value || 'DERECHA';
+      p.pierna = document.getElementById('pfPierna')?.value || 'Derecha';
       p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
       p.proyeccion = document.getElementById('pfProyeccion')?.value || '';
       p.posicionPrincipal = document.getElementById('pfPosicion')?.value || '';
@@ -7254,7 +7257,10 @@ function savePriorityTeamsToFirebase() {
             anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${foundPlayer.id}" value="${escapeHtml(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             const posSec = foundPlayer.posicionSecundaria || '';
-            const pierna = foundPlayer.pierna || '';
+            let _pRaw = (foundPlayer.pierna || '').toLowerCase();
+            let pierna = _pRaw ? 'Derecha' : '';
+            if (_pRaw.includes('izq') || _pRaw.includes('zur')) pierna = 'Izquierda';
+            else if (_pRaw.includes('ambid')) pierna = 'Ambidiestro';
             const estado = foundPlayer.estado || 'ALTA';
             const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
             
@@ -7266,7 +7272,7 @@ function savePriorityTeamsToFirebase() {
               return opts;
             };
 
-            const piernaOpts = ['DERECHA', 'IZQUIERDA', 'AMBIDIESTRO'];
+            const piernaOpts = ['Derecha', 'Izquierda', 'Ambidiestro'];
             const generatePiernaOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += piernaOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -15500,7 +15506,7 @@ function savePriorityTeamsToFirebase() {
     const defaultComunidad = getTeamComunidad(defaultEquipo); // Linked to team!
     const defaultLocalidad = ''; // Empty by default as requested
     const defaultEstado = 'RENOVACIÓN'; // Default RENOVACIÓN as requested
-    const defaultPierna = 'Diestra';
+    const defaultPierna = 'Derecha';
     const defaultProyeccion = ''; // Blank by default as requested
     const defaultPosicion = '';
 
@@ -15595,7 +15601,7 @@ function savePriorityTeamsToFirebase() {
     const cargoOptions = ['Delegado', 'Entrenador Principal', 'Segundo Entrenador', 'Preparador Físico', 'Entrenador de Porteros', 'Scout / Ojeador', 'Analista Táctico', 'Director Deportivo', 'Fisioterapeuta', 'Médico', 'Delegado de Equipo', 'Delegado de Campo', 'Utillero', 'Readaptador'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
-    const piernaOptions = ['Diestra', 'Zurda', 'Ambidextra', 'DERECHA', 'IZQUIERDA', 'AMBIDIESTRO'];
+    const piernaOptions = ['Derecha', 'Izquierda', 'Ambidiestro'];
 
     let html = '';
     stagedExcelRows.forEach((row, idx) => {
@@ -16444,6 +16450,26 @@ function savePriorityTeamsToFirebase() {
     };
   }
 
+  function getPlayerDatalistHTML() {
+    const players = state.directory?.jugadores || [];
+    const sorted = [...players].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+    let html = '';
+    sorted.forEach(p => {
+      const teamStr = p.equipo ? ` (${p.equipo})` : '';
+      const label = `${escapeHtml(p.nombre)}${escapeHtml(teamStr)}`;
+      html += `<option value="${label}" data-id="${escapeHtml(p.id)}"></option>`;
+    });
+    return html;
+  }
+  
+  function getPlayerNameLabel(playerId) {
+    if (!playerId) return '';
+    const p = state.directory?.jugadores?.find(j => String(j.id) === String(playerId));
+    if (!p) return '';
+    const teamStr = p.equipo ? ` (${p.equipo})` : '';
+    return `${p.nombre}${teamStr}`;
+  }
+
   function getPlayerOptionsHTML(selectedId) {
     const players = state.directory?.jugadores || [];
     const sorted = [...players].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
@@ -16564,17 +16590,32 @@ function savePriorityTeamsToFirebase() {
 
       container.innerHTML = `
         <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
-          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Seleccionar Jugador</label>
-          <select id="compIndividualSelect" class="form-control" style="max-width: 400px; font-weight: 600;">
-            ${getPlayerOptionsHTML(comparativaState.individualPlayerId)}
-          </select>
+          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar y Seleccionar Jugador</label>
+          <input type="text" id="compIndividualSelect" list="dlCompIndividual" class="form-control" style="max-width: 400px; font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.individualPlayerId))}">
+          <datalist id="dlCompIndividual">
+            ${getPlayerDatalistHTML()}
+          </datalist>
         </div>
         ${profileHTML}
       `;
 
       document.getElementById('compIndividualSelect').onchange = (e) => {
-        comparativaState.individualPlayerId = e.target.value;
-        renderComparativaContent();
+        const val = e.target.value;
+        const opts = document.getElementById('dlCompIndividual').options;
+        let matchedId = '';
+        for (let i = 0; i < opts.length; i++) {
+          if (opts[i].value === val) {
+            matchedId = opts[i].dataset.id;
+            break;
+          }
+        }
+        if (!val) {
+          comparativaState.individualPlayerId = '';
+          renderComparativaContent();
+        } else if (matchedId) {
+          comparativaState.individualPlayerId = matchedId;
+          renderComparativaContent();
+        }
       };
       
     } else {
@@ -16584,10 +16625,11 @@ function savePriorityTeamsToFirebase() {
       for(let i=0; i<maxSlots; i++) {
         selectorsHTML += `
           <div style="flex: 1; min-width: 200px;">
-            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Jugador ${i+1}</label>
-            <select class="form-control comp-multi-select" data-index="${i}" style="font-weight: 600;">
-              ${getPlayerOptionsHTML(comparativaState.multiplePlayerIds[i])}
-            </select>
+            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar Jugador ${i+1}</label>
+            <input type="text" class="form-control comp-multi-select" data-index="${i}" list="dlCompMulti_${i}" style="font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.multiplePlayerIds[i]))}">
+            <datalist id="dlCompMulti_${i}">
+              ${getPlayerDatalistHTML()}
+            </datalist>
           </div>
         `;
       }
@@ -16673,8 +16715,22 @@ function savePriorityTeamsToFirebase() {
       container.querySelectorAll('.comp-multi-select').forEach(sel => {
         sel.onchange = (e) => {
           const idx = parseInt(e.target.dataset.index, 10);
-          comparativaState.multiplePlayerIds[idx] = e.target.value;
-          renderComparativaContent();
+          const val = e.target.value;
+          const opts = document.getElementById(`dlCompMulti_${idx}`).options;
+          let matchedId = '';
+          for (let i = 0; i < opts.length; i++) {
+            if (opts[i].value === val) {
+              matchedId = opts[i].dataset.id;
+              break;
+            }
+          }
+          if (!val) {
+            comparativaState.multiplePlayerIds[idx] = '';
+            renderComparativaContent();
+          } else if (matchedId) {
+            comparativaState.multiplePlayerIds[idx] = matchedId;
+            renderComparativaContent();
+          }
         };
       });
     }
@@ -16915,11 +16971,32 @@ function savePriorityTeamsToFirebase() {
            const numB = parseInt((matchB || [0])[0]);
            return numA - numB;
         }
+        if (id === 'carteleraFilterCategoria') {
+           const getCatRank = (catStr) => {
+             const s = String(catStr).toLowerCase();
+             if (s.includes('tercera rfef')) return 1;
+             if (s.includes('dhj') || s.includes('división honor juvenil') || s.includes('division honor juvenil')) return 2;
+             if (s.includes('lnj') || s.includes('liga nacional juvenil')) return 3;
+             if (s.includes('jau') || s.includes('primera autonómica juvenil') || s.includes('primera autonomica juvenil')) return 4;
+             if (s.includes('cv') || s.includes('liga vasca cadete') || s.includes('liga cadete navarra')) return 5;
+             if (s.includes('ch') || s.includes('cadete honor') || s.includes('primera autonómica cadete') || s.includes('primera autonomica cadete')) return 6;
+             if (s.includes('ih') || s.includes('infantil honor') || s.includes('primera autonómica infantil') || s.includes('primera autonomica infantil')) return 7;
+             if (s.includes('itx') || s.includes('infantil txiki')) return 8;
+             if (s.includes('alvb') || s.includes('alevin b') || s.includes('alevín b')) return 10;
+             if (s.includes('alv') || s.includes('alevin') || s.includes('alevín')) return 9;
+             if (s.includes('benb') || s.includes('benjamin b') || s.includes('benjamín b')) return 12;
+             if (s.includes('ben') || s.includes('benjamin') || s.includes('benjamín')) return 11;
+             return 99; // Otros al final
+           };
+           const rankA = getCatRank(a);
+           const rankB = getCatRank(b);
+           if (rankA !== rankB) return rankA - rankB;
+           return String(a).localeCompare(String(b));
+        }
         return String(a).localeCompare(String(b));
       });
       
-      let html = `<option value="all">${defaultLabel}</option>`;
-      arr.forEach(val => {
+      const formatLabel = (val) => {
         let label = val;
         if (id === 'carteleraFilterFederacion') {
            label = label.replace('FNF - Federación Navarra de Fútbol', 'FNF');
@@ -16931,9 +17008,30 @@ function savePriorityTeamsToFirebase() {
            const parts = label.split('-');
            if (parts.length === 3) label = `${parts[2]}/${parts[1]}/${parts[0]}`;
         }
-        html += `<option value="${escapeHtml(val)}" ${selectedValue === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-      });
-      el.innerHTML = html;
+        return label;
+      };
+
+      if (el.tagName.toLowerCase() === 'input' && el.list) {
+         let html = '';
+         arr.forEach(val => {
+           const label = formatLabel(val);
+           html += `<option value="${escapeHtml(label)}" data-val="${escapeHtml(val)}"></option>`;
+         });
+         el.list.innerHTML = html;
+         
+         if (selectedValue && selectedValue !== 'all') {
+            el.value = formatLabel(selectedValue);
+         } else {
+            el.value = '';
+         }
+      } else {
+        let html = `<option value="all">${defaultLabel}</option>`;
+        arr.forEach(val => {
+          const label = formatLabel(val);
+          html += `<option value="${escapeHtml(val)}" ${selectedValue === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        });
+        el.innerHTML = html;
+      }
     };
 
     populateSelect('carteleraFilterCategoria', compSet, selectedCarteleraCategoria, '🏆 Todas');
@@ -17900,9 +17998,34 @@ function savePriorityTeamsToFirebase() {
       const el = document.getElementById(id);
       if (el && !el.dataset.initialized) {
         el.dataset.initialized = 'true';
-        el.onchange = (e) => {
-          setter(e.target.value);
+        // change is not reliably fired on input when clearing on some browsers, so we use input event too
+        const handler = (e) => {
+          let val = e.target.value;
+          if (el.tagName.toLowerCase() === 'input' && el.list) {
+            const opts = el.list.options;
+            let matchedVal = 'all';
+            for (let i = 0; i < opts.length; i++) {
+              if (opts[i].value === val) {
+                matchedVal = opts[i].dataset.val;
+                break;
+              }
+            }
+            if (val && matchedVal === 'all' && Array.from(opts).every(o => o.value !== val)) {
+                // If it's not empty and no exact match, we consider it 'all' for filtering
+                val = 'all';
+            } else {
+                val = matchedVal;
+            }
+          }
+          setter(val);
           renderCarteleraMatches();
+        };
+        el.onchange = handler;
+        el.oninput = (e) => {
+           // Si el usuario vacía el input, limpiamos la selección al instante
+           if (!e.target.value) {
+             handler(e);
+           }
         };
       }
     };
@@ -20434,17 +20557,43 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
     
     const sortedAnios = Array.from(anios).sort((a, b) => b.localeCompare(a));
-    selCat.innerHTML = `<option value="">-- Todas las categorías --</option>` + 
-      sortedAnios.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+    if (selCat.list) {
+      selCat.list.innerHTML = sortedAnios.map(a => `<option value="${escapeHtml(a)}" data-val="${escapeHtml(a)}"></option>`).join('');
+    } else {
+      selCat.innerHTML = `<option value="">-- Todas las categorías --</option>` + 
+        sortedAnios.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+    }
 
     // Poblar selector de Competición
     const competiciones = state.customCompeticiones || [];
-    selComp.innerHTML = `<option value="">-- Todas las competiciones --</option>` + 
-      competiciones.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (selComp.list) {
+      selComp.list.innerHTML = competiciones.map(c => `<option value="${escapeHtml(c)}" data-val="${escapeHtml(c)}"></option>`).join('');
+    } else {
+      selComp.innerHTML = `<option value="">-- Todas las competiciones --</option>` + 
+        competiciones.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    }
 
     // Assign events
-    selCat.onchange = renderMapasPins;
-    selComp.onchange = renderMapasPins;
+    const bindDatalistEvent = (el, handler) => {
+      el.onchange = (e) => {
+        if (el.list) {
+          const val = e.target.value;
+          const opts = el.list.options;
+          let matched = false;
+          for (let i = 0; i < opts.length; i++) {
+            if (opts[i].value === val) { matched = true; break; }
+          }
+          if (val && !matched && Array.from(opts).every(o => o.value !== val)) {
+             el.value = ''; // No coincide con la lista, vaciar
+          }
+        }
+        handler(e);
+      };
+      el.oninput = (e) => { if (!e.target.value) handler(e); };
+    };
+
+    bindDatalistEvent(selCat, renderMapasPins);
+    bindDatalistEvent(selComp, renderMapasPins);
     document.getElementById('selMapasSistema').onchange = renderMapasPins;
     
     const btnExport = document.getElementById('btnExportMapasPDF');
@@ -20519,6 +20668,53 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     const curPrimaryColor = '#2563eb';
     const curTextColor = '#ffffff';
+
+    // Add players to the table
+    const tableBody = document.getElementById('mapasPlayersTbody');
+    if (tableBody) {
+      let tableRows = '';
+      const renderedIds = new Set();
+      
+      filteredPlayers.forEach(p => {
+        if (renderedIds.has(p.id)) return;
+        renderedIds.add(p.id);
+        const nameEscaped = escapeHtml(p.nombre || '-');
+        const yearEscaped = escapeHtml(p.ano || '-');
+        const teamEscaped = escapeHtml(p.equipo || '-');
+        const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || '-');
+        const levelEscaped = escapeHtml(p.proyeccion || '-');
+        tableRows += `
+          <tr style="border-bottom: 1px solid var(--border-light); font-size: 13px;">
+            <td style="padding: 12px 8px;">
+              <a href="#" class="mapas-table-link" data-playerid="${p.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none;">${nameEscaped}</a>
+            </td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${yearEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${teamEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${posEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 700; color: var(--primary-blue);">${levelEscaped}</td>
+          </tr>
+        `;
+      });
+      
+      if (!tableRows) {
+        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores en el 11 ideal para estos filtros.</td></tr>`;
+      }
+      tableBody.innerHTML = tableRows;
+      
+      tableBody.querySelectorAll('.mapas-table-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const pId = link.dataset.playerid;
+          if (pId) {
+            const card = document.querySelector('.player-card-modal');
+            if (card) card.classList.remove('large');
+            hideModal();
+            openPlayerModal(pId);
+          }
+        });
+      });
+    }
 
     container.innerHTML = positions.map((posCoords, slotIdx) => {
       const posCode = defaultPositions[slotIdx] || 'MC';

@@ -1135,51 +1135,46 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         </div>
 
         <!-- Selector de Liga y Selector de Jornada -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: center; margin-bottom: 16px;">
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría</label>
-            <select id="carteleraFilterCategoria" class="form-control">
-              <option value="all">🏆 Todas</option>
-            </select>
+        <div class="cartelera-filters-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Categoría</label>
+              <input type="text" id="carteleraFilterCategoria" list="dl_carteleraFilterCategoria" class="form-control" placeholder="🏆 Todas">
+              <datalist id="dl_carteleraFilterCategoria"></datalist>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Federación</label>
+              <input type="text" id="carteleraFilterFederacion" list="dl_carteleraFilterFederacion" class="form-control" placeholder="Todas">
+              <datalist id="dl_carteleraFilterFederacion"></datalist>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Grupo</label>
+              <input type="text" id="carteleraFilterGrupo" list="dl_carteleraFilterGrupo" class="form-control" placeholder="Todos">
+              <datalist id="dl_carteleraFilterGrupo"></datalist>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Jornada</label>
+              <input type="text" id="carteleraFilterJornada" list="dl_carteleraFilterJornada" class="form-control" placeholder="Todas">
+              <datalist id="dl_carteleraFilterJornada"></datalist>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Fecha</label>
+              <input type="text" id="carteleraFilterFecha" list="dl_carteleraFilterFecha" class="form-control" placeholder="Todas">
+              <datalist id="dl_carteleraFilterFecha"></datalist>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Filtro de Interés</label>
+              <select id="carteleraFilterInteres" class="form-control">
+                <option value="all">Todos los partidos</option>
+                <option value="priority_teams">Equipos prioritarios</option>
+                <option value="tracked_players">Partidos con jugadores en seguimiento</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Equipo</label>
+              <input type="text" id="carteleraFilterEquipo" list="dl_carteleraFilterEquipo" class="form-control" placeholder="Todos">
+              <datalist id="dl_carteleraFilterEquipo"></datalist>
+            </div>
           </div>
-          <div class="filter-group">
-            <label>Federación</label>
-            <select id="carteleraFilterFederacion" class="form-control">
-              <option value="all">Todas</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label>Grupo</label>
-            <select id="carteleraFilterGrupo" class="form-control">
-              <option value="all">Todos</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Jornada</label>
-            <select id="carteleraFilterJornada" class="form-control">
-              <option value="all">Todas</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Fecha</label>
-            <select id="carteleraFilterFecha" class="form-control">
-              <option value="all">Todas</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Filtro de Interés</label>
-            <select id="carteleraFilterInteres" class="form-control">
-              <option value="all" selected>Todos los partidos</option>
-              <option value="priority">⭐ Solo Destacados (Equipos Prioritarios)</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">Equipo</label>
-            <select id="carteleraFilterEquipo" class="form-control">
-              <option value="all">Todos</option>
-            </select>
-          </div>
-        </div>
       </div>
 
       <!-- Filtros de Cartelera: Federación, Categoría, Jornada (estilo Directorio) -->
@@ -1232,15 +1227,13 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
       <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
         <div style="flex: 1; min-width: 200px;">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Categoría (Año)</label>
-          <select id="selMapasCategoria" class="form-control" style="font-weight: 600;">
-            <!-- Rendered by app.js -->
-          </select>
+          <input type="text" id="selMapasCategoria" list="dl_selMapasCategoria" class="form-control" style="font-weight: 600;" placeholder="-- Todas las categorías --">
+          <datalist id="dl_selMapasCategoria"></datalist>
         </div>
         <div style="flex: 1; min-width: 200px;">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Competición</label>
-          <select id="selMapasCompeticion" class="form-control" style="font-weight: 600;">
-            <!-- Rendered by app.js -->
-          </select>
+          <input type="text" id="selMapasCompeticion" list="dl_selMapasCompeticion" class="form-control" style="font-weight: 600;" placeholder="-- Todas las competiciones --">
+          <datalist id="dl_selMapasCompeticion"></datalist>
         </div>
         <div style="flex: 1; min-width: 200px;">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
@@ -1255,8 +1248,28 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         </div>
       </div>
 
-      <div style="position: relative; width: 100%; max-width: 500px; height: 750px; margin: 0 auto; background: repeating-linear-gradient(180deg, #1b7a38 0px, #1b7a38 40px, #145e2a 40px, #145e2a 80px); border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
-        <!-- Center line -->
+      <div style="display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start;">
+        
+        <div style="flex: 1; min-width: 400px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 750px; overflow-y: auto;">
+           <h3 style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 16px;">Jugadores en el 11 Ideal</h3>
+           <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+             <thead>
+               <tr style="border-bottom: 2px solid var(--border-light); color: var(--text-muted); font-size: 12px;">
+                 <th style="padding: 12px 8px;">NOMBRE COMPLETO</th>
+                 <th style="padding: 12px 8px;">AÑO</th>
+                 <th style="padding: 12px 8px;">EQUIPO</th>
+                 <th style="padding: 12px 8px;">POSICIÓN</th>
+                 <th style="padding: 12px 8px;">NIVEL RS</th>
+               </tr>
+             </thead>
+             <tbody id="mapasPlayersTbody">
+               <!-- Rellenado por app.js -->
+             </tbody>
+           </table>
+        </div>
+
+        <div style="position: relative; width: 500px; height: 750px; flex-shrink: 0; background: repeating-linear-gradient(180deg, #1b7a38 0px, #1b7a38 40px, #145e2a 40px, #145e2a 80px); border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
+          <!-- Center line -->
         <div style="position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.7); transform: translateY(-50%);"></div>
         <!-- Center circle -->
         <div style="position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
@@ -1289,6 +1302,7 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
 
         <!-- Pins container -->
         <div id="mapasCampogramaPins" style="position: absolute; inset: 0;"></div>
+        </div>
       </div>
     </section>
 
