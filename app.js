@@ -2491,6 +2491,12 @@
   document.getElementById('reportVisitanteTeam')?.addEventListener('input', () => updateMatchTeamBadgeAndColor('visitante'));
   document.getElementById('reportVisitanteTeam')?.addEventListener('change', () => updateMatchTeamBadgeAndColor('visitante'));
 
+  const inputCategoria = document.getElementById('reportCategoria');
+  inputCategoria?.addEventListener('change', () => { updateTeamPlayersDatalist('local'); updateTeamPlayersDatalist('visitante'); });
+  
+  document.getElementById('localIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('local'));
+  document.getElementById('visitanteIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('visitante'));
+
   // Clima Multiselect Event Listeners
   const reportClimaInput = document.getElementById('reportClima');
   const climaDropdown = document.getElementById('climaMultiselectDropdown');
@@ -6965,11 +6971,6 @@
       }
     };
 
-    const inputCategoria = document.getElementById('reportCategoria');
-    inputCategoria?.addEventListener('change', () => { updateTeamPlayersDatalist('local'); updateTeamPlayersDatalist('visitante'); });
-    
-    document.getElementById('localIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('local'));
-    document.getElementById('visitanteIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('visitante'));
 
     inputColorPri?.addEventListener('input', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
     inputColorPri?.addEventListener('change', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
