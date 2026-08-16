@@ -485,10 +485,15 @@
           <div class="tactical-team-column">
             <!-- Tabs (Principal, Secundario, Ocasional) & Formation selector -->
             <div class="tactical-column-header">
-              <div class="role-tabs" id="localRoleTabs">
-                <button type="button" class="role-tab active" data-role="principal">Principal</button>
-                <button type="button" class="role-tab" data-role="secundario">Secundario</button>
-                <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px;">
+                <div class="role-tabs" id="localRoleTabs" style="margin-bottom: 0;">
+                  <button type="button" class="role-tab active" data-role="principal">Principal</button>
+                  <button type="button" class="role-tab" data-role="secundario">Secundario</button>
+                  <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+                </div>
+                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
+                  <input type="checkbox" id="localIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer;"> Incluir inferior
+                </label>
               </div>
               <div class="formation-selector">
                 <select id="localFormationSelect" class="form-control select-compact">
@@ -659,10 +664,15 @@
           <div class="tactical-team-column">
             <!-- Tabs (Principal, Secundario, Ocasional) & Formation selector -->
             <div class="tactical-column-header">
-              <div class="role-tabs" id="visitanteRoleTabs">
-                <button type="button" class="role-tab active" data-role="principal">Principal</button>
-                <button type="button" class="role-tab" data-role="secundario">Secundario</button>
-                <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px;">
+                <div class="role-tabs" id="visitanteRoleTabs" style="margin-bottom: 0;">
+                  <button type="button" class="role-tab active" data-role="principal">Principal</button>
+                  <button type="button" class="role-tab" data-role="secundario">Secundario</button>
+                  <button type="button" class="role-tab" data-role="ocasional">Ocasional</button>
+                </div>
+                <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
+                  <input type="checkbox" id="visitanteIncludeCantera" style="width: 14px; height: 14px; margin: 0; cursor: pointer;"> Incluir inferior
+                </label>
               </div>
               <div class="formation-selector">
                 <select id="visitanteFormationSelect" class="form-control select-compact">

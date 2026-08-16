@@ -2733,6 +2733,20 @@
     }
   });
 
+  const INFERIOR_CATEGORIES_MAP = {
+    'DHJ': ['CV', 'CH', 'CPR'],
+    'LNJ': ['CV', 'CH', 'CPR'],
+    'JAU': ['CV', 'CH', 'CPR'],
+    'JPR': ['CV', 'CH', 'CPR'],
+    'CV': ['IH', 'ITX'],
+    'CH': ['IH', 'ITX'],
+    'CPR': ['IH', 'ITX'],
+    'IH': ['ALV', 'ALVB'],
+    'ITX': ['ALV', 'ALVB'],
+    'ALV': ['BEN', 'BENB'],
+    'ALVB': ['BEN', 'BENB']
+  };
+
   function findPlayerByTeamAndDorsal(teamName, dorsalNum) {
     if (!dorsalNum) return null;
     const dStr = String(dorsalNum).trim();
@@ -2784,6 +2798,15 @@
     const jugadores = state.directory.jugadores || [];
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
+    
+    // Check if inferior category is included
+    const includeCantera = document.getElementById(`${team}IncludeCantera`)?.checked || false;
+    let allowedInferiorCategories = [];
+    if (includeCantera && targetTeam && targetTeam.categoria) {
+      allowedInferiorCategories = INFERIOR_CATEGORIES_MAP[targetTeam.categoria] || [];
+    }
+    const targetClub = targetTeam ? (targetTeam.clubVinculado || targetTeam.club || '').toLowerCase() : '';
+
     // Gather all currently entered names in the lineups
     const enteredNames = [];
     document.querySelectorAll(`#${team}TitularesRows input.name, #${team}SuplentesRows input.name`).forEach(input => {
@@ -2803,15 +2826,36 @@
         });
       }
       
+      // If includeCantera is true, also check if player belongs to an inferior team of the same club
+      let isInferior = false;
+      if (!matchesTeam && includeCantera && targetClub && allowedInferiorCategories.length > 0) {
+        // Does this player belong to any team of the same club with allowed inferior category?
+        const playerEq = equipos.find(eq => {
+          if (!eq.nombre) return false;
+          const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
+          return eqClub === targetClub && allowedInferiorCategories.includes(eq.categoria);
+        });
+        if (playerEq && playerEq.plantilla) {
+           isInferior = playerEq.plantilla.some(item => {
+             const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+             return itemName === pName;
+           });
+        }
+      }
+
       // Do not include if already typed in one of the inputs
       if (enteredNames.includes(pName)) return false;
 
-      return matchesTeam;
+      // Add a property to mark them as inferior for the datalist label if needed
+      if (isInferior) p._isInferior = true;
+
+      return matchesTeam || isInferior;
     });
 
     datalist.innerHTML = teamPlayers.map(p => {
       const pName = p.nombre || p.jugador || p.name || '';
-      return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
+      const eqTag = p._isInferior ? ` [${escapeHtml(p.equipo || 'Filial')}]` : '';
+      return pName ? `<option value="${escapeHtml(pName)}${eqTag}"></option>` : '';
     }).join('');
   }
 
@@ -6920,6 +6964,12 @@
         applyTeamColorsHeader(inputColorPri?.value, inputColorSec?.value);
       }
     };
+
+    const inputCategoria = document.getElementById('reportCategoria');
+    inputCategoria?.addEventListener('change', () => { updateTeamPlayersDatalist('local'); updateTeamPlayersDatalist('visitante'); });
+    
+    document.getElementById('localIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('local'));
+    document.getElementById('visitanteIncludeCantera')?.addEventListener('change', () => updateTeamPlayersDatalist('visitante'));
 
     inputColorPri?.addEventListener('input', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
     inputColorPri?.addEventListener('change', (e) => applyTeamColorsHeader(e.target.value, inputColorSec?.value));
