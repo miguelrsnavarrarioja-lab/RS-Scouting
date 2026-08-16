@@ -15502,10 +15502,16 @@ function savePriorityTeamsToFirebase() {
       if (formattedName.length < 2) return;
 
       const isStaff = currentRole === 'STAFF';
+      let alreadyExists = false;
+      if (!isStaff && state.directory && state.directory.jugadores) {
+        alreadyExists = state.directory.jugadores.some(j => j && (j.nombre || j.jugador || '').toLowerCase().trim() === formattedName.toLowerCase().trim());
+      } else if (isStaff && state.directory && state.directory.staff) {
+        alreadyExists = state.directory.staff.some(s => s && (s.nombre || s.staff || '').toLowerCase().trim() === formattedName.toLowerCase().trim());
+      }
       
       stagedExcelRows.push({
         id: (isStaff ? 'st_' : 'j_') + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        checked: true,
+        checked: !alreadyExists,
         tipo: currentRole, // 'JUGADOR' o 'STAFF'
         cargo: isStaff ? 'Delegado' : '',
         nombre: formattedName,
@@ -15566,7 +15572,15 @@ function savePriorityTeamsToFirebase() {
     let html = '';
     stagedExcelRows.forEach((row, idx) => {
       const isStaff = row.tipo === 'STAFF';
-      const rowBg = isStaff ? '#fffbeb' : '#ffffff';
+      
+      let alreadyExists = false;
+      if (!isStaff && state.directory && state.directory.jugadores) {
+        alreadyExists = state.directory.jugadores.some(j => j && (j.nombre || j.jugador || '').toLowerCase().trim() === (row.nombre || '').toLowerCase().trim());
+      } else if (isStaff && state.directory && state.directory.staff) {
+        alreadyExists = state.directory.staff.some(s => s && (s.nombre || s.staff || '').toLowerCase().trim() === (row.nombre || '').toLowerCase().trim());
+      }
+      
+      const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : '#ffffff');
 
       html += `
         <tr data-idx="${idx}" style="border-bottom: 1px solid #e2e8f0; background: ${rowBg}; transition: background 0.15s ease;">
@@ -15596,7 +15610,8 @@ function savePriorityTeamsToFirebase() {
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="nombre" value="${escapeHtml(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px;" placeholder="Nombre...">
+            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="nombre" value="${escapeHtml(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px; border: ${alreadyExists ? '1px solid #ef4444' : ''};" placeholder="Nombre...">
+            ${alreadyExists ? `<div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-top: 2px; text-align: center;">⚠️ YA REGISTRADO</div>` : ''}
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
@@ -15675,7 +15690,7 @@ function savePriorityTeamsToFirebase() {
         const fieldName = e.target.dataset.field;
         if (stagedExcelRows[rowIdx]) {
           stagedExcelRows[rowIdx][fieldName] = e.target.value;
-          if (fieldName === 'tipo') {
+          if (fieldName === 'tipo' || fieldName === 'nombre') {
             renderExcelTable(); // Re-render for color badge update
           } else if (fieldName === 'equipo') {
             const detectedComunidad = getTeamComunidad(e.target.value);
