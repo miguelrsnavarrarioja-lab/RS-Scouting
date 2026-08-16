@@ -3288,20 +3288,59 @@ function saveCarteleraTeamsToFirebase() {
     const primaryColor = teamObj?.color1 || teamObj?.colorPrimario || teamObj?.color || (team === 'local' ? '#2563eb' : '#0284c7');
     const textColor = getContrastColor(primaryColor);
 
-    // Get numbers and positions from Titulares rows
+    // Get numbers and positions from Titulares and Suplentes rows
     const rows = document.querySelectorAll(`#${team}TitularesRows .lineup-row`);
-    container.innerHTML = positions.map((pos, idx) => {
-      const row = rows[idx];
+    const supRows = document.querySelectorAll(`#${team}SuplentesRows .lineup-row`);
+    const usedPositionsCount = {};
+    const targetIdxCount = {}; // To prevent exact overlapping
+    
+    const createPitchPinHTML = (row, idx, isTitular) => {
       const numInput = row?.querySelector('input.num');
       const posSelect = row?.querySelector('select.pos');
       const nameInput = row?.querySelector('input.name');
 
       const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
-      const posVal = posSelect ? posSelect.value : (defaultStarterPositions[idx] || 'PO');
+      let posVal = posSelect ? posSelect.value : '';
+      
+      // Only Titulares get a default position if blank
+      if (isTitular && !posVal) {
+        posVal = defaultStarterPositions[idx] || 'PO';
+      }
+      
+      // If it's a Suplente and has no position, do not render on the pitch
+      if (!isTitular && !posVal) return '';
+      
+      // Determine physical position on the pitch based on the selected position string
+      let targetIdx = idx;
+      if (posVal) {
+        const allIndices = [];
+        for (let i = 0; i < defaultStarterPositions.length; i++) {
+          if (defaultStarterPositions[i] === posVal) allIndices.push(i);
+        }
+        
+        if (allIndices.length > 0) {
+          usedPositionsCount[posVal] = (usedPositionsCount[posVal] || 0);
+          const occurrenceIndex = Math.min(usedPositionsCount[posVal], allIndices.length - 1);
+          targetIdx = allIndices[occurrenceIndex];
+          usedPositionsCount[posVal]++;
+        }
+      }
+      
+      const pos = positions[targetIdx] || positions[idx] || {x: 50, y: 50};
+      
+      // Prevent exact overlapping by offsetting players assigned to the exact same targetIdx
+      targetIdxCount[targetIdx] = (targetIdxCount[targetIdx] || 0);
+      const offsetMultiplier = targetIdxCount[targetIdx];
+      targetIdxCount[targetIdx]++;
+      
+      // Add a slight offset (3% left, 3% down) for each overlapping player
+      const offsetX = pos.x + (offsetMultiplier * 4);
+      const offsetY = pos.y + (offsetMultiplier * 4);
+      
       const nameVal = nameInput ? nameInput.value.trim() : '';
       const displayText = numVal ? numVal : (posVal || (idx + 1));
 
-      const pNum = numVal || (idx + 1);
+      const pNum = numVal || (isTitular ? (idx + 1) : (12 + idx));
       const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
       const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
       
@@ -3332,16 +3371,25 @@ function saveCarteleraTeamsToFirebase() {
         }
       }
 
+      // Sub styles: slightly different border and z-index to stand out
+      const borderStyle = isTitular ? '2px solid #ffffff' : '2px dashed #fbbf24';
+      const zIndex = isTitular ? 10 : 11; // Subs render above starters if they overlap
+      
       return `
-        <div class="pitch-player-token" data-team="${team}" data-type="titular" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${pos.x}%; top: ${pos.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10; cursor: pointer;">
-          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+        <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer;">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; background-color: ${primaryColor}; color: ${textColor}; border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
           ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${escapeHtml(shortName)}</div>` : ''}
         </div>
       `;
-    }).join('');
+    };
+
+    let pitchHTML = Array.from(rows).map((row, idx) => createPitchPinHTML(row, idx, true)).join('');
+    pitchHTML += Array.from(supRows).map((row, idx) => createPitchPinHTML(row, idx, false)).join('');
+    
+    container.innerHTML = pitchHTML;
 
     // Render Bench Tokens (Suplentes)
     const supRows = document.querySelectorAll(`#${team}SuplentesRows .lineup-row`);
