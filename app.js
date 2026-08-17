@@ -5663,7 +5663,7 @@ function saveCarteleraTeamsToFirebase() {
       saveState();
       hideModal();
       if (typeof renderDirectorio === 'function') renderDirectorio();
-      if (typeof renderPlantillaTable === 'function') renderPlantillaTable();
+      if (typeof window.renderPlantillaTable === 'function') window.renderPlantillaTable();
       showToast(`Ficha de "${p.nombre}" guardada con éxito`, 'success');
     });
 // Subtab switching logic
@@ -7342,9 +7342,34 @@ function saveCarteleraTeamsToFirebase() {
                   `}
                   <input type="file" id="inputTeamEscudo" accept="image/*" class="hidden">
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center;">
-                  <input type="color" id="tfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                  <input type="color" id="tfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                <div style="width: 100%; text-align: center;">
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">1ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="tfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                    <input type="color" id="tfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                  </div>
+                  <div style="width: 100%; margin-bottom: 12px;">
+                    <select id="tfPatronCamiseta" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (1ª Eq)">
+                      <option value="liso" ${team.patronCamiseta === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${team.patronCamiseta === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${team.patronCamiseta === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${team.patronCamiseta === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
+                  
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">2ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="tfColorPrimary2" value="${team.colorPrimary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
+                    <input type="color" id="tfColorSecondary2" value="${team.colorSecondary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
+                  </div>
+                  <div style="width: 100%;">
+                    <select id="tfPatronCamiseta2" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (2ª Eq)">
+                      <option value="liso" ${team.patronCamiseta2 === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${team.patronCamiseta2 === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${team.patronCamiseta2 === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${team.patronCamiseta2 === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -7576,7 +7601,11 @@ function saveCarteleraTeamsToFirebase() {
         escudo: finalEscudo,
         logo: finalEscudo,
         colorPrimary: finalColorPri,
-        colorSecondary: finalColorSec
+        colorSecondary: finalColorSec,
+        colorPrimary2: document.getElementById('tfColorPrimary2')?.value || '#ffffff',
+        colorSecondary2: document.getElementById('tfColorSecondary2')?.value || '#ffffff',
+        patronCamiseta: document.getElementById('tfPatronCamiseta')?.value || 'liso',
+        patronCamiseta2: document.getElementById('tfPatronCamiseta2')?.value || 'liso'
       };
 
       if (!state.directory.equipos) state.directory.equipos = [];
@@ -7611,6 +7640,10 @@ function saveCarteleraTeamsToFirebase() {
         // UPDATE PARENT CLUB COLORS, LOGO & FEDERATION WITH TEAM VALUES
         parentC.colorPrimary = finalColorPri;
         parentC.colorSecondary = finalColorSec;
+        parentC.colorPrimary2 = updatedTeam.colorPrimary2;
+        parentC.colorSecondary2 = updatedTeam.colorSecondary2;
+        parentC.patronCamiseta = updatedTeam.patronCamiseta;
+        parentC.patronCamiseta2 = updatedTeam.patronCamiseta2;
         if (finalEscudo) {
           parentC.logo = finalEscudo;
           parentC.escudo = finalEscudo;
@@ -8001,6 +8034,7 @@ function saveCarteleraTeamsToFirebase() {
     });
 
     function renderPlantillaTable() {
+      window.renderPlantillaTable = renderPlantillaTable;
       const tbody = document.getElementById('tfPlantillaTableBody');
       if (!tbody) return;
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
