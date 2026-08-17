@@ -196,39 +196,33 @@
               <span class="kpi-subtext">Generador visual</span>
             </div>
           </div>
-        </div>
-      </div>
-
-
-      <!-- WIDGETS GRID: METRICS -->
-      <div class="dashboard-metrics-grid" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px;">
-        
-        <!-- Jugadores por Año -->
-        <div class="widget-card" style="padding: 16px;">
-          <div class="widget-header" style="margin-bottom: 12px;">
-            <div class="widget-title">
-              <i data-lucide="bar-chart-2"></i>
-              <h3>Jugadores por Año</h3>
+          <!-- NEW: Jugadores por Año -->
+          <div class="widget-card" style="grid-column: span 2; padding: 16px; margin: 0;">
+            <div class="widget-header" style="margin-bottom: 12px;">
+              <div class="widget-title">
+                <i data-lucide="bar-chart-2"></i>
+                <h3 style="font-size: 13px; margin: 0;">Jugadores por Año</h3>
+              </div>
+            </div>
+            <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start;">
+              <!-- Rendered dynamically -->
             </div>
           </div>
-          <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 16px; align-items: start;">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
 
-        <!-- Equipos por Categoría -->
-        <div class="widget-card" style="padding: 16px;">
-          <div class="widget-header" style="margin-bottom: 12px;">
-            <div class="widget-title">
-              <i data-lucide="pie-chart"></i>
-              <h3>Equipos Vistos por Categoría</h3>
+          <!-- NEW: Equipos Vistos por Categoría -->
+          <div class="widget-card" style="grid-column: span 2; padding: 16px; margin: 0;">
+            <div class="widget-header" style="margin-bottom: 12px;">
+              <div class="widget-title">
+                <i data-lucide="pie-chart"></i>
+                <h3 style="font-size: 13px; margin: 0;">Equipos Vistos por Categoría</h3>
+              </div>
+            </div>
+            <div class="widget-body" id="dashboardTeamsByCategory" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start;">
+              <!-- Rendered dynamically -->
             </div>
           </div>
-          <div class="widget-body" id="dashboardTeamsByCategory" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; align-items: start;">
-            <!-- Rendered dynamically -->
-          </div>
         </div>
-      </div>
+      </div> <!-- End of dashboard-main-hero-grid -->
 
     </section>
 

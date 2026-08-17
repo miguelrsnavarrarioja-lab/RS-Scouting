@@ -1088,39 +1088,58 @@ function saveCarteleraTeamsToFirebase() {
       }
     });
 
-    const orderedKeys = Object.keys(groups).sort((a, b) => {
-      if (a === 'Sin Año') return 1;
-      if (b === 'Sin Año') return -1;
-      return parseInt(b) - parseInt(a); // Descending, newest years first
-    });
-
     const currentSeasonEndYear = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
 
-    container.innerHTML = orderedKeys.map(key => {
-      if (groups[key].total === 0 && key === 'Sin Año') return '';
-      
-      let subLabel = '';
-      if (key !== 'Sin Año') {
-        const subAge = currentSeasonEndYear - parseInt(key);
-        if (subAge > 0) subLabel = `<div style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px;">SUB-${subAge}</div>`;
+    function getPlayerAgeGroup(subAge) {
+      if (isNaN(subAge) || subAge <= 0) return 'Sin Categoría';
+      if (subAge >= 20) return 'Senior';
+      if (subAge >= 17 && subAge <= 19) return 'Juveniles';
+      if (subAge >= 15 && subAge <= 16) return 'Cadetes';
+      if (subAge >= 13 && subAge <= 14) return 'Infantiles';
+      if (subAge >= 11 && subAge <= 12) return 'Alevines';
+      if (subAge <= 10) return 'Benjamines';
+      return 'Sin Categoría';
+    }
+
+    const ageGroupStats = {};
+    const groupOrder = ['Senior', 'Juveniles', 'Cadetes', 'Infantiles', 'Alevines', 'Benjamines', 'Sin Categoría'];
+
+    Object.keys(groups).forEach(year => {
+      let groupName = 'Sin Categoría';
+      let subAge = -1;
+      if (year !== 'Sin Año') {
+        const yNum = parseInt(year);
+        subAge = currentSeasonEndYear - yNum;
+        groupName = getPlayerAgeGroup(subAge);
       }
       
-      const isAllSeen = groups[key].total > 0 && groups[key].vistos >= groups[key].total;
-      const iconColor = isAllSeen ? 'green' : 'blue';
-      const iconName = isAllSeen ? 'user-check' : 'user';
+      if (!ageGroupStats[groupName]) ageGroupStats[groupName] = { total: 0, vistos: 0, years: [] };
+      ageGroupStats[groupName].total += groups[year].total;
+      ageGroupStats[groupName].vistos += groups[year].vistos;
+      ageGroupStats[groupName].years.push({ year, total: groups[year].total, vistos: groups[year].vistos, subAge });
+    });
+
+    let html = '';
+    groupOrder.forEach(groupName => {
+      if (!ageGroupStats[groupName] || ageGroupStats[groupName].total === 0) return;
+      const stats = ageGroupStats[groupName];
+      const iconColor = stats.vistos >= stats.total && stats.total > 0 ? 'green' : 'blue';
+      const iconName = stats.vistos >= stats.total && stats.total > 0 ? 'user-check' : 'users';
       
-      return `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
-          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
-          <div class="kpi-info" style="width: calc(100% - 48px);">
-            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(key)}</span>
-            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)'};">${groups[key].vistos}/${groups[key].total}</span>
-            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
-            ${subLabel}
-          </div>
+      const yearsJson = encodeURIComponent(JSON.stringify(stats.years));
+      
+      html += `
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeHtml(groupName)}', '${yearsJson}')">
+        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-info" style="width: calc(100% - 48px);">
+          <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">CATEGORÍA</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stats.vistos >= stats.total && stats.total > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${stats.vistos}/${stats.total}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
         </div>
-      `;
-    }).join('');
+      </div>`;
+    });
+    
+    container.innerHTML = html;
     
     if (window.lucide) {
       window.lucide.createIcons();
@@ -1186,28 +1205,27 @@ function saveCarteleraTeamsToFirebase() {
     groupOrder.forEach(groupName => {
       if (!groupedStats[groupName] || groupedStats[groupName].length === 0) return;
       
-      groupedStats[groupName].sort((a, b) => {
-        const idxA = orderRef.indexOf(a.cat);
-        const idxB = orderRef.indexOf(b.cat);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.cat.localeCompare(b.cat);
+      let totalGroup = 0;
+      let vistosGroup = 0;
+      groupedStats[groupName].forEach(stat => {
+         totalGroup += stat.total;
+         vistosGroup += stat.vistos;
       });
 
-      groupedStats[groupName].forEach(stat => {
-        const iconColor = stat.vistos >= stat.total ? 'green' : 'blue';
-        const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
-        html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
-          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
-          <div class="kpi-info" style="width: calc(100% - 48px);">
-            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)} - ${escapeHtml(stat.cat)}</span>
-            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
-            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
-          </div>
-        </div>`;
-      });
+      const iconColor = vistosGroup >= totalGroup && totalGroup > 0 ? 'green' : 'blue';
+      const iconName = vistosGroup >= totalGroup && totalGroup > 0 ? 'shield-check' : 'shield';
+      
+      const statsJson = encodeURIComponent(JSON.stringify(groupedStats[groupName]));
+
+      html += `
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeHtml(groupName)}', '${statsJson}')">
+        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-info" style="width: calc(100% - 48px);">
+          <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">CATEGORÍA</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${vistosGroup >= totalGroup && totalGroup > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${vistosGroup}/${totalGroup}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
+        </div>
+      </div>`;
     });
 
     if (!html) {
@@ -1221,6 +1239,81 @@ function saveCarteleraTeamsToFirebase() {
       window.lucide.createIcons();
     }
   }
+
+  window.openPlayersAgeGroupModal = function(groupName, yearsJson) {
+    const years = JSON.parse(decodeURIComponent(yearsJson));
+    years.sort((a, b) => {
+      if (a.year === 'Sin Año') return 1;
+      if (b.year === 'Sin Año') return -1;
+      return parseInt(b.year) - parseInt(a.year);
+    });
+
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 16px;">';
+    years.forEach(y => {
+        if (y.total === 0 && y.year === 'Sin Año') return;
+        const isAllSeen = y.total > 0 && y.vistos >= y.total;
+        const iconColor = isAllSeen ? 'green' : 'blue';
+        const iconName = isAllSeen ? 'user-check' : 'user';
+        
+        let subLabel = '';
+        if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
+        
+        html += `
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(y.year)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)'};">${y.vistos}/${y.total}</span>
+            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
+            ${subLabel}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    showModal(`Jugadores por Año: ${groupName}`, html, null);
+    
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+    
+    if (window.lucide) window.lucide.createIcons();
+  };
+
+  window.openTeamsCategoryModal = function(groupName, statsJson) {
+    const stats = JSON.parse(decodeURIComponent(statsJson));
+    const orderRef = state.directoryCategoriesOrder || [];
+    stats.sort((a, b) => {
+        const idxA = orderRef.indexOf(a.cat);
+        const idxB = orderRef.indexOf(b.cat);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.cat.localeCompare(b.cat);
+    });
+
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 16px;">';
+    stats.forEach(stat => {
+        const iconColor = stat.vistos >= stat.total ? 'green' : 'blue';
+        const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
+        html += `
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
+            <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(stat.cat)}</span>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    showModal(`Equipos Vistos: ${groupName}`, html, null);
+    
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+    
+    if (window.lucide) window.lucide.createIcons();
+  };
 
   function renderDashboardUpcomingMatches() {
     const container = document.getElementById('dashboardUpcomingMatchesList');
@@ -3284,18 +3377,41 @@ function saveCarteleraTeamsToFirebase() {
 
   function openFilialSelectorModal(team, inputElement) {
     const allEquipos = state.directory.equipos || [];
-    const equiposOptions = allEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+    const currentTeamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim();
+    const currentTeamObj = allEquipos.find(eq => eq.nombre === currentTeamName);
+    const currentClub = (currentTeamObj?.club || '').toLowerCase().trim();
+
+    let filteredEquipos = allEquipos.filter(eq => {
+      if (!currentClub) return true;
+      const eqClub = (eq.club || '').toLowerCase().trim();
+      const eqName = (eq.nombre || '').toLowerCase().trim();
+      
+      if (eqClub === currentClub) return true;
+      
+      // Osasuna - Subiza filial logic
+      if (currentClub.includes('osasuna') && (eqClub.includes('subiza') || eqName.includes('subiza'))) return true;
+      if (currentClub.includes('subiza') && (eqClub.includes('osasuna') || eqName.includes('osasuna'))) return true;
+      
+      return false;
+    });
+
+    if (filteredEquipos.length === 0) filteredEquipos = allEquipos;
+
+    let equiposOptions = filteredEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
 
     const finalHTML = `
       <datalist id="filialSelectorEquiposDatalist">
         ${equiposOptions}
       </datalist>
       <div style="padding: 16px;">
-        <div class="form-group mb-4">
+        <div class="form-group mb-2">
           <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
           <input type="text" id="filialSelectorSearch" list="filialSelectorEquiposDatalist" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
         </div>
-        <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 16px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
+        <div style="text-align: right; margin-bottom: 12px;">
+          <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
+        </div>
+        <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 4px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
         <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
           <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
         </div>
@@ -3312,6 +3428,14 @@ function saveCarteleraTeamsToFirebase() {
 
     const searchInput = document.getElementById('filialSelectorSearch');
     const playersList = document.getElementById('filialSelectorPlayersList');
+    const btnShowAll = document.getElementById('btnShowAllTeamsModal');
+    const datalist = document.getElementById('filialSelectorEquiposDatalist');
+
+    btnShowAll.addEventListener('click', () => {
+      datalist.innerHTML = allEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+      btnShowAll.style.display = 'none';
+      searchInput.focus();
+    });
 
     searchInput.addEventListener('input', () => {
       const selectedTeamName = searchInput.value.trim().toLowerCase();
