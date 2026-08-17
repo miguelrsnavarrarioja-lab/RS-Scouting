@@ -3843,7 +3843,10 @@ function saveCarteleraTeamsToFirebase() {
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
-      if (evalData.tags && evalData.tags.length > 0) playerInDir.tags = evalData.tags;
+      if (evalData.tags && evalData.tags.length > 0) {
+        const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...evalData.tags]);
+        playerInDir.controlSeguimiento = Array.from(newTags);
+      }
       
       // Append/update match evaluation history
       if (!playerInDir.historialEvaluaciones) playerInDir.historialEvaluaciones = [];
@@ -4422,18 +4425,32 @@ function saveCarteleraTeamsToFirebase() {
         stats: pStats
       };
 
+      const allDescFisica = [];
       Object.keys(OPTIONS_DESC_FISICA).forEach(key => {
         const fieldKey = 'descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescFisica.push(val.trim());
       });
+      evalObj.descFisica = allDescFisica.join(', ');
+
+      const allDescTecnica = [];
       Object.keys(OPTIONS_DESC_TECNICA).forEach(key => {
         const fieldKey = 'descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescTecnica.push(val.trim());
       });
+      evalObj.descTecnica = allDescTecnica.join(', ');
+
+      const allDescEmocional = [];
       Object.keys(OPTIONS_DESC_EMOCIONAL).forEach(key => {
         const fieldKey = 'descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescEmocional.push(val.trim());
       });
+      evalObj.descEmocional = allDescEmocional.join(', ');
 
       state.matchPlayerEvaluations[evalKey] = evalObj;
 
@@ -5003,7 +5020,7 @@ function saveCarteleraTeamsToFirebase() {
     const besoccer = player.besoccer || '';
     const telefono = player.telefono || '';
 
-    const controlSeguimiento = player.controlSeguimiento || [];
+    const controlSeguimiento = Array.from(new Set([...(player.controlSeguimiento || []), ...(player.tags || [])]));
     const gestorRebound = player.gestorRebound || 'NINGUNA / CLUB CONVENIDO';
 
     const rendimientoAcumulado = player.rendimientoAcumulado || '';
@@ -5389,91 +5406,22 @@ function saveCarteleraTeamsToFirebase() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN FÍSICA</label>
-                <select id="pfDescFisica" class="form-control">
-                  <option value="">Seleccionar rasgo físico...</option>
-                  <optgroup label="ESTATURA">
-                    ${['Normal', 'Alto', 'Muy alto', 'Pequeño', 'Muy pequeño'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="COMPLEXIÓN">
-                    ${['Normal para la edad', 'Delgado', 'Fibroso', 'Ancho', 'Culón', 'Fuerte', 'Frágil', 'Atlético', 'Robusto'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="DESARROLLO">
-                    ${['Coordinado', 'Descoordinado', 'Piernas cortas', 'Piernas largas', 'Muy desarrollado', 'Poco desarrollado', 'Tren inferior potente', 'Tren superior potente', 'Buena postura corporal', 'Movilidad reducida'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ESTÉTICOS">
-                    ${['Rubio', 'Moreno', 'Pelirrojo', 'Melena', 'Rapado', 'Teñido', 'Pelo largo', 'Pelo corto', 'Pelo rizado', 'Tatuaje', 'Barba', 'Sin barba', 'Pecas'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="FENOTIPO">
-                    ${['De raza negra', 'Sudamericano', 'Mestizo', 'Latino', 'Magrebí', 'Árabe', 'Asiático', 'Gitano', 'Nórdico', 'Caribeño'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MOTOR">
-                    ${['Ritmo alto', 'Alta intensidad', 'Baja intensidad', 'Incansable', 'Trabajador', 'Constante', 'Intermitente', 'Buena lateralidad', 'Buena motricidad', 'Equilibrio destacado', 'Problemas de equilibrio', 'Control corporal avanzado', 'Dinámico', 'Rígido', 'Fluido', 'Buena lectura corporal', 'Gestualidad eficiente'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MADURACIÓN">
-                    ${['Madurez tardía', 'Madurez prematura', 'Madurez normal'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descFisica && !['Normal', 'Alto', 'Muy alto', 'Pequeño', 'Muy pequeño', 'Normal para la edad', 'Delgado', 'Fibroso', 'Ancho', 'Culón', 'Fuerte', 'Frágil', 'Atlético', 'Robusto', 'Coordinado', 'Descoordinado', 'Piernas cortas', 'Piernas largas', 'Muy desarrollado', 'Poco desarrollado', 'Tren inferior potente', 'Tren superior potente', 'Buena postura corporal', 'Movilidad reducida', 'Rubio', 'Moreno', 'Pelirrojo', 'Melena', 'Rapado', 'Teñido', 'Pelo largo', 'Pelo corto', 'Pelo rizado', 'Tatuaje', 'Barba', 'Sin barba', 'Pecas', 'De raza negra', 'Sudamericano', 'Mestizo', 'Latino', 'Magrebí', 'Árabe', 'Asiático', 'Gitano', 'Nórdico', 'Caribeño', 'Ritmo alto', 'Alta intensidad', 'Baja intensidad', 'Incansable', 'Trabajador', 'Constante', 'Intermitente', 'Buena lateralidad', 'Buena motricidad', 'Equilibrio destacado', 'Problemas de equilibrio', 'Control corporal avanzado', 'Dinámico', 'Rígido', 'Fluido', 'Buena lectura corporal', 'Gestualidad eficiente', 'Madurez tardía', 'Madurez prematura', 'Madurez normal'].includes(descFisica) ? `<option value="${escapeHtml(descFisica)}" selected>${escapeHtml(descFisica)}</option>` : ''}
-                </select>
+                <textarea id="pfDescFisica" class="form-control" rows="2" placeholder="Rasgos físicos...">${escapeHtml(descFisica)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN TÉCNICA</label>
-                <select id="pfDescTecnica" class="form-control">
-                  <option value="">Seleccionar acción técnica...</option>
-                  <optgroup label="ACCIONES POSITIVAS">
-                    ${['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'].map(o => `<option value="${escapeHtml(o)}" ${descTecnica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ACCIONES A MEJORAR / NEGATIVAS">
-                    ${['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'].map(o => `<option value="${escapeHtml(o)}" ${descTecnica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descTecnica && !['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'].includes(descTecnica) ? `<option value="${escapeHtml(descTecnica)}" selected>${escapeHtml(descTecnica)}</option>` : ''}
-                </select>
+                <textarea id="pfDescTecnica" class="form-control" rows="2" placeholder="Acciones técnicas...">${escapeHtml(descTecnica)}</textarea>
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN EMOCIONAL</label>
-                <select id="pfDescEmocional" class="form-control">
-                  <option value="">Seleccionar rasgo emocional...</option>
-                  <optgroup label="ACTITUDES POSITIVAS">
-                    ${['Concentración alta', 'Mantener la calma bajo presión', 'Confianza en sí mismo', 'Motivación constante', 'Comunicación efectiva con compañeros', 'Liderazgo en el campo', 'Persistencia / no rendirse', 'Resiliencia tras un error', 'Control emocional', 'Toma de decisiones rápida y acertada', 'Positivismo y actitud constructiva', 'Cooperación en equipo', 'Adaptación a cambios de situación', 'Escucha activa de instrucciones', 'Empatía con compañeros', 'Autocrítica constructiva', 'Gestión del estrés en momentos clave', 'Motivación del equipo', 'Mantenimiento de la concentración'].map(o => `<option value="${escapeHtml(o)}" ${descEmocional === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ACTITUDES A MEJORAR / NEGATIVAS">
-                    ${['Falta de concentración', 'Nerviosismo bajo presión', 'Falta de confianza', 'Desmotivación', 'Mala comunicación con compañeros', 'Egoísmo en el juego', 'Se rinde rápido', 'Frustración tras un error', 'Pérdida de autocontrol', 'Toma de decisiones precipitada', 'Actitud negativa / pesimista', 'Conflictos con compañeros', 'Rigidez ante cambios de situación', 'Ignorar instrucciones', 'Falta de empatía', 'Autocrítica destructiva', 'Estrés excesivo', 'Desmotivación del equipo', 'Desánimo tras fallo propio'].map(o => `<option value="${escapeHtml(o)}" ${descEmocional === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descEmocional && !['Concentración alta', 'Mantener la calma bajo presión', 'Confianza en sí mismo', 'Motivación constante', 'Comunicación efectiva con compañeros', 'Liderazgo en el campo', 'Persistencia / no rendirse', 'Resiliencia tras un error', 'Control emocional', 'Toma de decisiones rápida y acertada', 'Positivismo y actitud constructiva', 'Cooperación en equipo', 'Adaptación a cambios de situation', 'Escucha activa de instrucciones', 'Empatía con compañeros', 'Autocrítica constructiva', 'Gestión del estrés en momentos clave', 'Motivación del equipo', 'Mantenimiento de la concentración', 'Falta de concentración', 'Nerviosismo bajo presión', 'Falta de confianza', 'Desmotivación', 'Mala comunicación con compañeros', 'Egoísmo en el juego', 'Se rinde rápido', 'Frustración tras un error', 'Pérdida de autocontrol', 'Toma de decisiones precipitada', 'Actitud negativa / pesimista', 'Conflictos con compañeros', 'Rigidez ante cambios de situación', 'Ignorar instrucciones', 'Falta de empatía', 'Autocrítica destructiva', 'Estrés excesivo', 'Desmotivación del equipo', 'Desánimo tras fallo propio'].includes(descEmocional) ? `<option value="${escapeHtml(descEmocional)}" selected>${escapeHtml(descEmocional)}</option>` : ''}
-                </select>
+                <textarea id="pfDescEmocional" class="form-control" rows="2" placeholder="Rasgos emocionales...">${escapeHtml(descEmocional)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">PERFIL RS</label>
-                <select id="pfPerfilRS" class="form-control">
-                  <option value="">Seleccionar Perfil RS...</option>
-                  <optgroup label="PORTEROS">
-                    ${['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="LATERALES">
-                    ${['1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="CENTRALES">
-                    ${['Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Lectura defensiva (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MEDIOCENTROS">
-                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Inicio de juego (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="INTERIORES">
-                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MEDIAPUNTAS">
-                    ${['Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="BANDAS">
-                    ${['1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="PUNTAS">
-                    ${['Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${perfilRS && !['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)', '1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)', 'Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)', 'Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)', '1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)', 'Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].includes(perfilRS) ? `<option value="${escapeHtml(perfilRS)}" selected>${escapeHtml(perfilRS)}</option>` : ''}
-                </select>
+                <textarea id="pfPerfilRS" class="form-control" rows="2" placeholder="Perfiles RS...">${escapeHtml(perfilRS)}</textarea>
               </div>
             </div>
 
@@ -5609,7 +5557,7 @@ function saveCarteleraTeamsToFirebase() {
       p.rendimientoAcumulado = document.getElementById('pfRendimientoAcumulado')?.value.trim() || '';
       p.potencial = document.getElementById('pfPotencial')?.value || '3';
       p.minutos = document.getElementById('pfMinutos')?.value.trim() || '';
-      p.rendimientoRS = document.getElementById('pfRendimientoRS')?.value || 'A';
+      p.rendimientoRS = document.getElementById('pfRendRS')?.value || 'A';
       p.descFisica = document.getElementById('pfDescFisica')?.value.trim() || '';
       p.descTecnica = document.getElementById('pfDescTecnica')?.value.trim() || '';
       p.descEmocional = document.getElementById('pfDescEmocional')?.value.trim() || '';
@@ -21438,6 +21386,28 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const btnExport = document.getElementById('btnExportMapasPDF');
     if (btnExport) btnExport.onclick = exportarMapasPDF;
 
+    const toggleBtns = document.querySelectorAll('.mapas-toggle-btn');
+    toggleBtns.forEach(btn => {
+      btn.onclick = () => {
+        toggleBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const tag = btn.dataset.tag;
+        const mainTitle = document.querySelector('#view-mapas .view-header h1');
+        if (mainTitle) {
+          mainTitle.innerHTML = `<i data-lucide="layout-dashboard"></i> Mapas y Seguimiento`;
+          if (window.lucide) window.lucide.createIcons();
+        }
+        
+        const tableTitle = document.getElementById('mapasJugadoresTitle');
+        if (tableTitle) {
+          tableTitle.textContent = `Jugadores en ${tag}`;
+        }
+        
+        renderMapasPins();
+      };
+    });
+
     renderMapasPins();
   }
 
@@ -21466,10 +21436,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       return null;
     };
 
-    // Filter by year, competicion and 11 IDEAL
+    // Get active map tag
+    const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+    const activeMapTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+
+    // Filter by year, competicion and selected tag
     const filteredPlayers = players.filter(p => {
-      const is11Ideal = (p.controlSeguimiento || []).includes('11 IDEAL');
-      if (!is11Ideal) return false;
+      const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
+      if (!isTagged) return false;
       if (selCat && String(p.ano).trim() !== selCat) return false;
       if (selComp) {
         const pComp = getPlayerComp(p);
@@ -21517,11 +21491,29 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       filteredPlayers.forEach(p => {
         if (renderedIds.has(p.id)) return;
         renderedIds.add(p.id);
+        
+        // Asegurar que los datos calculados (como el Rendimiento RS promedio) están actualizados en memoria
+        if (typeof recalculatePlayerAggregates === 'function') {
+          recalculatePlayerAggregates(p);
+        }
+        
         const nameEscaped = escapeHtml(p.nombre || '-');
         const yearEscaped = escapeHtml(p.ano || '-');
         const teamEscaped = escapeHtml(p.equipo || '-');
         const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || '-');
-        const levelEscaped = escapeHtml(p.proyeccion || '-');
+        
+        let pieEscaped = '-';
+        if (p.pierna) {
+          if (p.pierna === 'Derecha') pieEscaped = 'D';
+          else if (p.pierna === 'Izquierda') pieEscaped = 'Z';
+          else if (p.pierna === 'Ambidiestro') pieEscaped = 'A';
+          else pieEscaped = escapeHtml(p.pierna.substring(0, 1).toUpperCase());
+        }
+
+        let levelEscaped = escapeHtml(p.rendimientoRS || '-');
+        if (p.rendimientoRSAvgNum) {
+          levelEscaped += ` (${escapeHtml(p.rendimientoRSAvgNum)})`;
+        }
         tableRows += `
           <tr style="border-bottom: 1px solid var(--border-light); font-size: 13px;">
             <td style="padding: 12px 8px;">
@@ -21530,13 +21522,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${yearEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${teamEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${posEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${pieEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 700; color: var(--primary-blue);">${levelEscaped}</td>
           </tr>
         `;
       });
       
       if (!tableRows) {
-        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores en el 11 ideal para estos filtros.</td></tr>`;
+        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores marcados como ${escapeHtml(activeMapTag)} para estos filtros.</td></tr>`;
       }
       tableBody.innerHTML = tableRows;
       
@@ -21570,8 +21563,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin jugadores</div>`;
       }
 
+      const mapX = 100 - posCoords.y;
+      const mapY = posCoords.x;
+
       return `
-        <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+        <div style="position: absolute; left: ${mapX}%; top: ${mapY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
           <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
             ${escapeHtml(posCode)}
           </div>
@@ -21613,6 +21609,61 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       tableDiv.style.overflowX = 'visible';
     }
 
+    // Reconstruct vertical pitch for PDF
+    const pitchClone = clone.querySelector('#mapasCampogramaPitch');
+    if (pitchClone) {
+      pitchClone.style.aspectRatio = '68 / 105';
+      pitchClone.style.background = 'repeating-linear-gradient(180deg, #1b7a38 0px, #1b7a38 40px, #145e2a 40px, #145e2a 80px)';
+      
+      const pinsContainer = pitchClone.querySelector('#mapasCampogramaPins');
+      
+      pitchClone.innerHTML = `
+        <!-- Center line -->
+        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.7); transform: translateY(-50%);"></div>
+        <!-- Center circle -->
+        <div style="position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        <!-- Center dot -->
+        <div style="position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        
+        <!-- Top Penalty Box -->
+        <div style="position: absolute; top: 0; left: 50%; width: 300px; height: 120px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Goal Box -->
+        <div style="position: absolute; top: 0; left: 50%; width: 120px; height: 40px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Penalty Arc -->
+        <div style="position: absolute; top: 120px; left: 50%; width: 100px; height: 50px; border: 2px solid rgba(255,255,255,0.7); border-radius: 0 0 100px 100px; transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Penalty Dot -->
+        <div style="position: absolute; top: 80px; left: 50%; width: 4px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        
+        <!-- Bottom Penalty Box -->
+        <div style="position: absolute; bottom: 0; left: 50%; width: 300px; height: 120px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Goal Box -->
+        <div style="position: absolute; bottom: 0; left: 50%; width: 120px; height: 40px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Penalty Arc -->
+        <div style="position: absolute; bottom: 120px; left: 50%; width: 100px; height: 50px; border: 2px solid rgba(255,255,255,0.7); border-radius: 100px 100px 0 0; transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Penalty Dot -->
+        <div style="position: absolute; bottom: 80px; left: 50%; width: 4px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+
+        <!-- Corner arcs -->
+        <div style="position: absolute; top: -10px; left: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; top: -10px; right: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -10px; left: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -10px; right: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+      `;
+      
+      if (pinsContainer) {
+        Array.from(pinsContainer.children).forEach(pin => {
+          const curLeft = parseFloat(pin.style.left);
+          const curTop = parseFloat(pin.style.top);
+          // Invert back the transformation applied in renderMapasPins
+          const origX = curTop;
+          const origY = 100 - curLeft;
+          pin.style.left = origX + '%';
+          pin.style.top = origY + '%';
+        });
+        pitchClone.appendChild(pinsContainer);
+      }
+    }
+
     const printWin = window.open('', '', 'width=1200,height=800');
     printWin.document.write(`
       <html>
@@ -21645,33 +21696,35 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               display: flex; 
               justify-content: center; 
               overflow: hidden; 
-              zoom: 0.7; /* This reduces the actual layout space taken to prevent page breaks */
+              zoom: 0.75;
             }
             .data-table td, .data-table th { padding: 12px 8px !important; }
             
-            /* Print Specific Overrides to ensure side-by-side single page */
             #mapasExportContainer {
-              flex-wrap: nowrap !important;
-              align-items: flex-start !important;
+              display: grid !important;
+              grid-template-columns: 1fr 500px !important;
               gap: 40px !important;
               width: 100% !important;
-              max-width: 1300px !important;
+              max-width: 1400px !important;
               page-break-inside: avoid !important;
+              align-items: start !important;
+            }
+            #mapasExportContainer > div {
+              grid-column: span 1 !important;
             }
             #mapasExportContainer > div:first-child {
-              flex: 1 !important;
-              max-width: 600px !important;
-              height: 750px !important;
-              overflow: hidden !important;
+              max-height: none !important;
+              height: auto !important;
+              overflow: visible !important;
             }
             #mapasCampogramaPitch {
-              flex-shrink: 0 !important;
-              page-break-inside: avoid !important;
+              width: 100% !important;
+              height: auto !important;
             }
           </style>
         </head>
         <body>
-          <div class="header-main">Mapas (11 Ideal)</div>
+          <div class="header-main">Mapas (${escapeHtml(document.querySelector('.mapas-toggle-btn.active')?.dataset.tag || '11 Ideal')})</div>
           <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} &nbsp;|&nbsp; Competición: ${escapeHtml(selComp)} &nbsp;|&nbsp; Sistema Táctico: ${escapeHtml(sysSelect)}</div>
           
           <div class="export-wrapper">
