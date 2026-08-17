@@ -983,6 +983,8 @@ function saveCarteleraTeamsToFirebase() {
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
+    const elPendingEvents = document.getElementById('kpiPendingEvents');
+    const elPriorityMatches = document.getElementById('kpiPriorityMatchesThisWeek');
 
     if (elVistos) elVistos.textContent = totalVistos;
     if (elScheduled) elScheduled.textContent = scheduledMatches;
@@ -991,6 +993,41 @@ function saveCarteleraTeamsToFirebase() {
     if (elTotalPlayers) elTotalPlayers.textContent = players.length;
     if (elPendingTasks) elPendingTasks.textContent = pendingTasks.length;
     if (elHighPriorityTasks) elHighPriorityTasks.textContent = `${highPriorityTasks} prioridad alta`;
+    
+    if (elPendingEvents) {
+      const pendingEvents = agenda.filter(a => a.tipo === 'Evento' && !a.completada && !a.archivada).length;
+      elPendingEvents.textContent = pendingEvents;
+    }
+    
+    if (elPriorityMatches) {
+      const pTeamsLower = (state.cartelera?.priorityTeams || []).map(t => String(t).toLowerCase().trim());
+      let pMatchesCount = 0;
+      
+      const today = new Date();
+      const day = today.getDay() || 7;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - day + 1);
+      monday.setHours(0,0,0,0);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23,59,59,999);
+      
+      (state.cartelera?.calendarios || []).forEach(cal => {
+        (cal.partidos || []).forEach(p => {
+          if (!p.fecha) return;
+          const matchDate = new Date(p.fecha);
+          if (matchDate >= monday && matchDate <= sunday) {
+            const l = String(p.local || '').toLowerCase().trim();
+            const v = String(p.visitante || '').toLowerCase().trim();
+            if (pTeamsLower.includes(l) || pTeamsLower.includes(v)) {
+              pMatchesCount++;
+            }
+          }
+        });
+      });
+      elPriorityMatches.textContent = pMatchesCount;
+    }
 
     // 3. Render Widget: Próximos Partidos
     renderDashboardUpcomingMatches();
@@ -1014,18 +1051,40 @@ function saveCarteleraTeamsToFirebase() {
     if (!container) return;
 
     const players = state.directory?.jugadores || [];
+    
+    const completedReports = (state.reports || []).filter(r => r.completado);
+    const seenPlayerNames = new Set();
+    completedReports.forEach(r => {
+      const processLineup = (lineupStr) => {
+         if (!lineupStr) return;
+         try {
+           const lineup = JSON.parse(lineupStr);
+           lineup.forEach(p => {
+             if (p.name) seenPlayerNames.add(p.name.toLowerCase().trim());
+           });
+         } catch(e) {}
+      };
+      processLineup(r.titularesLocal);
+      processLineup(r.suplentesLocal);
+      processLineup(r.titularesVisitante);
+      processLineup(r.suplentesVisitante);
+    });
+
     const groups = {
-      'Sin Año': 0
+      'Sin Año': { total: 0, vistos: 0 }
     };
     
     players.forEach(p => {
+      const isVisto = p.nombre && seenPlayerNames.has(p.nombre.toLowerCase().trim());
       let year = parseInt(String(p.anoNac || p.ano || p.anyo || '').trim(), 10);
       if (!year || isNaN(year)) {
-        groups['Sin Año']++;
+        groups['Sin Año'].total++;
+        if (isVisto) groups['Sin Año'].vistos++;
       } else {
         const key = String(year);
-        if (!groups[key]) groups[key] = 0;
-        groups[key]++;
+        if (!groups[key]) groups[key] = { total: 0, vistos: 0 };
+        groups[key].total++;
+        if (isVisto) groups[key].vistos++;
       }
     });
 
@@ -1035,13 +1094,31 @@ function saveCarteleraTeamsToFirebase() {
       return parseInt(b) - parseInt(a); // Descending, newest years first
     });
 
+    const currentSeasonEndYear = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
+
     container.innerHTML = orderedKeys.map(key => {
-      if (groups[key] === 0 && key === 'Sin Año') return '';
+      if (groups[key].total === 0 && key === 'Sin Año') return '';
+      
+      let subLabel = '';
+      if (key !== 'Sin Año') {
+        const subAge = currentSeasonEndYear - parseInt(key);
+        if (subAge > 0) subLabel = `<div style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px;">SUB-${subAge}</div>`;
+      }
+      
+      const isAllSeen = groups[key].total > 0 && groups[key].vistos >= groups[key].total;
+      const iconColor = isAllSeen ? 'green' : 'blue';
+      const iconName = isAllSeen ? 'user-check' : 'user';
+      
       return `
-      <div class="kpi-card" style="padding: 12px; margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; box-shadow: none; border: 1px solid var(--border-color);">
-        <span class="kpi-value" style="margin: 0; color: var(--primary-blue);">${groups[key]}</span>
-        <span class="kpi-label">${escapeHtml(key)}</span>
-      </div>
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(key)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)'};">${groups[key].vistos}/${groups[key].total}</span>
+            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
+            ${subLabel}
+          </div>
+        </div>
       `;
     }).join('');
     
@@ -2512,6 +2589,29 @@ function saveCarteleraTeamsToFirebase() {
     return null;
   }
 
+  function areColorsSimilar(hex1, hex2) {
+    if (!hex1 || !hex2) return false;
+    let h1 = hex1.replace('#', '');
+    let h2 = hex2.replace('#', '');
+    if (h1.length === 3) h1 = h1.split('').map(c => c + c).join('');
+    if (h2.length === 3) h2 = h2.split('').map(c => c + c).join('');
+    if (h1.length !== 6 || h2.length !== 6) return false;
+
+    const r1 = parseInt(h1.substr(0, 2), 16);
+    const g1 = parseInt(h1.substr(2, 2), 16);
+    const b1 = parseInt(h1.substr(4, 2), 16);
+
+    const r2 = parseInt(h2.substr(0, 2), 16);
+    const g2 = parseInt(h2.substr(2, 2), 16);
+    const b2 = parseInt(h2.substr(4, 2), 16);
+
+    // Euclidean distance in RGB space
+    const dist = Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2));
+    
+    // A distance < 120 means colors are reasonably similar visually.
+    return dist < 120;
+  }
+
   function getContrastColor(hexColor) {
     if (!hexColor || typeof hexColor !== 'string') return '#ffffff';
     let hex = hexColor.replace('#', '');
@@ -3247,18 +3347,18 @@ function saveCarteleraTeamsToFirebase() {
 
       playersList.innerHTML = teamJugadores.map(p => {
         const pName = p.nombre || p.jugador || p.name || '';
-        return \`
-          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="\${escapeHtml(pName)}" data-team="\${escapeHtml(teamObj.nombre || '')}">
-            \${escapeHtml(pName)}
+        return `
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeHtml(pName)}" data-team="${escapeHtml(teamObj.nombre || '')}">
+            ${escapeHtml(pName)}
           </button>
-        \`;
+        `;
       }).join('');
 
       playersList.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => {
           const pName = btn.getAttribute('data-name');
           const tName = btn.getAttribute('data-team');
-          inputElement.value = \`\${pName} [\${tName}]\`;
+          inputElement.value = `${pName} [${tName}]`;
           hideModal();
           // Restaurar display del btnSubmit por si se usa en otros modales luego
           if (btnSubmit) btnSubmit.style.display = '';
@@ -3289,8 +3389,36 @@ function saveCarteleraTeamsToFirebase() {
     const teamObj = findTeamInDirectory(teamName);
     const parentClub = findParentClub(teamObj || { nombre: teamName });
 
-    const primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
+    let primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
+    let secondaryColor = teamObj?.colorSecondary || parentClub?.colorSecondary || '#ffffff';
+    let patron = teamObj?.patronCamiseta || parentClub?.patronCamiseta || 'liso';
+
+    if (team === 'visitante') {
+      const localTeamName = document.getElementById('reportLocalTeam')?.value.trim() || '';
+      const localTeamObj = findTeamInDirectory(localTeamName);
+      const localParent = findParentClub(localTeamObj || { nombre: localTeamName });
+      const localColor = localTeamObj?.colorPrimary || localTeamObj?.colorPrimario || localTeamObj?.color1 || localTeamObj?.color || localParent?.colorPrimary || localParent?.colorPrimario || localParent?.color1 || localParent?.colorCamiseta || localParent?.color || '#2563eb';
+      
+      if (primaryColor && localColor && (primaryColor.toLowerCase() === localColor.toLowerCase() || areColorsSimilar(primaryColor, localColor))) {
+        primaryColor = teamObj?.colorPrimary2 || parentClub?.colorPrimary2 || teamObj?.colorSecondary || parentClub?.colorSecondary || '#0284c7';
+        secondaryColor = teamObj?.colorSecondary2 || parentClub?.colorSecondary2 || '#ffffff';
+        patron = teamObj?.patronCamiseta2 || parentClub?.patronCamiseta2 || 'liso';
+      }
+    }
+
     const textColor = getContrastColor(primaryColor);
+    const textShadow = textColor === '#000000' 
+      ? 'text-shadow: 0 0 3px rgba(255,255,255,0.8), 0 0 2px rgba(255,255,255,1);' 
+      : 'text-shadow: 0 0 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,1);';
+
+    let backgroundStyle = `background-color: ${primaryColor};`;
+    if (patron === 'rayas') {
+      backgroundStyle = `background: repeating-linear-gradient(90deg, ${primaryColor}, ${primaryColor} 6px, ${secondaryColor} 6px, ${secondaryColor} 12px);`;
+    } else if (patron === 'franja') {
+      backgroundStyle = `background: linear-gradient(135deg, ${primaryColor} 35%, ${secondaryColor} 35%, ${secondaryColor} 65%, ${primaryColor} 65%);`;
+    } else if (patron === 'mitades') {
+      backgroundStyle = `background: linear-gradient(90deg, ${primaryColor} 50%, ${secondaryColor} 50%);`;
+    }
 
     // Get numbers and positions from Titulares and Suplentes rows
     const rows = document.querySelectorAll(`#${team}TitularesRows .lineup-row`);
@@ -3381,7 +3509,7 @@ function saveCarteleraTeamsToFirebase() {
       
       return `
         <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer;">
-          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; background-color: ${primaryColor}; color: ${textColor}; border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${backgroundStyle} color: ${textColor}; ${textShadow} border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
@@ -3430,7 +3558,7 @@ function saveCarteleraTeamsToFirebase() {
 
         return `
           <div class="bench-pin-item" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + (posVal || 'Suplente') + (numVal ? ' #' + numVal : ''))}">
-            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
+            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; ${backgroundStyle} color: ${textColor}; ${textShadow} border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
               ${escapeHtml(displayText)}
               ${badgesHTML}
             </div>
@@ -5886,17 +6014,34 @@ function saveCarteleraTeamsToFirebase() {
                   `}
                   <input type="file" id="inputClubLogo" accept="image/*" class="hidden">
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center;">
-                  <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                  <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
-                </div>
-                <div style="width: 100%; margin-top: 4px;">
-                  <select id="cfPatronCamiseta" class="form-control" style="font-size: 13px; text-align: center; font-weight: 600;" title="Patrón del Campograma">
-                    <option value="liso" ${club.patronCamiseta === 'liso' ? 'selected' : ''}>Liso</option>
-                    <option value="rayas" ${club.patronCamiseta === 'rayas' ? 'selected' : ''}>Rayas</option>
-                    <option value="franja" ${club.patronCamiseta === 'franja' ? 'selected' : ''}>Con una franja</option>
-                    <option value="mitades" ${club.patronCamiseta === 'mitades' ? 'selected' : ''}>Mitades</option>
-                  </select>
+                <div style="width: 100%; text-align: center;">
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">1ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                    <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                  </div>
+                  <div style="width: 100%; margin-bottom: 12px;">
+                    <select id="cfPatronCamiseta" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (1ª Eq)">
+                      <option value="liso" ${club.patronCamiseta === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${club.patronCamiseta === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${club.patronCamiseta === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${club.patronCamiseta === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
+                  
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">2ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="cfColorPrimary2" value="${club.colorPrimary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
+                    <input type="color" id="cfColorSecondary2" value="${club.colorSecondary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
+                  </div>
+                  <div style="width: 100%;">
+                    <select id="cfPatronCamiseta2" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (2ª Eq)">
+                      <option value="liso" ${club.patronCamiseta2 === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${club.patronCamiseta2 === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${club.patronCamiseta2 === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${club.patronCamiseta2 === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -6322,7 +6467,10 @@ function saveCarteleraTeamsToFirebase() {
         escudo: logoData,
         colorPrimary: document.getElementById('cfColorPrimary').value,
         colorSecondary: document.getElementById('cfColorSecondary').value,
-        patronCamiseta: document.getElementById('cfPatronCamiseta') ? document.getElementById('cfPatronCamiseta').value : 'liso'
+        colorPrimary2: document.getElementById('cfColorPrimary2') ? document.getElementById('cfColorPrimary2').value : '',
+        colorSecondary2: document.getElementById('cfColorSecondary2') ? document.getElementById('cfColorSecondary2').value : '',
+        patronCamiseta: document.getElementById('cfPatronCamiseta') ? document.getElementById('cfPatronCamiseta').value : 'liso',
+        patronCamiseta2: document.getElementById('cfPatronCamiseta2') ? document.getElementById('cfPatronCamiseta2').value : 'liso'
       };
 
       if (!state.directory.clubes) state.directory.clubes = [];

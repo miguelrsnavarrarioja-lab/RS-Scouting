@@ -140,14 +140,6 @@
               <span class="kpi-subtext">Total completados</span>
             </div>
           </div>
-          <div class="kpi-card" data-shortcut="calendario">
-            <div class="kpi-icon info"><i data-lucide="calendar"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Partidos Programados</span>
-              <span class="kpi-value" id="kpiScheduledMatchesCount">0</span>
-              <span class="kpi-subtext">Próximos eventos</span>
-            </div>
-          </div>
           <div class="kpi-card" data-shortcut="partidos">
             <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
             <div class="kpi-info">
@@ -180,8 +172,33 @@
               <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
             </div>
           </div>
+          <div class="kpi-card" data-shortcut="agenda">
+            <div class="kpi-icon info"><i data-lucide="clock"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Eventos Pendientes</span>
+              <span class="kpi-value" id="kpiPendingEvents">0</span>
+              <span class="kpi-subtext">Próximos eventos</span>
+            </div>
+          </div>
+          <div class="kpi-card" data-shortcut="cartelera">
+            <div class="kpi-icon orange"><i data-lucide="star"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Cartelera (Semana)</span>
+              <span class="kpi-value" id="kpiPriorityMatchesThisWeek">0</span>
+              <span class="kpi-subtext">Partidos prioritarios</span>
+            </div>
+          </div>
+          <div class="kpi-card" data-shortcut="mapas">
+            <div class="kpi-icon purple"><i data-lucide="map"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Mapas 11 Ideal</span>
+              <span class="kpi-value" style="font-size: 18px;">Alineaciones</span>
+              <span class="kpi-subtext">Generador visual</span>
+            </div>
+          </div>
         </div>
       </div>
+
 
       <!-- WIDGETS GRID: METRICS -->
       <div class="dashboard-metrics-grid" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px;">
@@ -194,7 +211,7 @@
               <h3>Jugadores por Año</h3>
             </div>
           </div>
-          <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 16px;">
+          <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 16px; align-items: start;">
             <!-- Rendered dynamically -->
           </div>
         </div>
@@ -213,50 +230,6 @@
         </div>
       </div>
 
-      <!-- WIDGETS GRID: PRÓXIMOS PARTIDOS, TAREAS PENDIENTES & EVENTOS PENDIENTES -->
-      <div class="dashboard-widgets-grid">
-        <!-- Widget: Próximos Partidos -->
-        <div class="widget-card">
-          <div class="widget-header">
-            <div class="widget-title">
-              <i data-lucide="calendar"></i>
-              <h3>Próximos Partidos</h3>
-            </div>
-            <button class="btn btn-sm btn-ghost" data-action="nav" data-target="calendario">Ver todos</button>
-          </div>
-          <div class="widget-body" id="dashboardUpcomingMatchesList">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-
-        <!-- Widget: Tareas Pendientes -->
-        <div class="widget-card">
-          <div class="widget-header">
-            <div class="widget-title">
-              <i data-lucide="check-square"></i>
-              <h3>Tareas Pendientes</h3>
-            </div>
-            <button class="btn btn-sm btn-ghost" data-action="nav" data-target="agenda">Ir a Agenda</button>
-          </div>
-          <div class="widget-body" id="dashboardPendingTasksList">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-
-        <!-- Widget: Eventos Pendientes -->
-        <div class="widget-card">
-          <div class="widget-header">
-            <div class="widget-title">
-              <i data-lucide="clock"></i>
-              <h3>Eventos Pendientes</h3>
-            </div>
-            <button class="btn btn-sm btn-ghost" data-action="nav" data-target="agenda">Ir a Agenda</button>
-          </div>
-          <div class="widget-body" id="dashboardPendingEventsList">
-            <!-- Rendered dynamically -->
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- ==================== 1. CALENDARIO VIEW ==================== -->
@@ -593,7 +566,7 @@
                 </div>
                 <!-- Bench Area (Suplentes) -->
                 <div class="pitch-bench-area">
-                  <div class="bench-title">SUPLENTES / BANQUILLO</div>
+                  <div class="bench-title">SUPLENTES</div>
                   <div class="bench-pins-wrapper" id="localBenchPins"></div>
                 </div>
               </div>
@@ -777,7 +750,7 @@
                 </div>
                 <!-- Bench Area (Suplentes) -->
                 <div class="pitch-bench-area">
-                  <div class="bench-title">SUPLENTES / BANQUILLO</div>
+                  <div class="bench-title">SUPLENTES</div>
                   <div class="bench-pins-wrapper" id="visitanteBenchPins"></div>
                 </div>
               </div>
