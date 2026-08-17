@@ -7865,6 +7865,12 @@ function saveCarteleraTeamsToFirebase() {
       });
     });
 
+    // Auto-open Plantilla tab if there are players assigned
+    if (localPlantillaList && localPlantillaList.length > 0) {
+      const plantillaTabBtn = Array.from(subtabs).find(t => t.dataset.ttab === 'plantilla');
+      if (plantillaTabBtn) plantillaTabBtn.click();
+    }
+
     // Custom Competición Creation Handler
     const compSelect = document.getElementById('tfCompeticion');
     compSelect?.addEventListener('change', (e) => {
@@ -21898,7 +21904,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </style>
         </head>
         <body>
-          <div class="header-main">Mapas (${escapeHtml(document.querySelector('.mapas-toggle-btn.active')?.dataset.tag || '11 Ideal')})</div>
+          <div class="header-main">Mapas (${escapeHtml(document.querySelector('.mapas-toggle-btn.active')?.dataset.tag || 'MAPA RS')})</div>
           <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} &nbsp;|&nbsp; Competición: ${escapeHtml(selComp)} &nbsp;|&nbsp; Sistema Táctico: ${escapeHtml(sysSelect)}</div>
           
           <div class="export-wrapper">
@@ -22145,6 +22151,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (typeof renderAllViews === 'function') renderAllViews();
       }
     });
+
   });
 
 })();
