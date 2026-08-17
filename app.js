@@ -279,7 +279,7 @@ function saveCarteleraTeamsToFirebase() {
 
   function updateAppNameUI(name) {
     const currentName = 'MS Fútbol Scout';
-    document.title = `${currentName} | Pro Football Scouting System`;
+    document.title = currentName;
     document.querySelectorAll('#appBrandName, .app-brand-name').forEach(el => {
       el.textContent = currentName;
     });
@@ -5027,6 +5027,234 @@ function saveCarteleraTeamsToFirebase() {
   }
 
   function openPlayerModal(playerId = null) {
+    if (playerId) {
+      openJugadorFichaReadOnly(playerId);
+    } else {
+      openPlayerEditModal(null);
+    }
+  }
+
+  function openJugadorFichaReadOnly(playerId) {
+    const player = state.directory.jugadores.find(j => String(j.id) === String(playerId));
+    if (!player) return;
+
+    // Build Links Section
+    let linksHTML = '';
+    if (player.besoccer || player.transfermarkt || player.instagram || player.video || player.enlace) {
+      linksHTML = `
+        <div class="ficha-links-section">
+          <h4 class="ficha-links-title">ENLACES DEL JUGADOR</h4>
+          <div class="ficha-links-grid">
+            ${player.besoccer ? `<a href="${player.besoccer}" target="_blank" class="ficha-link-btn besoccer"><i data-lucide="external-link"></i> BeSoccer</a>` : ''}
+            ${player.transfermarkt ? `<a href="${player.transfermarkt}" target="_blank" class="ficha-link-btn transfermarkt"><i data-lucide="external-link"></i> Transfermarkt</a>` : ''}
+            ${player.instagram ? `<a href="${player.instagram}" target="_blank" class="ficha-link-btn instagram"><i data-lucide="external-link"></i> Instagram</a>` : ''}
+            ${player.video ? `<a href="${player.video}" target="_blank" class="ficha-link-btn video"><i data-lucide="external-link"></i> Video</a>` : ''}
+            ${player.enlace ? `<a href="${player.enlace}" target="_blank" class="ficha-link-btn generic"><i data-lucide="external-link"></i> Enlace Web</a>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Find Team info for Shield and Link
+    let teamName = player.equipo || player.equipoPrincipal;
+    let teamObj = null;
+    let teamShieldHTML = '<i data-lucide="shield"></i>';
+    let teamLinkClass = '';
+    let teamNameDisplay = escapeHtml(teamName || 'Sin Equipo');
+    
+    if (teamName) {
+      const pTeamLower = teamName.toLowerCase().trim();
+      
+      // 1. Try exact match
+      teamObj = (state.directory.equipos || []).find(eq => {
+        const eqName = (eq.nombre || '').toLowerCase().trim();
+        const eqAlt = (eq.equipo || '').toLowerCase().trim();
+        return eqName === pTeamLower || eqAlt === pTeamLower;
+      });
+
+      // 2. Try partial match (e.g., "C.D. Oberena DHJ" contains "C.D. Oberena")
+      if (!teamObj) {
+        const partialMatches = (state.directory.equipos || []).filter(eq => {
+          const eqName = (eq.nombre || '').toLowerCase().trim();
+          return eqName && eqName.length > 3 && pTeamLower.includes(eqName);
+        });
+        if (partialMatches.length > 0) {
+          // Get the most specific (longest) match
+          teamObj = partialMatches.sort((a, b) => b.nombre.length - a.nombre.length)[0];
+        }
+      }
+
+      if (teamObj) {
+        // Build the shield
+        const shieldSrc = teamObj.escudo || teamObj.logo;
+        if (shieldSrc) {
+           teamShieldHTML = `<img src="${shieldSrc}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+        }
+        teamLinkClass = 'team-ficha-link';
+        teamNameDisplay = `<span style="text-decoration: underline; cursor: pointer;">${escapeHtml(teamObj.nombre)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
+      }
+    }
+
+    // Count Partidos Vistos
+    let partidosVistosCount = 0;
+    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+    if (pNameLower) {
+      (state.reports || []).forEach(rep => {
+        if (rep.status !== 'completado') return;
+        let found = false;
+        const check = (pObj) => { if(pObj && (pObj.name||'').toLowerCase().trim() === pNameLower) found = true; };
+        (rep.localTitulares || []).forEach(check);
+        (rep.localSuplentes || []).forEach(check);
+        (rep.visitanteTitulares || []).forEach(check);
+        (rep.visitanteSuplentes || []).forEach(check);
+        if (found) partidosVistosCount++;
+      });
+    }
+
+    // Check Mapas RS
+    let inMapas = 'No';
+    if (player.tags && (player.tags.includes('Mapa RS') || player.tags.includes('Alerta RS') || player.tags.includes('Seguimiento Intensivo'))) {
+      inMapas = 'Sí';
+    }
+
+    // Theme color
+    let themeColor = 'var(--primary-blue)';
+    
+    if (teamObj) {
+      if (teamObj.color) {
+        themeColor = teamObj.color;
+      } else {
+        // Try finding the club
+        const clubName = (teamObj.clubVinculado || teamObj.club || '').toLowerCase().trim();
+        if (clubName) {
+          const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === clubName);
+          if (c && c.colorPrimary) {
+            themeColor = c.colorPrimary;
+          }
+        }
+      }
+    }
+
+    // Fallback to player's direct club if they have one but the team didn't yield a color
+    if (themeColor === 'var(--primary-blue)' && player.club) {
+       const pClubName = player.club.toLowerCase().trim();
+       const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === pClubName);
+       if (c && c.colorPrimary) {
+         themeColor = c.colorPrimary;
+       }
+    }
+
+    // FINAL FALLBACK: Check if the player's team name contains any known club name
+    if (themeColor === 'var(--primary-blue)' && teamName) {
+       const pTeamLower = teamName.toLowerCase().trim();
+       const partialClubs = (state.directory.clubes || []).filter(c => {
+         const cName = (c.nombre || '').toLowerCase().trim();
+         return cName && cName.length > 3 && pTeamLower.includes(cName);
+       });
+       if (partialClubs.length > 0) {
+         const bestClub = partialClubs.sort((a, b) => b.nombre.length - a.nombre.length)[0];
+         if (bestClub && bestClub.colorPrimary) {
+           themeColor = bestClub.colorPrimary;
+           // If we didn't have a team shield earlier, we can borrow the club's shield
+           if (teamShieldHTML === '<i data-lucide="shield"></i>' && (bestClub.escudo || bestClub.logo)) {
+             teamShieldHTML = `<img src="${bestClub.escudo || bestClub.logo}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+           }
+         }
+       }
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        
+        <div class="ficha-content" style="padding: 30px;">
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <img src="${player.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
+                  ${player.seleccion ? ` &nbsp;|&nbsp; <i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;"></i> ${escapeHtml(player.seleccion)}` : ''}
+                  ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--ficha-theme);">${escapeHtml(player.dorsal)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">AÑO NAC.</div>
+              <div class="ficha-stat-value">${escapeHtml(player.ano || player.anoNac || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">POS. PRINCIPAL</div>
+              <div class="ficha-stat-value">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">POS. SECUNDARIA</div>
+              <div class="ficha-stat-value">${escapeHtml(player.posicionSecundaria || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">LATERALIDAD</div>
+              <div class="ficha-stat-value">${escapeHtml(player.pierna || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">PARTIDOS VISTOS</div>
+              <div class="ficha-stat-value">${partidosVistosCount}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EN MAPAS RS</div>
+              <div class="ficha-stat-value">${inMapas}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">PROYECCIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(player.proyeccion || player.rendimientoRS || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">POTENCIAL</div>
+              <div class="ficha-stat-value">${escapeHtml(player.potencial || '-')}</div>
+            </div>
+          </div>
+
+          ${linksHTML}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalJugadorFichaBody').innerHTML = html;
+    document.getElementById('modalJugadorFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    // Event Listeners for local scope functions
+    document.getElementById('btnCerrarFichaJugador').onclick = () => {
+      document.getElementById('modalJugadorFicha').classList.add('hidden');
+    };
+
+    document.getElementById('btnAbrirEditorJugador').onclick = () => {
+      document.getElementById('modalJugadorFicha').classList.add('hidden');
+      openPlayerEditModal(player.id);
+    };
+
+    const teamLinkEl = document.querySelector('.team-ficha-link');
+    if (teamLinkEl) {
+      teamLinkEl.onclick = () => {
+        document.getElementById('modalJugadorFicha').classList.add('hidden');
+        openTeamModal(teamLinkEl.dataset.teamid);
+      };
+    }
+  }
+
+  function openPlayerEditModal(playerId = null) {
     const isEdit = !!playerId;
     const player = isEdit ? (state.directory.jugadores.find(j => String(j.id) === String(playerId)) || {}) : {};
 
@@ -5139,9 +5367,16 @@ function saveCarteleraTeamsToFirebase() {
             <button type="button" class="player-subtab" data-ptab="rendimiento">RENDIMIENTO</button>
             <button type="button" class="player-subtab" data-ptab="trayectoria">TRAYECTORIA & OPINIÓN</button>
           </div>
-          <button type="button" class="btn btn-secondary" id="btnExportPlayerPdf" style="font-size: 11px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
-            <i data-lucide="file-text"></i> Exportar PDF
-          </button>
+          <div style="display: flex; gap: 8px;">
+            ${isEdit ? `
+            <button type="button" class="btn btn-primary" id="btnVolverFicha" style="padding: 8px; border-radius: var(--radius-md);" title="Volver a Ficha">
+              <i data-lucide="arrow-left"></i>
+            </button>
+            ` : ''}
+            <button type="button" class="btn btn-secondary" id="btnExportPlayerPdf" style="padding: 8px; border-radius: var(--radius-md);" title="Exportar PDF">
+              <i data-lucide="file-text"></i>
+            </button>
+          </div>
         </div>
 
         <datalist id="equiposDatalistOptions">
@@ -6070,6 +6305,14 @@ function saveCarteleraTeamsToFirebase() {
     const removeLargeClass = () => card.classList.remove('large');
     document.getElementById('btnCloseModal')?.addEventListener('click', removeLargeClass, { once: true });
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
+
+    const btnVolver = document.getElementById('btnVolverFicha');
+    if (btnVolver) {
+      btnVolver.onclick = () => {
+        hideModal();
+        openJugadorFichaReadOnly(playerId);
+      };
+    }
   }
 
   function openClubModal(clubId = null) {
@@ -21134,6 +21377,48 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   // Backup Export JSON Listeners
   document.getElementById('btnExportBackup')?.addEventListener('click', exportBackupJSON);
+
+  // Mass Clean Fake BeSoccer Links
+  document.getElementById('btnCleanBesoccer')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnCleanBesoccer');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Limpiando...';
+    btn.disabled = true;
+
+    try {
+      if (state && state.directory && state.directory.jugadores) {
+        const playersToClean = state.directory.jugadores.filter(p => p.besoccer && p.besoccer.includes('buscar?q='));
+        const totalToClean = playersToClean.length;
+
+        if (totalToClean === 0) {
+          alert('No hay enlaces falsos que limpiar.');
+        } else {
+          const proceed = confirm(`Se van a eliminar ${totalToClean} enlaces falsos de búsqueda. ¿Continuar?`);
+          if (proceed) {
+            let cleanedCount = 0;
+            for (const player of playersToClean) {
+              player.besoccer = '';
+              if (typeof saveToFirebase === 'function') {
+                saveToFirebase('jugadores', player.id, player);
+                await new Promise(resolve => setTimeout(resolve, 30)); 
+              }
+              cleanedCount++;
+            }
+            saveState(); 
+            if (typeof renderAllViews === 'function') renderAllViews();
+            alert(`¡Completado! Se han limpiado ${cleanedCount} jugadores.`);
+          }
+        }
+      }
+    } catch(e) {
+      console.error(e);
+      alert('Error al limpiar: ' + e.message);
+    } finally {
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
 
   // Backup Import JSON Listener
   const handleImportBackup = (file) => {
