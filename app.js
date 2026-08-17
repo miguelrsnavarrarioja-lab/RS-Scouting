@@ -6376,7 +6376,7 @@ function saveCarteleraTeamsToFirebase() {
     }
   }
 
-  function openClubModal(clubId = null) {
+  function openClubEditModal(clubId = null) {
     const isEdit = !!clubId;
     const club = isEdit ? (state.directory.clubes.find(c => c.id === clubId) || {}) : {};
 
@@ -6971,7 +6971,7 @@ function saveCarteleraTeamsToFirebase() {
 
       // 1. Sync to Federación
       if (fedVal && state.directory.federaciones) {
-        let targetFed = state.directory.federaciones.find(f => 
+        let targetFed = (state.directory.federaciones || []).find(f => 
           (f.nombre && f.nombre.toLowerCase() === fedVal.toLowerCase()) ||
           (f.federacion && f.federacion.toLowerCase() === fedVal.toLowerCase())
         );
@@ -7075,7 +7075,7 @@ function saveCarteleraTeamsToFirebase() {
           const teamName = typeof eq === 'string' ? eq : (eq.nombre || eq.equipo || '');
           if (!teamName) return;
 
-          let targetTeam = state.directory.equipos.find(t => 
+          let targetTeam = (state.directory.equipos || []).find(t => 
             (t.nombre && t.nombre.toLowerCase() === teamName.toLowerCase()) ||
             (t.equipo && t.equipo.toLowerCase() === teamName.toLowerCase())
           );
@@ -7504,9 +7504,438 @@ function saveCarteleraTeamsToFirebase() {
     return found || null;
   }
 
+  
   function openTeamModal(teamId = null) {
+    if (teamId) {
+      openEquipoFichaReadOnly(teamId);
+    } else {
+      openTeamEditModal(null);
+    }
+  }
+
+  function openClubModal(clubId = null) {
+    if (clubId) {
+      openClubFichaReadOnly(clubId);
+    } else {
+      openClubEditModal(null);
+    }
+  }
+
+  function openStaffModal(staffId = null) {
+    if (staffId) {
+      openStaffFichaReadOnly(staffId);
+    } else {
+      openStaffEditModal(null);
+    }
+  }
+
+  // --- NEW READ-ONLY FICHAS ---
+
+  function openEquipoFichaReadOnly(teamId) {
+    const team = (state.directory.equipos || []).find(eq => String(eq.id) === String(teamId));
+    if (!team) return;
+
+    let themeColor = team.color || 'var(--primary-blue)';
+    if (themeColor === 'var(--primary-blue)' && team.clubVinculado) {
+      const parentClub = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === team.clubVinculado.toLowerCase());
+      if (parentClub && parentClub.colorPrimary) themeColor = parentClub.colorPrimary;
+    }
+
+    const allPlayersList = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+    const validPlayerNamesSet = new Set(allPlayersList.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
+    let localPlantillaList = (team.plantilla || []).filter(item => {
+      const pName = (typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '')).toLowerCase().trim();
+      return validPlayerNamesSet.has(pName);
+    });
+
+    const numPlantilla = localPlantillaList.length;
+    const numStaff = (team.tecnicos || []).length;
+    
+    // Shield
+    let shieldSrc = team.escudo || team.logo || '';
+    if (!shieldSrc && team.clubVinculado) {
+       const parentClub = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === team.clubVinculado.toLowerCase());
+       if (parentClub && (parentClub.escudo || parentClub.logo)) {
+         shieldSrc = parentClub.escudo || parentClub.logo;
+       }
+    }
+
+    // Generate Plantilla HTML
+    let plantillaHTML = `<table class="table" style="font-size: 13px; width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: rgba(0,0,0,0.02); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+          <th style="padding: 10px; text-align: left;">Jugador</th>
+          <th style="padding: 10px; text-align: center;">Dorsal</th>
+          <th style="padding: 10px; text-align: center;">Año</th>
+          <th style="padding: 10px; text-align: center;">Posición</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+    if (numPlantilla === 0) {
+      plantillaHTML += `<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
+    } else {
+      localPlantillaList.forEach(item => {
+        const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+        const player = allPlayersList.find(p => (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        if (player) {
+          plantillaHTML += `
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px; font-weight: 600;"><a href="javascript:void(0)" class="player-modal-link" data-playerid="${player.id}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${player.foto || 'Foto Jugador General.png'}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(pName)}</a></td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.dorsal || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</td>
+            </tr>
+          `;
+        }
+      });
+    }
+    plantillaHTML += `</tbody></table>`;
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${team.categoria ? `Categoría: <strong>${escapeHtml(team.categoria)}</strong> &nbsp;|&nbsp; ` : ''}
+                  ${team.temporada ? `Temporada: <strong>${escapeHtml(team.temporada)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Equipo">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="player-modal-subtabs mb-4">
+            <button type="button" class="player-subtab active" data-fichatab="resumen">RESUMEN</button>
+            <button type="button" class="player-subtab" data-fichatab="plantilla">PLANTILLA</button>
+          </div>
+
+          <div id="fichaTab-resumen" class="ficha-tab-pane" style="display: block;">
+            <div class="ficha-grid" style="gap: 20px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">CLUB VINCULADO</div>
+                <div class="ficha-stat-value">${escapeHtml(team.clubVinculado || team.club || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">GRUPO</div>
+                <div class="ficha-stat-value">${escapeHtml(team.grupo || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">COMPETICIÓN</div>
+                <div class="ficha-stat-value">${escapeHtml(team.competicion || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">FEDERACIÓN</div>
+                <div class="ficha-stat-value">${escapeHtml((team.federacion || '').split(' - ')[0] || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">PLANTILLA</div>
+                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numPlantilla} Jugadores</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">STAFF TÉCNICO</div>
+                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numStaff} Miembros</div>
+              </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+               <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para ver y modificar datos extra, campogramas y cuerpo técnico.</p>
+            </div>
+          </div>
+          
+          <div id="fichaTab-plantilla" class="ficha-tab-pane" style="display: none;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
+               ${plantillaHTML}
+             </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalEquipoFichaBody').innerHTML = html;
+    document.getElementById('modalEquipoFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    // Tab logic
+    const tabs = document.getElementById('modalEquipoFichaBody').querySelectorAll('.player-subtab');
+    const panes = document.getElementById('modalEquipoFichaBody').querySelectorAll('.ficha-tab-pane');
+    tabs.forEach(tab => {
+      tab.onclick = () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panes.forEach(p => p.style.display = 'none');
+        tab.classList.add('active');
+        document.getElementById('fichaTab-' + tab.dataset.fichatab).style.display = 'block';
+      };
+    });
+
+    // Player links logic
+    document.getElementById('modalEquipoFichaBody').querySelectorAll('.player-modal-link').forEach(link => {
+      link.onclick = (e) => {
+        e.preventDefault();
+        const pId = link.dataset.playerid;
+        if (pId) openPlayerModal(pId);
+      };
+    });
+
+    document.getElementById('btnCerrarFichaEquipo').onclick = () => {
+      document.getElementById('modalEquipoFicha').classList.add('hidden');
+    };
+
+    document.getElementById('btnAbrirEditorEquipo').onclick = () => {
+      document.getElementById('modalEquipoFicha').classList.add('hidden');
+      openTeamEditModal(team.id);
+    };
+  }
+
+  function openClubFichaReadOnly(clubId) {
+    const club = state.directory.clubes.find(c => String(c.id) === String(clubId));
+    if (!club) return;
+
+    let themeColor = club.colorPrimary || 'var(--primary-blue)';
+    const equiposDelClub = (state.directory.equipos || []).filter(e => (e.clubVinculado || e.club || '').toLowerCase() === (club.nombre || club.equipo || '').toLowerCase());
+    const numEquipos = equiposDelClub.length;
+    
+    let tiposStr = '';
+    if (Array.isArray(club.tiposArray) && club.tiposArray.length) {
+      tiposStr = club.tiposArray.join(', ');
+    } else if (club.tipo) {
+      tiposStr = club.tipo;
+    }
+
+    // Equipos HTML
+    let equiposHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">`;
+    if (numEquipos === 0) {
+       equiposHTML = `<div style="padding: 16px; text-align: center; color: var(--text-muted);">No hay equipos vinculados a este club</div>`;
+    } else {
+       equiposDelClub.forEach(eq => {
+         equiposHTML += `
+           <a href="javascript:void(0)" class="equipo-modal-link" data-teamid="${eq.id}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-light); border-radius: 8px; text-decoration: none; color: var(--text-main); transition: all 0.2s;">
+             <div style="width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;">
+               ${eq.escudo || eq.logo || club.escudo || club.logo ? `<img src="${eq.escudo || eq.logo || club.escudo || club.logo}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 24px; height: 24px; color: var(--text-muted);"></i>`}
+             </div>
+             <span style="font-weight: 600; text-align: center; font-size: 13px;">${escapeHtml(eq.nombre || eq.equipo)}</span>
+             <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(eq.categoria || '-')}</span>
+           </a>
+         `;
+       });
+       equiposHTML += `</div>`;
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${club.escudo || club.logo ? `<img src="${club.escudo || club.logo}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${tiposStr ? `Tipo: <strong>${escapeHtml(tiposStr)}</strong> &nbsp;|&nbsp; ` : ''}
+                  ${club.anoFundacion ? `Fundación: <strong>${escapeHtml(club.anoFundacion)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Club">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="player-modal-subtabs mb-4">
+            <button type="button" class="player-subtab active" data-fichatab="resumen">RESUMEN</button>
+            <button type="button" class="player-subtab" data-fichatab="equipos">EQUIPOS</button>
+          </div>
+
+          <div id="fichaTabClub-resumen" class="ficha-tab-pane" style="display: block;">
+            <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">COMUNIDAD</div>
+                <div class="ficha-stat-value">${escapeHtml(club.comunidad || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">LOCALIDAD</div>
+                <div class="ficha-stat-value">${escapeHtml(club.localidad || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">FEDERACIÓN</div>
+                <div class="ficha-stat-value">${escapeHtml((club.federacion || '').split(' - ')[0] || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">ESTADIO</div>
+                <div class="ficha-stat-value">${escapeHtml(club.estadio || '-')}</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">EQUIPOS VINCULADOS</div>
+                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numEquipos} Equipos</div>
+              </div>
+            </div>
+
+            ${club.web ? `<div style="margin-top: 10px;"><a href="${club.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
+            
+            <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+               <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos e infraestructura del club.</p>
+            </div>
+          </div>
+
+          <div id="fichaTabClub-equipos" class="ficha-tab-pane" style="display: none;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 20px;">
+               ${equiposHTML}
+             </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalClubFichaBody').innerHTML = html;
+    document.getElementById('modalClubFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    // Tab logic
+    const tabs = document.getElementById('modalClubFichaBody').querySelectorAll('.player-subtab');
+    const panes = document.getElementById('modalClubFichaBody').querySelectorAll('.ficha-tab-pane');
+    tabs.forEach(tab => {
+      tab.onclick = () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panes.forEach(p => p.style.display = 'none');
+        tab.classList.add('active');
+        document.getElementById('fichaTabClub-' + tab.dataset.fichatab).style.display = 'block';
+      };
+    });
+
+    // Teams links logic
+    document.getElementById('modalClubFichaBody').querySelectorAll('.equipo-modal-link').forEach(link => {
+      link.onclick = (e) => {
+        e.preventDefault();
+        const tId = link.dataset.teamid;
+        if (tId) openTeamModal(tId);
+      };
+    });
+
+    document.getElementById('btnCerrarFichaClub').onclick = () => {
+      document.getElementById('modalClubFicha').classList.add('hidden');
+    };
+
+    document.getElementById('btnAbrirEditorClub').onclick = () => {
+      document.getElementById('modalClubFicha').classList.add('hidden');
+      openClubEditModal(club.id);
+    };
+  }
+
+  function openStaffFichaReadOnly(staffId) {
+    const staff = state.directory.staff.find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = staff.foto || '';
+
+    // Color and Shield from linked Team or Club
+    if (staff.equipo) {
+      const eq = (state.directory.equipos || []).find(e => (e.nombre || '').toLowerCase() === staff.equipo.toLowerCase());
+      if (eq) {
+        themeColor = eq.color || themeColor;
+        shieldSrc = shieldSrc || eq.escudo || eq.logo || '';
+        if (themeColor === 'var(--primary-blue)' && eq.clubVinculado) {
+          const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
+          if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
+          if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
+        }
+      }
+    }
+    if (themeColor === 'var(--primary-blue)' && staff.clubVinculado) {
+      const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === staff.clubVinculado.toLowerCase());
+      if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
+      if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <img src="${staff.foto || shieldSrc || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
+                  ${staff.cargo ? `<span>Cargo: <strong style="color: var(--ficha-theme);">${escapeHtml(staff.cargo)}</strong></span>` : ''}
+                  ${staff.equipo ? `<span>Equipo: <strong style="color: var(--ficha-theme);">${escapeHtml(staff.equipo)}</strong></span>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Staff">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EDAD</div>
+              <div class="ficha-stat-value">${escapeHtml(staff.edad || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">CLUB VINCULADO</div>
+              <div class="ficha-stat-value">${escapeHtml(staff.clubVinculado || staff.club || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">TELÉFONO</div>
+              <div class="ficha-stat-value">${escapeHtml(staff.telefono || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">SITUACIÓN CONTRACTUAL</div>
+              <div class="ficha-stat-value">${escapeHtml(staff.contrato || '-')}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su formación y trayectoria completa.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalStaffFichaBody').innerHTML = html;
+    document.getElementById('modalStaffFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaStaff').onclick = () => {
+      document.getElementById('modalStaffFicha').classList.add('hidden');
+    };
+
+    document.getElementById('btnAbrirEditorStaff').onclick = () => {
+      document.getElementById('modalStaffFicha').classList.add('hidden');
+      openStaffEditModal(staff.id);
+    };
+  }
+
+  function openTeamEditModal(teamId = null) {
+
     const isEdit = !!teamId;
-    const team = isEdit ? (state.directory.equipos.find(eq => eq.id === teamId) || {}) : {};
+    const team = isEdit ? ((state.directory.equipos || []).find(eq => eq.id === teamId) || {}) : {};
 
     const nombre = team.nombre || team.equipo || '';
     let clubVinculado = team.clubVinculado || team.club || '';
@@ -7527,7 +7956,7 @@ function saveCarteleraTeamsToFirebase() {
 
     // Auto-detect Federación if not set
     if (!federacion && nombre && state.directory.federaciones) {
-      const parentFed = state.directory.federaciones.find(f => 
+      const parentFed = (state.directory.federaciones || []).find(f => 
         f.equipos && f.equipos.some(eq => (typeof eq === 'string' ? eq : eq.nombre).toLowerCase() === nombre.toLowerCase())
       );
       if (parentFed) federacion = parentFed.nombre || parentFed.federacion || '';
@@ -7913,7 +8342,7 @@ function saveCarteleraTeamsToFirebase() {
       };
 
       if (!state.directory.equipos) state.directory.equipos = [];
-      const eqIdx = state.directory.equipos.findIndex(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
+      const eqIdx = (state.directory.equipos || []).findIndex(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
       if (eqIdx !== -1) {
         state.directory.equipos[eqIdx] = updatedTeam;
       } else {
@@ -7972,7 +8401,7 @@ function saveCarteleraTeamsToFirebase() {
       // Bidirectional sync for Federación
       const targetFedName = updatedTeam.federacion;
       if (targetFedName && state.directory.federaciones) {
-        let parentFed = state.directory.federaciones.find(f => 
+        let parentFed = (state.directory.federaciones || []).find(f => 
           (f.nombre && f.nombre.toLowerCase() === targetFedName.toLowerCase()) ||
           (f.federacion && f.federacion.toLowerCase() === targetFedName.toLowerCase())
         );
@@ -8762,7 +9191,7 @@ function saveCarteleraTeamsToFirebase() {
       if (estiloSysInput) estiloSysInput.value = selectedSys;
 
       if (isEdit && teamId && state.directory && Array.isArray(state.directory.equipos)) {
-        const teamObj = state.directory.equipos.find(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
+        const teamObj = (state.directory.equipos || []).find(eq => eq && (String(eq.id) === String(teamId) || (eq.codigo && String(eq.codigo) === String(teamId))));
         if (teamObj) {
           teamObj.sistemaHabitual = selectedSys;
           saveToFirebase('equipos', teamObj);
@@ -8941,9 +9370,591 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
+  
   function openFederationModal(federationId = null) {
+    if (federationId) {
+      openFederacionFichaReadOnly(federationId);
+    } else {
+      openFederationEditModal(null);
+    }
+  }
+
+  function openSelectionModal(selectionId = null) {
+    if (selectionId) {
+      openSeleccionFichaReadOnly(selectionId);
+    } else {
+      openSelectionEditModal(null);
+    }
+  }
+
+  function openConvocatoriaModal(convocatoriaId = null) {
+    if (convocatoriaId) {
+      openConvocatoriaFichaReadOnly(convocatoriaId);
+    } else {
+      openConvocatoriaEditModal(null);
+    }
+  }
+
+  function openTournamentModal(tournamentId = null) {
+    if (tournamentId) {
+      openTorneoFichaReadOnly(tournamentId);
+    } else {
+      openTournamentEditModal(null);
+    }
+  }
+
+  function openAgencyModal(agencyId = null) {
+    if (agencyId) {
+      openAgenciaFichaReadOnly(agencyId);
+    } else {
+      openAgencyEditModal(null);
+    }
+  }
+
+  function openAgentModal(agentId = null) {
+    if (agentId) {
+      openAgenteFichaReadOnly(agentId);
+    } else {
+      openAgentEditModal(null);
+    }
+  }
+
+  function openStadiumModal(stadiumId = null) {
+    if (stadiumId) {
+      openEstadioFichaReadOnly(stadiumId);
+    } else {
+      openStadiumEditModal(null);
+    }
+  }
+
+  // --- NEW READ-ONLY FICHAS (7 entities) ---
+
+  function openFederacionFichaReadOnly(id) {
+    const fed = (state.directory.federaciones || []).find(f => String(f.id) === String(id) || (f.codigo && String(f.codigo) === String(id)));
+    if (!fed) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = fed.escudo || fed.logo || 'Escudo Blanco.png';
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(fed.nombre || fed.federacion || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${fed.pais ? `País: <strong>${escapeHtml(fed.pais)}</strong>` : 'Federación'}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">SEDE / CIUDAD</div>
+              <div class="ficha-stat-value">${escapeHtml(fed.sede || fed.ciudad || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">PRESIDENTE</div>
+              <div class="ficha-stat-value">${escapeHtml(fed.presidente || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">AÑO FUNDACIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(fed.fundacion || fed.anoFundacion || '-')}</div>
+            </div>
+          </div>
+          
+          ${fed.web ? `<div style="margin-top: 10px;"><a href="${fed.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y las observaciones.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalFederacionFichaBody').innerHTML = html;
+    document.getElementById('modalFederacionFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaFed').onclick = () => document.getElementById('modalFederacionFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorFed').onclick = () => {
+      document.getElementById('modalFederacionFicha').classList.add('hidden');
+      openFederationEditModal(fed.id || fed.codigo);
+    };
+  }
+
+  function openSeleccionFichaReadOnly(id) {
+    const sel = (state.directory.selecciones || []).find(s => String(s.id) === String(id) || (s.codigo && String(s.codigo) === String(id)));
+    if (!sel) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = sel.escudo || sel.logo || 'Escudo Blanco.png';
+    let federacionNombre = sel.federacion || '';
+    
+    // Attempt to get color/shield from Federation
+    if (federacionNombre) {
+      const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === federacionNombre.toLowerCase());
+      if (fedObj) {
+        if (!sel.escudo && !sel.logo) shieldSrc = fedObj.escudo || fedObj.logo || 'Escudo Blanco.png';
+      }
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(sel.nombre || sel.seleccion || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${sel.categoria ? `Categoría: <strong>${escapeHtml(sel.categoria)}</strong> &nbsp;|&nbsp; ` : ''}
+                  ${sel.pais ? `País: <strong>${escapeHtml(sel.pais)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">FEDERACIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml((federacionNombre || '').split(' - ')[0] || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">SELECCIONADOR</div>
+              <div class="ficha-stat-value">${escapeHtml(sel.seleccionador || '-')}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y observaciones.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalSeleccionFichaBody').innerHTML = html;
+    document.getElementById('modalSeleccionFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaSel').onclick = () => document.getElementById('modalSeleccionFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorSel').onclick = () => {
+      document.getElementById('modalSeleccionFicha').classList.add('hidden');
+      openSelectionEditModal(sel.id || sel.codigo);
+    };
+  }
+
+  function openConvocatoriaFichaReadOnly(id) {
+    const conv = state.directory.convocatorias.find(c => String(c.id) === String(id) || (c.codigo && String(c.codigo) === String(id)));
+    if (!conv) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = conv.escudo || conv.logo || 'Escudo Blanco.png';
+    let numJugadores = Array.isArray(conv.jugadores) ? conv.jugadores.length : 0;
+    
+    // Attempt to get shield from Selection
+    if (conv.seleccion) {
+      const selObj = (state.directory.selecciones || []).find(s => (s.nombre || s.seleccion || '').toLowerCase() === conv.seleccion.toLowerCase());
+      if (selObj && !conv.escudo && !conv.logo) {
+         shieldSrc = selObj.escudo || selObj.logo || 'Escudo Blanco.png';
+      }
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${conv.seleccion ? `Selección: <strong>${escapeHtml(conv.seleccion)}</strong>` : 'Convocatoria'}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">FECHAS</div>
+              <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(conv.fechaInicio || '-')} al ${escapeHtml(conv.fechaFin || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">COMPETICIÓN / MOTIVO</div>
+              <div class="ficha-stat-value">${escapeHtml(conv.competicion || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">LUGAR</div>
+              <div class="ficha-stat-value">${escapeHtml(conv.lugar || conv.sede || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">JUGADORES CONVOCADOS</div>
+              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numJugadores} Jugadores</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para ver y gestionar la lista de jugadores convocados y técnicos.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalConvocatoriaFichaBody').innerHTML = html;
+    document.getElementById('modalConvocatoriaFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaConv').onclick = () => document.getElementById('modalConvocatoriaFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorConv').onclick = () => {
+      document.getElementById('modalConvocatoriaFicha').classList.add('hidden');
+      openConvocatoriaEditModal(conv.id || conv.codigo);
+    };
+  }
+
+  function openTorneoFichaReadOnly(id) {
+    const t = state.directory.torneos.find(x => String(x.id) === String(id) || (x.codigo && String(x.codigo) === String(id)));
+    if (!t) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = t.logo || 'Escudo Blanco.png';
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(t.nombre || t.torneo || 'Torneo')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${t.tipo ? `Tipo: <strong>${escapeHtml(t.tipo)}</strong> &nbsp;|&nbsp; ` : ''}
+                  ${t.categoria ? `Categoría: <strong>${escapeHtml(t.categoria)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EDICIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(t.edicion || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">FECHAS</div>
+              <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(t.fechaInicio || '-')} al ${escapeHtml(t.fechaFin || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">UBICACIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(t.ciudad || t.pais || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EQUIPOS PARTICIPANTES</div>
+              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${escapeHtml(t.numEquipos || '-')}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los detalles, instalaciones y observaciones del torneo.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalTorneoFichaBody').innerHTML = html;
+    document.getElementById('modalTorneoFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaTorneo').onclick = () => document.getElementById('modalTorneoFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorTorneo').onclick = () => {
+      document.getElementById('modalTorneoFicha').classList.add('hidden');
+      openTournamentEditModal(t.id || t.codigo);
+    };
+  }
+
+  function openAgenciaFichaReadOnly(id) {
+    const ag = (state.directory.agencias || []).find(a => String(a.id) === String(id) || (a.codigo && String(a.codigo) === String(id)));
+    if (!ag) return;
+
+    let themeColor = 'var(--primary-blue)';
+    let shieldSrc = ag.logo || 'Escudo Blanco.png';
+    const agentesDeAgencia = (state.directory.agentes || []).filter(a => (a.agencia || '').toLowerCase() === (ag.nombre || '').toLowerCase());
+    const numAgentes = agentesDeAgencia.length;
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+              </div>
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(ag.nombre || ag.agencia || 'Agencia')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${ag.pais ? `País: <strong>${escapeHtml(ag.pais)}</strong>` : 'Agencia de Representación'}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">CIUDAD SEDE</div>
+              <div class="ficha-stat-value">${escapeHtml(ag.ciudad || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">TELÉFONO</div>
+              <div class="ficha-stat-value">${escapeHtml(ag.telefono || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EMAIL</div>
+              <div class="ficha-stat-value">${escapeHtml(ag.email || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">AGENTES ASOCIADOS</div>
+              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numAgentes} Agentes</div>
+            </div>
+          </div>
+          
+          ${ag.web ? `<div style="margin-top: 10px;"><a href="${ag.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su descripción y datos de contacto extra.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalAgenciaFichaBody').innerHTML = html;
+    document.getElementById('modalAgenciaFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaAgencia').onclick = () => document.getElementById('modalAgenciaFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorAgencia').onclick = () => {
+      document.getElementById('modalAgenciaFicha').classList.add('hidden');
+      openAgencyEditModal(ag.id || ag.codigo);
+    };
+  }
+
+  function openAgenteFichaReadOnly(id) {
+    const agt = state.directory.agentes.find(a => String(a.id) === String(id) || (a.codigo && String(a.codigo) === String(id)));
+    if (!agt) return;
+
+    let themeColor = 'var(--primary-blue)';
+    
+    // Attempt color from agency
+    if (agt.agencia) {
+      const parentAgency = (state.directory.agencias || []).find(a => (a.nombre || '').toLowerCase() === agt.agencia.toLowerCase());
+      if (parentAgency && parentAgency.logo) themeColor = 'var(--primary-blue)'; // Keep it blue for now, agencies don't have custom color yet
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <img src="${agt.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
+                  ${agt.agencia ? `<span>Agencia: <strong style="color: var(--ficha-theme);">${escapeHtml(agt.agencia)}</strong></span>` : ''}
+                  ${agt.zonaInfluencia ? `<span>Zona: <strong>${escapeHtml(agt.zonaInfluencia)}</strong></span>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">TELÉFONO</div>
+              <div class="ficha-stat-value">${escapeHtml(agt.telefono || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">EMAIL</div>
+              <div class="ficha-stat-value">${escapeHtml(agt.email || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">LICENCIA FIFA</div>
+              <div class="ficha-stat-value">${escapeHtml(agt.licencia || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">NIVEL</div>
+              <div class="ficha-stat-value">${escapeHtml(agt.nivel || '-')}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y las observaciones.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalAgenteFichaBody').innerHTML = html;
+    document.getElementById('modalAgenteFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaAgente').onclick = () => document.getElementById('modalAgenteFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorAgente').onclick = () => {
+      document.getElementById('modalAgenteFicha').classList.add('hidden');
+      openAgentEditModal(agt.id || agt.codigo);
+    };
+  }
+
+  function openEstadioFichaReadOnly(id) {
+    const est = state.directory.estadios.find(e => String(e.id) === String(id) || (e.codigo && String(e.codigo) === String(id)));
+    if (!est) return;
+
+    let themeColor = 'var(--primary-blue)';
+    
+    // Attempt color from local team
+    if (est.equipoLocal) {
+      const eq = (state.directory.equipos || []).find(x => (x.nombre || '').toLowerCase() === est.equipoLocal.toLowerCase());
+      if (eq && eq.color) themeColor = eq.color;
+      else if (eq && eq.clubVinculado) {
+        const cl = state.directory.clubes.find(x => (x.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
+        if (cl && cl.colorPrimary) themeColor = cl.colorPrimary;
+      }
+    }
+
+    const html = `
+      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+        <div class="ficha-content" style="padding: 30px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+            <div style="display: flex; gap: 24px; align-items: center;">
+              ${est.foto ? `
+                <img src="${est.foto}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+              ` : `
+                <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                  <i data-lucide="map-pin" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
+                </div>
+              `}
+              <div>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(est.nombre || 'Estadio')}</h2>
+                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+                  ${est.ciudad ? `Ciudad: <strong>${escapeHtml(est.ciudad)}</strong> &nbsp;|&nbsp; ` : ''}
+                  ${est.equipoLocal ? `Equipo Local: <strong>${escapeHtml(est.equipoLocal)}</strong>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+                <i data-lucide="edit-2"></i>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">CAPACIDAD</div>
+              <div class="ficha-stat-value">${escapeHtml(est.capacidad || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">TIPO DE CÉSPED</div>
+              <div class="ficha-stat-value">${escapeHtml(est.tipoCesped || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">DIMENSIONES</div>
+              <div class="ficha-stat-value">${escapeHtml(est.dimensiones || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-label">AÑO CONSTRUCCIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(est.construccion || '-')}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
+             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los detalles del recinto y subir fotos.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modalEstadioFichaBody').innerHTML = html;
+    document.getElementById('modalEstadioFicha').classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById('btnCerrarFichaEstadio').onclick = () => document.getElementById('modalEstadioFicha').classList.add('hidden');
+    document.getElementById('btnAbrirEditorEstadio').onclick = () => {
+      document.getElementById('modalEstadioFicha').classList.add('hidden');
+      openStadiumEditModal(est.id || est.codigo);
+    };
+  }
+
+  function openFederationEditModal(federationId = null) {
+
     const isEdit = !!federationId;
-    const fed = isEdit ? (state.directory.federaciones.find(f => f.id === federationId) || {}) : {};
+    const fed = isEdit ? ((state.directory.federaciones || []).find(f => f.id === federationId) || {}) : {};
 
     const nombre = fed.nombre || fed.federacion || '';
     const ambito = fed.ambito || fed.tipo || '';
@@ -9143,7 +10154,7 @@ function saveCarteleraTeamsToFirebase() {
       };
 
       if (!state.directory.federaciones) state.directory.federaciones = [];
-      const idx = state.directory.federaciones.findIndex(f => f && (String(f.id) === String(federationId) || (f.codigo && String(f.codigo) === String(federationId))));
+      const idx = (state.directory.federaciones || []).findIndex(f => f && (String(f.id) === String(federationId) || (f.codigo && String(f.codigo) === String(federationId))));
       if (idx !== -1) {
         state.directory.federaciones[idx] = updatedFed;
       } else {
@@ -9367,9 +10378,9 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openSelectionModal(selectionId = null) {
+  function openSelectionEditModal(selectionId = null) {
     const isEdit = !!selectionId;
-    const sel = isEdit ? (state.directory.selecciones.find(s => s.id === selectionId) || {}) : {};
+    const sel = isEdit ? ((state.directory.selecciones || []).find(s => s.id === selectionId) || {}) : {};
 
     const nombre = sel.nombre || sel.seleccion || '';
     const federacion = sel.federacion || '';
@@ -9645,7 +10656,7 @@ function saveCarteleraTeamsToFirebase() {
       };
 
       if (!state.directory.selecciones) state.directory.selecciones = [];
-      const idx = state.directory.selecciones.findIndex(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
+      const idx = (state.directory.selecciones || []).findIndex(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
       if (idx !== -1) {
         state.directory.selecciones[idx] = updatedSel;
       } else {
@@ -9728,7 +10739,7 @@ function saveCarteleraTeamsToFirebase() {
       const selectedFedName = inputFedSel?.value.trim() || '';
       if (!selectedFedName || !state.directory.federaciones) return;
 
-      const foundFed = state.directory.federaciones.find(f => 
+      const foundFed = (state.directory.federaciones || []).find(f => 
         (f.nombre && f.nombre.toLowerCase() === selectedFedName.toLowerCase()) ||
         (f.federacion && f.federacion.toLowerCase() === selectedFedName.toLowerCase())
       );
@@ -10046,7 +11057,7 @@ function saveCarteleraTeamsToFirebase() {
       if (estiloSysInput) estiloSysInput.value = selectedSys;
 
       if (isEdit && selectionId && state.directory && Array.isArray(state.directory.selecciones)) {
-        const selObj = state.directory.selecciones.find(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
+        const selObj = (state.directory.selecciones || []).find(s => s && (String(s.id) === String(selectionId) || (s.codigo && String(s.codigo) === String(selectionId))));
         if (selObj) {
           selObj.sistemaTactico = selectedSys;
           selObj.sistemaHabitual = selectedSys;
@@ -10202,7 +11213,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openConvocatoriaModal(convocatoriaId = null) {
+  function openConvocatoriaEditModal(convocatoriaId = null) {
     const isEdit = !!convocatoriaId;
     const conv = isEdit ? (state.directory.convocatorias?.find(c => c.id === convocatoriaId) || {}) : {};
 
@@ -10853,7 +11864,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openTournamentModal(tournamentId = null) {
+  function openTournamentEditModal(tournamentId = null) {
     const isEdit = !!tournamentId;
     const tour = isEdit ? (state.directory.torneos?.find(t => t.id === tournamentId) || {}) : {};
 
@@ -11026,7 +12037,7 @@ function saveCarteleraTeamsToFirebase() {
           if (!pName) return;
 
           if (state.directory.selecciones) {
-            let targetSel = state.directory.selecciones.find(s => (s.nombre && s.nombre.toLowerCase() === pName.toLowerCase()) || (s.seleccion && s.seleccion.toLowerCase() === pName.toLowerCase()));
+            let targetSel = (state.directory.selecciones || []).find(s => (s.nombre && s.nombre.toLowerCase() === pName.toLowerCase()) || (s.seleccion && s.seleccion.toLowerCase() === pName.toLowerCase()));
             if (targetSel) {
               if (!targetSel.torneos) targetSel.torneos = [];
               if (!targetSel.torneos.includes(nameVal)) targetSel.torneos.push(nameVal);
@@ -11034,7 +12045,7 @@ function saveCarteleraTeamsToFirebase() {
           }
 
           if (state.directory.equipos) {
-            let targetEq = state.directory.equipos.find(e => (e.nombre && e.nombre.toLowerCase() === pName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === pName.toLowerCase()));
+            let targetEq = (state.directory.equipos || []).find(e => (e.nombre && e.nombre.toLowerCase() === pName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === pName.toLowerCase()));
             if (targetEq) {
               if (!targetEq.torneos) targetEq.torneos = [];
               if (!targetEq.torneos.includes(nameVal)) targetEq.torneos.push(nameVal);
@@ -11138,7 +12149,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openStaffModal(staffId = null) {
+  function openStaffEditModal(staffId = null) {
     const isEdit = !!staffId;
     const st = isEdit ? (state.directory.staff?.find(s => s.id === staffId) || {}) : {};
 
@@ -11344,7 +12355,7 @@ function saveCarteleraTeamsToFirebase() {
       // Bidirectional sync for Staff into Equipos, Selecciones, and Clubes
       const syncStaffToEquipo = (eqName) => {
         if (!eqName || !state.directory.equipos) return;
-        let targetEq = state.directory.equipos.find(e => (e.nombre && e.nombre.toLowerCase() === eqName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === eqName.toLowerCase()));
+        let targetEq = (state.directory.equipos || []).find(e => (e.nombre && e.nombre.toLowerCase() === eqName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === eqName.toLowerCase()));
         if (targetEq) {
           if (!targetEq.staff) targetEq.staff = [];
           const exists = targetEq.staff.some(s => (typeof s === 'string' ? s : s.nombre) === nameVal);
@@ -11354,7 +12365,7 @@ function saveCarteleraTeamsToFirebase() {
 
       const syncStaffToSeleccion = (selName) => {
         if (!selName || !state.directory.selecciones) return;
-        let targetSel = state.directory.selecciones.find(s => (s.nombre && s.nombre.toLowerCase() === selName.toLowerCase()) || (s.seleccion && s.seleccion.toLowerCase() === selName.toLowerCase()));
+        let targetSel = (state.directory.selecciones || []).find(s => (s.nombre && s.nombre.toLowerCase() === selName.toLowerCase()) || (s.seleccion && s.seleccion.toLowerCase() === selName.toLowerCase()));
         if (targetSel) {
           if (!targetSel.staff) targetSel.staff = [];
           const exists = targetSel.staff.some(s => (typeof s === 'string' ? s : s.nombre) === nameVal);
@@ -11514,7 +12525,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openAgencyModal(agencyId = null) {
+  function openAgencyEditModal(agencyId = null) {
     const isEdit = !!agencyId;
     const ag = isEdit ? (state.directory.agencias?.find(a => a.id === agencyId) || {}) : {};
 
@@ -11699,7 +12710,7 @@ function saveCarteleraTeamsToFirebase() {
       };
 
       if (!state.directory.agencias) state.directory.agencias = [];
-      const idx = state.directory.agencias.findIndex(a => a && (String(a.id) === String(agencyId) || (a.codigo && String(a.codigo) === String(agencyId))));
+      const idx = (state.directory.agencias || []).findIndex(a => a && (String(a.id) === String(agencyId) || (a.codigo && String(a.codigo) === String(agencyId))));
       if (idx !== -1) {
         state.directory.agencias[idx] = updatedAgency;
       } else {
@@ -11929,7 +12940,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openAgentModal(agentId = null) {
+  function openAgentEditModal(agentId = null) {
     const isEdit = !!agentId;
     const agt = isEdit ? (state.directory.agentes?.find(a => a.id === agentId) || {}) : {};
 
@@ -12135,7 +13146,7 @@ function saveCarteleraTeamsToFirebase() {
 
       // Bidirectional sync for Agencia
       if (updatedAgent.agencia && state.directory.agencias) {
-        let targetAg = state.directory.agencias.find(a => 
+        let targetAg = (state.directory.agencias || []).find(a => 
           (a.nombre && a.nombre.toLowerCase() === updatedAgent.agencia.toLowerCase()) ||
           (a.agencia && a.agencia.toLowerCase() === updatedAgent.agencia.toLowerCase())
         );
@@ -12314,7 +13325,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnCancelModal')?.addEventListener('click', removeLargeClass, { once: true });
   }
 
-  function openStadiumModal(stadiumId = null) {
+  function openStadiumEditModal(stadiumId = null) {
     const isEdit = !!stadiumId;
     const est = isEdit ? (state.directory.estadios?.find(e => e.id === stadiumId) || {}) : {};
 
@@ -12516,7 +13527,7 @@ function saveCarteleraTeamsToFirebase() {
           }
 
           if (state.directory.equipos) {
-            let targetEq = state.directory.equipos.find(e => (e.nombre && e.nombre.toLowerCase() === cName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === cName.toLowerCase()));
+            let targetEq = (state.directory.equipos || []).find(e => (e.nombre && e.nombre.toLowerCase() === cName.toLowerCase()) || (e.equipo && e.equipo.toLowerCase() === cName.toLowerCase()));
             if (targetEq) {
               targetEq.estadio = nameVal;
               targetEq.estadioVinculado = nameVal;
@@ -13357,7 +14368,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists
-      let teamMatch = state.directory.equipos.find(e => e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()));
+      let teamMatch = (state.directory.equipos || []).find(e => e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()));
       if (!teamMatch) {
         teamMatch = {
           id: 'eq_' + Date.now() + Math.floor(Math.random() * 10000),
@@ -13437,7 +14448,7 @@ function saveCarteleraTeamsToFirebase() {
 
       // Check if team already exists (exactly this name + Tercera RFEF + Group XV, to avoid collision with LNJ team if they have the exact same name)
       // Usually team names for the senior team don't have "Juvenil" in them.
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === 'tercera rfef'
       );
@@ -13521,7 +14532,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (exactly this name + Primera Autonomica Navarra + Group Único, to avoid collision with LNJ or Tercera team if they have the exact same name)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === 'primera autonomica navarra'
       );
@@ -13611,7 +14622,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Autonómica Juvenil Navarra)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
@@ -13701,7 +14712,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
@@ -13791,7 +14802,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra + Grupo 2)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
@@ -13882,7 +14893,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Liga Cadete Navarra)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
@@ -13972,7 +14983,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Autonómica Cadete Navarra)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
@@ -14059,7 +15070,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 1)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '1'
@@ -14149,7 +15160,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 2)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
@@ -14239,7 +15250,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 3)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
@@ -14329,7 +15340,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 4)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '4'
@@ -14419,7 +15430,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 5)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '5'
@@ -14497,7 +15508,7 @@ function saveCarteleraTeamsToFirebase() {
       let clubMatch = getOrCreateClub(clubName, 'Nacional', RFEF);
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 3)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
@@ -14577,7 +15588,7 @@ function saveCarteleraTeamsToFirebase() {
       let clubMatch = getOrCreateClub(clubName, 'Nacional', RFEF);
 
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 2)
-      let teamMatch = state.directory.equipos.find(e => 
+      let teamMatch = (state.directory.equipos || []).find(e => 
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) && 
         (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
@@ -15121,14 +16132,14 @@ function saveCarteleraTeamsToFirebase() {
                       <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${clubPriColor}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id || c.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL CLUB EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${c.id}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${c.id || c.codigo}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15148,14 +16159,14 @@ function saveCarteleraTeamsToFirebase() {
                   const convList = getConvenidosListForClub(c);
                   if (convList.length > 0) {
                     return `
-                      <button type="button" class="btn-convenidos-trigger" data-id="${c.id}" style="width: 100%; padding: 5px 10px; font-size: 11px; font-weight: 800; border-radius: 8px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                      <button type="button" class="btn-convenidos-trigger" data-id="${c.id || c.codigo}" style="width: 100%; padding: 5px 10px; font-size: 11px; font-weight: 800; border-radius: 8px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         <i data-lucide="building-2" style="width: 14px;"></i> Clubes Convenidos (${convList.length})
                       </button>
                     `;
                   }
                   return '';
                 })()}
-                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${clubPriColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id || c.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${clubPriColor}40;">
                   <i data-lucide="shield-check"></i> Ver / Editar Ficha de Club
                 </button>
               </div>
@@ -15254,14 +16265,14 @@ function saveCarteleraTeamsToFirebase() {
                       `}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id || eq.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL EQUIPO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id}" title="${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id || eq.codigo}" title="${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(eq.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15319,7 +16330,7 @@ function saveCarteleraTeamsToFirebase() {
                   })()}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id || eq.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
                   <i data-lucide="users"></i> Ver / Editar Ficha de Equipo
                 </button>
               </div>
@@ -15364,7 +16375,7 @@ function saveCarteleraTeamsToFirebase() {
               const fedLogo = f.logo || f.escudo || f.imagen;
 
               return `
-              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id}" style="border-top: 5px solid ${fedColorPrimary} !important; background: linear-gradient(180deg, ${fedColorPrimary}12 0%, var(--bg-card, #ffffff) 35%); cursor: grab; padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id || f.codigo}" style="border-top: 5px solid ${fedColorPrimary} !important; background: linear-gradient(180deg, ${fedColorPrimary}12 0%, var(--bg-card, #ffffff) 35%); cursor: grab; padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Grip + Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
@@ -15375,14 +16386,14 @@ function saveCarteleraTeamsToFirebase() {
                       ${fedLogo ? `<img src="${escapeHtml(fedLogo)}" alt="${escapeHtml(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${f.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${f.id || f.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA FEDERACIÓN EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${f.id}" title="${escapeHtml(f.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${f.id || f.codigo}" title="${escapeHtml(f.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(f.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15398,7 +16409,7 @@ function saveCarteleraTeamsToFirebase() {
                   ${f.web || f.paginaWeb ? `<div><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600;">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${fedColorPrimary}40;">
+                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id || f.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${fedColorPrimary}40;">
                   <i data-lucide="globe"></i> Ver / Editar Ficha de Federación
                 </button>
               </div>
@@ -15501,14 +16512,14 @@ function saveCarteleraTeamsToFirebase() {
                       ${selLogo ? `<img src="${selLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${s.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${s.id || s.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA SELECCIÓN EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title selection-name-link cursor-pointer" data-id="${s.id}" title="${escapeHtml(s.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title selection-name-link cursor-pointer" data-id="${s.id || s.codigo}" title="${escapeHtml(s.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(s.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15524,7 +16535,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Convocados:</strong> ${(s.jugadores && s.jugadores.length) ? s.jugadores.length + ' jugador(es)' : 'Sin convocados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-selection-modal" data-id="${s.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${selColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-selection-modal" data-id="${s.id || s.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${selColor}40;">
                   <i data-lucide="flag"></i> Ver / Editar Ficha de Selección
                 </button>
               </div>
@@ -15577,14 +16588,14 @@ function saveCarteleraTeamsToFirebase() {
                       <i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id || c.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA CONVOCATORIA EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title conv-name-link cursor-pointer" data-id="${c.id}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title conv-name-link cursor-pointer" data-id="${c.id || c.codigo}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15600,7 +16611,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Convocados:</strong> ${(c.jugadores && c.jugadores.length) ? c.jugadores.length + ' jugador(es)' : 'Sin convocados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-conv-modal" data-id="${c.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${convColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-conv-modal" data-id="${c.id || c.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${convColor}40;">
                   <i data-lucide="megaphone"></i> Ver / Editar Convocatoria
                 </button>
               </div>
@@ -15653,14 +16664,14 @@ function saveCarteleraTeamsToFirebase() {
                       ${trnLogo ? `<img src="${trnLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${t.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${t.id || t.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL TORNEO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title trn-name-link cursor-pointer" data-id="${t.id}" title="${escapeHtml(t.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title trn-name-link cursor-pointer" data-id="${t.id || t.codigo}" title="${escapeHtml(t.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(t.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15675,7 +16686,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Participantes:</strong> ${(t.participantes && t.participantes.length) ? t.participantes.length + ' equipo(s)' : 'Sin inscritos'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-trn-modal" data-id="${t.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${trnColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-trn-modal" data-id="${t.id || t.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${trnColor}40;">
                   <i data-lucide="trophy"></i> Ver / Editar Ficha de Torneo
                 </button>
               </div>
@@ -15729,7 +16740,7 @@ function saveCarteleraTeamsToFirebase() {
                 ${pageItems.map(s => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
                     <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id || s.codigo}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
                         <img src="${s.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(s.nombre)}</span>
                       </a>
@@ -15797,14 +16808,14 @@ function saveCarteleraTeamsToFirebase() {
                       ${ag.logo || ag.escudo ? `<img src="${ag.logo || ag.escudo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${ag.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${ag.id || ag.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA AGENCIA EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title agency-name-link cursor-pointer" data-id="${ag.id}" title="${escapeHtml(ag.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title agency-name-link cursor-pointer" data-id="${ag.id || ag.codigo}" title="${escapeHtml(ag.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(ag.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15820,7 +16831,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: ${agColor}1A; color: ${agColor}; font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-agency-modal" data-id="${ag.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-agency-modal" data-id="${ag.id || ag.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agColor}40;">
                   <i data-lucide="briefcase"></i> Ver / Editar Ficha de Agencia
                 </button>
               </div>
@@ -15878,17 +16889,17 @@ function saveCarteleraTeamsToFirebase() {
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${agtColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${agt.foto || agt.imagen ? `<img src="${agt.foto || agt.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<span style="font-weight: 800; color: ${agtColor}; font-size: 16px;">${agt.nombre ? agt.nombre.charAt(0) : 'A'}</span>`}
+                      ${agt.foto || agt.imagen ? `<img src="${agt.foto || agt.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<img src="Foto Jugador General.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${agt.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${agt.id || agt.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL AGENTE EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title agent-name-link cursor-pointer" data-id="${agt.id}" title="${escapeHtml(agt.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title agent-name-link cursor-pointer" data-id="${agt.id || agt.codigo}" title="${escapeHtml(agt.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(agt.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15904,7 +16915,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: ${agtColor}1A; color: ${agtColor}; font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-agent-modal" data-id="${agt.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agtColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-agent-modal" data-id="${agt.id || agt.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agtColor}40;">
                   <i data-lucide="user-cog"></i> Ver / Editar Ficha de Agente
                 </button>
               </div>
@@ -15957,14 +16968,14 @@ function saveCarteleraTeamsToFirebase() {
                       ${est.foto || est.imagen ? `<img src="${est.foto || est.imagen}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${est.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${est.id || est.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL ESTADIO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title stadium-name-link cursor-pointer" data-id="${est.id}" title="${escapeHtml(est.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title stadium-name-link cursor-pointer" data-id="${est.id || est.codigo}" title="${escapeHtml(est.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(est.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -15980,7 +16991,7 @@ function saveCarteleraTeamsToFirebase() {
                   <div><strong>Clubes:</strong> ${(est.clubes && est.clubes.length) ? est.clubes.length + ' club(es)' : 'Sin clubes'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-stadium-modal" data-id="${est.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${estColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-stadium-modal" data-id="${est.id || est.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${estColor}40;">
                   <i data-lucide="map-pin"></i> Ver / Editar Ficha de Estadio
                 </button>
               </div>
@@ -16009,7 +17020,7 @@ function saveCarteleraTeamsToFirebase() {
                       <span style="font-weight: 800; font-size: 16px;">${itemName.charAt(0)}</span>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${item.id}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${item.id || item.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
@@ -19673,10 +20684,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                   </div>
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
-                  <button class="btn btn-sm btn-secondary btn-unarchive-task" data-id="${t.id}" title="Restaurar a En proceso">
+                  <button class="btn btn-sm btn-secondary btn-unarchive-task" data-id="${t.id || t.codigo}" title="Restaurar a En proceso">
                     <i data-lucide="rotate-ccw" style="width: 13px;"></i> Restaurar
                   </button>
-                  <button class="btn-action-icon danger btn-delete-archived-task" data-id="${t.id}" title="Eliminar permanentemente">
+                  <button class="btn-action-icon danger btn-delete-archived-task" data-id="${t.id || t.codigo}" title="Eliminar permanentemente">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
@@ -19853,7 +20864,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const isEvento = t.tipo === 'evento';
 
       return `
-        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id}" draggable="true" style="border-left: 4px solid ${colorObj.accent};">
+        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id || t.codigo}" draggable="true" style="border-left: 4px solid ${colorObj.accent};">
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted);" title="Mantener y arrastrar entre estados">
@@ -19862,10 +20873,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               <h4 style="font-size: 14px; font-weight: 700; margin: 0; color: var(--text-main); ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
             </div>
             <div style="display: flex; gap: 4px; flex-shrink: 0;">
-              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id}" title="Editar">
+              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id || t.codigo}" title="Editar">
                 <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
               </button>
-              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id}" title="Eliminar">
+              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id || t.codigo}" title="Eliminar">
                 <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
               </button>
             </div>
@@ -19875,7 +20886,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-light);">
-            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id}" style="font-size: 11px; font-weight: 700; padding: 2px 6px; height: 26px;">
+            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id || t.codigo}" style="font-size: 11px; font-weight: 700; padding: 2px 6px; height: 26px;">
               <option value="todo" ${t.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
               <option value="in_progress" ${t.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
               <option value="done" ${t.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
