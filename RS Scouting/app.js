@@ -983,6 +983,8 @@ function saveCarteleraTeamsToFirebase() {
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
+    const elPendingEvents = document.getElementById('kpiPendingEvents');
+    const elPriorityMatches = document.getElementById('kpiPriorityMatchesThisWeek');
 
     if (elVistos) elVistos.textContent = totalVistos;
     if (elScheduled) elScheduled.textContent = scheduledMatches;
@@ -991,6 +993,41 @@ function saveCarteleraTeamsToFirebase() {
     if (elTotalPlayers) elTotalPlayers.textContent = players.length;
     if (elPendingTasks) elPendingTasks.textContent = pendingTasks.length;
     if (elHighPriorityTasks) elHighPriorityTasks.textContent = `${highPriorityTasks} prioridad alta`;
+    
+    if (elPendingEvents) {
+      const pendingEvents = agenda.filter(a => a.tipo === 'Evento' && !a.completada && !a.archivada).length;
+      elPendingEvents.textContent = pendingEvents;
+    }
+    
+    if (elPriorityMatches) {
+      const pTeamsLower = (state.cartelera?.priorityTeams || []).map(t => String(t).toLowerCase().trim());
+      let pMatchesCount = 0;
+      
+      const today = new Date();
+      const day = today.getDay() || 7;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - day + 1);
+      monday.setHours(0,0,0,0);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23,59,59,999);
+      
+      (state.cartelera?.calendarios || []).forEach(cal => {
+        (cal.partidos || []).forEach(p => {
+          if (!p.fecha) return;
+          const matchDate = new Date(p.fecha);
+          if (matchDate >= monday && matchDate <= sunday) {
+            const l = String(p.local || '').toLowerCase().trim();
+            const v = String(p.visitante || '').toLowerCase().trim();
+            if (pTeamsLower.includes(l) || pTeamsLower.includes(v)) {
+              pMatchesCount++;
+            }
+          }
+        });
+      });
+      elPriorityMatches.textContent = pMatchesCount;
+    }
 
     // 3. Render Widget: Próximos Partidos
     renderDashboardUpcomingMatches();
@@ -1014,54 +1051,99 @@ function saveCarteleraTeamsToFirebase() {
     if (!container) return;
 
     const players = state.directory?.jugadores || [];
+    
+    const completedReports = (state.reports || []).filter(r => r.completado);
+    const seenPlayerNames = new Set();
+    completedReports.forEach(r => {
+      const processLineup = (lineupStr) => {
+         if (!lineupStr) return;
+         try {
+           const lineup = JSON.parse(lineupStr);
+           lineup.forEach(p => {
+             if (p.name) seenPlayerNames.add(p.name.toLowerCase().trim());
+           });
+         } catch(e) {}
+      };
+      processLineup(r.titularesLocal);
+      processLineup(r.suplentesLocal);
+      processLineup(r.titularesVisitante);
+      processLineup(r.suplentesVisitante);
+    });
+
     const groups = {
-      'Senior (Mayores de 2008)': 0,
-      'Juveniles (2008-2010)': 0,
-      'Cadetes (2011-2012)': 0,
-      'Infantiles (2013-2014)': 0,
-      'Alevines (2015-2016)': 0,
-      'Benjamines (2017-2018)': 0,
-      'Sin Año': 0
+      'Sin Año': { total: 0, vistos: 0 }
     };
     
     players.forEach(p => {
+      const isVisto = p.nombre && seenPlayerNames.has(p.nombre.toLowerCase().trim());
       let year = parseInt(String(p.anoNac || p.ano || p.anyo || '').trim(), 10);
       if (!year || isNaN(year)) {
-        groups['Sin Año']++;
-      } else if (year >= 2017) {
-        groups['Benjamines (2017-2018)']++;
-      } else if (year >= 2015) {
-        groups['Alevines (2015-2016)']++;
-      } else if (year >= 2013) {
-        groups['Infantiles (2013-2014)']++;
-      } else if (year >= 2011) {
-        groups['Cadetes (2011-2012)']++;
-      } else if (year >= 2008) {
-        groups['Juveniles (2008-2010)']++;
+        groups['Sin Año'].total++;
+        if (isVisto) groups['Sin Año'].vistos++;
       } else {
-        groups['Senior (Mayores de 2008)']++;
+        const key = String(year);
+        if (!groups[key]) groups[key] = { total: 0, vistos: 0 };
+        groups[key].total++;
+        if (isVisto) groups[key].vistos++;
       }
     });
 
-    const orderedKeys = [
-      'Senior (Mayores de 2008)',
-      'Juveniles (2008-2010)',
-      'Cadetes (2011-2012)',
-      'Infantiles (2013-2014)',
-      'Alevines (2015-2016)',
-      'Benjamines (2017-2018)',
-      'Sin Año'
-    ];
+    const currentSeasonEndYear = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
 
-    container.innerHTML = orderedKeys.map(key => {
-      if (groups[key] === 0 && key === 'Sin Año') return '';
-      return `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-        <span style="font-weight: 700; color: #0f172a;">${escapeHtml(key)}</span>
-        <span style="background: #2563eb; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 800;">${groups[key]}</span>
-      </div>
-      `;
-    }).join('');
+    function getPlayerAgeGroup(subAge) {
+      if (isNaN(subAge) || subAge <= 0) return 'Sin Categoría';
+      if (subAge >= 20) return 'Senior';
+      if (subAge >= 17 && subAge <= 19) return 'Juveniles';
+      if (subAge >= 15 && subAge <= 16) return 'Cadetes';
+      if (subAge >= 13 && subAge <= 14) return 'Infantiles';
+      if (subAge >= 11 && subAge <= 12) return 'Alevines';
+      if (subAge <= 10) return 'Benjamines';
+      return 'Sin Categoría';
+    }
+
+    const ageGroupStats = {};
+    const groupOrder = ['Senior', 'Juveniles', 'Cadetes', 'Infantiles', 'Alevines', 'Benjamines', 'Sin Categoría'];
+
+    Object.keys(groups).forEach(year => {
+      let groupName = 'Sin Categoría';
+      let subAge = -1;
+      if (year !== 'Sin Año') {
+        const yNum = parseInt(year);
+        subAge = currentSeasonEndYear - yNum;
+        groupName = getPlayerAgeGroup(subAge);
+      }
+      
+      if (!ageGroupStats[groupName]) ageGroupStats[groupName] = { total: 0, vistos: 0, years: [] };
+      ageGroupStats[groupName].total += groups[year].total;
+      ageGroupStats[groupName].vistos += groups[year].vistos;
+      ageGroupStats[groupName].years.push({ year, total: groups[year].total, vistos: groups[year].vistos, subAge });
+    });
+
+    let html = '';
+    groupOrder.forEach(groupName => {
+      if (!ageGroupStats[groupName] || ageGroupStats[groupName].total === 0) return;
+      const stats = ageGroupStats[groupName];
+      const iconColor = stats.vistos >= stats.total && stats.total > 0 ? 'green' : 'blue';
+      const iconName = stats.vistos >= stats.total && stats.total > 0 ? 'user-check' : 'users';
+      
+      const yearsJson = encodeURIComponent(JSON.stringify(stats.years));
+      
+      html += `
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeHtml(groupName)}', '${yearsJson}')">
+        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-info" style="width: calc(100% - 48px);">
+          <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">CATEGORÍA</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stats.vistos >= stats.total && stats.total > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${stats.vistos}/${stats.total}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
+        </div>
+      </div>`;
+    });
+    
+    container.innerHTML = html;
+    
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   }
 
   function renderDashboardTeamsByCategory() {
@@ -1123,28 +1205,27 @@ function saveCarteleraTeamsToFirebase() {
     groupOrder.forEach(groupName => {
       if (!groupedStats[groupName] || groupedStats[groupName].length === 0) return;
       
-      groupedStats[groupName].sort((a, b) => {
-        const idxA = orderRef.indexOf(a.cat);
-        const idxB = orderRef.indexOf(b.cat);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.cat.localeCompare(b.cat);
+      let totalGroup = 0;
+      let vistosGroup = 0;
+      groupedStats[groupName].forEach(stat => {
+         totalGroup += stat.total;
+         vistosGroup += stat.vistos;
       });
 
-      html += `<div style="break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px;">`;
-      html += `<div style="font-weight: 800; color: #475569; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">${escapeHtml(groupName)}</div>`;
+      const iconColor = vistosGroup >= totalGroup && totalGroup > 0 ? 'green' : 'blue';
+      const iconName = vistosGroup >= totalGroup && totalGroup > 0 ? 'shield-check' : 'shield';
       
-      groupedStats[groupName].forEach(stat => {
-        html += `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 4px;">
-          <span style="font-weight: 600; color: #0f172a; font-size: 13px;">${escapeHtml(stat.cat)}</span>
-          <span style="background: ${stat.vistos >= stat.total ? '#15803d' : '#2563eb'}; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap;">
-            ${stat.vistos}/${stat.total} vistos
-          </span>
-        </div>`;
-      });
-      html += `</div>`;
+      const statsJson = encodeURIComponent(JSON.stringify(groupedStats[groupName]));
+
+      html += `
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeHtml(groupName)}', '${statsJson}')">
+        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-info" style="width: calc(100% - 48px);">
+          <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">CATEGORÍA</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${vistosGroup >= totalGroup && totalGroup > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${vistosGroup}/${totalGroup}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
+        </div>
+      </div>`;
     });
 
     if (!html) {
@@ -1153,7 +1234,86 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     container.innerHTML = html;
+    
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   }
+
+  window.openPlayersAgeGroupModal = function(groupName, yearsJson) {
+    const years = JSON.parse(decodeURIComponent(yearsJson));
+    years.sort((a, b) => {
+      if (a.year === 'Sin Año') return 1;
+      if (b.year === 'Sin Año') return -1;
+      return parseInt(b.year) - parseInt(a.year);
+    });
+
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 16px;">';
+    years.forEach(y => {
+        if (y.total === 0 && y.year === 'Sin Año') return;
+        const isAllSeen = y.total > 0 && y.vistos >= y.total;
+        const iconColor = isAllSeen ? 'green' : 'blue';
+        const iconName = isAllSeen ? 'user-check' : 'user';
+        
+        let subLabel = '';
+        if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
+        
+        html += `
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(y.year)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)'};">${y.vistos}/${y.total}</span>
+            <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
+            ${subLabel}
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    showModal(`Jugadores por Año: ${groupName}`, html, null);
+    
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+    
+    if (window.lucide) window.lucide.createIcons();
+  };
+
+  window.openTeamsCategoryModal = function(groupName, statsJson) {
+    const stats = JSON.parse(decodeURIComponent(statsJson));
+    const orderRef = state.directoryCategoriesOrder || [];
+    stats.sort((a, b) => {
+        const idxA = orderRef.indexOf(a.cat);
+        const idxB = orderRef.indexOf(b.cat);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.cat.localeCompare(b.cat);
+    });
+
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; padding: 16px;">';
+    stats.forEach(stat => {
+        const iconColor = stat.vistos >= stat.total ? 'green' : 'blue';
+        const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
+        html += `
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+          <div class="kpi-info" style="width: calc(100% - 48px);">
+            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
+            <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(stat.cat)}</span>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    showModal(`Equipos Vistos: ${groupName}`, html, null);
+    
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+    
+    if (window.lucide) window.lucide.createIcons();
+  };
 
   function renderDashboardUpcomingMatches() {
     const container = document.getElementById('dashboardUpcomingMatchesList');
@@ -2522,6 +2682,29 @@ function saveCarteleraTeamsToFirebase() {
     return null;
   }
 
+  function areColorsSimilar(hex1, hex2) {
+    if (!hex1 || !hex2) return false;
+    let h1 = hex1.replace('#', '');
+    let h2 = hex2.replace('#', '');
+    if (h1.length === 3) h1 = h1.split('').map(c => c + c).join('');
+    if (h2.length === 3) h2 = h2.split('').map(c => c + c).join('');
+    if (h1.length !== 6 || h2.length !== 6) return false;
+
+    const r1 = parseInt(h1.substr(0, 2), 16);
+    const g1 = parseInt(h1.substr(2, 2), 16);
+    const b1 = parseInt(h1.substr(4, 2), 16);
+
+    const r2 = parseInt(h2.substr(0, 2), 16);
+    const g2 = parseInt(h2.substr(2, 2), 16);
+    const b2 = parseInt(h2.substr(4, 2), 16);
+
+    // Euclidean distance in RGB space
+    const dist = Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2));
+    
+    // A distance < 120 means colors are reasonably similar visually.
+    return dist < 120;
+  }
+
   function getContrastColor(hexColor) {
     if (!hexColor || typeof hexColor !== 'string') return '#ffffff';
     let hex = hexColor.replace('#', '');
@@ -3046,14 +3229,6 @@ function saveCarteleraTeamsToFirebase() {
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
     
-    // Check if inferior category is included
-    const includeCantera = document.getElementById(`${team}IncludeCantera`)?.checked || false;
-    let allowedInferiorCategories = [];
-    if (includeCantera && targetTeam && targetTeam.categoria) {
-      allowedInferiorCategories = INFERIOR_CATEGORIES_MAP[targetTeam.categoria] || [];
-    }
-    const targetClub = targetTeam ? (targetTeam.clubVinculado || targetTeam.club || '').toLowerCase() : '';
-
     // Gather all currently entered names in the lineups
     const enteredNames = [];
     document.querySelectorAll(`#${team}TitularesRows input.name, #${team}SuplentesRows input.name`).forEach(input => {
@@ -3072,95 +3247,19 @@ function saveCarteleraTeamsToFirebase() {
           return itemName === pName;
         });
       }
-      
-      // If includeCantera is true, also check if player belongs to an inferior team of the same club
-      let isInferior = false;
-      
-      // Special logic for Subiza
-      const isSubiza = targetTeam && targetTeam.nombre && targetTeam.nombre.toLowerCase().includes('subiza');
-      
-      if (!matchesTeam && includeCantera) {
-        if (isSubiza) {
-           const subizaAllowedTeams = ['c. ciudad iruña pref', 'c ciudad iruña pref', 'c. ciudad de iruña pref', 'ciudad iruña pref', 'ciudad de iruña pref', 'osasuna dhj', 'valle aranguren dhj', 'valle de aranguren dhj', 'osasuna lnj'];
-           const inferiorTeams = equipos.filter(eq => {
-             if (!eq.nombre) return false;
-             const eqLower = eq.nombre.toLowerCase();
-             return subizaAllowedTeams.some(allowed => eqLower.includes(allowed) || allowed.includes(eqLower));
-           });
-           
-           isInferior = inferiorTeams.some(team => {
-             if (!team.plantilla) return false;
-             return team.plantilla.some(item => {
-               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-               return itemName === pName;
-             });
-           });
-
-           if (!isInferior) {
-             const pTeamName = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-             if (inferiorTeams.some(team => team.nombre.toLowerCase() === pTeamName)) {
-                isInferior = true;
-             }
-           }
-        } else if (allowedInferiorCategories.length > 0) {
-          const getBaseName = (name) => {
-             return name.toLowerCase().replace(/\s+(dhj|lnj|jau|jpr|cv|ch|cpr|ih|itx|alv|alvb|ben|benb|pref|aut|reg|1 rfef|2 rfef|3 rfef|\d{2}\/\d{2}).*/g, '').trim();
-          };
-          const targetBase = targetTeam.nombre ? getBaseName(targetTeam.nombre) : '';
-
-          // Find ALL inferior teams for this club
-          const inferiorTeams = equipos.filter(eq => {
-            if (!eq.nombre) return false;
-            const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
-            const eqBase = getBaseName(eq.nombre);
-            const sameClub = (targetClub && eqClub && targetClub === eqClub) || (targetBase && eqBase && targetBase === eqBase);
-            return sameClub && allowedInferiorCategories.includes(eq.categoria);
-          });
-
-          // Check if player is in any of their plantillas
-          isInferior = inferiorTeams.some(team => {
-             if (!team.plantilla) return false;
-             return team.plantilla.some(item => {
-               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-               return itemName === pName;
-             });
-          });
-
-          // Also check if player's p.equipo matches one of the inferior teams
-          if (!isInferior) {
-             const pTeamName = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-             if (inferiorTeams.some(team => team.nombre.toLowerCase() === pTeamName)) {
-                isInferior = true;
-             }
-          }
-        }
-      }
 
       // Do not include if already typed in one of the inputs
       if (enteredNames.includes(pName)) return false;
 
-      // Add a property to mark them as inferior for the datalist label if needed
-      if (isInferior) p._isInferior = true;
-
-      return matchesTeam || isInferior;
+      return matchesTeam;
     });
 
-    const mainPlayers = teamPlayers.filter(p => !p._isInferior);
-    const inferiorPlayers = teamPlayers.filter(p => p._isInferior);
-
-    let html = mainPlayers.map(p => {
+    let html = teamPlayers.map(p => {
       const pName = p.nombre || p.jugador || p.name || '';
       return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
     }).join('');
 
-    if (inferiorPlayers.length > 0) {
-      html += `<option value="--- JUGADORES OTRO EQUIPO ---" disabled></option>`;
-      html += inferiorPlayers.map(p => {
-        const pName = p.nombre || p.jugador || p.name || '';
-        const eqTag = ` [${escapeHtml(p.equipo || 'Filial')}]`;
-        return pName ? `<option value="${escapeHtml(pName)}${eqTag}"></option>` : '';
-      }).join('');
-    }
+    html += `<option value="--- INCLUIR FILIAL... ---"></option>`;
 
     datalist.innerHTML = html;
   }
@@ -3253,22 +3352,6 @@ function saveCarteleraTeamsToFirebase() {
             const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
             if (matchedPlayer) {
               if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
-              // Se ha comentado la actualización de la posición para que se mantenga la del esquema del partido
-              /*
-              const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
-              if (posSelect && matchedPos) {
-                const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
-                if (optExists) {
-                  posSelect.value = matchedPos;
-                } else {
-                  const newOpt = document.createElement('option');
-                  newOpt.value = matchedPos;
-                  newOpt.textContent = matchedPos;
-                  newOpt.selected = true;
-                  posSelect.appendChild(newOpt);
-                }
-              }
-              */
               renderPitchPins(team);
               updateTeamPlayersDatalist(team);
             }
@@ -3276,6 +3359,11 @@ function saveCarteleraTeamsToFirebase() {
         });
 
         nameInput?.addEventListener('input', () => {
+          if (nameInput.value === '--- INCLUIR FILIAL... ---') {
+            nameInput.value = '';
+            openFilialSelectorModal(team, nameInput);
+            return;
+          }
           renderPitchPins(team);
           updateTeamPlayersDatalist(team);
         });
@@ -3285,6 +3373,131 @@ function saveCarteleraTeamsToFirebase() {
         });
       });
     });
+  }
+
+  function openFilialSelectorModal(team, inputElement) {
+    const allEquipos = state.directory.equipos || [];
+    const currentTeamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim();
+    const currentTeamObj = allEquipos.find(eq => eq.nombre === currentTeamName);
+    const currentClub = (currentTeamObj?.club || '').toLowerCase().trim();
+
+    let filteredEquipos = allEquipos.filter(eq => {
+      if (!currentClub) return true;
+      const eqClub = (eq.club || '').toLowerCase().trim();
+      const eqName = (eq.nombre || '').toLowerCase().trim();
+      
+      if (eqClub === currentClub) return true;
+      
+      // Osasuna - Subiza filial logic
+      if (currentClub.includes('osasuna') && (eqClub.includes('subiza') || eqName.includes('subiza'))) return true;
+      if (currentClub.includes('subiza') && (eqClub.includes('osasuna') || eqName.includes('osasuna'))) return true;
+      
+      return false;
+    });
+
+    if (filteredEquipos.length === 0) filteredEquipos = allEquipos;
+
+    let equiposOptions = filteredEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+
+    const finalHTML = `
+      <datalist id="filialSelectorEquiposDatalist">
+        ${equiposOptions}
+      </datalist>
+      <div style="padding: 16px;">
+        <div class="form-group mb-2">
+          <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
+          <input type="text" id="filialSelectorSearch" list="filialSelectorEquiposDatalist" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
+        </div>
+        <div style="text-align: right; margin-bottom: 12px;">
+          <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
+        </div>
+        <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 4px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
+        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
+        </div>
+      </div>
+    `;
+
+    showModal('Seleccionar Jugador de Otro Equipo', finalHTML, null);
+    
+    // Ocultamos el botón inferior de submit para que sea obligatorio pinchar un jugador
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) {
+      btnSubmit.style.display = 'none';
+    }
+
+    const searchInput = document.getElementById('filialSelectorSearch');
+    const playersList = document.getElementById('filialSelectorPlayersList');
+    const btnShowAll = document.getElementById('btnShowAllTeamsModal');
+    const datalist = document.getElementById('filialSelectorEquiposDatalist');
+
+    btnShowAll.addEventListener('click', () => {
+      datalist.innerHTML = allEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+      btnShowAll.style.display = 'none';
+      searchInput.focus();
+    });
+
+    searchInput.addEventListener('input', () => {
+      const selectedTeamName = searchInput.value.trim().toLowerCase();
+      if (!selectedTeamName) {
+         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>';
+         return;
+      }
+
+      const teamObj = allEquipos.find(eq => eq.nombre && eq.nombre.toLowerCase() === selectedTeamName);
+      
+      if (!teamObj) {
+        playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Equipo no encontrado.</p>';
+        return;
+      }
+
+      const teamJugadores = (state.directory.jugadores || []).filter(p => {
+         const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+         if (pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam)) return true;
+         if (teamObj.plantilla) {
+            return teamObj.plantilla.some(item => {
+               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+               const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+               return itemName === pName;
+            });
+         }
+         return false;
+      });
+
+      if (teamJugadores.length === 0) {
+        playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">El equipo no tiene jugadores registrados en la base de datos.</p>';
+        return;
+      }
+
+      playersList.innerHTML = teamJugadores.map(p => {
+        const pName = p.nombre || p.jugador || p.name || '';
+        return `
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeHtml(pName)}" data-team="${escapeHtml(teamObj.nombre || '')}">
+            ${escapeHtml(pName)}
+          </button>
+        `;
+      }).join('');
+
+      playersList.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pName = btn.getAttribute('data-name');
+          const tName = btn.getAttribute('data-team');
+          inputElement.value = `${pName} [${tName}]`;
+          hideModal();
+          // Restaurar display del btnSubmit por si se usa en otros modales luego
+          if (btnSubmit) btnSubmit.style.display = '';
+          renderPitchPins(team);
+          updateTeamPlayersDatalist(team);
+        });
+      });
+    });
+    
+    // Event listener on modal close to restore the submit button display
+    const btnCancel = document.getElementById('btnCancelModal');
+    const btnClose = document.getElementById('btnCloseModal');
+    const restoreBtn = () => { if (btnSubmit) btnSubmit.style.display = ''; };
+    if (btnCancel) btnCancel.addEventListener('click', restoreBtn, {once: true});
+    if (btnClose) btnClose.addEventListener('click', restoreBtn, {once: true});
   }
 
   function renderPitchPins(team) {
@@ -3300,8 +3513,36 @@ function saveCarteleraTeamsToFirebase() {
     const teamObj = findTeamInDirectory(teamName);
     const parentClub = findParentClub(teamObj || { nombre: teamName });
 
-    const primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
+    let primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
+    let secondaryColor = teamObj?.colorSecondary || parentClub?.colorSecondary || '#ffffff';
+    let patron = teamObj?.patronCamiseta || parentClub?.patronCamiseta || 'liso';
+
+    if (team === 'visitante') {
+      const localTeamName = document.getElementById('reportLocalTeam')?.value.trim() || '';
+      const localTeamObj = findTeamInDirectory(localTeamName);
+      const localParent = findParentClub(localTeamObj || { nombre: localTeamName });
+      const localColor = localTeamObj?.colorPrimary || localTeamObj?.colorPrimario || localTeamObj?.color1 || localTeamObj?.color || localParent?.colorPrimary || localParent?.colorPrimario || localParent?.color1 || localParent?.colorCamiseta || localParent?.color || '#2563eb';
+      
+      if (primaryColor && localColor && (primaryColor.toLowerCase() === localColor.toLowerCase() || areColorsSimilar(primaryColor, localColor))) {
+        primaryColor = teamObj?.colorPrimary2 || parentClub?.colorPrimary2 || teamObj?.colorSecondary || parentClub?.colorSecondary || '#0284c7';
+        secondaryColor = teamObj?.colorSecondary2 || parentClub?.colorSecondary2 || '#ffffff';
+        patron = teamObj?.patronCamiseta2 || parentClub?.patronCamiseta2 || 'liso';
+      }
+    }
+
     const textColor = getContrastColor(primaryColor);
+    const textShadow = textColor === '#000000' 
+      ? 'text-shadow: 0 0 3px rgba(255,255,255,0.8), 0 0 2px rgba(255,255,255,1);' 
+      : 'text-shadow: 0 0 3px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,1);';
+
+    let backgroundStyle = `background-color: ${primaryColor};`;
+    if (patron === 'rayas') {
+      backgroundStyle = `background: repeating-linear-gradient(90deg, ${primaryColor}, ${primaryColor} 6px, ${secondaryColor} 6px, ${secondaryColor} 12px);`;
+    } else if (patron === 'franja') {
+      backgroundStyle = `background: linear-gradient(135deg, ${primaryColor} 35%, ${secondaryColor} 35%, ${secondaryColor} 65%, ${primaryColor} 65%);`;
+    } else if (patron === 'mitades') {
+      backgroundStyle = `background: linear-gradient(90deg, ${primaryColor} 50%, ${secondaryColor} 50%);`;
+    }
 
     // Get numbers and positions from Titulares and Suplentes rows
     const rows = document.querySelectorAll(`#${team}TitularesRows .lineup-row`);
@@ -3392,7 +3633,7 @@ function saveCarteleraTeamsToFirebase() {
       
       return `
         <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer;">
-          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; background-color: ${primaryColor}; color: ${textColor}; border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${backgroundStyle} color: ${textColor}; ${textShadow} border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
@@ -3417,7 +3658,11 @@ function saveCarteleraTeamsToFirebase() {
         const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
         const posVal = posSelect ? posSelect.value : '';
         const nameVal = nameInput ? nameInput.value.trim() : '';
-        const displayText = numVal ? numVal : (posVal || ('S' + (idx + 1)));
+        
+        // If a substitute has a position assigned, they are on the pitch, so they don't show on the bench
+        if (posVal) return '';
+
+        const displayText = numVal ? numVal : ('S' + (idx + 1));
 
         const pNum = numVal || (12 + idx);
         const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
@@ -3437,7 +3682,7 @@ function saveCarteleraTeamsToFirebase() {
 
         return `
           <div class="bench-pin-item" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + (posVal || 'Suplente') + (numVal ? ' #' + numVal : ''))}">
-            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; background-color: ${primaryColor}; color: ${textColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
+            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; ${backgroundStyle} color: ${textColor}; ${textShadow} border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
               ${escapeHtml(displayText)}
               ${badgesHTML}
             </div>
@@ -3474,9 +3719,62 @@ function saveCarteleraTeamsToFirebase() {
     "MADURACIÓN": ['Madurez tardía', 'Madurez prematura', 'Madurez normal']
   };
 
-  const OPTIONS_DESC_TECNICA = {
-    "ACCIONES POSITIVAS": ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'],
-    "ACCIONES A MEJORAR / NEGATIVAS": ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo']
+  const OPTIONS_CARGOS_STAFF = [
+    'Entrenador Principal',
+    'Segundo Entrenador',
+    'Preparador Físico',
+    'Entrenador de Porteros',
+    'Scout / Ojeador',
+    'Analista Táctico',
+    'Director Deportivo',
+    'Fisioterapeuta',
+    'Médico',
+    'Delegado',
+    'Delegado de Equipo',
+    'Delegado de Campo',
+    'Utillero',
+    'Readaptador',
+    'Coordinador'
+  ].sort((a, b) => a.localeCompare(b, 'es'));
+
+  const getOptionsDescTecnica = (pos) => {
+    let accionesPositivas = [];
+    let accionesNegativas = [];
+    const p = (pos || '').toUpperCase();
+    
+    if (p === 'PO') {
+      accionesPositivas = ['Blocajes', 'Buena gestión espacio defensivo', 'Bueno en el 1x1', 'Colocación', 'Comunicación', 'Despejes', 'Dominio área', 'Estiradas laterales', 'Inicio juego corto', 'Inicio juego largo', 'Juego aéreo', 'Juego pies', 'Lanzamiento mano', 'Movilidad', 'Penaltis', 'Presencia segura', 'Reducción ángulos', 'Reflejos bajo palos', 'Salidas balones largos', 'Salidas centros laterales', 'Seguridad en balones aéreos', 'Buena gestión balones a la espalda'];
+      accionesNegativas = ['Mal en Blocajes', 'Mala gestión espacio defensivo', 'Mal en el 1x1', 'Mala Colocación', 'Nula Comunicación', 'Mal en Despejes', 'No Dominio área', 'Mal en Estiradas laterales', 'Mal Inicio juego corto', 'Mal Inicio juego largo', 'Mal en Juego aéreo', 'Mal Juego pies', 'Lanzamiento mano', 'Poca Movilidad', 'Mal en Lanzamiento mano', 'Mal Penaltis', 'Presencia insegura', 'Mala Reducción ángulos', 'No tiene Reflejos bajo palos', 'Mal en Salidas balones largos', 'Mal en Salidas centros laterales', 'Inseguridad en balones aéreos', 'Mala gestión balones a la espalda'];
+    } else if (p === 'DBD' || p === 'DBZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Participa por Dentro', 'Defiende Hacia Adelante', 'Buenas Correcciones'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'DCD' || p === 'DCZ' || p === 'DC') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Defiende Hacia Adelante', 'Buenas Correcciones', 'Bueno en Defensa Hacia Atras'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MCD' || p === 'MCZ' || p === 'MC') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Llega Area Rival'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MVD' || p === 'MVZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Llega Area Rival'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MPD' || p === 'MPZ' || p === 'MP') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MBD' || p === 'MBZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'ACD' || p === 'ACZ' || p === 'AC') {
+      accionesPositivas = ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena recepción entre líneas', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else {
+      accionesPositivas = ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'];
+    }
+    
+    return {
+      "ACCIONES POSITIVAS": accionesPositivas,
+      "ACCIONES A MEJORAR / NEGATIVAS": accionesNegativas
+    };
   };
 
   const OPTIONS_DESC_EMOCIONAL = {
@@ -3544,9 +3842,16 @@ function saveCarteleraTeamsToFirebase() {
       </div>
       <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
     `;
+    
+    // Opción para crear uno nuevo dinámicamente
+    html += `<div style="padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--primary-blue); font-weight: 700; border-bottom: 2px solid var(--border-light); background: #f0f9ff; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" onclick="event.stopPropagation(); const val = prompt('Introduce la nueva descripción:'); if(val && val.trim()){ const t = document.getElementById('${escapeHtml(targetId)}'); if(t){ const parts = t.value.split(',').map(s=>s.trim()).filter(Boolean); if(!parts.includes(val.trim())){ parts.push(val.trim()); t.value = parts.join(', '); t.dispatchEvent(new Event('input', { bubbles: true })); } } this.parentElement.classList.add('hidden'); }">+ Crear nuevo...</div>`;
+
     for (const [groupLabel, items] of Object.entries(optionsObj)) {
       html += `<div style="padding: 6px 12px; font-weight: 800; font-size: 11px; background: var(--bg-subtle); color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; z-index: 1;">${escapeHtml(groupLabel)}</div>`;
-      items.forEach(item => {
+      
+      const sortedItems = [...items].sort((a, b) => a.localeCompare(b, 'es'));
+      
+      sortedItems.forEach(item => {
         html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
       });
     }
@@ -3598,7 +3903,10 @@ function saveCarteleraTeamsToFirebase() {
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
-      if (evalData.tags && evalData.tags.length > 0) playerInDir.tags = evalData.tags;
+      if (evalData.tags && evalData.tags.length > 0) {
+        const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...evalData.tags]);
+        playerInDir.controlSeguimiento = Array.from(newTags);
+      }
       
       // Append/update match evaluation history
       if (!playerInDir.historialEvaluaciones) playerInDir.historialEvaluaciones = [];
@@ -3704,6 +4012,8 @@ function saveCarteleraTeamsToFirebase() {
     const pName = row.querySelector('input.name')?.value.trim() || '';
     const pPos = row.querySelector('select.pos')?.value || 'MC';
     const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
+    
+    const localOptionsDescTecnica = getOptionsDescTecnica(pPos);
 
     if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
     const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
@@ -3910,10 +4220,10 @@ function saveCarteleraTeamsToFirebase() {
 
           <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-            ${Object.keys(OPTIONS_DESC_TECNICA).map(key => `
+            ${Object.keys(localOptionsDescTecnica).map(key => `
               <div class="desc-card-box" style="padding: 8px;">
                 <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
-                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_TECNICA[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                ${buildKeepOpenDropdownHTML({ [key]: localOptionsDescTecnica[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
                 <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
               </div>
             `).join('')}
@@ -4177,18 +4487,32 @@ function saveCarteleraTeamsToFirebase() {
         stats: pStats
       };
 
+      const allDescFisica = [];
       Object.keys(OPTIONS_DESC_FISICA).forEach(key => {
         const fieldKey = 'descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescFisica.push(val.trim());
       });
+      evalObj.descFisica = allDescFisica.join(', ');
+
+      const allDescTecnica = [];
       Object.keys(OPTIONS_DESC_TECNICA).forEach(key => {
         const fieldKey = 'descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescTecnica.push(val.trim());
       });
+      evalObj.descTecnica = allDescTecnica.join(', ');
+
+      const allDescEmocional = [];
       Object.keys(OPTIONS_DESC_EMOCIONAL).forEach(key => {
         const fieldKey = 'descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        evalObj[fieldKey] = modalContent.querySelector('#pmDescEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        const val = modalContent.querySelector('#pmDescEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
+        evalObj[fieldKey] = val;
+        if (val.trim()) allDescEmocional.push(val.trim());
       });
+      evalObj.descEmocional = allDescEmocional.join(', ');
 
       state.matchPlayerEvaluations[evalKey] = evalObj;
 
@@ -4758,7 +5082,7 @@ function saveCarteleraTeamsToFirebase() {
     const besoccer = player.besoccer || '';
     const telefono = player.telefono || '';
 
-    const controlSeguimiento = player.controlSeguimiento || [];
+    const controlSeguimiento = Array.from(new Set([...(player.controlSeguimiento || []), ...(player.tags || [])]));
     const gestorRebound = player.gestorRebound || 'NINGUNA / CLUB CONVENIDO';
 
     const rendimientoAcumulado = player.rendimientoAcumulado || '';
@@ -5144,91 +5468,22 @@ function saveCarteleraTeamsToFirebase() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN FÍSICA</label>
-                <select id="pfDescFisica" class="form-control">
-                  <option value="">Seleccionar rasgo físico...</option>
-                  <optgroup label="ESTATURA">
-                    ${['Normal', 'Alto', 'Muy alto', 'Pequeño', 'Muy pequeño'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="COMPLEXIÓN">
-                    ${['Normal para la edad', 'Delgado', 'Fibroso', 'Ancho', 'Culón', 'Fuerte', 'Frágil', 'Atlético', 'Robusto'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="DESARROLLO">
-                    ${['Coordinado', 'Descoordinado', 'Piernas cortas', 'Piernas largas', 'Muy desarrollado', 'Poco desarrollado', 'Tren inferior potente', 'Tren superior potente', 'Buena postura corporal', 'Movilidad reducida'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ESTÉTICOS">
-                    ${['Rubio', 'Moreno', 'Pelirrojo', 'Melena', 'Rapado', 'Teñido', 'Pelo largo', 'Pelo corto', 'Pelo rizado', 'Tatuaje', 'Barba', 'Sin barba', 'Pecas'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="FENOTIPO">
-                    ${['De raza negra', 'Sudamericano', 'Mestizo', 'Latino', 'Magrebí', 'Árabe', 'Asiático', 'Gitano', 'Nórdico', 'Caribeño'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MOTOR">
-                    ${['Ritmo alto', 'Alta intensidad', 'Baja intensidad', 'Incansable', 'Trabajador', 'Constante', 'Intermitente', 'Buena lateralidad', 'Buena motricidad', 'Equilibrio destacado', 'Problemas de equilibrio', 'Control corporal avanzado', 'Dinámico', 'Rígido', 'Fluido', 'Buena lectura corporal', 'Gestualidad eficiente'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MADURACIÓN">
-                    ${['Madurez tardía', 'Madurez prematura', 'Madurez normal'].map(o => `<option value="${escapeHtml(o)}" ${descFisica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descFisica && !['Normal', 'Alto', 'Muy alto', 'Pequeño', 'Muy pequeño', 'Normal para la edad', 'Delgado', 'Fibroso', 'Ancho', 'Culón', 'Fuerte', 'Frágil', 'Atlético', 'Robusto', 'Coordinado', 'Descoordinado', 'Piernas cortas', 'Piernas largas', 'Muy desarrollado', 'Poco desarrollado', 'Tren inferior potente', 'Tren superior potente', 'Buena postura corporal', 'Movilidad reducida', 'Rubio', 'Moreno', 'Pelirrojo', 'Melena', 'Rapado', 'Teñido', 'Pelo largo', 'Pelo corto', 'Pelo rizado', 'Tatuaje', 'Barba', 'Sin barba', 'Pecas', 'De raza negra', 'Sudamericano', 'Mestizo', 'Latino', 'Magrebí', 'Árabe', 'Asiático', 'Gitano', 'Nórdico', 'Caribeño', 'Ritmo alto', 'Alta intensidad', 'Baja intensidad', 'Incansable', 'Trabajador', 'Constante', 'Intermitente', 'Buena lateralidad', 'Buena motricidad', 'Equilibrio destacado', 'Problemas de equilibrio', 'Control corporal avanzado', 'Dinámico', 'Rígido', 'Fluido', 'Buena lectura corporal', 'Gestualidad eficiente', 'Madurez tardía', 'Madurez prematura', 'Madurez normal'].includes(descFisica) ? `<option value="${escapeHtml(descFisica)}" selected>${escapeHtml(descFisica)}</option>` : ''}
-                </select>
+                <textarea id="pfDescFisica" class="form-control" rows="2" placeholder="Rasgos físicos...">${escapeHtml(descFisica)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN TÉCNICA</label>
-                <select id="pfDescTecnica" class="form-control">
-                  <option value="">Seleccionar acción técnica...</option>
-                  <optgroup label="ACCIONES POSITIVAS">
-                    ${['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'].map(o => `<option value="${escapeHtml(o)}" ${descTecnica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ACCIONES A MEJORAR / NEGATIVAS">
-                    ${['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'].map(o => `<option value="${escapeHtml(o)}" ${descTecnica === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descTecnica && !['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'].includes(descTecnica) ? `<option value="${escapeHtml(descTecnica)}" selected>${escapeHtml(descTecnica)}</option>` : ''}
-                </select>
+                <textarea id="pfDescTecnica" class="form-control" rows="2" placeholder="Acciones técnicas...">${escapeHtml(descTecnica)}</textarea>
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">DESCRIPCIÓN EMOCIONAL</label>
-                <select id="pfDescEmocional" class="form-control">
-                  <option value="">Seleccionar rasgo emocional...</option>
-                  <optgroup label="ACTITUDES POSITIVAS">
-                    ${['Concentración alta', 'Mantener la calma bajo presión', 'Confianza en sí mismo', 'Motivación constante', 'Comunicación efectiva con compañeros', 'Liderazgo en el campo', 'Persistencia / no rendirse', 'Resiliencia tras un error', 'Control emocional', 'Toma de decisiones rápida y acertada', 'Positivismo y actitud constructiva', 'Cooperación en equipo', 'Adaptación a cambios de situación', 'Escucha activa de instrucciones', 'Empatía con compañeros', 'Autocrítica constructiva', 'Gestión del estrés en momentos clave', 'Motivación del equipo', 'Mantenimiento de la concentración'].map(o => `<option value="${escapeHtml(o)}" ${descEmocional === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="ACTITUDES A MEJORAR / NEGATIVAS">
-                    ${['Falta de concentración', 'Nerviosismo bajo presión', 'Falta de confianza', 'Desmotivación', 'Mala comunicación con compañeros', 'Egoísmo en el juego', 'Se rinde rápido', 'Frustración tras un error', 'Pérdida de autocontrol', 'Toma de decisiones precipitada', 'Actitud negativa / pesimista', 'Conflictos con compañeros', 'Rigidez ante cambios de situación', 'Ignorar instrucciones', 'Falta de empatía', 'Autocrítica destructiva', 'Estrés excesivo', 'Desmotivación del equipo', 'Desánimo tras fallo propio'].map(o => `<option value="${escapeHtml(o)}" ${descEmocional === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${descEmocional && !['Concentración alta', 'Mantener la calma bajo presión', 'Confianza en sí mismo', 'Motivación constante', 'Comunicación efectiva con compañeros', 'Liderazgo en el campo', 'Persistencia / no rendirse', 'Resiliencia tras un error', 'Control emocional', 'Toma de decisiones rápida y acertada', 'Positivismo y actitud constructiva', 'Cooperación en equipo', 'Adaptación a cambios de situation', 'Escucha activa de instrucciones', 'Empatía con compañeros', 'Autocrítica constructiva', 'Gestión del estrés en momentos clave', 'Motivación del equipo', 'Mantenimiento de la concentración', 'Falta de concentración', 'Nerviosismo bajo presión', 'Falta de confianza', 'Desmotivación', 'Mala comunicación con compañeros', 'Egoísmo en el juego', 'Se rinde rápido', 'Frustración tras un error', 'Pérdida de autocontrol', 'Toma de decisiones precipitada', 'Actitud negativa / pesimista', 'Conflictos con compañeros', 'Rigidez ante cambios de situación', 'Ignorar instrucciones', 'Falta de empatía', 'Autocrítica destructiva', 'Estrés excesivo', 'Desmotivación del equipo', 'Desánimo tras fallo propio'].includes(descEmocional) ? `<option value="${escapeHtml(descEmocional)}" selected>${escapeHtml(descEmocional)}</option>` : ''}
-                </select>
+                <textarea id="pfDescEmocional" class="form-control" rows="2" placeholder="Rasgos emocionales...">${escapeHtml(descEmocional)}</textarea>
               </div>
               <div class="form-group">
                 <label class="form-label">PERFIL RS</label>
-                <select id="pfPerfilRS" class="form-control">
-                  <option value="">Seleccionar Perfil RS...</option>
-                  <optgroup label="PORTEROS">
-                    ${['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="LATERALES">
-                    ${['1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="CENTRALES">
-                    ${['Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Lectura defensiva (Def)', 'Inicio de juego (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MEDIOCENTROS">
-                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Inicio de juego (Of)', 'Profundidad (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="INTERIORES">
-                    ${['Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="MEDIAPUNTAS">
-                    ${['Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="BANDAS">
-                    ${['1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  <optgroup label="PUNTAS">
-                    ${['Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].map(o => `<option value="${escapeHtml(o)}" ${perfilRS === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
-                  </optgroup>
-                  ${perfilRS && !['Portería (Def)', 'Área grande (Def)', 'Sobrio (Def)', 'Inicio de juego (Of)', '1x1 defensivo (Def)', 'Lectura defensiva (Def)', 'Juego combinativo (Of)', 'Profundidad (Of)', 'Defensa de área (Def)', 'Defensa de campo abierto (Def)', 'Rigor posicional (Def)', 'Despliegue (Def)', 'Organizador (Of)', 'Box to box (Of)', 'Elaborador (Of)', 'Juego entre líneas (Of)', 'Profundo con balón (Of)', 'Profundo en el espacio (Of)', '1x1 ofensivo (Of)', 'Combinativo (Of)', 'Profundo fuera-fuera (Of)', 'Ruptura fuera-dentro (Of)', 'Área (Of)', 'Referencia (Of)', 'Apoyo (Of)', 'Espacio (Of)'].includes(perfilRS) ? `<option value="${escapeHtml(perfilRS)}" selected>${escapeHtml(perfilRS)}</option>` : ''}
-                </select>
+                <textarea id="pfPerfilRS" class="form-control" rows="2" placeholder="Perfiles RS...">${escapeHtml(perfilRS)}</textarea>
               </div>
             </div>
 
@@ -5364,7 +5619,7 @@ function saveCarteleraTeamsToFirebase() {
       p.rendimientoAcumulado = document.getElementById('pfRendimientoAcumulado')?.value.trim() || '';
       p.potencial = document.getElementById('pfPotencial')?.value || '3';
       p.minutos = document.getElementById('pfMinutos')?.value.trim() || '';
-      p.rendimientoRS = document.getElementById('pfRendimientoRS')?.value || 'A';
+      p.rendimientoRS = document.getElementById('pfRendRS')?.value || 'A';
       p.descFisica = document.getElementById('pfDescFisica')?.value.trim() || '';
       p.descTecnica = document.getElementById('pfDescTecnica')?.value.trim() || '';
       p.descEmocional = document.getElementById('pfDescEmocional')?.value.trim() || '';
@@ -5444,8 +5699,8 @@ function saveCarteleraTeamsToFirebase() {
 
           if (evalName === pNameLower && evalObj.comentarioGeneral && evalObj.comentarioGeneral.trim() !== '') {
             matchComments.push({
-              date: rep.fecha || 'Sin fecha',
-              match: `${rep.local || 'Local'} vs ${rep.visitante || 'Visitante'}`,
+              date: rep.date || rep.fecha || 'Sin fecha',
+              match: `${rep.localTeam || rep.local || 'Local'} vs ${rep.visitanteTeam || rep.visitante || 'Visitante'}`,
               comment: evalObj.comentarioGeneral
             });
           }
@@ -5893,9 +6148,34 @@ function saveCarteleraTeamsToFirebase() {
                   `}
                   <input type="file" id="inputClubLogo" accept="image/*" class="hidden">
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center;">
-                  <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                  <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                <div style="width: 100%; text-align: center;">
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">1ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                    <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                  </div>
+                  <div style="width: 100%; margin-bottom: 12px;">
+                    <select id="cfPatronCamiseta" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (1ª Eq)">
+                      <option value="liso" ${club.patronCamiseta === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${club.patronCamiseta === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${club.patronCamiseta === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${club.patronCamiseta === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
+                  
+                  <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">2ª EQUIPACIÓN</div>
+                  <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
+                    <input type="color" id="cfColorPrimary2" value="${club.colorPrimary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
+                    <input type="color" id="cfColorSecondary2" value="${club.colorSecondary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
+                  </div>
+                  <div style="width: 100%;">
+                    <select id="cfPatronCamiseta2" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (2ª Eq)">
+                      <option value="liso" ${club.patronCamiseta2 === 'liso' ? 'selected' : ''}>Liso</option>
+                      <option value="rayas" ${club.patronCamiseta2 === 'rayas' ? 'selected' : ''}>Rayas</option>
+                      <option value="franja" ${club.patronCamiseta2 === 'franja' ? 'selected' : ''}>Franja</option>
+                      <option value="mitades" ${club.patronCamiseta2 === 'mitades' ? 'selected' : ''}>Mitades</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -6320,7 +6600,11 @@ function saveCarteleraTeamsToFirebase() {
         logo: logoData,
         escudo: logoData,
         colorPrimary: document.getElementById('cfColorPrimary').value,
-        colorSecondary: document.getElementById('cfColorSecondary').value
+        colorSecondary: document.getElementById('cfColorSecondary').value,
+        colorPrimary2: document.getElementById('cfColorPrimary2') ? document.getElementById('cfColorPrimary2').value : '',
+        colorSecondary2: document.getElementById('cfColorSecondary2') ? document.getElementById('cfColorSecondary2').value : '',
+        patronCamiseta: document.getElementById('cfPatronCamiseta') ? document.getElementById('cfPatronCamiseta').value : 'liso',
+        patronCamiseta2: document.getElementById('cfPatronCamiseta2') ? document.getElementById('cfPatronCamiseta2').value : 'liso'
       };
 
       if (!state.directory.clubes) state.directory.clubes = [];
@@ -6348,6 +6632,9 @@ function saveCarteleraTeamsToFirebase() {
             }
             if (updatedClub.colorSecondary) {
               eq.colorSecondary = updatedClub.colorSecondary;
+            }
+            if (updatedClub.patronCamiseta) {
+              eq.patronCamiseta = updatedClub.patronCamiseta;
             }
             if (updatedClub.federacion) {
               eq.federacion = updatedClub.federacion;
@@ -7173,7 +7460,10 @@ function saveCarteleraTeamsToFirebase() {
           <div class="team-tab-pane hidden" id="ttab-plantilla">
             <div class="player-section-title mb-2" style="display: flex; justify-content: space-between; align-items: center;">
               <span><i data-lucide="user-check"></i> JUGADORES DE LA PLANTILLA</span>
-              <span style="font-size: 12px; color: var(--primary-blue); font-weight: 800; background: var(--primary-blue-light); padding: 2px 10px; border-radius: 12px;" id="lblSelectedPlayersCount">0 en plantilla</span>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;" id="lblPlantillaStats">Media Edad: 0 | Altas: 0 | Ren: 0 | Sube: 0</span>
+                <span style="font-size: 12px; color: var(--primary-blue); font-weight: 800; background: var(--primary-blue-light); padding: 2px 10px; border-radius: 12px;" id="lblSelectedPlayersCount">0 en plantilla</span>
+              </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 140px; gap: 8px;" class="mb-4">
@@ -7841,6 +8131,36 @@ function saveCarteleraTeamsToFirebase() {
       const countLabel = document.getElementById('lblSelectedPlayersCount');
       if (countLabel) {
         countLabel.textContent = `${localPlantillaList.length} en plantilla`;
+        
+        // Calcular stats
+        let totalAge = 0; let countAge = 0;
+        let altas = 0; let renov = 0; let sube = 0;
+        const currentYear = new Date().getFullYear();
+        const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+        localPlantillaList.forEach(j => {
+          const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+          const foundPlayer = playersPool.find(p => 
+            (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+            (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+            (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+          );
+          if (foundPlayer) {
+            const anoVal = parseInt(foundPlayer.anoNac || foundPlayer.ano);
+            if (!isNaN(anoVal) && anoVal > 1900) {
+              totalAge += (currentYear - anoVal);
+              countAge++;
+            }
+            const estado = (foundPlayer.estado || '').toUpperCase();
+            if (estado === 'ALTA') altas++;
+            else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
+            else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+          }
+        });
+        const avgAge = countAge > 0 ? (totalAge / countAge).toFixed(1) : 0;
+        const lblStats = document.getElementById('lblPlantillaStats');
+        if (lblStats) {
+          lblStats.textContent = `Media Edad: ${avgAge} | Altas: ${altas} | Ren: ${renov} | Sube: ${sube}`;
+        }
       }
 
       if (window.lucide) window.lucide.createIcons();
@@ -10530,19 +10850,11 @@ function saveCarteleraTeamsToFirebase() {
           <div class="sf-tab-pane hidden" id="sftab-profesional">
             <div class="form-group mb-4">
               <label class="form-label">CARGO</label>
-              <select id="stCargo" class="form-control">
-                <option value="">-- Selecciona un cargo --</option>
-                <option value="Entrenador Principal" ${cargo === 'Entrenador Principal' ? 'selected' : ''}>Entrenador Principal</option>
-                <option value="Segundo Entrenador" ${cargo === 'Segundo Entrenador' ? 'selected' : ''}>Segundo Entrenador</option>
-                <option value="Preparador Físico" ${cargo === 'Preparador Físico' ? 'selected' : ''}>Preparador Físico</option>
-                <option value="Entrenador de Porteros" ${cargo === 'Entrenador de Porteros' ? 'selected' : ''}>Entrenador de Porteros</option>
-                <option value="Scout / Ojeador" ${cargo === 'Scout / Ojeador' ? 'selected' : ''}>Scout / Ojeador</option>
-                <option value="Analista Táctico" ${cargo === 'Analista Táctico' ? 'selected' : ''}>Analista Táctico</option>
-                <option value="Director Deportivo" ${cargo === 'Director Deportivo' ? 'selected' : ''}>Director Deportivo</option>
-                <option value="Fisioterapeuta" ${cargo === 'Fisioterapeuta' ? 'selected' : ''}>Fisioterapeuta</option>
-                <option value="Médico" ${cargo === 'Médico' ? 'selected' : ''}>Médico</option>
-                <option value="Delegado" ${cargo === 'Delegado' ? 'selected' : ''}>Delegado</option>
-              </select>
+              <input type="text" id="stCargo" class="form-control" list="stCargoList" placeholder="Selecciona o escribe un cargo..." value="${escapeHtml(cargo)}" onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input')); } }">
+              <datalist id="stCargoList">
+                <option value="+ Crear nuevo..."></option>
+                ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}
+              </datalist>
             </div>
 
             <div class="form-group mb-4">
@@ -14587,9 +14899,47 @@ function saveCarteleraTeamsToFirebase() {
                 </div>
 
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
-                  <div><strong>Club:</strong> ${escapeHtml(eq.clubVinculado || eq.club || (parentC ? parentC.nombre : 'N/A'))}</div>
                   <div><strong>Competición:</strong> ${escapeHtml(eq.competicion || 'N/A')}</div>
-                  <div><strong>Federación:</strong> ${escapeHtml(eq.federacion || 'N/A')}</div>
+                  <div style="font-weight: 800; color: var(--text-main);">Media de Edad: ${(() => {
+                    let totalAge = 0; let countAge = 0;
+                    const currentYear = new Date().getFullYear();
+                    const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+                    (eq.plantilla || []).forEach(j => {
+                      const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                      const foundPlayer = playersPool.find(p => 
+                        (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                      );
+                      if (foundPlayer) {
+                        const anoVal = parseInt(foundPlayer.anoNac || foundPlayer.ano);
+                        if (!isNaN(anoVal) && anoVal > 1900) {
+                          totalAge += (currentYear - anoVal);
+                          countAge++;
+                        }
+                      }
+                    });
+                    return countAge > 0 ? (totalAge / countAge).toFixed(1) + ' años' : 'N/A';
+                  })()}</div>
+                  <div style="font-weight: 800; color: var(--text-main);">Altas: ${(() => {
+                    let altas = 0; let renov = 0; let sube = 0;
+                    const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+                    (eq.plantilla || []).forEach(j => {
+                      const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                      const foundPlayer = playersPool.find(p => 
+                        (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                      );
+                      if (foundPlayer) {
+                        const estado = (foundPlayer.estado || '').toUpperCase();
+                        if (estado === 'ALTA') altas++;
+                        else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
+                        else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+                      }
+                    });
+                    return `${altas} | Renovaciones: ${renov} | Sube: ${sube}`;
+                  })()}</div>
                 </div>
 
                 <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
@@ -16099,12 +16449,16 @@ function saveCarteleraTeamsToFirebase() {
 
     // Positions from player modal (only abbreviated codes)
     const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
-    const cargoOptions = ['Delegado', 'Entrenador Principal', 'Segundo Entrenador', 'Preparador Físico', 'Entrenador de Porteros', 'Scout / Ojeador', 'Analista Táctico', 'Director Deportivo', 'Fisioterapeuta', 'Médico', 'Delegado de Equipo', 'Delegado de Campo', 'Utillero', 'Readaptador'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
     const piernaOptions = ['Derecha', 'Izquierda', 'Ambidiestro'];
 
-    let html = '';
+    let html = `
+      <datalist id="importerCargoList">
+        <option value="+ Crear nuevo..."></option>
+        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}
+      </datalist>
+    `;
     stagedExcelRows.forEach((row, idx) => {
       const isStaff = row.tipo === 'STAFF';
       
@@ -16136,9 +16490,7 @@ function saveCarteleraTeamsToFirebase() {
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             ${isStaff ? `
-              <select class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c;">
-                ${cargoOptions.map(c => `<option value="${c}" ${row.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}
-              </select>
+              <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" list="importerCargoList" value="${escapeHtml(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
             ` : `
               <span style="display: block; text-align: center; color: #cbd5e1; font-weight: bold; font-size: 11px;">-</span>
             `}
@@ -21161,6 +21513,28 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const btnExport = document.getElementById('btnExportMapasPDF');
     if (btnExport) btnExport.onclick = exportarMapasPDF;
 
+    const toggleBtns = document.querySelectorAll('.mapas-toggle-btn');
+    toggleBtns.forEach(btn => {
+      btn.onclick = () => {
+        toggleBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const tag = btn.dataset.tag;
+        const mainTitle = document.querySelector('#view-mapas .view-header h1');
+        if (mainTitle) {
+          mainTitle.innerHTML = `<i data-lucide="layout-dashboard"></i> Mapas y Seguimiento`;
+          if (window.lucide) window.lucide.createIcons();
+        }
+        
+        const tableTitle = document.getElementById('mapasJugadoresTitle');
+        if (tableTitle) {
+          tableTitle.textContent = `Jugadores en ${tag}`;
+        }
+        
+        renderMapasPins();
+      };
+    });
+
     renderMapasPins();
   }
 
@@ -21189,10 +21563,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       return null;
     };
 
-    // Filter by year, competicion and 11 IDEAL
+    // Get active map tag
+    const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+    const activeMapTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+
+    // Filter by year, competicion and selected tag
     const filteredPlayers = players.filter(p => {
-      const is11Ideal = (p.controlSeguimiento || []).includes('11 IDEAL');
-      if (!is11Ideal) return false;
+      const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
+      if (!isTagged) return false;
       if (selCat && String(p.ano).trim() !== selCat) return false;
       if (selComp) {
         const pComp = getPlayerComp(p);
@@ -21240,11 +21618,29 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       filteredPlayers.forEach(p => {
         if (renderedIds.has(p.id)) return;
         renderedIds.add(p.id);
+        
+        // Asegurar que los datos calculados (como el Rendimiento RS promedio) están actualizados en memoria
+        if (typeof recalculatePlayerAggregates === 'function') {
+          recalculatePlayerAggregates(p);
+        }
+        
         const nameEscaped = escapeHtml(p.nombre || '-');
         const yearEscaped = escapeHtml(p.ano || '-');
         const teamEscaped = escapeHtml(p.equipo || '-');
         const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || '-');
-        const levelEscaped = escapeHtml(p.proyeccion || '-');
+        
+        let pieEscaped = '-';
+        if (p.pierna) {
+          if (p.pierna === 'Derecha') pieEscaped = 'D';
+          else if (p.pierna === 'Izquierda') pieEscaped = 'Z';
+          else if (p.pierna === 'Ambidiestro') pieEscaped = 'A';
+          else pieEscaped = escapeHtml(p.pierna.substring(0, 1).toUpperCase());
+        }
+
+        let levelEscaped = escapeHtml(p.rendimientoRS || '-');
+        if (p.rendimientoRSAvgNum) {
+          levelEscaped += ` (${escapeHtml(p.rendimientoRSAvgNum)})`;
+        }
         tableRows += `
           <tr style="border-bottom: 1px solid var(--border-light); font-size: 13px;">
             <td style="padding: 12px 8px;">
@@ -21253,13 +21649,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${yearEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${teamEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${posEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${pieEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 700; color: var(--primary-blue);">${levelEscaped}</td>
           </tr>
         `;
       });
       
       if (!tableRows) {
-        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores en el 11 ideal para estos filtros.</td></tr>`;
+        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores marcados como ${escapeHtml(activeMapTag)} para estos filtros.</td></tr>`;
       }
       tableBody.innerHTML = tableRows;
       
@@ -21293,8 +21690,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin jugadores</div>`;
       }
 
+      const mapX = 100 - posCoords.y;
+      const mapY = posCoords.x;
+
       return `
-        <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+        <div style="position: absolute; left: ${mapX}%; top: ${mapY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
           <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
             ${escapeHtml(posCode)}
           </div>
@@ -21336,6 +21736,61 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       tableDiv.style.overflowX = 'visible';
     }
 
+    // Reconstruct vertical pitch for PDF
+    const pitchClone = clone.querySelector('#mapasCampogramaPitch');
+    if (pitchClone) {
+      pitchClone.style.aspectRatio = '68 / 105';
+      pitchClone.style.background = 'repeating-linear-gradient(180deg, #1b7a38 0px, #1b7a38 40px, #145e2a 40px, #145e2a 80px)';
+      
+      const pinsContainer = pitchClone.querySelector('#mapasCampogramaPins');
+      
+      pitchClone.innerHTML = `
+        <!-- Center line -->
+        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.7); transform: translateY(-50%);"></div>
+        <!-- Center circle -->
+        <div style="position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        <!-- Center dot -->
+        <div style="position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        
+        <!-- Top Penalty Box -->
+        <div style="position: absolute; top: 0; left: 50%; width: 300px; height: 120px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Goal Box -->
+        <div style="position: absolute; top: 0; left: 50%; width: 120px; height: 40px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Penalty Arc -->
+        <div style="position: absolute; top: 120px; left: 50%; width: 100px; height: 50px; border: 2px solid rgba(255,255,255,0.7); border-radius: 0 0 100px 100px; transform: translateX(-50%); border-top: none;"></div>
+        <!-- Top Penalty Dot -->
+        <div style="position: absolute; top: 80px; left: 50%; width: 4px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+        
+        <!-- Bottom Penalty Box -->
+        <div style="position: absolute; bottom: 0; left: 50%; width: 300px; height: 120px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Goal Box -->
+        <div style="position: absolute; bottom: 0; left: 50%; width: 120px; height: 40px; border: 2px solid rgba(255,255,255,0.7); transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Penalty Arc -->
+        <div style="position: absolute; bottom: 120px; left: 50%; width: 100px; height: 50px; border: 2px solid rgba(255,255,255,0.7); border-radius: 100px 100px 0 0; transform: translateX(-50%); border-bottom: none;"></div>
+        <!-- Bottom Penalty Dot -->
+        <div style="position: absolute; bottom: 80px; left: 50%; width: 4px; height: 4px; background: rgba(255,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%);"></div>
+
+        <!-- Corner arcs -->
+        <div style="position: absolute; top: -10px; left: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; top: -10px; right: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -10px; left: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -10px; right: -10px; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%;"></div>
+      `;
+      
+      if (pinsContainer) {
+        Array.from(pinsContainer.children).forEach(pin => {
+          const curLeft = parseFloat(pin.style.left);
+          const curTop = parseFloat(pin.style.top);
+          // Invert back the transformation applied in renderMapasPins
+          const origX = curTop;
+          const origY = 100 - curLeft;
+          pin.style.left = origX + '%';
+          pin.style.top = origY + '%';
+        });
+        pitchClone.appendChild(pinsContainer);
+      }
+    }
+
     const printWin = window.open('', '', 'width=1200,height=800');
     printWin.document.write(`
       <html>
@@ -21368,33 +21823,35 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               display: flex; 
               justify-content: center; 
               overflow: hidden; 
-              zoom: 0.7; /* This reduces the actual layout space taken to prevent page breaks */
+              zoom: 0.75;
             }
             .data-table td, .data-table th { padding: 12px 8px !important; }
             
-            /* Print Specific Overrides to ensure side-by-side single page */
             #mapasExportContainer {
-              flex-wrap: nowrap !important;
-              align-items: flex-start !important;
+              display: grid !important;
+              grid-template-columns: 1fr 500px !important;
               gap: 40px !important;
               width: 100% !important;
-              max-width: 1300px !important;
+              max-width: 1400px !important;
               page-break-inside: avoid !important;
+              align-items: start !important;
+            }
+            #mapasExportContainer > div {
+              grid-column: span 1 !important;
             }
             #mapasExportContainer > div:first-child {
-              flex: 1 !important;
-              max-width: 600px !important;
-              height: 750px !important;
-              overflow: hidden !important;
+              max-height: none !important;
+              height: auto !important;
+              overflow: visible !important;
             }
             #mapasCampogramaPitch {
-              flex-shrink: 0 !important;
-              page-break-inside: avoid !important;
+              width: 100% !important;
+              height: auto !important;
             }
           </style>
         </head>
         <body>
-          <div class="header-main">Mapas (11 Ideal)</div>
+          <div class="header-main">Mapas (${escapeHtml(document.querySelector('.mapas-toggle-btn.active')?.dataset.tag || '11 Ideal')})</div>
           <div class="header-sub">Categoría (Año): ${escapeHtml(selCat)} &nbsp;|&nbsp; Competición: ${escapeHtml(selComp)} &nbsp;|&nbsp; Sistema Táctico: ${escapeHtml(sysSelect)}</div>
           
           <div class="export-wrapper">
