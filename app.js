@@ -3719,6 +3719,24 @@ function saveCarteleraTeamsToFirebase() {
     "MADURACIÓN": ['Madurez tardía', 'Madurez prematura', 'Madurez normal']
   };
 
+  const OPTIONS_CARGOS_STAFF = [
+    'Entrenador Principal',
+    'Segundo Entrenador',
+    'Preparador Físico',
+    'Entrenador de Porteros',
+    'Scout / Ojeador',
+    'Analista Táctico',
+    'Director Deportivo',
+    'Fisioterapeuta',
+    'Médico',
+    'Delegado',
+    'Delegado de Equipo',
+    'Delegado de Campo',
+    'Utillero',
+    'Readaptador',
+    'Coordinador'
+  ].sort((a, b) => a.localeCompare(b, 'es'));
+
   const getOptionsDescTecnica = (pos) => {
     let accionesPositivas = [];
     let accionesNegativas = [];
@@ -7442,7 +7460,10 @@ function saveCarteleraTeamsToFirebase() {
           <div class="team-tab-pane hidden" id="ttab-plantilla">
             <div class="player-section-title mb-2" style="display: flex; justify-content: space-between; align-items: center;">
               <span><i data-lucide="user-check"></i> JUGADORES DE LA PLANTILLA</span>
-              <span style="font-size: 12px; color: var(--primary-blue); font-weight: 800; background: var(--primary-blue-light); padding: 2px 10px; border-radius: 12px;" id="lblSelectedPlayersCount">0 en plantilla</span>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;" id="lblPlantillaStats">Media Edad: 0 | Altas: 0 | Ren: 0 | Sube: 0</span>
+                <span style="font-size: 12px; color: var(--primary-blue); font-weight: 800; background: var(--primary-blue-light); padding: 2px 10px; border-radius: 12px;" id="lblSelectedPlayersCount">0 en plantilla</span>
+              </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 140px; gap: 8px;" class="mb-4">
@@ -8110,6 +8131,36 @@ function saveCarteleraTeamsToFirebase() {
       const countLabel = document.getElementById('lblSelectedPlayersCount');
       if (countLabel) {
         countLabel.textContent = `${localPlantillaList.length} en plantilla`;
+        
+        // Calcular stats
+        let totalAge = 0; let countAge = 0;
+        let altas = 0; let renov = 0; let sube = 0;
+        const currentYear = new Date().getFullYear();
+        const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+        localPlantillaList.forEach(j => {
+          const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+          const foundPlayer = playersPool.find(p => 
+            (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+            (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+            (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+          );
+          if (foundPlayer) {
+            const anoVal = parseInt(foundPlayer.anoNac || foundPlayer.ano);
+            if (!isNaN(anoVal) && anoVal > 1900) {
+              totalAge += (currentYear - anoVal);
+              countAge++;
+            }
+            const estado = (foundPlayer.estado || '').toUpperCase();
+            if (estado === 'ALTA') altas++;
+            else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
+            else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+          }
+        });
+        const avgAge = countAge > 0 ? (totalAge / countAge).toFixed(1) : 0;
+        const lblStats = document.getElementById('lblPlantillaStats');
+        if (lblStats) {
+          lblStats.textContent = `Media Edad: ${avgAge} | Altas: ${altas} | Ren: ${renov} | Sube: ${sube}`;
+        }
       }
 
       if (window.lucide) window.lucide.createIcons();
@@ -10799,19 +10850,11 @@ function saveCarteleraTeamsToFirebase() {
           <div class="sf-tab-pane hidden" id="sftab-profesional">
             <div class="form-group mb-4">
               <label class="form-label">CARGO</label>
-              <select id="stCargo" class="form-control">
-                <option value="">-- Selecciona un cargo --</option>
-                <option value="Entrenador Principal" ${cargo === 'Entrenador Principal' ? 'selected' : ''}>Entrenador Principal</option>
-                <option value="Segundo Entrenador" ${cargo === 'Segundo Entrenador' ? 'selected' : ''}>Segundo Entrenador</option>
-                <option value="Preparador Físico" ${cargo === 'Preparador Físico' ? 'selected' : ''}>Preparador Físico</option>
-                <option value="Entrenador de Porteros" ${cargo === 'Entrenador de Porteros' ? 'selected' : ''}>Entrenador de Porteros</option>
-                <option value="Scout / Ojeador" ${cargo === 'Scout / Ojeador' ? 'selected' : ''}>Scout / Ojeador</option>
-                <option value="Analista Táctico" ${cargo === 'Analista Táctico' ? 'selected' : ''}>Analista Táctico</option>
-                <option value="Director Deportivo" ${cargo === 'Director Deportivo' ? 'selected' : ''}>Director Deportivo</option>
-                <option value="Fisioterapeuta" ${cargo === 'Fisioterapeuta' ? 'selected' : ''}>Fisioterapeuta</option>
-                <option value="Médico" ${cargo === 'Médico' ? 'selected' : ''}>Médico</option>
-                <option value="Delegado" ${cargo === 'Delegado' ? 'selected' : ''}>Delegado</option>
-              </select>
+              <input type="text" id="stCargo" class="form-control" list="stCargoList" placeholder="Selecciona o escribe un cargo..." value="${escapeHtml(cargo)}" onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input')); } }">
+              <datalist id="stCargoList">
+                <option value="+ Crear nuevo..."></option>
+                ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}
+              </datalist>
             </div>
 
             <div class="form-group mb-4">
@@ -14856,9 +14899,47 @@ function saveCarteleraTeamsToFirebase() {
                 </div>
 
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
-                  <div><strong>Club:</strong> ${escapeHtml(eq.clubVinculado || eq.club || (parentC ? parentC.nombre : 'N/A'))}</div>
                   <div><strong>Competición:</strong> ${escapeHtml(eq.competicion || 'N/A')}</div>
-                  <div><strong>Federación:</strong> ${escapeHtml(eq.federacion || 'N/A')}</div>
+                  <div style="font-weight: 800; color: var(--text-main);">Media de Edad: ${(() => {
+                    let totalAge = 0; let countAge = 0;
+                    const currentYear = new Date().getFullYear();
+                    const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+                    (eq.plantilla || []).forEach(j => {
+                      const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                      const foundPlayer = playersPool.find(p => 
+                        (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                      );
+                      if (foundPlayer) {
+                        const anoVal = parseInt(foundPlayer.anoNac || foundPlayer.ano);
+                        if (!isNaN(anoVal) && anoVal > 1900) {
+                          totalAge += (currentYear - anoVal);
+                          countAge++;
+                        }
+                      }
+                    });
+                    return countAge > 0 ? (totalAge / countAge).toFixed(1) + ' años' : 'N/A';
+                  })()}</div>
+                  <div style="font-weight: 800; color: var(--text-main);">Altas: ${(() => {
+                    let altas = 0; let renov = 0; let sube = 0;
+                    const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+                    (eq.plantilla || []).forEach(j => {
+                      const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                      const foundPlayer = playersPool.find(p => 
+                        (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                        (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                      );
+                      if (foundPlayer) {
+                        const estado = (foundPlayer.estado || '').toUpperCase();
+                        if (estado === 'ALTA') altas++;
+                        else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
+                        else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+                      }
+                    });
+                    return `${altas} | Renovaciones: ${renov} | Sube: ${sube}`;
+                  })()}</div>
                 </div>
 
                 <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
@@ -16368,12 +16449,16 @@ function saveCarteleraTeamsToFirebase() {
 
     // Positions from player modal (only abbreviated codes)
     const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
-    const cargoOptions = ['Delegado', 'Entrenador Principal', 'Segundo Entrenador', 'Preparador Físico', 'Entrenador de Porteros', 'Scout / Ojeador', 'Analista Táctico', 'Director Deportivo', 'Fisioterapeuta', 'Médico', 'Delegado de Equipo', 'Delegado de Campo', 'Utillero', 'Readaptador'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
     const piernaOptions = ['Derecha', 'Izquierda', 'Ambidiestro'];
 
-    let html = '';
+    let html = `
+      <datalist id="importerCargoList">
+        <option value="+ Crear nuevo..."></option>
+        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}
+      </datalist>
+    `;
     stagedExcelRows.forEach((row, idx) => {
       const isStaff = row.tipo === 'STAFF';
       
@@ -16405,9 +16490,7 @@ function saveCarteleraTeamsToFirebase() {
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             ${isStaff ? `
-              <select class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c;">
-                ${cargoOptions.map(c => `<option value="${c}" ${row.cargo === c ? 'selected' : ''}>${c}</option>`).join('')}
-              </select>
+              <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" list="importerCargoList" value="${escapeHtml(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
             ` : `
               <span style="display: block; text-align: center; color: #cbd5e1; font-weight: bold; font-size: 11px;">-</span>
             `}
