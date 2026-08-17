@@ -3719,9 +3719,44 @@ function saveCarteleraTeamsToFirebase() {
     "MADURACIÓN": ['Madurez tardía', 'Madurez prematura', 'Madurez normal']
   };
 
-  const OPTIONS_DESC_TECNICA = {
-    "ACCIONES POSITIVAS": ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'],
-    "ACCIONES A MEJORAR / NEGATIVAS": ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo']
+  const getOptionsDescTecnica = (pos) => {
+    let accionesPositivas = [];
+    let accionesNegativas = [];
+    const p = (pos || '').toUpperCase();
+    
+    if (p === 'PO') {
+      accionesPositivas = ['Blocajes', 'Buena gestión espacio defensivo', 'Bueno en el 1x1', 'Colocación', 'Comunicación', 'Despejes', 'Dominio área', 'Estiradas laterales', 'Inicio juego corto', 'Inicio juego largo', 'Juego aéreo', 'Juego pies', 'Lanzamiento mano', 'Movilidad', 'Penaltis', 'Presencia segura', 'Reducción ángulos', 'Reflejos bajo palos', 'Salidas balones largos', 'Salidas centros laterales', 'Seguridad en balones aéreos', 'Buena gestión balones a la espalda'];
+      accionesNegativas = ['Mal en Blocajes', 'Mala gestión espacio defensivo', 'Mal en el 1x1', 'Mala Colocación', 'Nula Comunicación', 'Mal en Despejes', 'No Dominio área', 'Mal en Estiradas laterales', 'Mal Inicio juego corto', 'Mal Inicio juego largo', 'Mal en Juego aéreo', 'Mal Juego pies', 'Lanzamiento mano', 'Poca Movilidad', 'Mal en Lanzamiento mano', 'Mal Penaltis', 'Presencia insegura', 'Mala Reducción ángulos', 'No tiene Reflejos bajo palos', 'Mal en Salidas balones largos', 'Mal en Salidas centros laterales', 'Inseguridad en balones aéreos', 'Mala gestión balones a la espalda'];
+    } else if (p === 'DBD' || p === 'DBZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Participa por Dentro', 'Defiende Hacia Adelante', 'Buenas Correcciones'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'DCD' || p === 'DCZ' || p === 'DC') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Defiende Hacia Adelante', 'Buenas Correcciones', 'Bueno en Defensa Hacia Atras'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MCD' || p === 'MCZ' || p === 'MC') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Buena Anticipación', 'Bueno en robo', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Llega Area Rival'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MVD' || p === 'MVZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos', 'Llega Area Rival'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MPD' || p === 'MPZ' || p === 'MP') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Supera Líneas', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'MBD' || p === 'MBZ') {
+      accionesPositivas = ['Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Centro preciso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Pase que pone en riesgo al equipo', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else if (p === 'ACD' || p === 'ACZ' || p === 'AC') {
+      accionesPositivas = ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Buena finalización', 'Bueno en robo', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena recepción entre líneas', 'Acción técnica creativa / diferente', 'Ganador juego aéreo', 'Ganador Duelos'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin éxito', 'Pase corto impreciso', 'Pase largo impreciso', 'Mala Elección en Pase filtrado', 'Centro impreciso', 'Mala finalización', 'No roba balones', 'Mala orientación corporal', 'Primer toque deficiente', 'Mala protección de balón', 'Pérdida en salida de balón', 'Regate en 1v1 perdido', 'Acción técnica bajo presión negativa', 'No supera Líneas', 'Mala recepción entre líneas', 'Acción técnica precipitada', 'No disputa juego aéreo', 'Perdedor Duelos'];
+    } else {
+      accionesPositivas = ['Regate efectivo', 'Buen control', 'Control bajo presión exitoso', 'Conducción segura', 'Pase corto preciso', 'Pase largo preciso', 'Pase filtrado exitoso', 'Cambio de orientación correcto', 'Centro preciso', 'Buena finalización', 'Anticipación bien', 'Bueno en robo de balón', 'Buenos despejes', 'Buena orientación corporal', 'Primer toque de calidad', 'Protección de balón efectiva', 'Buen golpeo en salida de balón', 'Regate en 1v1 ganado', 'Acción técnica bajo presión exitosa', 'Buena conducción en progresión', 'Buena recepción entre líneas', 'Pase en ventaja', 'Acción técnica creativa / diferente', 'Ganador juego aéreo'];
+      accionesNegativas = ['Mal control', 'Control bajo presión malo', 'Regate fallido', 'Conducción arriesgada sin ventaja', 'Pase corto impreciso', 'Pase largo impreciso', 'Pase filtrado interceptado', 'Mal cambio de orientación', 'Centro impreciso', 'Mala finalización', 'Mide mal en anticipaciones', 'No roba balones', 'Despejes defectuosos', 'Mala orientación corporal', 'Acción técnica bajo presión fallida', 'Mala conducción en progresión', 'Mala recepción entre líneas', 'Pase que pone en riesgo al compañero', 'Acción técnica precipitada', 'No disputa juego aéreo'];
+    }
+    
+    return {
+      "ACCIONES POSITIVAS": accionesPositivas,
+      "ACCIONES A MEJORAR / NEGATIVAS": accionesNegativas
+    };
   };
 
   const OPTIONS_DESC_EMOCIONAL = {
@@ -3789,9 +3824,16 @@ function saveCarteleraTeamsToFirebase() {
       </div>
       <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
     `;
+    
+    // Opción para crear uno nuevo dinámicamente
+    html += `<div style="padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--primary-blue); font-weight: 700; border-bottom: 2px solid var(--border-light); background: #f0f9ff; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" onclick="event.stopPropagation(); const val = prompt('Introduce la nueva descripción:'); if(val && val.trim()){ const t = document.getElementById('${escapeHtml(targetId)}'); if(t){ const parts = t.value.split(',').map(s=>s.trim()).filter(Boolean); if(!parts.includes(val.trim())){ parts.push(val.trim()); t.value = parts.join(', '); t.dispatchEvent(new Event('input', { bubbles: true })); } } this.parentElement.classList.add('hidden'); }">+ Crear nuevo...</div>`;
+
     for (const [groupLabel, items] of Object.entries(optionsObj)) {
       html += `<div style="padding: 6px 12px; font-weight: 800; font-size: 11px; background: var(--bg-subtle); color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; z-index: 1;">${escapeHtml(groupLabel)}</div>`;
-      items.forEach(item => {
+      
+      const sortedItems = [...items].sort((a, b) => a.localeCompare(b, 'es'));
+      
+      sortedItems.forEach(item => {
         html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
       });
     }
@@ -3952,6 +3994,8 @@ function saveCarteleraTeamsToFirebase() {
     const pName = row.querySelector('input.name')?.value.trim() || '';
     const pPos = row.querySelector('select.pos')?.value || 'MC';
     const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
+    
+    const localOptionsDescTecnica = getOptionsDescTecnica(pPos);
 
     if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
     const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
@@ -4158,10 +4202,10 @@ function saveCarteleraTeamsToFirebase() {
 
           <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-            ${Object.keys(OPTIONS_DESC_TECNICA).map(key => `
+            ${Object.keys(localOptionsDescTecnica).map(key => `
               <div class="desc-card-box" style="padding: 8px;">
                 <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
-                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_TECNICA[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                ${buildKeepOpenDropdownHTML({ [key]: localOptionsDescTecnica[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
                 <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
               </div>
             `).join('')}
