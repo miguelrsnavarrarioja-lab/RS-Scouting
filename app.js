@@ -3036,14 +3036,6 @@ function saveCarteleraTeamsToFirebase() {
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
     
-    // Check if inferior category is included
-    const includeCantera = document.getElementById(`${team}IncludeCantera`)?.checked || false;
-    let allowedInferiorCategories = [];
-    if (includeCantera && targetTeam && targetTeam.categoria) {
-      allowedInferiorCategories = INFERIOR_CATEGORIES_MAP[targetTeam.categoria] || [];
-    }
-    const targetClub = targetTeam ? (targetTeam.clubVinculado || targetTeam.club || '').toLowerCase() : '';
-
     // Gather all currently entered names in the lineups
     const enteredNames = [];
     document.querySelectorAll(`#${team}TitularesRows input.name, #${team}SuplentesRows input.name`).forEach(input => {
@@ -3062,95 +3054,19 @@ function saveCarteleraTeamsToFirebase() {
           return itemName === pName;
         });
       }
-      
-      // If includeCantera is true, also check if player belongs to an inferior team of the same club
-      let isInferior = false;
-      
-      // Special logic for Subiza
-      const isSubiza = targetTeam && targetTeam.nombre && targetTeam.nombre.toLowerCase().includes('subiza');
-      
-      if (!matchesTeam && includeCantera) {
-        if (isSubiza) {
-           const subizaAllowedTeams = ['c. ciudad iruña pref', 'c ciudad iruña pref', 'c. ciudad de iruña pref', 'ciudad iruña pref', 'ciudad de iruña pref', 'osasuna dhj', 'valle aranguren dhj', 'valle de aranguren dhj', 'osasuna lnj'];
-           const inferiorTeams = equipos.filter(eq => {
-             if (!eq.nombre) return false;
-             const eqLower = eq.nombre.toLowerCase();
-             return subizaAllowedTeams.some(allowed => eqLower.includes(allowed) || allowed.includes(eqLower));
-           });
-           
-           isInferior = inferiorTeams.some(team => {
-             if (!team.plantilla) return false;
-             return team.plantilla.some(item => {
-               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-               return itemName === pName;
-             });
-           });
-
-           if (!isInferior) {
-             const pTeamName = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-             if (inferiorTeams.some(team => team.nombre.toLowerCase() === pTeamName)) {
-                isInferior = true;
-             }
-           }
-        } else if (allowedInferiorCategories.length > 0) {
-          const getBaseName = (name) => {
-             return name.toLowerCase().replace(/\s+(dhj|lnj|jau|jpr|cv|ch|cpr|ih|itx|alv|alvb|ben|benb|pref|aut|reg|1 rfef|2 rfef|3 rfef|\d{2}\/\d{2}).*/g, '').trim();
-          };
-          const targetBase = targetTeam.nombre ? getBaseName(targetTeam.nombre) : '';
-
-          // Find ALL inferior teams for this club
-          const inferiorTeams = equipos.filter(eq => {
-            if (!eq.nombre) return false;
-            const eqClub = (eq.clubVinculado || eq.club || '').toLowerCase();
-            const eqBase = getBaseName(eq.nombre);
-            const sameClub = (targetClub && eqClub && targetClub === eqClub) || (targetBase && eqBase && targetBase === eqBase);
-            return sameClub && allowedInferiorCategories.includes(eq.categoria);
-          });
-
-          // Check if player is in any of their plantillas
-          isInferior = inferiorTeams.some(team => {
-             if (!team.plantilla) return false;
-             return team.plantilla.some(item => {
-               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-               return itemName === pName;
-             });
-          });
-
-          // Also check if player's p.equipo matches one of the inferior teams
-          if (!isInferior) {
-             const pTeamName = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-             if (inferiorTeams.some(team => team.nombre.toLowerCase() === pTeamName)) {
-                isInferior = true;
-             }
-          }
-        }
-      }
 
       // Do not include if already typed in one of the inputs
       if (enteredNames.includes(pName)) return false;
 
-      // Add a property to mark them as inferior for the datalist label if needed
-      if (isInferior) p._isInferior = true;
-
-      return matchesTeam || isInferior;
+      return matchesTeam;
     });
 
-    const mainPlayers = teamPlayers.filter(p => !p._isInferior);
-    const inferiorPlayers = teamPlayers.filter(p => p._isInferior);
-
-    let html = mainPlayers.map(p => {
+    let html = teamPlayers.map(p => {
       const pName = p.nombre || p.jugador || p.name || '';
       return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
     }).join('');
 
-    if (inferiorPlayers.length > 0) {
-      html += `<option value="--- JUGADORES OTRO EQUIPO ---" disabled></option>`;
-      html += inferiorPlayers.map(p => {
-        const pName = p.nombre || p.jugador || p.name || '';
-        const eqTag = ` [${escapeHtml(p.equipo || 'Filial')}]`;
-        return pName ? `<option value="${escapeHtml(pName)}${eqTag}"></option>` : '';
-      }).join('');
-    }
+    html += `<option value="--- INCLUIR FILIAL... ---"></option>`;
 
     datalist.innerHTML = html;
   }
@@ -3243,22 +3159,6 @@ function saveCarteleraTeamsToFirebase() {
             const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
             if (matchedPlayer) {
               if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
-              // Se ha comentado la actualización de la posición para que se mantenga la del esquema del partido
-              /*
-              const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
-              if (posSelect && matchedPos) {
-                const optExists = Array.from(posSelect.options).some(opt => opt.value === matchedPos);
-                if (optExists) {
-                  posSelect.value = matchedPos;
-                } else {
-                  const newOpt = document.createElement('option');
-                  newOpt.value = matchedPos;
-                  newOpt.textContent = matchedPos;
-                  newOpt.selected = true;
-                  posSelect.appendChild(newOpt);
-                }
-              }
-              */
               renderPitchPins(team);
               updateTeamPlayersDatalist(team);
             }
@@ -3266,6 +3166,11 @@ function saveCarteleraTeamsToFirebase() {
         });
 
         nameInput?.addEventListener('input', () => {
+          if (nameInput.value === '--- INCLUIR FILIAL... ---') {
+            nameInput.value = '';
+            openFilialSelectorModal(team, nameInput);
+            return;
+          }
           renderPitchPins(team);
           updateTeamPlayersDatalist(team);
         });
@@ -3275,6 +3180,100 @@ function saveCarteleraTeamsToFirebase() {
         });
       });
     });
+  }
+
+  function openFilialSelectorModal(team, inputElement) {
+    const allEquipos = state.directory.equipos || [];
+    const equiposOptions = allEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+
+    const finalHTML = `
+      <datalist id="filialSelectorEquiposDatalist">
+        ${equiposOptions}
+      </datalist>
+      <div style="padding: 16px;">
+        <div class="form-group mb-4">
+          <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
+          <input type="text" id="filialSelectorSearch" list="filialSelectorEquiposDatalist" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
+        </div>
+        <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 16px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
+        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
+        </div>
+      </div>
+    `;
+
+    showModal('Seleccionar Jugador de Otro Equipo', finalHTML, null);
+    
+    // Ocultamos el botón inferior de submit para que sea obligatorio pinchar un jugador
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) {
+      btnSubmit.style.display = 'none';
+    }
+
+    const searchInput = document.getElementById('filialSelectorSearch');
+    const playersList = document.getElementById('filialSelectorPlayersList');
+
+    searchInput.addEventListener('input', () => {
+      const selectedTeamName = searchInput.value.trim().toLowerCase();
+      if (!selectedTeamName) {
+         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>';
+         return;
+      }
+
+      const teamObj = allEquipos.find(eq => eq.nombre && eq.nombre.toLowerCase() === selectedTeamName);
+      
+      if (!teamObj) {
+        playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Equipo no encontrado.</p>';
+        return;
+      }
+
+      const teamJugadores = (state.directory.jugadores || []).filter(p => {
+         const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+         if (pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam)) return true;
+         if (teamObj.plantilla) {
+            return teamObj.plantilla.some(item => {
+               const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+               const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+               return itemName === pName;
+            });
+         }
+         return false;
+      });
+
+      if (teamJugadores.length === 0) {
+        playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">El equipo no tiene jugadores registrados en la base de datos.</p>';
+        return;
+      }
+
+      playersList.innerHTML = teamJugadores.map(p => {
+        const pName = p.nombre || p.jugador || p.name || '';
+        return \`
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="\${escapeHtml(pName)}" data-team="\${escapeHtml(teamObj.nombre || '')}">
+            \${escapeHtml(pName)}
+          </button>
+        \`;
+      }).join('');
+
+      playersList.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pName = btn.getAttribute('data-name');
+          const tName = btn.getAttribute('data-team');
+          inputElement.value = \`\${pName} [\${tName}]\`;
+          hideModal();
+          // Restaurar display del btnSubmit por si se usa en otros modales luego
+          if (btnSubmit) btnSubmit.style.display = '';
+          renderPitchPins(team);
+          updateTeamPlayersDatalist(team);
+        });
+      });
+    });
+    
+    // Event listener on modal close to restore the submit button display
+    const btnCancel = document.getElementById('btnCancelModal');
+    const btnClose = document.getElementById('btnCloseModal');
+    const restoreBtn = () => { if (btnSubmit) btnSubmit.style.display = ''; };
+    if (btnCancel) btnCancel.addEventListener('click', restoreBtn, {once: true});
+    if (btnClose) btnClose.addEventListener('click', restoreBtn, {once: true});
   }
 
   function renderPitchPins(team) {
@@ -3407,7 +3406,11 @@ function saveCarteleraTeamsToFirebase() {
         const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
         const posVal = posSelect ? posSelect.value : '';
         const nameVal = nameInput ? nameInput.value.trim() : '';
-        const displayText = numVal ? numVal : (posVal || ('S' + (idx + 1)));
+        
+        // If a substitute has a position assigned, they are on the pitch, so they don't show on the bench
+        if (posVal) return '';
+
+        const displayText = numVal ? numVal : ('S' + (idx + 1));
 
         const pNum = numVal || (12 + idx);
         const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
@@ -5887,6 +5890,14 @@ function saveCarteleraTeamsToFirebase() {
                   <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
                   <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
                 </div>
+                <div style="width: 100%; margin-top: 4px;">
+                  <select id="cfPatronCamiseta" class="form-control" style="font-size: 13px; text-align: center; font-weight: 600;" title="Patrón del Campograma">
+                    <option value="liso" ${club.patronCamiseta === 'liso' ? 'selected' : ''}>Liso</option>
+                    <option value="rayas" ${club.patronCamiseta === 'rayas' ? 'selected' : ''}>Rayas</option>
+                    <option value="franja" ${club.patronCamiseta === 'franja' ? 'selected' : ''}>Con una franja</option>
+                    <option value="mitades" ${club.patronCamiseta === 'mitades' ? 'selected' : ''}>Mitades</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -6310,7 +6321,8 @@ function saveCarteleraTeamsToFirebase() {
         logo: logoData,
         escudo: logoData,
         colorPrimary: document.getElementById('cfColorPrimary').value,
-        colorSecondary: document.getElementById('cfColorSecondary').value
+        colorSecondary: document.getElementById('cfColorSecondary').value,
+        patronCamiseta: document.getElementById('cfPatronCamiseta') ? document.getElementById('cfPatronCamiseta').value : 'liso'
       };
 
       if (!state.directory.clubes) state.directory.clubes = [];
@@ -6338,6 +6350,9 @@ function saveCarteleraTeamsToFirebase() {
             }
             if (updatedClub.colorSecondary) {
               eq.colorSecondary = updatedClub.colorSecondary;
+            }
+            if (updatedClub.patronCamiseta) {
+              eq.patronCamiseta = updatedClub.patronCamiseta;
             }
             if (updatedClub.federacion) {
               eq.federacion = updatedClub.federacion;

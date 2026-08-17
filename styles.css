@@ -992,7 +992,8 @@ a {
 }
 
 .players-lineup-table {
-  max-height: 600px;
+  height: 100%;
+  max-height: 660px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -1229,10 +1230,10 @@ a {
     var(--pitch-stripe) 48px
   );
   border-top: 2px dashed rgba(255, 255, 255, 0.35);
-  padding: 10px 12px;
+  padding: 18px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .bench-title {
@@ -1249,8 +1250,8 @@ a {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
+  gap: 12px;
+  min-height: 50px;
 }
 
 .bench-pin-item {
