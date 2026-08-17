@@ -4965,6 +4965,10 @@ function saveCarteleraTeamsToFirebase() {
       }
     });
 
+    // Limpiar buscador
+    const searchInput = document.getElementById('dirSearchInput');
+    if (searchInput) searchInput.value = '';
+
     renderDirectorio();
   }
   window.navigateToDirectoryTab = navigateToDirectoryTab;
@@ -5011,6 +5015,11 @@ function saveCarteleraTeamsToFirebase() {
         currentFederationFilter = 'TODAS';
         currentGenderFilter = 'TODOS';
         currentDirectoryPage = 1;
+        
+        // Limpiar buscador
+        const searchInput = document.getElementById('dirSearchInput');
+        if (searchInput) searchInput.value = '';
+
         renderDirectorio();
       });
     });
@@ -5117,6 +5126,34 @@ function saveCarteleraTeamsToFirebase() {
       inMapas = 'Sí';
     }
 
+    // Auto-fill Posiciones from reports for display if empty
+    let displayPosPri = player.posicionPrincipal || player.posicion || '';
+    let displayPosSec = player.posicionSecundaria || '';
+    
+    if (!displayPosPri || !displayPosSec) {
+      let posicionesVistas = new Set();
+      if (pNameLower) {
+        (state.reports || []).forEach(rep => {
+          const checkPlayer = (pObj) => {
+             if (pObj && (pObj.name || '').toLowerCase().trim() === pNameLower && pObj.pos) {
+               posicionesVistas.add(pObj.pos);
+             }
+          };
+          (rep.localTitulares || []).forEach(checkPlayer);
+          (rep.localSuplentes || []).forEach(checkPlayer);
+          (rep.visitanteTitulares || []).forEach(checkPlayer);
+          (rep.visitanteSuplentes || []).forEach(checkPlayer);
+        });
+      }
+      const vistasArr = Array.from(posicionesVistas);
+      if (vistasArr.length > 0) {
+        if (!displayPosPri) displayPosPri = vistasArr[0];
+        if (!displayPosSec && vistasArr.length > 1 && vistasArr[1] !== displayPosPri) {
+          displayPosSec = vistasArr[1];
+        }
+      }
+    }
+
     // Theme color
     let themeColor = 'var(--primary-blue)';
     
@@ -5198,11 +5235,11 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">POS. PRINCIPAL</div>
-              <div class="ficha-stat-value">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</div>
+              <div class="ficha-stat-value">${escapeHtml(displayPosPri || '-')}</div>
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">POS. SECUNDARIA</div>
-              <div class="ficha-stat-value">${escapeHtml(player.posicionSecundaria || '-')}</div>
+              <div class="ficha-stat-value">${escapeHtml(displayPosSec || '-')}</div>
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">LATERALIDAD</div>
@@ -5278,8 +5315,8 @@ function saveCarteleraTeamsToFirebase() {
     else if (_piernaRaw.includes('ambid')) pierna = 'Ambidiestro';
     const disponibilidad = player.disponibilidad || '';
     const proyeccion = player.proyeccion || '';
-    const posicionPrincipal = player.posicion || player.posicionPrincipal || '';
-    const posicionSecundaria = player.posicionSecundaria || '';
+    let posicionPrincipal = player.posicion || player.posicionPrincipal || '';
+    let posicionSecundaria = player.posicionSecundaria || '';
     const observacionesDeportivas = player.observacionesDeportivas || '';
 
     let posicionesVistas = new Set();
@@ -5299,6 +5336,18 @@ function saveCarteleraTeamsToFirebase() {
         (rep.visitanteSuplentes || []).forEach(checkPlayer);
       });
     }
+    
+    // Auto-fill from posiciones vistas if not already set
+    if (!posicionPrincipal || !posicionSecundaria) {
+      const vistasArr = Array.from(posicionesVistas);
+      if (vistasArr.length > 0) {
+        if (!posicionPrincipal) posicionPrincipal = vistasArr[0];
+        if (!posicionSecundaria && vistasArr.length > 1 && vistasArr[1] !== posicionPrincipal) {
+          posicionSecundaria = vistasArr[1];
+        }
+      }
+    }
+
     let posicionesVistasStr = Array.from(posicionesVistas).join(', ');
     if (!posicionesVistasStr) posicionesVistasStr = 'Ninguna registrada';
 
@@ -5848,9 +5897,21 @@ function saveCarteleraTeamsToFirebase() {
       p.pierna = document.getElementById('pfPierna')?.value || 'Derecha';
       p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
       p.proyeccion = document.getElementById('pfProyeccion')?.value || '';
-      p.posicionPrincipal = document.getElementById('pfPosicion')?.value || '';
-      p.posicion = p.posicionPrincipal;
-      p.posicionSecundaria = document.getElementById('pfPosicionSecundaria')?.value || '';
+      let posP = document.getElementById('pfPosicion')?.value || '';
+      let posS = document.getElementById('pfPosicionSecundaria')?.value || '';
+      
+      // Auto-fill from posiciones vistas si están vacías
+      if ((!posP || !posS) && typeof posicionesVistasStr !== 'undefined' && posicionesVistasStr !== 'Ninguna registrada') {
+        const vistas = posicionesVistasStr.split(',').map(v => v.trim()).filter(Boolean);
+        if (vistas.length > 0) {
+          if (!posP) posP = vistas[0];
+          if (!posS && vistas.length > 1 && vistas[1] !== posP) posS = vistas[1];
+        }
+      }
+
+      p.posicionPrincipal = posP;
+      p.posicion = posP;
+      p.posicionSecundaria = posS;
       p.observacionesDeportivas = document.getElementById('pfObservaciones')?.value.trim() || '';
 
       p.finContrato = document.getElementById('pfFinContrato')?.value.trim() || '';
@@ -8317,8 +8378,32 @@ function saveCarteleraTeamsToFirebase() {
             dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${foundPlayer.id}" value="${escapeHtml(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
             anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${foundPlayer.id}" value="${escapeHtml(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
-            const posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
-            const posSec = foundPlayer.posicionSecundaria || '';
+            let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
+            let posSec = foundPlayer.posicionSecundaria || '';
+            
+            if (!posPri || !posSec) {
+              const pNameLower = (foundPlayer.nombre || foundPlayer.jugador || foundPlayer.name || '').toLowerCase().trim();
+              let posicionesVistas = new Set();
+              if (pNameLower) {
+                (state.reports || []).forEach(rep => {
+                  const checkPlayer = (pObj) => {
+                     if (pObj && (pObj.name || '').toLowerCase().trim() === pNameLower && pObj.pos) {
+                       posicionesVistas.add(pObj.pos);
+                     }
+                  };
+                  (rep.localTitulares || []).forEach(checkPlayer);
+                  (rep.localSuplentes || []).forEach(checkPlayer);
+                  (rep.visitanteTitulares || []).forEach(checkPlayer);
+                  (rep.visitanteSuplentes || []).forEach(checkPlayer);
+                });
+              }
+              const vistasArr = Array.from(posicionesVistas);
+              if (vistasArr.length > 0) {
+                if (!posPri) posPri = vistasArr[0];
+                if (!posSec && vistasArr.length > 1 && vistasArr[1] !== posPri) posSec = vistasArr[1];
+              }
+            }
+
             let _pRaw = (foundPlayer.pierna || '').toLowerCase();
             let pierna = _pRaw ? 'Derecha' : '';
             if (_pRaw.includes('izq') || _pRaw.includes('zur')) pierna = 'Izquierda';
@@ -8416,8 +8501,6 @@ function saveCarteleraTeamsToFirebase() {
             ev.preventDefault();
             const pId = link.dataset.playerid;
             if (pId) {
-              card.classList.remove('large');
-              hideModal();
               openPlayerModal(pId);
             }
           });
@@ -9751,7 +9834,6 @@ function saveCarteleraTeamsToFirebase() {
             e.preventDefault();
             const pId = link.dataset.playerid;
             if (pId) {
-              hideModal();
               openPlayerModal(pId);
             }
           });
@@ -10681,7 +10763,6 @@ function saveCarteleraTeamsToFirebase() {
             e.preventDefault();
             const pId = link.dataset.playerid;
             if (pId) {
-              hideModal();
               openPlayerModal(pId);
             }
           });
