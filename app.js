@@ -4205,14 +4205,14 @@ function saveCarteleraTeamsToFirebase() {
         </div>
 
         <!-- TAB 3: DESCRIPCIONES -->
-        <div id="pmTabDescripciones" class="pm-tab-pane hidden" style="padding: 16px; overflow-y: auto; max-height: calc(90vh - 150px);">
+        <div id="pmTabDescripciones" class="pm-tab-pane hidden" style="padding: 16px 16px 180px 16px; overflow-y: auto; max-height: calc(90vh - 130px);">
           
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px;">
             
             <!-- COLUMN 1: FÍSICA -->
             <div>
               <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">1. DESCRIPCIÓN FÍSICA</h4>
-              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 24px;">
                 ${Object.keys(OPTIONS_DESC_FISICA).map(key => `
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
@@ -4226,7 +4226,7 @@ function saveCarteleraTeamsToFirebase() {
             <!-- COLUMN 2: TÉCNICA -->
             <div>
               <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
-              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px;">
                 ${Object.keys(localOptionsDescTecnica).map(key => `
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
@@ -4240,7 +4240,7 @@ function saveCarteleraTeamsToFirebase() {
             <!-- COLUMN 3: EMOCIONAL -->
             <div>
               <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">3. DESCRIPCIÓN EMOCIONAL</h4>
-              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
                 ${Object.keys(OPTIONS_DESC_EMOCIONAL).map(key => `
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
