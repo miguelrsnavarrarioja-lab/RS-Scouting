@@ -4207,37 +4207,50 @@ function saveCarteleraTeamsToFirebase() {
         <!-- TAB 3: DESCRIPCIONES -->
         <div id="pmTabDescripciones" class="pm-tab-pane hidden" style="padding: 16px; overflow-y: auto; max-height: calc(90vh - 150px);">
           
-          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">1. DESCRIPCIÓN FÍSICA</h4>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-            ${Object.keys(OPTIONS_DESC_FISICA).map(key => `
-              <div class="desc-card-box" style="padding: 8px;">
-                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
-                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_FISICA[key] }, '+ Añadir...', `pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+            
+            <!-- COLUMN 1: FÍSICA -->
+            <div>
+              <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">1. DESCRIPCIÓN FÍSICA</h4>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                ${Object.keys(OPTIONS_DESC_FISICA).map(key => `
+                  <div class="desc-card-box" style="padding: 8px;">
+                    <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                    ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_FISICA[key] }, '+ Añadir...', `pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                    <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                  </div>
+                `).join('')}
               </div>
-            `).join('')}
-          </div>
+            </div>
 
-          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
-            ${Object.keys(localOptionsDescTecnica).map(key => `
-              <div class="desc-card-box" style="padding: 8px;">
-                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
-                ${buildKeepOpenDropdownHTML({ [key]: localOptionsDescTecnica[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+            <!-- COLUMN 2: TÉCNICA -->
+            <div>
+              <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">2. DESCRIPCIÓN TÉCNICA</h4>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                ${Object.keys(localOptionsDescTecnica).map(key => `
+                  <div class="desc-card-box" style="padding: 8px;">
+                    <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                    ${buildKeepOpenDropdownHTML({ [key]: localOptionsDescTecnica[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                    <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                  </div>
+                `).join('')}
               </div>
-            `).join('')}
-          </div>
+            </div>
 
-          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">3. DESCRIPCIÓN EMOCIONAL</h4>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
-            ${Object.keys(OPTIONS_DESC_EMOCIONAL).map(key => `
-              <div class="desc-card-box" style="padding: 8px;">
-                <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
-                ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_EMOCIONAL[key] }, '+ Añadir...', `pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+            <!-- COLUMN 3: EMOCIONAL -->
+            <div>
+              <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px;">3. DESCRIPCIÓN EMOCIONAL</h4>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+                ${Object.keys(OPTIONS_DESC_EMOCIONAL).map(key => `
+                  <div class="desc-card-box" style="padding: 8px;">
+                    <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
+                    ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_EMOCIONAL[key] }, '+ Añadir...', `pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
+                    <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                  </div>
+                `).join('')}
               </div>
-            `).join('')}
+            </div>
+
           </div>
         </div>
 
@@ -4497,7 +4510,7 @@ function saveCarteleraTeamsToFirebase() {
       evalObj.descFisica = allDescFisica.join(', ');
 
       const allDescTecnica = [];
-      Object.keys(OPTIONS_DESC_TECNICA).forEach(key => {
+      Object.keys(localOptionsDescTecnica).forEach(key => {
         const fieldKey = 'descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
         const val = modalContent.querySelector('#pmDescTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())?.value || '';
         evalObj[fieldKey] = val;
