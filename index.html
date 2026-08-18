@@ -1241,20 +1241,16 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         <button class="directory-tab mapas-toggle-btn" data-tag="JULEN">Julen</button>
         <button class="directory-tab mapas-toggle-btn" data-tag="LERINES">Lerines</button>
         <button class="directory-tab mapas-toggle-btn" data-tag="ERF">ERF</button>
+        <button class="directory-tab mapas-toggle-btn" data-tag="DESTACADO EQUIPO">Destacado Equipo</button>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-        <div>
-          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Categoría (Año)</label>
-          <input type="text" id="selMapasCategoria" list="dl_selMapasCategoria" class="form-control" style="font-weight: 600;" placeholder="-- Todas las categorías --">
-          <datalist id="dl_selMapasCategoria"></datalist>
+      <div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-end; justify-content: flex-start;">
+        <div id="filterMapasEquipo" style="width: 250px; display: none;">
+          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Equipo</label>
+          <input type="text" id="selMapasEquipo" list="dl_selMapasEquipo" class="form-control" style="font-weight: 600;" placeholder="-- Todos los equipos --">
+          <datalist id="dl_selMapasEquipo"></datalist>
         </div>
-        <div>
-          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Competición</label>
-          <input type="text" id="selMapasCompeticion" list="dl_selMapasCompeticion" class="form-control" style="font-weight: 600;" placeholder="-- Todas las competiciones --">
-          <datalist id="dl_selMapasCompeticion"></datalist>
-        </div>
-        <div>
+        <div id="filterMapasSistema" style="width: 200px;">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
           <select id="selMapasSistema" class="form-control" style="font-weight: 600;">
             <option value="1-4-3-3">1-4-3-3</option>

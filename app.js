@@ -7719,6 +7719,33 @@ function saveCarteleraTeamsToFirebase() {
     }
     plantillaHTML += `</tbody></table>`;
 
+    // Jugadores Destacados
+    const destacados = allPlayersList.filter(p => {
+      if (!p.equipo || String(p.equipo).trim().toLowerCase() !== String(team.nombre).trim().toLowerCase()) return false;
+      return (p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
+    });
+
+    let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
+    if (destacados.length === 0) {
+      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: white; border-radius: 8px; border: 1px dashed #cbd5e1;">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
+    } else {
+      destacados.forEach(p => {
+        destacadosHTML += `
+          <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${p.id}')">
+            <img src="${p.foto || 'Foto Jugador General.png'}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${themeColor};">
+            <div>
+              <div style="font-weight: 800; color: var(--text-dark); font-size: 14px; margin-bottom: 2px;">${escapeHtml(p.nombre || p.jugador || 'Sin Nombre')}</div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
+                <span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px;">${escapeHtml(p.posicionPrincipal || p.posicion || p.pos || '-')}</span>
+                &nbsp; Año: ${escapeHtml(p.anoNac || p.ano || '-')}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+    destacadosHTML += `</div>`;
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
@@ -7749,6 +7776,7 @@ function saveCarteleraTeamsToFirebase() {
           <div class="player-modal-subtabs mb-4">
             <button type="button" class="player-subtab active" data-fichatab="resumen">RESUMEN</button>
             <button type="button" class="player-subtab" data-fichatab="plantilla">PLANTILLA</button>
+            <button type="button" class="player-subtab" data-fichatab="destacados">DESTACADOS <span style="background: var(--ficha-theme); color: white; border-radius: 12px; padding: 2px 6px; font-size: 10px; margin-left: 4px;">${destacados.length}</span></button>
           </div>
 
           <div id="fichaTab-resumen" class="ficha-tab-pane" style="display: block;">
@@ -7787,6 +7815,10 @@ function saveCarteleraTeamsToFirebase() {
              <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
                ${plantillaHTML}
              </div>
+          </div>
+
+          <div id="fichaTab-destacados" class="ficha-tab-pane" style="display: none;">
+             ${destacadosHTML}
           </div>
         </div>
       </div>
@@ -23077,32 +23109,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const container = document.getElementById('view-mapas');
     if (!container) return;
 
-    // Poblar selector de Categorías (Años)
-    const selCat = document.getElementById('selMapasCategoria');
-    const selComp = document.getElementById('selMapasCompeticion');
     const players = state.directory?.jugadores || [];
-    const anios = new Set();
-    players.forEach(p => {
-      if (p.ano && String(p.ano).trim() !== '') {
-        anios.add(String(p.ano).trim());
-      }
-    });
-    
-    const sortedAnios = Array.from(anios).sort((a, b) => b.localeCompare(a));
-    if (selCat.list) {
-      selCat.list.innerHTML = sortedAnios.map(a => `<option value="${escapeHtml(a)}" data-val="${escapeHtml(a)}"></option>`).join('');
-    } else {
-      selCat.innerHTML = `<option value="">-- Todas las categorías --</option>` + 
-        sortedAnios.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
-    }
 
-    // Poblar selector de Competición
-    const competiciones = state.customCompeticiones || [];
-    if (selComp.list) {
-      selComp.list.innerHTML = competiciones.map(c => `<option value="${escapeHtml(c)}" data-val="${escapeHtml(c)}"></option>`).join('');
-    } else {
-      selComp.innerHTML = `<option value="">-- Todas las competiciones --</option>` + 
-        competiciones.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    // Poblar selector de Equipos
+    const selEquipo = document.getElementById('selMapasEquipo');
+    if (selEquipo) {
+      const uniqueTeams = new Set();
+      players.forEach(p => {
+        if (p.equipo && String(p.equipo).trim() !== '') {
+          uniqueTeams.add(String(p.equipo).trim());
+        }
+      });
+      const sortedTeams = Array.from(uniqueTeams).sort((a, b) => a.localeCompare(b));
+      if (selEquipo.list) {
+        selEquipo.list.innerHTML = sortedTeams.map(t => `<option value="${escapeHtml(t)}" data-val="${escapeHtml(t)}"></option>`).join('');
+      } else {
+        selEquipo.innerHTML = `<option value="">-- Todos los equipos --</option>` + 
+          sortedTeams.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      }
     }
 
     // Assign events
@@ -23124,8 +23148,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       el.oninput = (e) => { if (!e.target.value) handler(e); };
     };
 
-    bindDatalistEvent(selCat, renderMapasPins);
-    bindDatalistEvent(selComp, renderMapasPins);
+    bindDatalistEvent(selEquipo, renderMapasPins);
     document.getElementById('selMapasSistema').onchange = renderMapasPins;
     
     const btnExport = document.getElementById('btnExportMapasPDF');
@@ -23138,6 +23161,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         btn.classList.add('active');
         
         const tag = btn.dataset.tag;
+        
+        // Mostrar/Ocultar el filtro de equipo
+        const filterEquipo = document.getElementById('filterMapasEquipo');
+        if (filterEquipo) {
+          filterEquipo.style.display = (tag === 'DESTACADO EQUIPO') ? 'block' : 'none';
+        }
+        
         const mainTitle = document.querySelector('#view-mapas .view-header h1');
         if (mainTitle) {
           mainTitle.innerHTML = `<i data-lucide="layout-dashboard"></i> Mapas y Seguimiento`;
@@ -23160,8 +23190,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const container = document.getElementById('mapasCampogramaPins');
     if (!container) return;
     
-    const selCat = document.getElementById('selMapasCategoria')?.value;
-    const selComp = document.getElementById('selMapasCompeticion')?.value;
+    const selEquipo = document.getElementById('selMapasEquipo')?.value;
     const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
     
     container.innerHTML = '';
@@ -23172,28 +23201,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     const players = state.directory?.jugadores || [];
     const equipos = state.directory?.equipos || [];
-    
-    // Helper to get player's competition
-    const getPlayerComp = (p) => {
-      if (!p.equipo) return null;
-      const team = equipos.find(eq => eq.nombre === p.equipo || eq.equipo === p.equipo);
-      if (team) return team.competicion || team.liga;
-      return null;
-    };
 
     // Get active map tag
     const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
     const activeMapTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
 
-    // Filter by year, competicion and selected tag
+    // Filter by year, competicion, equipo and selected tag
     const filteredPlayers = players.filter(p => {
       const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
       if (!isTagged) return false;
-      if (selCat && String(p.ano).trim() !== selCat) return false;
-      if (selComp) {
-        const pComp = getPlayerComp(p);
-        if (pComp !== selComp) return false;
-      }
+      if (activeMapTag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
       return true;
     });
 
@@ -23202,7 +23219,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     defaultPositions.forEach((_, idx) => { slotMap[idx] = []; });
 
     filteredPlayers.forEach(p => {
-      const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+      const pPrimary = (p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
       let assigned = false;
       
       // Exact match
@@ -23245,7 +23262,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const nameEscaped = escapeHtml(p.nombre || '-');
         const yearEscaped = escapeHtml(p.ano || '-');
         const teamEscaped = escapeHtml(p.equipo || '-');
-        const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || '-');
+        const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || p.pos || '-');
         
         let pieEscaped = '-';
         if (p.pierna) {
