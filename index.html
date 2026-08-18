@@ -871,10 +871,16 @@
             <i data-lucide="search"></i>
             <input type="text" id="dirSearchInput" placeholder="Filtrar registros por nombre...">
           </div>
-          
-          <div class="filter-search-box" id="dirYearFilterContainer" style="display: none; max-width: 120px; margin-left: 12px;">
+          <!-- Team Filter (Only for players) -->
+          <div class="filter-search-box" id="dirTeamFilterContainer" style="display: none; max-width: 200px; margin-left: 12px;">
+            <i data-lucide="shield"></i>
+            <input type="text" id="dirTeamFilterInput" list="dirTeamFilterDatalist" placeholder="Filtrar por equipo..." style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
+            <datalist id="dirTeamFilterDatalist"></datalist>
+          </div>
+
+          <div class="filter-search-box" id="dirYearFilterContainer" style="display: none; max-width: 140px; margin-left: 12px;">
             <i data-lucide="calendar"></i>
-            <input type="number" id="dirYearFilterInput" placeholder="Año" min="1950" max="2030" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
+            <input type="text" id="dirYearFilterInput" placeholder="Año o 'vacio'" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
           </div>
 
           <!-- Quick Action Icon Buttons -->

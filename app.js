@@ -1165,11 +1165,21 @@ function saveCarteleraTeamsToFirebase() {
       const isVisto = t.nombre && vistosSet.has(t.nombre.toLowerCase().trim());
       
       if (!categoryStats[cat]) {
-        categoryStats[cat] = { total: 0, vistos: 0 };
+        categoryStats[cat] = { total: 0, vistos: 0, groups: {} };
       }
       categoryStats[cat].total++;
       if (isVisto) {
         categoryStats[cat].vistos++;
+      }
+      
+      let grupo = String(t.grupo || 'Sin Grupo').trim();
+      if (!categoryStats[cat].groups[grupo]) {
+        categoryStats[cat].groups[grupo] = { total: 0, vistos: 0, equipos: [] };
+      }
+      categoryStats[cat].groups[grupo].total++;
+      categoryStats[cat].groups[grupo].equipos.push({ nombre: t.nombre || 'Sin nombre', visto: isVisto });
+      if (isVisto) {
+        categoryStats[cat].groups[grupo].vistos++;
       }
     });
 
@@ -1295,8 +1305,9 @@ function saveCarteleraTeamsToFirebase() {
     stats.forEach(stat => {
         const iconColor = stat.vistos >= stat.total ? 'green' : 'blue';
         const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
+        const groupsJson = encodeURIComponent(JSON.stringify(stat.groups));
         html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeHtml(stat.cat)}', '${escapeHtml(groupName)}', '${groupsJson}')">
           <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
             <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)}</span>
@@ -1312,6 +1323,94 @@ function saveCarteleraTeamsToFirebase() {
     const btnSubmit = document.getElementById('btnSubmitModal');
     if (btnSubmit) btnSubmit.style.display = 'none';
     
+    if (window.lucide) window.lucide.createIcons();
+  };
+
+  window.openTeamsSubcategoryModal = function(subCatName, parentCatName, groupsJson) {
+    const groups = JSON.parse(decodeURIComponent(groupsJson));
+    const groupNames = Object.keys(groups).sort((a, b) => {
+        // Basic numerical sort if they contain numbers, otherwise alphabetical
+        const numA = parseInt(a.match(/\d+/)) || 0;
+        const numB = parseInt(b.match(/\d+/)) || 0;
+        if (numA !== numB) return numA - numB;
+        return a.localeCompare(b);
+    });
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
+    
+    if (groupNames.length === 0) {
+      html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay equipos registrados en esta categoría.</div>`;
+    }
+
+    groupNames.forEach(gName => {
+        const gStats = groups[gName];
+        const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
+        
+        let teamsHtml = '';
+        gStats.equipos.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(t => {
+            const teamColor = t.visto ? 'var(--accent-green)' : 'var(--text-muted)';
+            const teamIcon = t.visto ? 'check-circle-2' : 'circle';
+            teamsHtml += `
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 4px 0; border-bottom: 1px dashed var(--border-light);">
+                <i data-lucide="${teamIcon}" style="width: 14px; height: 14px; color: ${teamColor}; flex-shrink: 0;"></i>
+                <span style="color: ${t.visto ? 'var(--text-dark)' : 'var(--text-muted)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+            </div>`;
+        });
+
+        html += `
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</span>
+                <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${badgeColor}; padding: 3px 8px; border-radius: 12px;">
+                    ${gStats.vistos} / ${gStats.total} Vistos
+                </span>
+            </div>
+            <div style="padding: 10px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px;">
+                ${teamsHtml}
+            </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+
+    showModal(`Equipos de ${subCatName}`, html, null);
+    
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+    
+    // Custom back button to return to previous modal
+    const footer = document.getElementById('modalFooter');
+    if (footer) {
+        const backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.className = 'btn btn-secondary';
+        backBtn.innerHTML = '<i data-lucide="arrow-left"></i> Volver a ' + escapeHtml(parentCatName);
+        backBtn.onclick = () => {
+            const btnClose = document.getElementById('btnCloseModal');
+            if (btnClose) btnClose.click();
+            // We use setTimeout to let the current modal close animation finish
+            setTimeout(() => {
+                const categoryObj = document.querySelector(`.kpi-card[onclick*="openTeamsCategoryModal('${escapeHtml(parentCatName)}'"]`);
+                if(categoryObj) categoryObj.click();
+            }, 300);
+        };
+        // Insert before the cancel button
+        const cancelBtn = document.getElementById('btnCancelModal');
+        if (cancelBtn) {
+            footer.insertBefore(backBtn, cancelBtn);
+            // Clean up the back button when modal closes
+            const cleanup = () => {
+                if (backBtn.parentNode) backBtn.parentNode.removeChild(backBtn);
+                const closeBtn = document.getElementById('btnCloseModal');
+                if (closeBtn) closeBtn.removeEventListener('click', cleanup);
+                if (cancelBtn) cancelBtn.removeEventListener('click', cleanup);
+            };
+            const closeBtn = document.getElementById('btnCloseModal');
+            if (closeBtn) closeBtn.addEventListener('click', cleanup);
+            cancelBtn.addEventListener('click', cleanup);
+        }
+    }
+
     if (window.lucide) window.lucide.createIcons();
   };
 
@@ -2679,6 +2778,16 @@ function saveCarteleraTeamsToFirebase() {
     });
     if (found) return found;
 
+    // 5. Normalized search (ignoring dots, hyphens, extra spaces)
+    const norm = (str) => str.toLowerCase().replace(/[\.\,\-]/g, '').replace(/\s+/g, ' ').trim();
+    const queryNorm = norm(query);
+    
+    found = equipos.find(e => {
+      const nNorm = norm(e.nombre || e.equipo || '');
+      return nNorm && (queryNorm.includes(nNorm) || nNorm.includes(queryNorm));
+    });
+    if (found) return found;
+
     return null;
   }
 
@@ -3513,19 +3622,37 @@ function saveCarteleraTeamsToFirebase() {
     const teamObj = findTeamInDirectory(teamName);
     const parentClub = findParentClub(teamObj || { nombre: teamName });
 
-    let primaryColor = teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color || parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color || (team === 'local' ? '#2563eb' : '#0284c7');
-    let secondaryColor = teamObj?.colorSecondary || parentClub?.colorSecondary || '#ffffff';
+    const getValidColor = (teamCol, clubCol, defaultCol) => {
+      if (teamCol && teamCol.toLowerCase() !== '#ffffff' && teamCol.toLowerCase() !== '#2563eb' && teamCol.toLowerCase() !== '#0284c7') return teamCol;
+      if (clubCol && clubCol.toLowerCase() !== '#ffffff' && clubCol.toLowerCase() !== '#2563eb' && clubCol.toLowerCase() !== '#0284c7') return clubCol;
+      return teamCol || clubCol || defaultCol;
+    };
+
+    let primaryColor = getValidColor(
+      teamObj?.colorPrimary || teamObj?.colorPrimario || teamObj?.color1 || teamObj?.color,
+      parentClub?.colorPrimary || parentClub?.colorPrimario || parentClub?.color1 || parentClub?.colorCamiseta || parentClub?.color,
+      team === 'local' ? '#2563eb' : '#0284c7'
+    );
+    let secondaryColor = getValidColor(teamObj?.colorSecondary, parentClub?.colorSecondary, '#ffffff');
     let patron = teamObj?.patronCamiseta || parentClub?.patronCamiseta || 'liso';
 
     if (team === 'visitante') {
       const localTeamName = document.getElementById('reportLocalTeam')?.value.trim() || '';
       const localTeamObj = findTeamInDirectory(localTeamName);
       const localParent = findParentClub(localTeamObj || { nombre: localTeamName });
-      const localColor = localTeamObj?.colorPrimary || localTeamObj?.colorPrimario || localTeamObj?.color1 || localTeamObj?.color || localParent?.colorPrimary || localParent?.colorPrimario || localParent?.color1 || localParent?.colorCamiseta || localParent?.color || '#2563eb';
+      const localColor = getValidColor(
+        localTeamObj?.colorPrimary || localTeamObj?.colorPrimario || localTeamObj?.color1 || localTeamObj?.color,
+        localParent?.colorPrimary || localParent?.colorPrimario || localParent?.color1 || localParent?.colorCamiseta || localParent?.color,
+        '#2563eb'
+      );
       
       if (primaryColor && localColor && (primaryColor.toLowerCase() === localColor.toLowerCase() || areColorsSimilar(primaryColor, localColor))) {
-        primaryColor = teamObj?.colorPrimary2 || parentClub?.colorPrimary2 || teamObj?.colorSecondary || parentClub?.colorSecondary || '#0284c7';
-        secondaryColor = teamObj?.colorSecondary2 || parentClub?.colorSecondary2 || '#ffffff';
+        primaryColor = getValidColor(
+          teamObj?.colorPrimary2 || teamObj?.colorSecondary, 
+          parentClub?.colorPrimary2 || parentClub?.colorSecondary, 
+          '#0284c7'
+        );
+        secondaryColor = getValidColor(teamObj?.colorSecondary2, parentClub?.colorSecondary2, '#ffffff');
         patron = teamObj?.patronCamiseta2 || parentClub?.patronCamiseta2 || 'liso';
       }
     }
@@ -15699,26 +15826,40 @@ function saveCarteleraTeamsToFirebase() {
       state.directoryFederationsOrder = state.directoryFederationsOrder.map(item => getFederationSelectionBaseName(item));
     }
 
-    const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
-    const filterYear = document.getElementById('dirYearFilterInput')?.value.trim() || '';
-
-    // Show/hide year filter only for Jugadores
-    const yearContainer = document.getElementById('dirYearFilterContainer');
-    if (yearContainer) {
-      if (currentDirectoryTab === 'jugadores') {
-        yearContainer.style.display = 'flex';
-      } else {
-        yearContainer.style.display = 'none';
-        const yInput = document.getElementById('dirYearFilterInput');
-        if (yInput && yInput.value) {
-          yInput.value = '';
-        }
-      }
-    }
-
     if (!state.dirActiveFilters) state.dirActiveFilters = {};
     if (!state.dirActiveFilters[currentDirectoryTab]) state.dirActiveFilters[currentDirectoryTab] = {};
     const activeFilters = state.dirActiveFilters[currentDirectoryTab];
+
+    const searchVal = document.getElementById('dirSearchInput')?.value.toLowerCase() || '';
+    const filterYear = document.getElementById('dirYearFilterInput')?.value.trim() || '';
+    const filterTeamVal = document.getElementById('dirTeamFilterInput')?.value.toLowerCase().trim() || '';
+
+    // Show/hide year and team filter only for Jugadores
+    const yearContainer = document.getElementById('dirYearFilterContainer');
+    const teamContainer = document.getElementById('dirTeamFilterContainer');
+    if (currentDirectoryTab === 'jugadores') {
+      if (yearContainer) yearContainer.style.display = 'flex';
+      if (teamContainer) {
+        teamContainer.style.display = 'flex';
+        // Populate options
+        const datalistEl = document.getElementById('dirTeamFilterDatalist');
+        if (datalistEl && state.directory && state.directory.jugadores) {
+          const uniqueTeams = [...new Set(state.directory.jugadores.map(j => (j.equipo || j.equipoVinculado || '').trim()).filter(t => t))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+          datalistEl.innerHTML = uniqueTeams.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+        }
+      }
+    } else {
+      if (yearContainer) {
+        yearContainer.style.display = 'none';
+        const yInput = document.getElementById('dirYearFilterInput');
+        if (yInput) yInput.value = '';
+      }
+      if (teamContainer) {
+        teamContainer.style.display = 'none';
+        const tInput = document.getElementById('dirTeamFilterInput');
+        if (tInput) tInput.value = '';
+      }
+    }
 
     let rawItems = [...(state.directory[currentDirectoryTab] || [])];
 
@@ -15779,11 +15920,22 @@ function saveCarteleraTeamsToFirebase() {
       });
     }
 
-    // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER) & Year Filter
+    // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER), Year Filter & Team Filter
     const filtered = subFilteredItems.filter(item => {
-      if (filterYear && currentDirectoryTab === 'jugadores') {
-        const itemYear = String(item.anoNac || item.ano || item.anyo || '').trim();
-        if (itemYear !== filterYear) return false;
+      if (currentDirectoryTab === 'jugadores') {
+        if (filterYear) {
+          const itemYear = String(item.anoNac || item.ano || item.anyo || '').trim();
+          const searchY = filterYear.toLowerCase();
+          if (searchY === 'vacio' || searchY === 'vacío') {
+            if (itemYear !== '') return false;
+          } else {
+            if (!itemYear.includes(filterYear)) return false;
+          }
+        }
+        if (filterTeamVal) {
+          const itemTeam = String(item.equipo || item.equipoVinculado || '').toLowerCase().trim();
+          if (!itemTeam.includes(filterTeamVal)) return false;
+        }
       }
       
       if (!searchVal) return true;
@@ -16065,7 +16217,9 @@ function saveCarteleraTeamsToFirebase() {
                       </a>
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.ano || j.anoNac || '-')}</td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-year" data-id="${j.id}" value="${escapeHtml(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                    </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.equipo || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
@@ -16081,6 +16235,20 @@ function saveCarteleraTeamsToFirebase() {
 
         container.querySelectorAll('.player-name-link, .btn-open-player-modal').forEach(el => {
           el.addEventListener('click', () => openPlayerModal(el.dataset.id));
+        });
+
+        container.querySelectorAll('.inline-edit-year').forEach(input => {
+          input.addEventListener('change', (e) => {
+            const playerId = e.target.dataset.id;
+            const newYear = e.target.value.trim();
+            const player = (state.directory.jugadores || []).find(p => String(p.id) === String(playerId) || (p.codigo && String(p.codigo) === String(playerId)));
+            if (player) {
+              player.ano = newYear;
+              player.anoNac = newYear;
+              saveState();
+              if (typeof showToast === 'function') showToast(`Año actualizado a ${newYear || 'vacío'}`);
+            }
+          });
         });
 
         container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
@@ -17333,6 +17501,10 @@ function saveCarteleraTeamsToFirebase() {
     currentDirectoryPage = 1;
     renderDirectorio();
   });
+  document.getElementById('dirTeamFilterInput')?.addEventListener('input', () => {
+    currentDirectoryPage = 1;
+    renderDirectorio();
+  });
   document.getElementById('btnResetDirFilters')?.addEventListener('click', () => {
     const input = document.getElementById('dirSearchInput');
     if (input) input.value = '';
@@ -18127,6 +18299,22 @@ function saveCarteleraTeamsToFirebase() {
         state.directory.jugadores.unshift(playerObj);
         saveToFirebase('jugadores', playerObj);
         countJugadoresNew++;
+
+        // Sincronizar jugador con la plantilla del equipo si el equipo existe
+        if (playerObj.equipo && state.directory.equipos) {
+          const teamToUpdate = state.directory.equipos.find(eq => (eq.nombre || '').toLowerCase() === playerObj.equipo.toLowerCase());
+          if (teamToUpdate) {
+            if (!teamToUpdate.plantilla) teamToUpdate.plantilla = [];
+            const playerAlreadyInPlantilla = teamToUpdate.plantilla.some(j => {
+              const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+              return nameStr.toLowerCase() === playerObj.nombre.toLowerCase();
+            });
+            if (!playerAlreadyInPlantilla) {
+              teamToUpdate.plantilla.push(playerObj.nombre);
+              saveToFirebase('equipos', teamToUpdate);
+            }
+          }
+        }
       }
     });
 
