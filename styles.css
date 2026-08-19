@@ -4386,3 +4386,8 @@ body.dark-theme .notif-item.unread {
   border-color: var(--border-light);
 }
 .ficha-link-btn.generic:hover { background: var(--border-light); }
+
+/* Dropdown item hover */
+.dropdown-item-player:hover, .dropdown-item-create:hover {
+  background-color: var(--bg-body);
+}

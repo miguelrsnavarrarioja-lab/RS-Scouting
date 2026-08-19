@@ -4865,6 +4865,39 @@ function saveCarteleraTeamsToFirebase() {
     }
   }
 
+  function syncMissingPositionsToDirectory(reportObj) {
+    if (!state.directory || !state.directory.jugadores) return;
+    
+    const checkAndSync = (pObj) => {
+      if (!pObj || !pObj.name || !pObj.pos) return;
+      const pNameLower = pObj.name.toLowerCase().trim();
+      
+      const foundPlayer = state.directory.jugadores.find(p => 
+        (p.nombre || p.jugador || p.name || '').toLowerCase().trim() === pNameLower
+      );
+      
+      if (foundPlayer) {
+        let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
+        let updated = false;
+        if (!posPri) {
+          foundPlayer.posicionPrincipal = pObj.pos;
+          updated = true;
+        } else if (!foundPlayer.posicionSecundaria && foundPlayer.posicionPrincipal !== pObj.pos) {
+          foundPlayer.posicionSecundaria = pObj.pos;
+          updated = true;
+        }
+        if (updated) {
+          saveToFirebase('jugadores', foundPlayer);
+        }
+      }
+    };
+
+    (reportObj.localTitulares || []).forEach(checkAndSync);
+    (reportObj.localSuplentes || []).forEach(checkAndSync);
+    (reportObj.visitanteTitulares || []).forEach(checkAndSync);
+    (reportObj.visitanteSuplentes || []).forEach(checkAndSync);
+  }
+
   // Save Report Handler
   document.getElementById('btnSaveMatchReport')?.addEventListener('click', () => {
     try {
@@ -5045,6 +5078,8 @@ function saveCarteleraTeamsToFirebase() {
           reportObj.localTeam
         );
       }
+
+      syncMissingPositionsToDirectory(reportObj);
 
       saveToFirebase('informes', reportObj);
       saveState();
@@ -6116,7 +6151,10 @@ function saveCarteleraTeamsToFirebase() {
     const card = document.getElementById('generalModalCard');
     if (card) card.classList.add('large');
 
-    showModal(titleText, modalHTML, () => {
+    const overlayEl = document.getElementById('generalModalOverlay');
+    const isGeneralOpen = overlayEl && !overlayEl.classList.contains('hidden');
+
+    const modalSubmitHandler = () => {
       const p = isEdit ? player : { id: 'jug_' + Date.now() };
 
       p.nombre = document.getElementById('pfNombre')?.value.trim() || p.nombre || '';
@@ -6196,11 +6234,28 @@ function saveCarteleraTeamsToFirebase() {
 
       saveToFirebase('jugadores', p);
       saveState();
-      hideModal();
-      if (typeof renderDirectorio === 'function') renderDirectorio();
-      if (typeof window.renderPlantillaTable === 'function') window.renderPlantillaTable();
+      
+      const overlayEl = document.getElementById('generalModalOverlay');
+      const isGeneralOpen = overlayEl && !overlayEl.classList.contains('hidden') && document.getElementById('modalTitle').textContent.includes('Ficha de');
+
+      if (isGeneralOpen) {
+          hideSecondaryModal();
+          if (typeof window.renderPlantillaTable === 'function') window.renderPlantillaTable();
+      } else {
+          hideModal();
+          if (typeof renderDirectorio === 'function') renderDirectorio();
+          if (typeof window.renderPlantillaTable === 'function') window.renderPlantillaTable();
+      }
       showToast(`Ficha de "${p.nombre}" guardada con éxito`, 'success');
-    });
+    };
+
+    const isGeneralOpenCheck = document.getElementById('generalModalOverlay') && !document.getElementById('generalModalOverlay').classList.contains('hidden') && document.getElementById('modalTitle').textContent.includes('Ficha de');
+
+    if (isGeneralOpenCheck) {
+        showSecondaryModal(titleText, modalHTML, modalSubmitHandler);
+    } else {
+        showModal(titleText, modalHTML, modalSubmitHandler);
+    }
 // Subtab switching logic
     const subtabs = document.querySelectorAll('.player-subtab');
     const panes = document.querySelectorAll('.player-tab-pane');
@@ -9099,8 +9154,21 @@ function saveCarteleraTeamsToFirebase() {
               }
               const vistasArr = Array.from(posicionesVistas);
               if (vistasArr.length > 0) {
-                if (!posPri) posPri = vistasArr[0];
-                if (!posSec && vistasArr.length > 1 && vistasArr[1] !== posPri) posSec = vistasArr[1];
+                let updated = false;
+                if (!posPri) {
+                    posPri = vistasArr[0];
+                    foundPlayer.posicionPrincipal = posPri;
+                    updated = true;
+                }
+                if (!posSec && vistasArr.length > 1 && vistasArr[1] !== posPri) {
+                    posSec = vistasArr[1];
+                    foundPlayer.posicionSecundaria = posSec;
+                    updated = true;
+                }
+                if (updated) {
+                    saveToFirebase('jugadores', foundPlayer);
+                    saveState();
+                }
               }
             }
 
@@ -9245,6 +9313,8 @@ function saveCarteleraTeamsToFirebase() {
       if (window.lucide) window.lucide.createIcons();
     }
     renderPlantillaTable();
+
+
 
     document.getElementById('btnAddJugadorRow')?.addEventListener('click', () => {
       const val = document.getElementById('tfJugadorSearchInput').value.trim();
@@ -23000,6 +23070,58 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (window.lucide) window.lucide.createIcons();
   }
 
+  // --- SECONDARY MODAL OVERLAY ---
+  let currentSecondaryModalSubmitCallback = null;
+
+  function showSecondaryModal(title, htmlContent, onSubmit, onDelete = null) {
+    let overlay = document.getElementById('secondaryModalOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'secondaryModalOverlay';
+      overlay.className = 'modal-overlay hidden';
+      overlay.style.cssText = 'z-index: 10050; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; padding: 16px; box-sizing: border-box;';
+      
+      const card = document.createElement('div');
+      card.id = 'secondaryModalCard';
+      card.className = 'modal-card large'; 
+      card.style.cssText = 'width: 100%; background: var(--bg-card, #ffffff); border-radius: var(--radius-lg, 16px); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-light, #e2e8f0); position: relative; box-sizing: border-box; display: flex; flex-direction: column; max-height: 95vh;';
+      
+      card.innerHTML = `
+        <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+          <h3 id="secondaryModalTitle" style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);"></h3>
+          <button type="button" class="btn-close-modal" id="btnSecondaryCloseModal" style="background: transparent; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <div class="modal-body" id="secondaryModalBody" style="padding: 24px; overflow-y: auto; flex: 1;"></div>
+        <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 16px 16px;">
+          <button type="button" class="btn btn-secondary" id="btnSecondaryCancelModal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnSecondarySubmitModal">Guardar</button>
+        </div>
+      `;
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      document.getElementById('btnSecondaryCloseModal').onclick = hideSecondaryModal;
+      document.getElementById('btnSecondaryCancelModal').onclick = hideSecondaryModal;
+      document.getElementById('btnSecondarySubmitModal').onclick = () => {
+          if (currentSecondaryModalSubmitCallback) currentSecondaryModalSubmitCallback();
+      };
+    }
+    
+    document.getElementById('secondaryModalTitle').textContent = title;
+    document.getElementById('secondaryModalBody').innerHTML = htmlContent;
+    currentSecondaryModalSubmitCallback = onSubmit;
+    
+    overlay.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function hideSecondaryModal() {
+      const overlay = document.getElementById('secondaryModalOverlay');
+      if (overlay) overlay.classList.add('hidden');
+      currentSecondaryModalSubmitCallback = null;
+  }
+  // ------------------------------
+
   function hideModal() {
     const card = document.getElementById('generalModalCard');
     if (card) card.classList.remove('xlarge', 'large');
@@ -23845,6 +23967,194 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (typeof renderAllViews === 'function') renderAllViews();
       }
     });
+
+    // --------------------------------------------------------------------------
+    // GLOBAL SMART DROPDOWNS (AUTOCOMPLETE & CREATE NEW)
+    // --------------------------------------------------------------------------
+    function upgradeInputsToSmartDropdowns(rootElement) {
+      if (!rootElement) return;
+      const inputs = rootElement.querySelectorAll('input[list]');
+      
+      const datalistToCategory = {
+        'jugadoresDatalistOptions': 'jugadores',
+        'clubesDatalistOptions': 'clubes',
+        'equiposDatalistOptions': 'equipos',
+        'federacionesDatalistOptions': 'federaciones',
+        'seleccionesDatalistOptions': 'selecciones',
+        'staffDatalistOptions': 'staff',
+        'estadiosDatalistOptions': 'estadios',
+        'agenciasDatalistOptions': 'agencias',
+        'agentesDatalistOptions': 'agentes',
+        'trayClubDatalistOptions': 'equipos',
+        'clubesEstadioDatalistOptions': 'clubes'
+      };
+
+      inputs.forEach(input => {
+        const listId = input.getAttribute('list');
+        if (!listId) return;
+        
+        // Remove native datalist association to prevent native popup
+        input.removeAttribute('list');
+        input.setAttribute('data-smart-list', listId);
+        input.autocomplete = 'off';
+
+        // Wrap input safely
+        const parent = input.parentElement;
+        let wrapper = parent;
+        if (!parent.classList.contains('smart-dropdown-wrapper')) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'smart-dropdown-wrapper';
+            wrapper.style.position = 'relative';
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.flexGrow = '1';
+            wrapper.style.width = '100%';
+            
+            parent.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+        }
+
+        let dropdown = wrapper.querySelector(`.smart-dropdown-${listId}`);
+        if (!dropdown) {
+            dropdown = document.createElement('ul');
+            dropdown.className = `dropdown-menu smart-dropdown-${listId}`;
+            dropdown.style.display = 'none';
+            dropdown.style.position = 'absolute';
+            dropdown.style.top = '100%';
+            dropdown.style.left = '0';
+            dropdown.style.width = '100%';
+            dropdown.style.maxHeight = '250px';
+            dropdown.style.overflowY = 'auto';
+            dropdown.style.zIndex = '99999';
+            dropdown.style.marginTop = '2px';
+            dropdown.style.padding = '0';
+            dropdown.style.listStyle = 'none';
+            dropdown.style.background = 'white';
+            dropdown.style.border = '1px solid var(--border-light)';
+            dropdown.style.borderRadius = 'var(--radius-md)';
+            dropdown.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            
+            wrapper.appendChild(dropdown);
+        }
+
+        function renderDropdown() {
+            const val = input.value.trim().toLowerCase();
+            
+            let dataArr = [];
+            let entityCategory = null;
+
+            if (datalistToCategory[listId]) {
+                entityCategory = datalistToCategory[listId];
+                dataArr = state.directory?.[entityCategory] || [];
+            } else {
+                 // Known datalists that aren't global directory (e.g., localPlayersDatalist) are not yet supported for "create new"
+                 dropdown.style.display = 'none';
+                 return;
+            }
+
+            let filtered = val ? dataArr.filter(item => {
+                const name = typeof item === 'string' ? item : (item.nombre || '');
+                return name.toLowerCase().includes(val);
+            }) : [];
+            
+            if (filtered.length > 15) filtered = filtered.slice(0, 15);
+            
+            let html = '';
+            filtered.forEach(item => {
+                const name = typeof item === 'string' ? item : (item.nombre || '');
+                html += `<li style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--text-color);" class="dropdown-item-smart" onmouseover="this.style.backgroundColor='var(--bg-body)'" onmouseout="this.style.backgroundColor='transparent'" data-name="${escapeHtml(name)}">${escapeHtml(name)}</li>`;
+            });
+            
+            if (val && entityCategory) {
+                const exactMatch = dataArr.some(item => {
+                    const name = typeof item === 'string' ? item : (item.nombre || '');
+                    return name.toLowerCase() === val;
+                });
+                if (!exactMatch) {
+                    html += `<li style="padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--primary-blue); font-weight: 700; background: #f0f9ff;" class="dropdown-item-create-smart" onmouseover="this.style.backgroundColor='#e0f2fe'" onmouseout="this.style.backgroundColor='#f0f9ff'">+ Crear nuev@ "${escapeHtml(input.value.trim())}"</li>`;
+                }
+            }
+            
+            dropdown.innerHTML = html;
+            dropdown.style.display = html ? 'block' : 'none';
+
+            dropdown.querySelectorAll('.dropdown-item-smart').forEach(li => {
+                li.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    input.value = li.getAttribute('data-name');
+                    dropdown.style.display = 'none';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+
+            dropdown.querySelectorAll('.dropdown-item-create-smart').forEach(li => {
+                li.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    const newName = input.value.trim();
+                    
+                    state.directory = state.directory || {};
+                    state.directory[entityCategory] = state.directory[entityCategory] || [];
+                    
+                    state.directory[entityCategory].push({
+                        id: entityCategory.substring(0,3) + '_' + Date.now(),
+                        nombre: newName
+                    });
+                    saveToFirebase('directorio', state.directory);
+                    
+                    input.value = newName;
+                    dropdown.style.display = 'none';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    if (typeof updateDirectorioDatalists === 'function') {
+                        updateDirectorioDatalists();
+                    }
+                    if (typeof renderDirectorio === 'function' && document.getElementById('tab-directorio')?.classList.contains('active')) {
+                        renderDirectorio();
+                    }
+                });
+            });
+        }
+
+        input.addEventListener('input', renderDropdown);
+        input.addEventListener('focus', renderDropdown);
+        input.addEventListener('blur', () => {
+            setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+        });
+      });
+    }
+
+    const bodyObserver = new MutationObserver((mutations) => {
+        let shouldUpgrade = false;
+        for (const m of mutations) {
+            if (m.addedNodes.length > 0) {
+                for (let i = 0; i < m.addedNodes.length; i++) {
+                    const node = m.addedNodes[i];
+                    if (node.nodeType === 1) { // Element node
+                        if (node.tagName === 'INPUT' && node.hasAttribute('list')) {
+                            shouldUpgrade = true;
+                            break;
+                        }
+                        if (node.querySelector && node.querySelector('input[list]')) {
+                            shouldUpgrade = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (shouldUpgrade) break;
+        }
+        if (shouldUpgrade) {
+            upgradeInputsToSmartDropdowns(document.body);
+        }
+    });
+
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+        upgradeInputsToSmartDropdowns(document.body);
+    }, 1000);
 
   });
 
