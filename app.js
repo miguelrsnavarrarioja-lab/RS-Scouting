@@ -3147,11 +3147,13 @@ function saveCarteleraTeamsToFirebase() {
         const numEl = r.querySelector('.num') || r.querySelector('input.num');
         const nameEl = r.querySelector('.name') || r.querySelector('input.name');
         const posEl = r.querySelector('.pos') || r.querySelector('select.pos');
+        const pos2El = r.querySelector('.pos2') || r.querySelector('select.pos2');
         const parsedNum = numEl && numEl.value.trim() !== '' && !isNaN(numEl.value) ? parseInt(numEl.value, 10) : '';
         list.push({
           num: (parsedNum !== 0 && parsedNum !== '0') ? parsedNum : '',
           name: nameEl ? (nameEl.value || '').trim() : '',
-          pos: posEl ? (posEl.value || '') : ''
+          pos: posEl ? (posEl.value || '') : '',
+          pos2: pos2El ? (pos2El.value || '') : ''
         });
       });
       return list;
@@ -3193,6 +3195,13 @@ function saveCarteleraTeamsToFirebase() {
       suplentes: []
     };
 
+    // Update container classes for CSS rules
+    const container = document.getElementById(`${team}PlayersTableContainer`);
+    if (container) {
+      container.classList.remove('role-principal', 'role-secundario', 'role-ocasional');
+      container.classList.add(`role-${targetRole}`);
+    }
+
     const formationSelect = document.getElementById(`${team}FormationSelect`);
     if (formationSelect) formationSelect.value = systemData.formation || '1-4-3-3';
 
@@ -3200,6 +3209,60 @@ function saveCarteleraTeamsToFirebase() {
     renderPitchPins(team);
     attachLineupRowListeners(team);
   }
+
+  // Handle dynamic titulares count changes for secondary/occasional systems
+  window.changeTitularesCount = function(team, delta) {
+    saveCurrentTacticalRoleState(team); // Save current inputs to state
+    
+    const role = activeTacticalRole[team] || 'principal';
+    if (!matchTacticalSystems[team] || !matchTacticalSystems[team][role]) return;
+    
+    // Solo permitimos cambiar el número de jugadores principales si NO estamos en el sistema principal
+    if (role === 'principal') return;
+    
+    const systemData = matchTacticalSystems[team][role];
+    let titulares = systemData.titulares || [];
+    
+    if (delta > 0) {
+      titulares.push({ num: '', name: '', pos: '', pos2: '' });
+    } else if (delta < 0 && titulares.length > 0) {
+      titulares.pop();
+    }
+    
+    systemData.titulares = titulares;
+    
+    // Re-render
+    renderPlayerRows(team, systemData.titulares, systemData.suplentes);
+    renderPitchPins(team);
+    attachLineupRowListeners(team);
+  };
+
+  window.addPlayerRow = function(team, type, idx) {
+    saveCurrentTacticalRoleState(team);
+    const role = activeTacticalRole[team] || 'principal';
+    const systemData = matchTacticalSystems[team][role];
+    const list = type === 'titular' ? systemData.titulares : systemData.suplentes;
+    
+    // Insert after the given idx
+    list.splice(idx + 1, 0, { num: '', name: '', pos: '', pos2: '' });
+    
+    renderPlayerRows(team, systemData.titulares, systemData.suplentes);
+    renderPitchPins(team);
+    attachLineupRowListeners(team);
+  };
+
+  window.removePlayerRow = function(team, type, idx) {
+    saveCurrentTacticalRoleState(team);
+    const role = activeTacticalRole[team] || 'principal';
+    const systemData = matchTacticalSystems[team][role];
+    const list = type === 'titular' ? systemData.titulares : systemData.suplentes;
+    
+    list.splice(idx, 1);
+    
+    renderPlayerRows(team, systemData.titulares, systemData.suplentes);
+    renderPitchPins(team);
+    attachLineupRowListeners(team);
+  };
 
   // Handle dynamic substitute count changes
   window.changeSuplentesCount = function(team, delta) {
@@ -3379,15 +3442,34 @@ function saveCarteleraTeamsToFirebase() {
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
 
-    // Titulares (11)
+    // Titulares (dynamic based on role, default 11)
+    const currentRole = activeTacticalRole[team] || 'principal';
+    let titCount = titulares.length;
+    
+    if (currentRole === 'principal') {
+      titCount = 11;
+      while (titulares.length < 11) titulares.push({ num: '', name: '', pos: '', pos2: '' });
+      titulares.length = 11;
+    } else {
+      if (titCount === 0) {
+        titCount = 11;
+        for(let i=0; i<11; i++) titulares.push({ num: '', name: '', pos: '', pos2: '' });
+      }
+    }
+    
+    const titCounterDisplay = document.getElementById(`${team}TitularesCountDisplay`);
+    if (titCounterDisplay) titCounterDisplay.textContent = titCount;
+
     const titContainer = document.getElementById(`${team}TitularesRows`);
     let titHTML = `<datalist id="${team}PlayersDatalist"></datalist>`;
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < titCount; i++) {
       const defaultPosForIdx = defaultPositions[i] || (i === 0 ? 'PO' : 'MC');
-      const p = titulares[i] || { num: '', name: '', pos: defaultPosForIdx };
+      const p = titulares[i] || { num: '', name: '', pos: defaultPosForIdx, pos2: '' };
       const numVal = (p.num !== undefined && p.num !== null && p.num !== 0 && p.num !== '0') ? p.num : '';
       const currentPos = p.pos || defaultPosForIdx;
+      const currentPos2 = p.pos2 || '';
       const hasCurrent = posOptions.includes(currentPos);
+      const hasCurrent2 = posOptions.includes(currentPos2);
       titHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
@@ -3396,6 +3478,14 @@ function saveCarteleraTeamsToFirebase() {
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
+          <select class="form-control pos2 select-compact">
+            <option value="" ${!currentPos2 ? 'selected' : ''}>-</option>
+            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeHtml(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
+            ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+          <div class="row-controls titular-controls" style="display: flex; align-items: center; padding-left: 2px;">
+            <button type="button" class="btn btn-outline-danger" style="padding: 0 4px; font-size: 10px; line-height: 1; height: 16px;" onclick="window.removePlayerRow('${team}', 'titular', ${i})" title="Eliminar jugador">-</button>
+          </div>
         </div>
       `;
     }
@@ -3418,7 +3508,9 @@ function saveCarteleraTeamsToFirebase() {
       const p = suplentes[i] || { num: '', name: '', pos: '' };
       const numVal = (p.num !== undefined && p.num !== null && p.num !== 0 && p.num !== '0') ? p.num : '';
       const currentPos = p.pos !== undefined ? p.pos : '';
+      const currentPos2 = p.pos2 !== undefined ? p.pos2 : '';
       const hasCurrent = posOptions.includes(currentPos);
+      const hasCurrent2 = posOptions.includes(currentPos2);
       supHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
@@ -3427,6 +3519,11 @@ function saveCarteleraTeamsToFirebase() {
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+          <select class="form-control pos2 select-compact">
+            <option value="" ${!currentPos2 ? 'selected' : ''}>-</option>
+            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeHtml(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
+            ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
         </div>
       `;
@@ -3478,6 +3575,11 @@ function saveCarteleraTeamsToFirebase() {
         });
 
         posSelect?.addEventListener('change', () => {
+          renderPitchPins(team);
+        });
+
+        const pos2Select = row.querySelector('select.pos2');
+        pos2Select?.addEventListener('change', () => {
           renderPitchPins(team);
         });
       });
@@ -3684,6 +3786,7 @@ function saveCarteleraTeamsToFirebase() {
 
       const numVal = (numInput && numInput.value.trim() !== '' && numInput.value.trim() !== '0') ? numInput.value.trim() : '';
       let posVal = posSelect ? posSelect.value : '';
+      let pos2Val = row?.querySelector('select.pos2')?.value || '';
       
       // Only Titulares get a default position if blank
       if (isTitular && !posVal) {
@@ -3693,38 +3796,7 @@ function saveCarteleraTeamsToFirebase() {
       // If it's a Suplente and has no position, do not render on the pitch
       if (!isTitular && !posVal) return '';
       
-      // No mostrar suplentes en el campo si estamos en el sistema Principal
-      if (!isTitular && activeTacticalRole[team] === 'principal') return '';
-      
-      // Determine physical position on the pitch based on the selected position string
-      let targetIdx = idx;
-      if (posVal) {
-        const allIndices = [];
-        for (let i = 0; i < defaultStarterPositions.length; i++) {
-          if (defaultStarterPositions[i] === posVal) allIndices.push(i);
-        }
-        
-        if (allIndices.length > 0) {
-          usedPositionsCount[posVal] = (usedPositionsCount[posVal] || 0);
-          const occurrenceIndex = Math.min(usedPositionsCount[posVal], allIndices.length - 1);
-          targetIdx = allIndices[occurrenceIndex];
-          usedPositionsCount[posVal]++;
-        }
-      }
-      
-      const pos = positions[targetIdx] || positions[idx] || {x: 50, y: 50};
-      
-      // Prevent exact overlapping by offsetting players assigned to the exact same targetIdx
-      targetIdxCount[targetIdx] = (targetIdxCount[targetIdx] || 0);
-      const offsetMultiplier = targetIdxCount[targetIdx];
-      targetIdxCount[targetIdx]++;
-      
-      // Add a slight offset (3% left, 3% down) for each overlapping player
-      const offsetX = pos.x + (offsetMultiplier * 4);
-      const offsetY = pos.y + (offsetMultiplier * 4);
-      
       const nameVal = nameInput ? nameInput.value.trim() : '';
-      const displayText = numVal ? numVal : (posVal || (idx + 1));
 
       const pNum = numVal || (isTitular ? (idx + 1) : (12 + idx));
       const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
@@ -3760,16 +3832,53 @@ function saveCarteleraTeamsToFirebase() {
       // Sub styles: slightly different border and z-index to stand out
       const borderStyle = isTitular ? '2px solid #ffffff' : '2px dashed #fbbf24';
       const zIndex = isTitular ? 10 : 11; // Subs render above starters if they overlap
-      
-      return `
-        <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + posVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer;">
-          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${backgroundStyle} color: ${textColor}; ${textShadow} border: ${borderStyle}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+
+      const generatePinHTML = (positionVal, isPos2) => {
+        if (!positionVal) return '';
+        let targetIdx = idx;
+        const allIndices = [];
+        for (let i = 0; i < defaultStarterPositions.length; i++) {
+          if (defaultStarterPositions[i] === positionVal) allIndices.push(i);
+        }
+        
+        if (allIndices.length > 0) {
+          usedPositionsCount[positionVal] = (usedPositionsCount[positionVal] || 0);
+          const occurrenceIndex = Math.min(usedPositionsCount[positionVal], allIndices.length - 1);
+          targetIdx = allIndices[occurrenceIndex];
+          if (!isPos2) usedPositionsCount[positionVal]++;
+        }
+        
+        const pos = positions[targetIdx] || positions[idx] || {x: 50, y: 50};
+        
+        targetIdxCount[targetIdx] = (targetIdxCount[targetIdx] || 0);
+        const offsetMultiplier = targetIdxCount[targetIdx];
+        if (!isPos2) targetIdxCount[targetIdx]++;
+        
+        const offsetX = pos.x + (offsetMultiplier * 4);
+        const offsetY = pos.y + (offsetMultiplier * 4);
+        
+        const displayText = numVal ? numVal : (positionVal || (idx + 1));
+        
+        // Add opacity if pos2
+        const opcStyle = isPos2 ? 'opacity: 0.7;' : '';
+        const borderStyle2 = isPos2 ? '2px dashed rgba(255,255,255,0.7)' : borderStyle;
+
+        return `
+        <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + positionVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer; ${opcStyle}">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${backgroundStyle} color: ${textColor}; ${textShadow} border: ${borderStyle2}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
           ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${escapeHtml(shortName)}</div>` : ''}
         </div>
-      `;
+        `;
+      };
+
+      let pinsHTML = generatePinHTML(posVal, false);
+      if (pos2Val && pos2Val !== posVal) {
+        pinsHTML += generatePinHTML(pos2Val, true);
+      }
+      return pinsHTML;
     };
 
     let pitchHTML = Array.from(rows).map((row, idx) => createPitchPinHTML(row, idx, true)).join('');

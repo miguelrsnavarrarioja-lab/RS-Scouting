@@ -975,8 +975,8 @@ a {
 
 .tactical-field-split {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 16px;
+  grid-template-columns: 340px 1fr;
+  gap: 8px;
   margin-bottom: 16px;
   align-items: stretch;
 }
@@ -999,7 +999,16 @@ a {
 
 .col-num { width: 36px; text-align: center; }
 .col-name { flex: 1; padding-left: 4px; }
-.col-pos { width: 58px; text-align: center; }
+.col-pos { width: 65px; text-align: center; }
+.col-pos2 { width: 65px; text-align: center; }
+
+/* Role-based display logic */
+.role-principal .titulares-controls, .role-principal .titular-controls { display: none !important; }
+.role-secundario .suplentes-divider, .role-secundario #localSuplentesRows, .role-secundario #visitanteSuplentesRows, .role-secundario .pitch-bench-area { display: none !important; }
+.role-ocasional .suplentes-divider, .role-ocasional #localSuplentesRows, .role-ocasional #visitanteSuplentesRows, .role-ocasional .pitch-bench-area { display: none !important; }
+
+.role-secundario .titulares-controls, .role-ocasional .titulares-controls { display: flex !important; }
+
 
 .lineup-rows {
   display: flex;
@@ -1035,7 +1044,8 @@ a {
 }
 
 .lineup-row input.name { flex: 1; min-width: 0; }
-.lineup-row select.pos { width: 58px; flex-shrink: 0; padding: 4px 2px; font-size: 11px; font-weight: 700; text-align-last: center; }
+.lineup-row select.pos { width: 65px; flex-shrink: 0; padding: 4px 2px; font-size: 11px; font-weight: 700; text-align-last: center; }
+.lineup-row select.pos2 { width: 65px; flex-shrink: 0; padding: 4px 2px; font-size: 11px; font-weight: 700; text-align-last: center; }
 
 .suplentes-divider {
   font-size: 10px;
