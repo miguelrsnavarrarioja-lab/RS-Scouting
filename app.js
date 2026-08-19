@@ -5529,7 +5529,7 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">PROYECCIÓN</div>
-              <div class="ficha-stat-value">${escapeHtml(player.proyeccion || player.rendimientoRS || '-')}</div>
+              <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">POTENCIAL</div>
@@ -8572,15 +8572,14 @@ function saveCarteleraTeamsToFirebase() {
               <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
-                    <th style="padding: 8px 12px; width: 22%;">PLANTILLA</th>
+                    <th style="padding: 8px 12px; width: 27%;">PLANTILLA</th>
                     <th style="padding: 8px 12px; width: 5%;">DORSAL</th>
                     <th style="padding: 8px 12px; width: 6%;">AÑO</th>
-                    <th style="padding: 8px 12px; width: 14%;">POS. PRINC.</th>
-                    <th style="padding: 8px 12px; width: 14%;">POS. SEC.</th>
+                    <th style="padding: 8px 12px; width: 17%;">POS. PRINC.</th>
+                    <th style="padding: 8px 12px; width: 17%;">POS. SEC.</th>
                     <th style="padding: 8px 12px; width: 10%;">LATERAL.</th>
                     <th style="padding: 8px 12px; width: 14%;">ESTADO</th>
-                    <th style="padding: 8px 12px; width: 15%;">PROYECCIÓN</th>
-                    <th style="padding: 8px 12px; text-align: right; width: 5%;">ELIM.</th>
+                    <th style="padding: 8px 12px; text-align: right; width: 4%;">ELIM.</th>
                   </tr>
                 </thead>
                 <tbody id="tfPlantillaTableBody"></tbody>
@@ -9214,7 +9213,6 @@ function saveCarteleraTeamsToFirebase() {
             posSecHTML = `<select class="form-control inline-edit-select" data-field="posicionSecundaria" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posSec)}</select>`;
             lateralidadHTML = `<select class="form-control inline-edit-select" data-field="pierna" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePiernaOptions(pierna)}</select>`;
             estadoHTML = `<select class="form-control inline-edit-select" data-field="estado" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateEstadoOptions(estado)}</select>`;
-            rendRSHTML = `<select class="form-control inline-edit-select" data-field="proyeccion" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateProyOptions(proyeccion)}</select>`;
           }
 
           return `
@@ -9226,7 +9224,6 @@ function saveCarteleraTeamsToFirebase() {
               <td style="padding: 6px 4px;">${posSecHTML}</td>
               <td style="padding: 6px 4px;">${lateralidadHTML}</td>
               <td style="padding: 6px 4px;">${estadoHTML}</td>
-              <td style="padding: 6px 4px;">${rendRSHTML}</td>
               <td style="padding: 6px 12px; text-align: right;">
                 <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${idx}" style="width: 24px; height: 24px; padding: 0;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
@@ -16438,7 +16435,7 @@ function saveCarteleraTeamsToFirebase() {
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || j.rendimientoRS || '-')}</td>
+                    <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -24092,14 +24089,27 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                 li.addEventListener('mousedown', (e) => {
                     e.preventDefault();
                     const newName = input.value.trim();
+                    const newId = entityCategory.substring(0,3) + '_' + Date.now();
+                    
+                    let equipoActualStr = '';
+                    if (input.id === 'tfJugadorSearchInput') {
+                        const tfNombre = document.getElementById('tfNombre');
+                        if (tfNombre) equipoActualStr = tfNombre.value.trim();
+                    }
                     
                     state.directory = state.directory || {};
                     state.directory[entityCategory] = state.directory[entityCategory] || [];
                     
-                    state.directory[entityCategory].push({
-                        id: entityCategory.substring(0,3) + '_' + Date.now(),
+                    const newEntity = {
+                        id: newId,
                         nombre: newName
-                    });
+                    };
+                    
+                    if (equipoActualStr && entityCategory === 'jugadores') {
+                        newEntity.equipoActual = equipoActualStr;
+                    }
+                    
+                    state.directory[entityCategory].push(newEntity);
                     saveToFirebase('directorio', state.directory);
                     
                     input.value = newName;
@@ -24112,6 +24122,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     }
                     if (typeof renderDirectorio === 'function' && document.getElementById('tab-directorio')?.classList.contains('active')) {
                         renderDirectorio();
+                    }
+                    
+                    if (input.id === 'tfJugadorSearchInput') {
+                        const btnAdd = document.getElementById('btnAddJugadorRow');
+                        if (btnAdd) btnAdd.click();
+                        
+                        setTimeout(() => {
+                            if (typeof openPlayerEditModal === 'function') {
+                                openPlayerEditModal(newId);
+                            }
+                        }, 150);
                     }
                 });
             });
