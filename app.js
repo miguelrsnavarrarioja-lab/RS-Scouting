@@ -4864,17 +4864,52 @@ function saveCarteleraTeamsToFirebase() {
       }
     }
   }
+  function isSamePlayerName(nameA, nameB, teamA, teamB) {
+      if (!nameA || !nameB) return false;
+      const normalize = (s) => (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+      const a = normalize(nameA);
+      const b = normalize(nameB);
+      if (a === b) return true;
+      
+      const wordsA = a.split(' ');
+      const wordsB = b.split(' ');
+      
+      const tA = normalize(teamA);
+      const tB = normalize(teamB);
+      
+      const firstTwoMatch = wordsA.length >= 2 && wordsB.length >= 2 && wordsA[0] === wordsB[0] && wordsA[1] === wordsB[1];
+      
+      let thirdWordConflict = false;
+      if (wordsA.length >= 3 && wordsB.length >= 3) {
+          if (wordsA[2] !== wordsB[2]) thirdWordConflict = true;
+      }
+      
+      if (tA && tB && (tA === tB || tA.includes(tB) || tB.includes(tA))) {
+          if (firstTwoMatch && !thirdWordConflict) {
+              return true;
+          }
+      }
+      
+      if (a.startsWith(b) || b.startsWith(a)) {
+         if (firstTwoMatch && !thirdWordConflict) {
+             return true; 
+         }
+      }
+      
+      return false;
+  }
 
   function syncMissingPositionsToDirectory(reportObj) {
     if (!state.directory || !state.directory.jugadores) return;
     
-    const checkAndSync = (pObj) => {
+    const checkAndSync = (pObj, teamName) => {
       if (!pObj || !pObj.name || !pObj.pos) return;
-      const pNameLower = pObj.name.toLowerCase().trim();
       
-      const foundPlayer = state.directory.jugadores.find(p => 
-        (p.nombre || p.jugador || p.name || '').toLowerCase().trim() === pNameLower
-      );
+      const foundPlayer = state.directory.jugadores.find(p => {
+        const dName = (p.nombre || p.jugador || p.name || '');
+        const dTeam = (p.equipo || p.equipoActual || '');
+        return isSamePlayerName(dName, pObj.name, dTeam, teamName);
+      });
       
       if (foundPlayer) {
         let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
@@ -4892,10 +4927,13 @@ function saveCarteleraTeamsToFirebase() {
       }
     };
 
-    (reportObj.localTitulares || []).forEach(checkAndSync);
-    (reportObj.localSuplentes || []).forEach(checkAndSync);
-    (reportObj.visitanteTitulares || []).forEach(checkAndSync);
-    (reportObj.visitanteSuplentes || []).forEach(checkAndSync);
+    const checkAndSyncLocal = (pObj) => checkAndSync(pObj, reportObj.local);
+    const checkAndSyncVisitante = (pObj) => checkAndSync(pObj, reportObj.visitante);
+
+    (reportObj.localTitulares || []).forEach(checkAndSyncLocal);
+    (reportObj.localSuplentes || []).forEach(checkAndSyncLocal);
+    (reportObj.visitanteTitulares || []).forEach(checkAndSyncVisitante);
+    (reportObj.visitanteSuplentes || []).forEach(checkAndSyncVisitante);
   }
 
   // Save Report Handler
@@ -5408,16 +5446,43 @@ function saveCarteleraTeamsToFirebase() {
       let posicionesVistas = new Set();
       if (pNameLower) {
         (state.reports || []).forEach(rep => {
-          const checkPlayer = (pObj) => {
-             if (pObj && (pObj.name || '').toLowerCase().trim() === pNameLower && pObj.pos) {
-               posicionesVistas.add(pObj.pos);
+          const checkPlayer = (pObj, teamName) => {
+             if (pObj && pObj.pos && pObj.pos !== '-') {
+               const name = (pObj.name || '');
+               if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
+                 posicionesVistas.add(pObj.pos);
+               }
              }
           };
-          (rep.localTitulares || []).forEach(checkPlayer);
-          (rep.localSuplentes || []).forEach(checkPlayer);
-          (rep.visitanteTitulares || []).forEach(checkPlayer);
-          (rep.visitanteSuplentes || []).forEach(checkPlayer);
+          (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+          (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+          (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+          (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
         });
+        
+        if (typeof matchTacticalSystems !== 'undefined') {
+            if (typeof saveCurrentTacticalRoleState === 'function') {
+                saveCurrentTacticalRoleState('local');
+                saveCurrentTacticalRoleState('visitante');
+            }
+            ['local', 'visitante'].forEach(team => {
+               const teamName = document.getElementById(`report${team === 'local' ? 'Local' : 'Visitante'}Team`)?.value?.trim() || '';
+               ['principal', 'secundario', 'ocasional'].forEach(role => {
+                  if (matchTacticalSystems[team]?.[role]) {
+                      const sys = matchTacticalSystems[team][role];
+                      const checkActivePlayer = (pObj) => {
+                         if (!pObj) return;
+                         const name = (pObj.name || '');
+                         if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual) && pObj.pos && pObj.pos !== '-') {
+                           posicionesVistas.add(pObj.pos);
+                         }
+                      };
+                      (sys.titulares || []).forEach(checkActivePlayer);
+                      (sys.suplentes || []).forEach(checkActivePlayer);
+                  }
+               });
+            });
+        }
       }
       const vistasArr = Array.from(posicionesVistas);
       if (vistasArr.length > 0) {
@@ -5597,18 +5662,44 @@ function saveCarteleraTeamsToFirebase() {
     const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
     if (pNameLower) {
       (state.reports || []).forEach(rep => {
-        const checkPlayer = (pObj) => {
+        const checkPlayer = (pObj, teamName) => {
            if (!pObj) return;
-           const name = (pObj.name || '').toLowerCase().trim();
-           if (name === pNameLower && pObj.pos) {
+           const name = (pObj.name || '');
+           if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual) && pObj.pos) {
              posicionesVistas.add(pObj.pos);
            }
         };
-        (rep.localTitulares || []).forEach(checkPlayer);
-        (rep.localSuplentes || []).forEach(checkPlayer);
-        (rep.visitanteTitulares || []).forEach(checkPlayer);
-        (rep.visitanteSuplentes || []).forEach(checkPlayer);
+        (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+        (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+        (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+        (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
       });
+      
+      // Also scan unsaved active report UI (matchTacticalSystems)
+      if (typeof matchTacticalSystems !== 'undefined') {
+          // Temporarily save DOM state to matchTacticalSystems before reading it
+          if (typeof saveCurrentTacticalRoleState === 'function') {
+              saveCurrentTacticalRoleState('local');
+              saveCurrentTacticalRoleState('visitante');
+          }
+          ['local', 'visitante'].forEach(team => {
+             const teamName = document.getElementById(`report${team === 'local' ? 'Local' : 'Visitante'}Team`)?.value?.trim() || '';
+             ['principal', 'secundario', 'ocasional'].forEach(role => {
+                if (matchTacticalSystems[team]?.[role]) {
+                    const sys = matchTacticalSystems[team][role];
+                    const checkActivePlayer = (pObj) => {
+                       if (!pObj) return;
+                       const name = (pObj.name || '');
+                       if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual) && pObj.pos && pObj.pos !== '-') {
+                         posicionesVistas.add(pObj.pos);
+                       }
+                    };
+                    (sys.titulares || []).forEach(checkActivePlayer);
+                    (sys.suplentes || []).forEach(checkActivePlayer);
+                }
+             });
+          });
+      }
     }
     
     // Auto-fill from posiciones vistas if not already set
@@ -9140,16 +9231,43 @@ function saveCarteleraTeamsToFirebase() {
               let posicionesVistas = new Set();
               if (pNameLower) {
                 (state.reports || []).forEach(rep => {
-                  const checkPlayer = (pObj) => {
-                     if (pObj && (pObj.name || '').toLowerCase().trim() === pNameLower && pObj.pos) {
-                       posicionesVistas.add(pObj.pos);
+                  const checkPlayer = (pObj, teamName) => {
+                     if (pObj && pObj.pos && pObj.pos !== '-') {
+                       const name = (pObj.name || '');
+                       if (isSamePlayerName(name, foundPlayer.nombre || foundPlayer.jugador || foundPlayer.name, teamName, foundPlayer.equipo || foundPlayer.equipoActual)) {
+                         posicionesVistas.add(pObj.pos);
+                       }
                      }
                   };
-                  (rep.localTitulares || []).forEach(checkPlayer);
-                  (rep.localSuplentes || []).forEach(checkPlayer);
-                  (rep.visitanteTitulares || []).forEach(checkPlayer);
-                  (rep.visitanteSuplentes || []).forEach(checkPlayer);
+                  (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                  (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                  (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                  (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
                 });
+                
+                if (typeof matchTacticalSystems !== 'undefined') {
+                    if (typeof saveCurrentTacticalRoleState === 'function') {
+                        saveCurrentTacticalRoleState('local');
+                        saveCurrentTacticalRoleState('visitante');
+                    }
+                    ['local', 'visitante'].forEach(team => {
+                       const teamName = document.getElementById(`report${team === 'local' ? 'Local' : 'Visitante'}Team`)?.value?.trim() || '';
+                       ['principal', 'secundario', 'ocasional'].forEach(role => {
+                          if (matchTacticalSystems[team]?.[role]) {
+                              const sys = matchTacticalSystems[team][role];
+                              const checkActivePlayer = (pObj) => {
+                                 if (!pObj) return;
+                                 const name = (pObj.name || '');
+                                 if (isSamePlayerName(name, foundPlayer.nombre || foundPlayer.jugador || foundPlayer.name, teamName, foundPlayer.equipo || foundPlayer.equipoActual) && pObj.pos && pObj.pos !== '-') {
+                                   posicionesVistas.add(pObj.pos);
+                                 }
+                              };
+                              (sys.titulares || []).forEach(checkActivePlayer);
+                              (sys.suplentes || []).forEach(checkActivePlayer);
+                          }
+                       });
+                    });
+                }
               }
               const vistasArr = Array.from(posicionesVistas);
               if (vistasArr.length > 0) {
@@ -24106,7 +24224,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     };
                     
                     if (equipoActualStr && entityCategory === 'jugadores') {
-                        newEntity.equipoActual = equipoActualStr;
+                        newEntity.equipo = equipoActualStr;
                     }
                     
                     state.directory[entityCategory].push(newEntity);
