@@ -773,11 +773,11 @@ function saveCarteleraTeamsToFirebase() {
     ],
     '1-4-3-2-1': [
       { x: 50, y: 92 }, { x: 88, y: 74 }, { x: 64, y: 78 }, { x: 36, y: 78 }, { x: 12, y: 74 },
-      { x: 74, y: 54 }, { x: 50, y: 56 }, { x: 26, y: 54 }, { x: 62, y: 34 }, { x: 38, y: 34 }, { x: 50, y: 18 }
+      { x: 50, y: 56 }, { x: 74, y: 54 }, { x: 26, y: 54 }, { x: 62, y: 34 }, { x: 38, y: 34 }, { x: 50, y: 18 }
     ],
     '1-4-3-1-2': [
       { x: 50, y: 92 }, { x: 88, y: 74 }, { x: 64, y: 78 }, { x: 36, y: 78 }, { x: 12, y: 74 },
-      { x: 74, y: 54 }, { x: 50, y: 56 }, { x: 26, y: 54 }, { x: 50, y: 36 }, { x: 62, y: 20 }, { x: 38, y: 20 }
+      { x: 50, y: 56 }, { x: 74, y: 54 }, { x: 26, y: 54 }, { x: 50, y: 36 }, { x: 62, y: 20 }, { x: 38, y: 20 }
     ],
     '1-4-5-1': [
       { x: 50, y: 92 }, { x: 88, y: 74 }, { x: 64, y: 78 }, { x: 36, y: 78 }, { x: 12, y: 74 },
@@ -785,7 +785,7 @@ function saveCarteleraTeamsToFirebase() {
     ],
     '1-3-5-2': [
       { x: 50, y: 92 }, { x: 74, y: 76 }, { x: 50, y: 78 }, { x: 26, y: 76 }, { x: 90, y: 50 },
-      { x: 66, y: 54 }, { x: 50, y: 56 }, { x: 34, y: 54 }, { x: 10, y: 50 }, { x: 62, y: 22 }, { x: 38, y: 22 }
+      { x: 50, y: 56 }, { x: 66, y: 54 }, { x: 34, y: 54 }, { x: 10, y: 50 }, { x: 62, y: 22 }, { x: 38, y: 22 }
     ],
     '1-3-4-3': [
       { x: 50, y: 92 }, { x: 74, y: 76 }, { x: 50, y: 78 }, { x: 26, y: 76 }, { x: 88, y: 50 },
@@ -800,12 +800,12 @@ function saveCarteleraTeamsToFirebase() {
       { x: 62, y: 54 }, { x: 38, y: 54 }, { x: 12, y: 50 }, { x: 50, y: 34 }, { x: 62, y: 20 }, { x: 38, y: 20 }
     ],
     '1-3-3-3-1': [
-      { x: 50, y: 92 }, { x: 74, y: 76 }, { x: 50, y: 78 }, { x: 26, y: 76 }, { x: 74, y: 56 },
-      { x: 50, y: 58 }, { x: 26, y: 56 }, { x: 86, y: 36 }, { x: 50, y: 36 }, { x: 14, y: 36 }, { x: 50, y: 18 }
+      { x: 50, y: 92 }, { x: 74, y: 76 }, { x: 50, y: 78 }, { x: 26, y: 76 }, { x: 50, y: 58 },
+      { x: 74, y: 56 }, { x: 26, y: 56 }, { x: 86, y: 36 }, { x: 50, y: 36 }, { x: 14, y: 36 }, { x: 50, y: 18 }
     ],
     '1-5-3-2': [
       { x: 50, y: 92 }, { x: 90, y: 72 }, { x: 72, y: 78 }, { x: 50, y: 80 }, { x: 28, y: 78 },
-      { x: 10, y: 72 }, { x: 70, y: 52 }, { x: 50, y: 54 }, { x: 30, y: 52 }, { x: 62, y: 24 }, { x: 38, y: 24 }
+      { x: 10, y: 72 }, { x: 50, y: 54 }, { x: 70, y: 52 }, { x: 30, y: 52 }, { x: 62, y: 24 }, { x: 38, y: 24 }
     ],
     '1-5-4-1': [
       { x: 50, y: 92 }, { x: 90, y: 72 }, { x: 72, y: 78 }, { x: 50, y: 80 }, { x: 28, y: 78 },
@@ -3692,6 +3692,9 @@ function saveCarteleraTeamsToFirebase() {
       
       // If it's a Suplente and has no position, do not render on the pitch
       if (!isTitular && !posVal) return '';
+      
+      // No mostrar suplentes en el campo si estamos en el sistema Principal
+      if (!isTitular && activeTacticalRole[team] === 'principal') return '';
       
       // Determine physical position on the pitch based on the selected position string
       let targetIdx = idx;
