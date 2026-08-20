@@ -24558,52 +24558,50 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   });
 
-})();
+  window.limpiarPuntosNombres = async function() {
+    if (!db) {
+      console.error("Firebase no está inicializado.");
+      return;
+    }
+    
+    let countClubes = 0;
+    let countEquipos = 0;
+    
+    const cleanName = (name) => {
+      if (!name) return name;
+      let newName = name.replace(/([a-zA-Z])\./g, '$1');
+      newName = newName.replace(/^([A-Z]{2,3})([A-Z][a-z])/g, '$1 $2');
+      return newName;
+    };
 
-window.limpiarPuntosNombres = async function() {
-  if (!db) {
-    console.error("Firebase no está inicializado.");
-    return;
-  }
-  
-  let countClubes = 0;
-  let countEquipos = 0;
-  
-  const cleanName = (name) => {
-    if (!name) return name;
-    // Replace dots that follow a letter
-    let newName = name.replace(/([a-zA-Z])\./g, '$1');
-    // Fix missing spaces like "CDBaztan" -> "CD Baztan"
-    newName = newName.replace(/^([A-Z]{2,3})([A-Z][a-z])/g, '$1 $2');
-    return newName;
+    console.log("Iniciando limpieza de nombres en clubes...");
+    for (const c of state.directory.clubes) {
+      if (c.nombre && c.nombre.includes('.')) {
+        const oldName = c.nombre;
+        c.nombre = cleanName(c.nombre);
+        if (oldName !== c.nombre) {
+          console.log(`Club: ${oldName} -> ${c.nombre}`);
+          await saveToFirebase('clubes', c);
+          countClubes++;
+        }
+      }
+    }
+
+    console.log("Iniciando limpieza de nombres en equipos...");
+    for (const eq of state.directory.equipos) {
+      if (eq.nombre && eq.nombre.includes('.')) {
+        const oldName = eq.nombre;
+        eq.nombre = cleanName(eq.nombre);
+        if (oldName !== eq.nombre) {
+           console.log(`Equipo: ${oldName} -> ${eq.nombre}`);
+           await saveToFirebase('equipos', eq);
+           countEquipos++;
+        }
+      }
+    }
+
+    console.log(`Limpieza terminada. Se han modificado ${countClubes} clubes y ${countEquipos} equipos.`);
+    alert(`Se han corregido los puntos en ${countClubes} clubes y ${countEquipos} equipos.`);
   };
 
-  console.log("Iniciando limpieza de nombres en clubes...");
-  for (const c of state.directory.clubes) {
-    if (c.nombre && c.nombre.includes('.')) {
-      const oldName = c.nombre;
-      c.nombre = cleanName(c.nombre);
-      if (oldName !== c.nombre) {
-        console.log(`Club: ${oldName} -> ${c.nombre}`);
-        await saveToFirebase('clubes', c);
-        countClubes++;
-      }
-    }
-  }
-
-  console.log("Iniciando limpieza de nombres en equipos...");
-  for (const eq of state.directory.equipos) {
-    if (eq.nombre && eq.nombre.includes('.')) {
-      const oldName = eq.nombre;
-      eq.nombre = cleanName(eq.nombre);
-      if (oldName !== eq.nombre) {
-         console.log(`Equipo: ${oldName} -> ${eq.nombre}`);
-         await saveToFirebase('equipos', eq);
-         countEquipos++;
-      }
-    }
-  }
-
-  console.log(`Limpieza terminada. Se han modificado ${countClubes} clubes y ${countEquipos} equipos.`);
-  alert(`Se han corregido los puntos en ${countClubes} clubes y ${countEquipos} equipos.`);
-};
+})();
