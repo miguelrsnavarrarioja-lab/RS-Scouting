@@ -283,7 +283,7 @@ a {
    -------------------------------------------------------------------------- */
 .app-main {
   max-width: 100%;
-  padding: 24px 32px;
+  padding: 24px 16px;
 }
 
 .tab-view {
@@ -3126,7 +3126,7 @@ a {
   background-color: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 24px 16px;
   box-shadow: var(--shadow-md);
   animation: fadeIn 0.2s ease-in-out;
 }
@@ -3190,7 +3190,7 @@ a {
 
 .month-weekdays-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
   text-align: center;
   font-weight: 800;
@@ -3203,7 +3203,7 @@ a {
 
 .month-days-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -3262,32 +3262,33 @@ a {
   border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: normal;
+  line-height: 1.3;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
   gap: 4px;
   cursor: pointer;
 }
 
 .day-match-pill.visto {
-  background-color: var(--accent-green-light);
-  color: var(--accent-green-dark);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background-color: #111827;
+  color: #ffffff;
+  border: 1px solid var(--accent-green);
 }
 
 .day-match-pill.programado {
-  background-color: var(--primary-blue-light);
-  color: var(--primary-blue-dark);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background-color: #111827;
+  color: #ffffff;
+  border: 1px solid var(--primary-blue);
 }
 
 .day-match-pill.directo {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: var(--accent-amber);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background-color: #111827;
+  color: #ffffff;
+  border: 1px solid var(--accent-amber);
 }
 
 /* ==========================================================================

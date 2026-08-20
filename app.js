@@ -6,6 +6,56 @@
   'use strict';
 
   // --------------------------------------------------------------------------
+  // Global Fuzzy Matching Utilities
+  // --------------------------------------------------------------------------
+  window.levenshteinDistance = function(a, b) {
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+          for (let j = 1; j <= a.length; j++) {
+              if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                  matrix[i][j] = matrix[i - 1][j - 1];
+              } else {
+                  matrix[i][j] = Math.min(
+                      matrix[i - 1][j - 1] + 1,
+                      matrix[i][j - 1] + 1,
+                      matrix[i - 1][j] + 1
+                  );
+              }
+          }
+      }
+      return matrix[b.length][a.length];
+  };
+
+  window.flexibleMatch = function(val, text) {
+      val = (val||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      text = (text||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      if (!val) return true;
+      if (text.includes(val)) return true;
+      
+      const valWords = val.split(/\s+/);
+      const textWords = text.split(/\s+/);
+      
+      for (const vw of valWords) {
+          if (vw.length < 3) {
+              if (!textWords.some(tw => tw === vw || tw.includes(vw))) return false;
+              continue;
+          }
+          const allowedTypos = vw.length > 5 ? 2 : 1;
+          let matched = false;
+          for (const tw of textWords) {
+              if (tw.includes(vw) || window.levenshteinDistance(vw, tw) <= allowedTypos) {
+                  matched = true;
+                  break;
+              }
+          }
+          if (!matched) return false;
+      }
+      return true;
+  };
+
+  // --------------------------------------------------------------------------
   // 1. Initial State & Data Persistence
   // --------------------------------------------------------------------------
   const STORAGE_KEY = 'RS_SCOUTING_DATA_V1';
@@ -1903,28 +1953,44 @@ function saveCarteleraTeamsToFirebase() {
       const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
       const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr);
 
+      const allEventsHTML = [
+        ...dayMatches.map(m => `
+          <div class="day-match-pill ${m.estado}" data-mid="${m.id}" title="${escapeHtml(m.local)} vs ${escapeHtml(m.visitante)}">
+            <span>⚽ ${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
+          </div>
+        `),
+        ...dayAgendaTasks.map(t => {
+          const colorObj = getCategoryColor(t.categoria);
+          return `
+            <div class="day-match-pill day-agenda-pill" data-agid="${t.id}" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
+              <span>📝 ${escapeHtml(t.titulo)}</span>
+            </div>
+          `;
+        }),
+        ...dayReports.map(r => `
+            <div class="day-match-pill day-informe-pill" data-repid="${r.id}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
+              <span>📊 ${escapeHtml(r.localTeam ? `${r.localTeam}-${r.visitanteTeam} (${r.competicion || ''})` : (r.titulo || 'Informe sin título'))}</span>
+            </div>
+        `)
+      ];
+
+      let displayedHTML = '';
+      if (allEventsHTML.length > 3) {
+        displayedHTML = allEventsHTML.slice(0, 2).join('');
+        displayedHTML += `
+          <div class="day-match-pill more-events-pill" data-date="${dateStr}" style="background: var(--bg-surface); color: var(--text-main); border: 1px dashed var(--border-light); justify-content: center; text-align: center;">
+            <span>+ ${allEventsHTML.length - 2} más...</span>
+          </div>
+        `;
+      } else {
+        displayedHTML = allEventsHTML.join('');
+      }
+
       cellsHTML += `
         <div class="month-day-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
           <span class="day-number">${day}</span>
-          <div class="day-matches-list">
-            ${dayMatches.map(m => `
-              <div class="day-match-pill ${m.estado}" data-mid="${m.id}" title="${escapeHtml(m.local)} vs ${escapeHtml(m.visitante)}">
-                <span>⚽ ${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
-              </div>
-            `).join('')}
-            ${dayAgendaTasks.map(t => {
-              const colorObj = getCategoryColor(t.categoria);
-              return `
-                <div class="day-match-pill day-agenda-pill" data-agid="${t.id}" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
-                  <span>📝 ${escapeHtml(t.titulo)}</span>
-                </div>
-              `;
-            }).join('')}
-            ${dayReports.map(r => `
-                <div class="day-match-pill day-informe-pill" data-repid="${r.id}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
-                  <span>📊 ${escapeHtml(r.localTeam ? `${r.localTeam}-${r.visitanteTeam} (${r.competicion || ''})` : (r.titulo || 'Informe sin título'))}</span>
-                </div>
-            `).join('')}
+          <div class="day-matches-list" style="overflow: hidden; max-height: none;">
+            ${displayedHTML}
           </div>
         </div>
       `;
@@ -1944,6 +2010,13 @@ function saveCarteleraTeamsToFirebase() {
 
     grid.querySelectorAll('.month-day-cell:not(.other-month)').forEach(cell => {
       cell.addEventListener('click', (e) => {
+        const morePill = e.target.closest('.more-events-pill');
+        if (morePill) {
+          e.stopPropagation();
+          openDayEventsModal(morePill.dataset.date);
+          return;
+        }
+
         const agendaPill = e.target.closest('.day-agenda-pill');
         if (agendaPill) {
           e.stopPropagation();
@@ -1973,6 +2046,74 @@ function saveCarteleraTeamsToFirebase() {
         }
       });
     });
+  }
+
+  function openDayEventsModal(dateStr) {
+    const dayMatches = state.matches.filter(m => m.fecha === dateStr);
+    const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
+    const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr);
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-overlay';
+    backdrop.style.zIndex = '9999';
+    
+    backdrop.innerHTML = `
+        <div class="modal-card" style="max-width: 450px; max-height: 85vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3 style="margin:0;">Eventos del ${dateStr.split('-').reverse().join('.')}</h3>
+            <button class="btn-close" id="btnCloseDynamicModal"><i data-lucide="x"></i></button>
+          </div>
+          <div class="modal-body" id="dynamicModalBody" style="overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 16px;">
+          </div>
+        </div>
+    `;
+    
+    backdrop.addEventListener('click', () => backdrop.remove());
+    document.body.appendChild(backdrop);
+    document.getElementById('btnCloseDynamicModal').addEventListener('click', () => backdrop.remove());
+    
+    const bodyEl = document.getElementById('dynamicModalBody');
+    
+    dayMatches.forEach(m => {
+      const el = document.createElement('div');
+      el.className = `day-match-pill ${m.estado}`;
+      el.innerHTML = `<span>⚽ ${escapeHtml(m.local)} v ${escapeHtml(m.visitante)}</span>`;
+      el.addEventListener('click', () => {
+         backdrop.remove();
+         if (m.reportId) openMatchReportEditor(m.reportId, m);
+         else createReportFromMatch(m.id);
+      });
+      bodyEl.appendChild(el);
+    });
+
+    dayAgendaTasks.forEach(t => {
+      const colorObj = getCategoryColor(t.categoria);
+      const el = document.createElement('div');
+      el.className = `day-match-pill day-agenda-pill`;
+      el.style.cssText = `background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700; cursor: pointer;`;
+      el.innerHTML = `<span>📝 ${escapeHtml(t.titulo)}</span>`;
+      el.addEventListener('click', () => {
+         backdrop.remove();
+         openAgendaTaskDetailModal(t.id);
+      });
+      bodyEl.appendChild(el);
+    });
+
+    dayReports.forEach(r => {
+      const el = document.createElement('div');
+      el.className = `day-match-pill day-informe-pill`;
+      el.style.cssText = `background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;`;
+      el.innerHTML = `<span>📊 ${escapeHtml(r.localTeam ? `${r.localTeam}-${r.visitanteTeam} (${r.competicion || ''})` : (r.titulo || 'Informe sin título'))}</span>`;
+      el.addEventListener('click', () => {
+         backdrop.remove();
+         openMatchReportEditor(r.id);
+      });
+      bodyEl.appendChild(el);
+    });
+    
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
   }
 
   // Filter listener bindings
@@ -2335,9 +2476,9 @@ function saveCarteleraTeamsToFirebase() {
 
             <div class="match-card-details" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
               <!-- Fecha -->
-              <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date)} ${escapeHtml(r.time)}</div>
+              <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date ? r.date.split('-').reverse().join('.') : '')} | ${escapeHtml(r.time)}</div>
               <!-- Lugar -->
-              <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}</div>
+              <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}${r.clima ? ` | ${escapeHtml(r.clima)}` : ''}</div>
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: 10px;">
@@ -3017,6 +3158,28 @@ function saveCarteleraTeamsToFirebase() {
     document.addEventListener('click', (e) => {
       if (!climaWrapper.contains(e.target)) {
         climaDropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  const reportTimeInput = document.getElementById('reportTime');
+  if (reportTimeInput && climaDropdown && reportClimaInput) {
+    reportTimeInput.addEventListener('change', (e) => {
+      const timeVal = e.target.value;
+      if (timeVal) {
+        const hour = parseInt(timeVal.split(':')[0], 10);
+        const isDia = hour >= 7 && hour < 20; 
+        
+        const cbDia = climaDropdown.querySelector('input[type="checkbox"][value="Día"]');
+        const cbNoche = climaDropdown.querySelector('input[type="checkbox"][value="Noche"]');
+        
+        if (cbDia && cbNoche) {
+          cbDia.checked = isDia;
+          cbNoche.checked = !isDia;
+          
+          const checkedVals = Array.from(climaDropdown.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+          reportClimaInput.value = checkedVals.join(', ');
+        }
       }
     });
   }
@@ -4125,7 +4288,7 @@ function saveCarteleraTeamsToFirebase() {
     const playerInDir = state.directory.jugadores.find(p => {
       const nameMatch = p.nombre && p.nombre.toLowerCase().trim() === pName.toLowerCase().trim();
       const numMatch = String(p.dorsal || p.numero || '').trim() === String(pNum).trim();
-      const teamMatch = p.equipo && teamName && (p.equipo.toLowerCase().includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(p.equipo.toLowerCase()));
+      const teamMatch = p.equipo && teamName && window.flexibleMatch(teamName, p.equipo);
       return nameMatch || (numMatch && teamMatch);
     });
 
@@ -4264,7 +4427,7 @@ function saveCarteleraTeamsToFirebase() {
     const playerInDir = (state.directory && state.directory.jugadores && pName) ? state.directory.jugadores.find(p => {
       const nameMatch = p.nombre && p.nombre.toLowerCase().trim() === pName.toLowerCase().trim();
       const numMatch = String(p.dorsal || p.numero || '').trim() === String(pNum).trim();
-      const teamMatch = p.equipo && teamName && (p.equipo.toLowerCase().includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(p.equipo.toLowerCase()));
+      const teamMatch = p.equipo && teamName && window.flexibleMatch(teamName, p.equipo);
       return nameMatch || (numMatch && teamMatch);
     }) : null;
 
@@ -4802,8 +4965,8 @@ function saveCarteleraTeamsToFirebase() {
     let staffObj = state.directory.staff.find(s => {
       const sName = (s.nombre || s.staff || '').trim().toLowerCase();
       const nMatch = sName === nameTrim.toLowerCase();
-      const sTeam = (s.equipo || s.club || '').trim().toLowerCase();
-      const tMatch = teamName && sTeam && (sTeam.includes(teamName.toLowerCase()) || teamName.toLowerCase().includes(sTeam));
+      const sTeam = (s.equipo || s.club || '').trim();
+      const tMatch = teamName && sTeam && window.flexibleMatch(teamName, sTeam);
       const sCargo = (s.cargo || s.puesto || '').toUpperCase();
       const cMatch = !sCargo || sCargo.includes('ENTRENADOR') || sCargo.includes('TÉCNICO');
       return nMatch || (tMatch && cMatch);
@@ -5458,6 +5621,23 @@ function saveCarteleraTeamsToFirebase() {
           (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
           (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
           (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+          
+          if (rep.localSystems) {
+            ['principal', 'secundario', 'ocasional'].forEach(role => {
+               if (rep.localSystems[role]) {
+                   (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                   (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+               }
+            });
+          }
+          if (rep.visitanteSystems) {
+            ['principal', 'secundario', 'ocasional'].forEach(role => {
+               if (rep.visitanteSystems[role]) {
+                   (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                   (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+               }
+            });
+          }
         });
         
         if (typeof matchTacticalSystems !== 'undefined') {
@@ -5673,6 +5853,23 @@ function saveCarteleraTeamsToFirebase() {
         (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
         (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
         (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+        
+        if (rep.localSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(role => {
+             if (rep.localSystems[role]) {
+                 (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                 (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+             }
+          });
+        }
+        if (rep.visitanteSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(role => {
+             if (rep.visitanteSystems[role]) {
+                 (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                 (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+             }
+          });
+        }
       });
       
       // Also scan unsaved active report UI (matchTacticalSystems)
@@ -6474,7 +6671,7 @@ function saveCarteleraTeamsToFirebase() {
         if (teamObj.entrenador) foundCoach = teamObj.entrenador;
         else if (teamObj.entrenadorPrincipal) foundCoach = teamObj.entrenadorPrincipal;
         else if (teamObj.cuerpoTecnico && Array.isArray(teamObj.cuerpoTecnico)) {
-          const coachEntry = teamObj.cuerpoTecnico.find(ct => (ct.cargo && ct.cargo.toLowerCase().includes('entrenador')) || ct.nombre);
+          const coachEntry = teamObj.cuerpoTecnico.find(ct => (ct.cargo && window.flexibleMatch('entrenador', ct.cargo)) || ct.nombre);
           if (coachEntry) foundCoach = typeof coachEntry === 'string' ? coachEntry : (coachEntry.nombre || coachEntry.entrenador || '');
         }
       }
@@ -7415,7 +7612,7 @@ function saveCarteleraTeamsToFirebase() {
           if (!targetC) return;
 
           if (!targetC[targetField]) targetC[targetField] = '';
-          if (!targetC[targetField].toLowerCase().includes(nameVal.toLowerCase())) {
+          if (!window.flexibleMatch(nameVal, targetC[targetField])) {
             targetC[targetField] = targetC[targetField] ? `${targetC[targetField]}, ${nameVal}` : nameVal;
           }
         });
@@ -9143,7 +9340,7 @@ function saveCarteleraTeamsToFirebase() {
       const filteredPlayers = playersPool.filter(p => {
         const pName = p.nombre || p.jugador || p.name || '';
         const pPos = (p.posicionPrincipal || p.posicion || '') + ' ' + (p.posicionSecundaria || '');
-        return pName.toLowerCase().includes(filterLower) || pPos.toLowerCase().includes(filterLower);
+        return window.flexibleMatch(filterLower, pName) || window.flexibleMatch(filterLower, pPos);
       });
 
       if (filteredPlayers.length === 0) {
@@ -9243,6 +9440,23 @@ function saveCarteleraTeamsToFirebase() {
                   (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
                   (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
                   (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                  
+                  if (rep.localSystems) {
+                    ['principal', 'secundario', 'ocasional'].forEach(role => {
+                       if (rep.localSystems[role]) {
+                           (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                           (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+                       }
+                    });
+                  }
+                  if (rep.visitanteSystems) {
+                    ['principal', 'secundario', 'ocasional'].forEach(role => {
+                       if (rep.visitanteSystems[role]) {
+                           (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                           (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+                       }
+                    });
+                  }
                 });
                 
                 if (typeof matchTacticalSystems !== 'undefined') {
@@ -16233,10 +16447,10 @@ function saveCarteleraTeamsToFirebase() {
       subFilteredItems = subFilteredItems.filter(item => {
         const itemFed = (item.federacion || item.federacionVinculada || item.ambito || '').trim();
         const itemCom = getFederationSelectionBaseName(itemFed);
-        const filterCom = currentFederationFilter.toLowerCase().trim();
-        return itemCom.toLowerCase().trim() === filterCom || 
-               itemFed.toLowerCase().includes(filterCom) ||
-               getFedAcronym(itemFed).toLowerCase() === filterCom;
+        const filterCom = currentFederationFilter.trim();
+        return window.flexibleMatch(filterCom, itemCom) || 
+               window.flexibleMatch(filterCom, itemFed) ||
+               window.flexibleMatch(filterCom, getFedAcronym(itemFed));
       });
     }
 
@@ -22167,9 +22381,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       if (currentLinkSearch) {
         colLinks = colLinks.filter(l =>
-          (l.titulo || '').toLowerCase().includes(currentLinkSearch) ||
-          (l.url || '').toLowerCase().includes(currentLinkSearch) ||
-          (l.etiqueta || '').toLowerCase().includes(currentLinkSearch)
+          window.flexibleMatch(currentLinkSearch, l.titulo) ||
+          window.flexibleMatch(currentLinkSearch, l.url) ||
+          window.flexibleMatch(currentLinkSearch, l.etiqueta)
         );
       }
 
@@ -22323,9 +22537,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       if (currentLinkSearch) {
         colLinks = colLinks.filter(l =>
-          (l.titulo || '').toLowerCase().includes(currentLinkSearch) ||
-          (l.url || '').toLowerCase().includes(currentLinkSearch) ||
-          (l.etiqueta || '').toLowerCase().includes(currentLinkSearch)
+          window.flexibleMatch(currentLinkSearch, l.titulo) ||
+          window.flexibleMatch(currentLinkSearch, l.url) ||
+          window.flexibleMatch(currentLinkSearch, l.etiqueta)
         );
       }
 
@@ -22506,10 +22720,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     if (currentLinkSearch) {
       filtered = filtered.filter(l => 
-        (l.titulo || '').toLowerCase().includes(currentLinkSearch) ||
-        (l.url || '').toLowerCase().includes(currentLinkSearch) ||
-        (l.region || '').toLowerCase().includes(currentLinkSearch) ||
-        (l.etiqueta || '').toLowerCase().includes(currentLinkSearch)
+        window.flexibleMatch(currentLinkSearch, l.titulo) ||
+        window.flexibleMatch(currentLinkSearch, l.url) ||
+        window.flexibleMatch(currentLinkSearch, l.region) ||
+        window.flexibleMatch(currentLinkSearch, l.etiqueta)
       );
     }
 
@@ -24088,6 +24302,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     // --------------------------------------------------------------------------
     function upgradeInputsToSmartDropdowns(rootElement) {
       if (!rootElement) return;
+      
       const inputs = rootElement.querySelectorAll('input[list]');
       
       const datalistToCategory = {
@@ -24101,7 +24316,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         'agenciasDatalistOptions': 'agencias',
         'agentesDatalistOptions': 'agentes',
         'trayClubDatalistOptions': 'equipos',
-        'clubesEstadioDatalistOptions': 'clubes'
+        'clubesEstadioDatalistOptions': 'clubes',
+        'reportEquiposSeleccionesDatalistOptions': 'equipos_selecciones'
       };
 
       inputs.forEach(input => {
@@ -24153,14 +24369,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
 
         function renderDropdown() {
-            const val = input.value.trim().toLowerCase();
+            const val = input.value.trim();
+            const normalizedVal = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
             
             let dataArr = [];
             let entityCategory = null;
 
             if (datalistToCategory[listId]) {
                 entityCategory = datalistToCategory[listId];
-                dataArr = state.directory?.[entityCategory] || [];
+                if (entityCategory === 'equipos_selecciones') {
+                    dataArr = [...(state.directory?.equipos || []), ...(state.directory?.selecciones || [])];
+                } else {
+                    dataArr = state.directory?.[entityCategory] || [];
+                }
             } else {
                  // Known datalists that aren't global directory (e.g., localPlayersDatalist) are not yet supported for "create new"
                  dropdown.style.display = 'none';
@@ -24168,25 +24389,25 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             }
 
             let filtered = val ? dataArr.filter(item => {
-                const name = typeof item === 'string' ? item : (item.nombre || '');
-                return name.toLowerCase().includes(val);
+                const name = typeof item === 'string' ? item : (item.nombre || item.seleccion || item.equipo || '');
+                return window.flexibleMatch(val, name);
             }) : [];
             
             if (filtered.length > 15) filtered = filtered.slice(0, 15);
             
             let html = '';
             filtered.forEach(item => {
-                const name = typeof item === 'string' ? item : (item.nombre || '');
+                const name = typeof item === 'string' ? item : (item.nombre || item.seleccion || item.equipo || '');
                 html += `<li style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--text-color);" class="dropdown-item-smart" onmouseover="this.style.backgroundColor='var(--bg-body)'" onmouseout="this.style.backgroundColor='transparent'" data-name="${escapeHtml(name)}">${escapeHtml(name)}</li>`;
             });
             
             if (val && entityCategory) {
                 const exactMatch = dataArr.some(item => {
-                    const name = typeof item === 'string' ? item : (item.nombre || '');
-                    return name.toLowerCase() === val;
+                    const name = typeof item === 'string' ? item : (item.nombre || item.seleccion || item.equipo || '');
+                    return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() === normalizedVal;
                 });
                 if (!exactMatch) {
-                    html += `<li style="padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--primary-blue); font-weight: 700; background: #f0f9ff;" class="dropdown-item-create-smart" onmouseover="this.style.backgroundColor='#e0f2fe'" onmouseout="this.style.backgroundColor='#f0f9ff'">+ Crear nuev@ "${escapeHtml(input.value.trim())}"</li>`;
+                    html += `<li style="padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--primary-blue); font-weight: 700; background: #f0f9ff;" class="dropdown-item-create-smart" onmouseover="this.style.backgroundColor='#e0f2fe'" onmouseout="this.style.backgroundColor='#f0f9ff'">+ Crear nuev@ "${escapeHtml(val)}"</li>`;
                 }
             }
             
@@ -24206,8 +24427,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             dropdown.querySelectorAll('.dropdown-item-create-smart').forEach(li => {
                 li.addEventListener('mousedown', (e) => {
                     e.preventDefault();
-                    const newName = input.value.trim();
-                    const newId = entityCategory.substring(0,3) + '_' + Date.now();
+                    const newName = val;
+                    const saveCategory = entityCategory === 'equipos_selecciones' ? 'equipos' : entityCategory;
+                    const newId = saveCategory.substring(0,3) + '_' + Date.now();
                     
                     let equipoActualStr = '';
                     if (input.id === 'tfJugadorSearchInput') {
@@ -24216,18 +24438,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     }
                     
                     state.directory = state.directory || {};
-                    state.directory[entityCategory] = state.directory[entityCategory] || [];
+                    state.directory[saveCategory] = state.directory[saveCategory] || [];
                     
                     const newEntity = {
                         id: newId,
                         nombre: newName
                     };
                     
-                    if (equipoActualStr && entityCategory === 'jugadores') {
+                    if (equipoActualStr && saveCategory === 'jugadores') {
                         newEntity.equipo = equipoActualStr;
                     }
                     
-                    state.directory[entityCategory].push(newEntity);
+                    state.directory[saveCategory].push(newEntity);
                     saveToFirebase('directorio', state.directory);
                     
                     input.value = newName;
