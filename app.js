@@ -3560,51 +3560,103 @@ function saveCarteleraTeamsToFirebase() {
     return match || null;
   }
 
-  function updateTeamPlayersDatalist(team) {
-    const datalist = document.getElementById(`${team}PlayersDatalist`);
-    if (!datalist) return;
-    const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim().toLowerCase() || '';
-    if (!teamName) {
-      datalist.innerHTML = '';
-      return;
+  // Dummy function to prevent breaking old listeners
+  function updateTeamPlayersDatalist(team) {}
+
+  function showPlayerAutocompleteDropdown(team, inputElement) {
+    let dropdown = document.getElementById('lineupAutocompleteDropdown');
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.id = 'lineupAutocompleteDropdown';
+      dropdown.style.position = 'absolute';
+      dropdown.style.zIndex = '9999';
+      dropdown.style.background = 'white';
+      dropdown.style.border = '1px solid var(--border-color)';
+      dropdown.style.borderRadius = '4px';
+      dropdown.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1)';
+      dropdown.style.maxHeight = '250px';
+      dropdown.style.overflowY = 'auto';
+      document.body.appendChild(dropdown);
+    } else {
+      dropdown.style.display = 'block';
     }
+
+    // Measure input offset
+    const rect = inputElement.getBoundingClientRect();
+    dropdown.style.width = inputElement.offsetWidth + 'px';
+    dropdown.style.top = (rect.bottom + window.scrollY) + 'px';
+    dropdown.style.left = (rect.left + window.scrollX) + 'px';
+
+    const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim().toLowerCase() || '';
+    
     const jugadores = state.directory.jugadores || [];
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamName);
     
-    // Gather all currently entered names in the lineups
     const enteredNames = [];
     document.querySelectorAll(`#${team}TitularesRows input.name, #${team}SuplentesRows input.name`).forEach(input => {
-      const val = input.value.trim().toLowerCase();
-      if (val) enteredNames.push(val);
+      if (input !== inputElement) {
+        const val = input.value.trim().toLowerCase();
+        if (val) enteredNames.push(val);
+      }
     });
 
-    let teamPlayers = jugadores.filter(p => {
-      const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-      let matchesTeam = pTeam === teamName || pTeam.includes(teamName) || teamName.includes(pTeam);
-      const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+    let teamPlayersSet = new Set();
+    let html = '';
+    const filterText = inputElement.value.trim().toLowerCase();
 
-      if (!matchesTeam && targetTeam && targetTeam.plantilla) {
-        matchesTeam = targetTeam.plantilla.some(item => {
-          const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-          return itemName === pName;
+    const addOption = (name) => {
+      if (name && !enteredNames.includes(name.toLowerCase()) && !teamPlayersSet.has(name.toLowerCase())) {
+        if (!filterText || name.toLowerCase().includes(filterText)) {
+          teamPlayersSet.add(name.toLowerCase());
+          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeHtml(name)}" title="${escapeHtml(name)}">${escapeHtml(name)}</div>`;
+        }
+      }
+    };
+
+    if (teamName) {
+      jugadores.forEach(p => {
+        const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+        let matchesTeam = pTeam === teamName || pTeam.includes(teamName) || teamName.includes(pTeam);
+        const pName = (p.nombre || p.jugador || p.name || '');
+        
+        if (!matchesTeam && targetTeam && targetTeam.plantilla) {
+          matchesTeam = targetTeam.plantilla.some(item => {
+            const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
+            return itemName === pName.toLowerCase();
+          });
+        }
+        if (matchesTeam) addOption(pName);
+      });
+
+      if (targetTeam && targetTeam.plantilla) {
+        targetTeam.plantilla.forEach(item => {
+          const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || ''));
+          addOption(itemName);
         });
       }
+    }
 
-      // Do not include if already typed in one of the inputs
-      if (enteredNames.includes(pName)) return false;
+    // Always append filial option
+    html += `<div class="autocomplete-item special" style="padding: 6px 10px; cursor: pointer; border-top: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-color);" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="FILIAL">+ INCLUIR JUGADOR FUERA DE PLANTILLA</div>`;
 
-      return matchesTeam;
+    dropdown.innerHTML = html;
+
+    dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent blur
+        const val = item.getAttribute('data-val');
+        if (val === 'FILIAL') {
+          inputElement.value = '';
+          dropdown.style.display = 'none';
+          openFilialSelectorModal(team, inputElement);
+        } else {
+          inputElement.value = val;
+          dropdown.style.display = 'none';
+          renderPitchPins(team);
+        }
+      });
     });
-
-    let html = teamPlayers.map(p => {
-      const pName = p.nombre || p.jugador || p.name || '';
-      return pName ? `<option value="${escapeHtml(pName)}"></option>` : '';
-    }).join('');
-
-    html += `<option value="--- INCLUIR FILIAL... ---"></option>`;
-
-    datalist.innerHTML = html;
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
@@ -3632,7 +3684,7 @@ function saveCarteleraTeamsToFirebase() {
     if (titCounterDisplay) titCounterDisplay.textContent = titCount;
 
     const titContainer = document.getElementById(`${team}TitularesRows`);
-    let titHTML = `<datalist id="${team}PlayersDatalist"></datalist>`;
+    let titHTML = ``;
     for (let i = 0; i < titCount; i++) {
       const defaultPosForIdx = defaultPositions[i] || (i === 0 ? 'PO' : 'MC');
       const p = titulares[i] || { num: '', name: '', pos: defaultPosForIdx, pos2: '' };
@@ -3644,7 +3696,7 @@ function saveCarteleraTeamsToFirebase() {
       titHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" list="${team}PlayersDatalist" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}">
           <select class="form-control pos select-compact">
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -3685,7 +3737,7 @@ function saveCarteleraTeamsToFirebase() {
       supHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" list="${team}PlayersDatalist" placeholder="Suplente..." value="${escapeHtml(p.name)}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeHtml(p.name)}">
           <select class="form-control pos select-compact">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
@@ -3703,9 +3755,6 @@ function saveCarteleraTeamsToFirebase() {
 
     // Attach listeners for auto-completing player name by dorsal number
     attachLineupRowListeners(team);
-
-    // Initial populate datalist
-    updateTeamPlayersDatalist(team);
   }
 
   function attachLineupRowListeners(team) {
@@ -3720,8 +3769,10 @@ function saveCarteleraTeamsToFirebase() {
         const numInput = row.querySelector('input.num');
         const nameInput = row.querySelector('input.name');
         const posSelect = row.querySelector('select.pos');
+        
+        nameInput.autocomplete = 'off';
 
-        numInput?.addEventListener('change', () => {
+        numInput.addEventListener('change', () => {
           const numVal = numInput.value;
           const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
           
@@ -3730,19 +3781,24 @@ function saveCarteleraTeamsToFirebase() {
             if (matchedPlayer) {
               if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
               renderPitchPins(team);
-              updateTeamPlayersDatalist(team);
             }
           }
         });
 
         nameInput?.addEventListener('input', () => {
-          if (nameInput.value === '--- INCLUIR FILIAL... ---') {
-            nameInput.value = '';
-            openFilialSelectorModal(team, nameInput);
-            return;
-          }
           renderPitchPins(team);
-          updateTeamPlayersDatalist(team);
+          showPlayerAutocompleteDropdown(team, nameInput);
+        });
+
+        nameInput?.addEventListener('focus', () => {
+          showPlayerAutocompleteDropdown(team, nameInput);
+        });
+
+        nameInput?.addEventListener('blur', () => {
+          setTimeout(() => {
+             const dropdown = document.getElementById('lineupAutocompleteDropdown');
+             if (dropdown) dropdown.style.display = 'none';
+          }, 200);
         });
 
         posSelect?.addEventListener('change', () => {
@@ -3757,7 +3813,7 @@ function saveCarteleraTeamsToFirebase() {
     });
   }
 
-  function openFilialSelectorModal(team, inputElement) {
+  window.openFilialSelectorModal = function openFilialSelectorModal(team, inputElement, autoOpenTeam = false) {
     const allEquipos = state.directory.equipos || [];
     const currentTeamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim();
     const currentTeamObj = allEquipos.find(eq => eq.nombre === currentTeamName);
@@ -3782,13 +3838,11 @@ function saveCarteleraTeamsToFirebase() {
     let equiposOptions = filteredEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
 
     const finalHTML = `
-      <datalist id="filialSelectorEquiposDatalist">
-        ${equiposOptions}
-      </datalist>
       <div style="padding: 16px;">
-        <div class="form-group mb-2">
+        <div class="form-group mb-2" style="position: relative;">
           <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
-          <input type="text" id="filialSelectorSearch" list="filialSelectorEquiposDatalist" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
+          <input type="text" id="filialSelectorSearch" autocomplete="off" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
+          <div id="filialTeamAutocomplete" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: white; border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-height: 200px; overflow-y: auto; display: none;"></div>
         </div>
         <div style="text-align: right; margin-bottom: 12px;">
           <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
@@ -3809,18 +3863,57 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     const searchInput = document.getElementById('filialSelectorSearch');
+    const autocompleteDropdown = document.getElementById('filialTeamAutocomplete');
     const playersList = document.getElementById('filialSelectorPlayersList');
     const btnShowAll = document.getElementById('btnShowAllTeamsModal');
-    const datalist = document.getElementById('filialSelectorEquiposDatalist');
+
+    const renderAutocomplete = (query) => {
+      const lowerQuery = (query || '').trim().toLowerCase();
+      let matches = allEquipos;
+      if (lowerQuery) {
+        matches = allEquipos.filter(eq => (eq.nombre || '').toLowerCase().includes(lowerQuery) || (eq.club || '').toLowerCase().includes(lowerQuery));
+      }
+      if (matches.length === 0) {
+        autocompleteDropdown.innerHTML = '<div style="padding: 10px; font-size: 13px; color: #94a3b8;">No se encontraron equipos</div>';
+      } else {
+        autocompleteDropdown.innerHTML = matches.map(eq => {
+          const name = eq.nombre || '';
+          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeHtml(name)}">${escapeHtml(name)}</div>`;
+        }).join('');
+      }
+      autocompleteDropdown.style.display = 'block';
+
+      autocompleteDropdown.querySelectorAll('.team-autocomplete-item').forEach(item => {
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          searchInput.value = item.getAttribute('data-val');
+          autocompleteDropdown.style.display = 'none';
+          triggerTeamSelection(searchInput.value);
+        });
+      });
+    };
+
+    searchInput.addEventListener('focus', () => {
+      renderAutocomplete(searchInput.value);
+    });
+
+    searchInput.addEventListener('blur', () => {
+      setTimeout(() => { autocompleteDropdown.style.display = 'none'; }, 200);
+    });
 
     btnShowAll.addEventListener('click', () => {
-      datalist.innerHTML = allEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
       btnShowAll.style.display = 'none';
+      renderAutocomplete('');
       searchInput.focus();
     });
 
     searchInput.addEventListener('input', () => {
-      const selectedTeamName = searchInput.value.trim().toLowerCase();
+      renderAutocomplete(searchInput.value);
+      triggerTeamSelection(searchInput.value);
+    });
+
+    function triggerTeamSelection(val) {
+      const selectedTeamName = val.trim().toLowerCase();
       if (!selectedTeamName) {
          playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>';
          return;
@@ -3833,46 +3926,72 @@ function saveCarteleraTeamsToFirebase() {
         return;
       }
 
-      const teamJugadores = (state.directory.jugadores || []).filter(p => {
+      let teamJugadoresNames = new Set();
+      let teamJugadoresHTML = '';
+
+      const addBtn = (pName, tName) => {
+         return `
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeHtml(pName)}" data-team="${escapeHtml(tName)}">
+            ${escapeHtml(pName)}
+          </button>
+        `;
+      };
+
+      (state.directory.jugadores || []).forEach(p => {
          const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-         if (pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam)) return true;
-         if (teamObj.plantilla) {
-            return teamObj.plantilla.some(item => {
+         let matches = pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam);
+         const pName = (p.nombre || p.jugador || p.name || '');
+         if (!matches && teamObj.plantilla) {
+            matches = teamObj.plantilla.some(item => {
                const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-               const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
-               return itemName === pName;
+               return itemName === pName.toLowerCase();
             });
          }
-         return false;
+         if (matches && pName && !teamJugadoresNames.has(pName.toLowerCase())) {
+            teamJugadoresNames.add(pName.toLowerCase());
+            teamJugadoresHTML += addBtn(pName, teamObj.nombre || '');
+         }
       });
 
-      if (teamJugadores.length === 0) {
+      if (teamObj.plantilla) {
+         teamObj.plantilla.forEach(item => {
+            const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || ''));
+            if (itemName && !teamJugadoresNames.has(itemName.toLowerCase())) {
+               teamJugadoresNames.add(itemName.toLowerCase());
+               teamJugadoresHTML += addBtn(itemName, teamObj.nombre || '');
+            }
+         });
+      }
+
+      if (!teamJugadoresHTML) {
         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">El equipo no tiene jugadores registrados en la base de datos.</p>';
         return;
       }
 
-      playersList.innerHTML = teamJugadores.map(p => {
-        const pName = p.nombre || p.jugador || p.name || '';
-        return `
-          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeHtml(pName)}" data-team="${escapeHtml(teamObj.nombre || '')}">
-            ${escapeHtml(pName)}
-          </button>
-        `;
-      }).join('');
+      playersList.innerHTML = teamJugadoresHTML;
 
       playersList.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => {
           const pName = btn.getAttribute('data-name');
           const tName = btn.getAttribute('data-team');
-          inputElement.value = `${pName} [${tName}]`;
+          if (tName === currentTeamName) {
+            inputElement.value = pName;
+          } else {
+            inputElement.value = `${pName} [${tName}]`;
+          }
           hideModal();
           // Restaurar display del btnSubmit por si se usa en otros modales luego
           if (btnSubmit) btnSubmit.style.display = '';
-          renderPitchPins(team);
-          updateTeamPlayersDatalist(team);
+          
+          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
         });
       });
-    });
+    }
+
+    if (autoOpenTeam && currentTeamName) {
+      searchInput.value = currentTeamName;
+      searchInput.dispatchEvent(new Event('input'));
+    }
     
     // Event listener on modal close to restore the submit button display
     const btnCancel = document.getElementById('btnCancelModal');
@@ -6531,10 +6650,10 @@ function saveCarteleraTeamsToFirebase() {
       saveToFirebase('jugadores', p);
       saveState();
       
-      const overlayEl = document.getElementById('generalModalOverlay');
-      const isGeneralOpen = overlayEl && !overlayEl.classList.contains('hidden') && document.getElementById('modalTitle').textContent.includes('Ficha de');
+      const secOverlay = document.getElementById('secondaryModalOverlay');
+      const isOpenedAsSecondary = secOverlay && !secOverlay.classList.contains('hidden');
 
-      if (isGeneralOpen) {
+      if (isOpenedAsSecondary) {
           hideSecondaryModal();
           if (typeof window.renderPlantillaTable === 'function') window.renderPlantillaTable();
       } else {
@@ -6545,7 +6664,7 @@ function saveCarteleraTeamsToFirebase() {
       showToast(`Ficha de "${p.nombre}" guardada con éxito`, 'success');
     };
 
-    const isGeneralOpenCheck = document.getElementById('generalModalOverlay') && !document.getElementById('generalModalOverlay').classList.contains('hidden') && document.getElementById('modalTitle').textContent.includes('Ficha de');
+    const isGeneralOpenCheck = Array.from(document.querySelectorAll('.modal-overlay')).some(el => !el.classList.contains('hidden') && el.id !== 'secondaryModalOverlay');
 
     if (isGeneralOpenCheck) {
         showSecondaryModal(titleText, modalHTML, modalSubmitHandler);
