@@ -24611,13 +24611,26 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
     
     let countDeleted = 0;
-    const equiposABorrar = state.directory.equipos.filter(eq => {
+    
+    console.log("Consultando Firestore directamente para buscar equipos...");
+    const snapshot = await db.collection('equipos').get();
+    const equiposABorrar = [];
+    snapshot.forEach(doc => {
+      const eq = doc.data();
       const nombre = eq.nombre || eq.equipo || '';
-      return !nombre.includes('26/27');
+      if (!nombre.includes('26/27')) {
+         equiposABorrar.push({ id: doc.id, ...eq });
+      }
     });
 
     if (equiposABorrar.length === 0) {
-      alert("No se han encontrado equipos sin '26/27' en el nombre.");
+      const sampleNames = [];
+      let i = 0;
+      snapshot.forEach(doc => {
+        if (i < 3) sampleNames.push(doc.data().nombre || doc.data().equipo || 'SIN_NOMBRE');
+        i++;
+      });
+      alert(`No hay equipos sin '26/27' en el nombre.\nTotal en la base de datos: ${snapshot.size}\nEjemplos: ${sampleNames.join(' | ')}`);
       return;
     }
 
@@ -24648,6 +24661,61 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     
     if (typeof window.borrarEquiposSin2627 === 'function') {
       await window.borrarEquiposSin2627();
+    }
+    
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  window.restaurarColumnasEnlaces = async function() {
+    if (!db) {
+      console.error("Firebase no está inicializado.");
+      return;
+    }
+    const snapshot = await db.collection('enlaces').get();
+    const cols = new Set();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.categoria === 'Favoritos' && data.favCol) {
+        cols.add(data.favCol);
+      }
+    });
+    
+    if (cols.size > 0) {
+      const recoveredCols = Array.from(cols).sort();
+      state.favColumns = recoveredCols;
+      // Save it to firebase explicitly
+      const configToSave = Object.assign({}, state.settings || {}, {
+        favColumns: recoveredCols,
+        customTabOrder: state.customTabOrder || [],
+        dirTabOrder: state.dirTabOrder || [],
+        customClubTypes: state.customClubTypes || [],
+        directoryCategoriesOrder: state.directoryCategoriesOrder || [],
+        directoryFederationsOrder: state.directoryFederationsOrder || [],
+      });
+      await db.collection('config').doc('global').set(configToSave, { merge: true });
+      
+      alert(`¡Recuperación completada!\n\nSe han restaurado las columnas: ${recoveredCols.join(', ')}`);
+      
+      if (typeof renderEnlaces === 'function') {
+        const linkTab = document.querySelector('.nav-tab[data-tab="enlaces"]');
+        if (linkTab) linkTab.click();
+      }
+    } else {
+      alert("No se han encontrado columnas en los enlaces guardados. (Probablemente no tenías columnas custom o ya estaban en Columna 1/2/3).");
+    }
+  };
+
+  document.getElementById('btnRestoreFavCols')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnRestoreFavCols');
+    const prevHtml = btn.innerHTML;
+    
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Buscando...';
+    btn.disabled = true;
+    
+    if (typeof window.restaurarColumnasEnlaces === 'function') {
+      await window.restaurarColumnasEnlaces();
     }
     
     btn.innerHTML = prevHtml;
