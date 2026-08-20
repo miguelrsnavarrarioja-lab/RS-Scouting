@@ -969,8 +969,10 @@
                     </select>
                   </div>
                   <div>
-                    <input type="text" id="importerDefaultEquipo" list="importerEquiposDatalist" class="form-control font-bold" style="font-size: 14px; padding: 10px;" placeholder="O escribir nombre de equipo manualmente...">
-                    <datalist id="importerEquiposDatalist"></datalist>
+                  <div style="position: relative; flex-grow: 1;">
+                    <input type="text" id="importerDefaultEquipo" class="form-control font-bold" style="font-size: 14px; padding: 10px; width: 100%;" placeholder="O escribir nombre de equipo manualmente..." autocomplete="off">
+                    <div id="importerEquiposAutocomplete" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -1480,6 +1482,9 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
             <div class="btn-group-vertical">
               <button type="button" class="btn btn-warning" id="btnCleanBesoccer" style="background-color: #f59e0b; border: none; color: white;">
                 <i data-lucide="trash-2"></i> Limpiar Enlaces de Búsqueda Falsos de BeSoccer
+              </button>
+              <button type="button" class="btn btn-warning" id="btnMigrateNames" style="background-color: #3b82f6; border: none; color: white; margin-top: 10px;">
+                <i data-lucide="wand-2"></i> Corregir Nombres (CD K.E. a CD KE)
               </button>
             </div>
           </div>

@@ -18183,72 +18183,90 @@ function saveCarteleraTeamsToFirebase() {
   const DEFAULT_PLAYER_PHOTO_PATH = "Foto Jugador General.png";
   let stagedExcelRows = [];
 
-  function populateImporterEquiposDatalist() {
-    const datalist = document.getElementById('importerEquiposDatalist');
+  function initImporterAutocomplete() {
+    const input = document.getElementById('importerDefaultEquipo');
+    const dropdown = document.getElementById('importerEquiposAutocomplete');
     const select = document.getElementById('importerDefaultEquipoSelect');
-    if (!state || !state.directory) return;
+    if (!input || !dropdown) return;
 
-    const equiposList = state.directory.equipos || [];
-    const namesSet = new Set();
-    const allTeams = [];
+    let allTeams = [];
 
-    equiposList.forEach(eq => {
-      const name = eq.nombre || eq.equipo;
-      if (name && !namesSet.has(name.toLowerCase().trim())) {
-        namesSet.add(name.toLowerCase().trim());
-        allTeams.push({ name: name, meta: eq.categoria ? ` (${eq.categoria})` : '' });
-      }
-    });
-
-    allTeams.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
-
-    if (datalist) {
-      datalist.innerHTML = allTeams.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('');
-    }
-    
-    if (select) {
-      const currentVal = select.value;
-      let html = `<option value="">-- Seleccionar de los Equipos del Directorio (${allTeams.length} equipos) --</option>`;
-      allTeams.forEach(t => {
-        const isSelected = currentVal && currentVal === t.name ? 'selected' : '';
-        html += `<option value="${escapeHtml(t.name)}" ${isSelected}>${escapeHtml(t.name + t.meta)}</option>`;
+    const updateTeamsList = () => {
+      if (!state || !state.directory) return;
+      const equiposList = state.directory.equipos || [];
+      const namesSet = new Set();
+      allTeams = [];
+      equiposList.forEach(eq => {
+        const name = eq.nombre || eq.equipo;
+        if (name && !namesSet.has(name.toLowerCase().trim())) {
+          namesSet.add(name.toLowerCase().trim());
+          allTeams.push({ name: name, meta: eq.categoria ? ` (${eq.categoria})` : '' });
+        }
       });
-      select.innerHTML = html;
-    }
-  }
+      allTeams.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
 
-  function populateImporterFederacionesSelect() {
-    const select = document.getElementById('importerDefaultFederacionSelect');
-    if (!select || !state || !state.directory) return;
+      // Update select too
+      if (select) {
+        const currentVal = select.value;
+        let html = `<option value="">-- Seleccionar de los Equipos del Directorio (${allTeams.length} equipos) --</option>`;
+        allTeams.forEach(t => {
+          const isSelected = currentVal && currentVal === t.name ? 'selected' : '';
+          html += `<option value="${escapeHtml(t.name)}" ${isSelected}>${escapeHtml(t.name + t.meta)}</option>`;
+        });
+        select.innerHTML = html;
+      }
+    };
 
-    const fedList = state.directory.federaciones || [];
-    const namesSet = new Set();
-    const allFeds = [];
+    updateTeamsList();
 
-    fedList.forEach(f => {
-      const name = f.nombre || f.federacion;
-      if (name && !namesSet.has(name.toLowerCase().trim())) {
-        namesSet.add(name.toLowerCase().trim());
-        allFeds.push(name);
+    input.addEventListener('input', () => {
+      const val = input.value.toLowerCase().trim();
+      if (!val) {
+        dropdown.classList.add('hidden');
+        return;
+      }
+      
+      updateTeamsList();
+      const matches = allTeams.filter(t => t.name.toLowerCase().includes(val));
+      
+      if (matches.length === 0) {
+        dropdown.innerHTML = `<div style="padding: 10px; color: var(--text-muted); font-size: 13px;">No hay coincidencias...</div>`;
+        dropdown.classList.remove('hidden');
+        return;
+      }
+      
+      dropdown.innerHTML = matches.map(t => `
+        <div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-name="${escapeHtml(t.name)}">
+          <strong>${escapeHtml(t.name)}</strong> <span style="color: var(--text-muted); font-size: 12px;">${escapeHtml(t.meta)}</span>
+        </div>
+      `).join('');
+      dropdown.classList.remove('hidden');
+      
+      dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+          input.value = item.dataset.name;
+          dropdown.classList.add('hidden');
+        });
+        item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
+        item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
       }
     });
-
-    allFeds.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
     
-    const currentVal = select.value;
-    let html = `<option value="">-- Seleccionar de las Federaciones del Directorio (${allFeds.length} federaciones) --</option>`;
-    allFeds.forEach(f => {
-      const isSelected = currentVal && currentVal === f ? 'selected' : '';
-      html += `<option value="${escapeHtml(f)}" ${isSelected}>${escapeHtml(f)}</option>`;
+    input.addEventListener('focus', () => {
+       if (input.value) {
+         input.dispatchEvent(new Event('input'));
+       } else {
+         // Optionally show all if empty, but could be too long
+         // dropdown.classList.add('hidden');
+       }
     });
-    select.innerHTML = html;
   }
-
-  // Populate on input focus/click to guarantee data is present
-  document.getElementById('importerDefaultEquipo')?.addEventListener('focus', populateImporterEquiposDatalist);
-  document.getElementById('importerDefaultEquipo')?.addEventListener('click', populateImporterEquiposDatalist);
-  document.getElementById('importerDefaultEquipoSelect')?.addEventListener('focus', populateImporterEquiposDatalist);
-  document.getElementById('importerDefaultEquipoSelect')?.addEventListener('click', populateImporterEquiposDatalist);
 
   // Sync team select change to text input
   document.getElementById('importerDefaultEquipoSelect')?.addEventListener('change', (e) => {
@@ -18258,10 +18276,7 @@ function saveCarteleraTeamsToFirebase() {
     }
   });
 
-  // Populate datalist on tab navigation / initialization
-  if (typeof populateImporterEquiposDatalist === 'function') {
-    populateImporterEquiposDatalist();
-  }
+  initImporterAutocomplete();
   if (typeof populateImporterFederacionesSelect === 'function') {
     populateImporterFederacionesSelect();
   }
@@ -23207,6 +23222,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // Backup Export JSON Listeners
   document.getElementById('btnExportBackup')?.addEventListener('click', exportBackupJSON);
 
+  document.getElementById('btnMigrateNames')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnMigrateNames');
+    const prevHtml = btn.innerHTML;
+    const confirmacion = confirm("Esta acción modificará los nombres de todos los clubes y equipos en la base de datos quitando los puntos (ej. C.D. -> CD). ¿Deseas continuar?");
+    if (!confirmacion) return;
+    
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+    
+    if (typeof window.limpiarPuntosNombres === 'function') {
+      await window.limpiarPuntosNombres();
+    }
+    
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
   // Mass Clean Fake BeSoccer Links
   document.getElementById('btnCleanBesoccer')?.addEventListener('click', async () => {
     const btn = document.getElementById('btnCleanBesoccer');
@@ -24526,3 +24559,51 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   });
 
 })();
+
+window.limpiarPuntosNombres = async function() {
+  if (!db) {
+    console.error("Firebase no está inicializado.");
+    return;
+  }
+  
+  let countClubes = 0;
+  let countEquipos = 0;
+  
+  const cleanName = (name) => {
+    if (!name) return name;
+    // Replace dots that follow a letter
+    let newName = name.replace(/([a-zA-Z])\./g, '$1');
+    // Fix missing spaces like "CDBaztan" -> "CD Baztan"
+    newName = newName.replace(/^([A-Z]{2,3})([A-Z][a-z])/g, '$1 $2');
+    return newName;
+  };
+
+  console.log("Iniciando limpieza de nombres en clubes...");
+  for (const c of state.directory.clubes) {
+    if (c.nombre && c.nombre.includes('.')) {
+      const oldName = c.nombre;
+      c.nombre = cleanName(c.nombre);
+      if (oldName !== c.nombre) {
+        console.log(`Club: ${oldName} -> ${c.nombre}`);
+        await saveToFirebase('clubes', c);
+        countClubes++;
+      }
+    }
+  }
+
+  console.log("Iniciando limpieza de nombres en equipos...");
+  for (const eq of state.directory.equipos) {
+    if (eq.nombre && eq.nombre.includes('.')) {
+      const oldName = eq.nombre;
+      eq.nombre = cleanName(eq.nombre);
+      if (oldName !== eq.nombre) {
+         console.log(`Equipo: ${oldName} -> ${eq.nombre}`);
+         await saveToFirebase('equipos', eq);
+         countEquipos++;
+      }
+    }
+  }
+
+  console.log(`Limpieza terminada. Se han modificado ${countClubes} clubes y ${countEquipos} equipos.`);
+  alert(`Se han corregido los puntos en ${countClubes} clubes y ${countEquipos} equipos.`);
+};
