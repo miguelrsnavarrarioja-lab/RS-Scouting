@@ -1153,28 +1153,23 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         <div class="cartelera-filters-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Categoría</label>
-              <input type="text" id="carteleraFilterCategoria" list="dl_carteleraFilterCategoria" class="form-control" placeholder="🏆 Todas">
-              <datalist id="dl_carteleraFilterCategoria"></datalist>
+              <select id="carteleraFilterCategoria" class="form-control"></select>
             </div>
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Federación</label>
-              <input type="text" id="carteleraFilterFederacion" list="dl_carteleraFilterFederacion" class="form-control" placeholder="Todas">
-              <datalist id="dl_carteleraFilterFederacion"></datalist>
+              <select id="carteleraFilterFederacion" class="form-control"></select>
             </div>
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Grupo</label>
-              <input type="text" id="carteleraFilterGrupo" list="dl_carteleraFilterGrupo" class="form-control" placeholder="Todos">
-              <datalist id="dl_carteleraFilterGrupo"></datalist>
+              <select id="carteleraFilterGrupo" class="form-control"></select>
             </div>
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Jornada</label>
-              <input type="text" id="carteleraFilterJornada" list="dl_carteleraFilterJornada" class="form-control" placeholder="Todas">
-              <datalist id="dl_carteleraFilterJornada"></datalist>
+              <select id="carteleraFilterJornada" class="form-control"></select>
             </div>
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Fecha</label>
-              <input type="text" id="carteleraFilterFecha" list="dl_carteleraFilterFecha" class="form-control" placeholder="Todas">
-              <datalist id="dl_carteleraFilterFecha"></datalist>
+              <select id="carteleraFilterFecha" class="form-control"></select>
             </div>
             <div style="flex: 1; min-width: 140px;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Filtro de Interés</label>
@@ -1184,10 +1179,10 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
                 <option value="tracked_players">Partidos con jugadores en seguimiento</option>
               </select>
             </div>
-            <div style="flex: 1; min-width: 140px;">
+            <div style="flex: 1; min-width: 140px; position: relative;">
               <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Equipo</label>
-              <input type="text" id="carteleraFilterEquipo" list="dl_carteleraFilterEquipo" class="form-control" placeholder="Todos">
-              <datalist id="dl_carteleraFilterEquipo"></datalist>
+              <input type="text" id="carteleraFilterEquipo" class="form-control" placeholder="Todos" autocomplete="off">
+              <div id="carteleraFilterEquipoDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
             </div>
           </div>
       </div>

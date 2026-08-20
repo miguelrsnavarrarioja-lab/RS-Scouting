@@ -2440,13 +2440,21 @@ function saveCarteleraTeamsToFirebase() {
           
           const getLogo = (teamName) => {
             if(!teamName) return '';
-            const eq = (state.directory.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
-            if(eq && eq.clubVinculado) {
-              const c = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
-              if(c && c.logo) return c.logo;
-            }
             const c2 = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === teamName.toLowerCase());
-            if(c2 && c2.logo) return c2.logo;
+            if(c2 && (c2.logo || c2.escudo)) return c2.logo || c2.escudo;
+            
+            const eq = (state.directory.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === teamName.toLowerCase());
+            if (eq) {
+               if (eq.escudo || eq.logo) return eq.escudo || eq.logo;
+               if (eq.clubVinculado) {
+                 const c = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
+                 if(c && (c.logo || c.escudo)) return c.logo || c.escudo;
+               }
+            }
+            
+            const fallbackClub = (state.directory.clubes || []).find(c => c.nombre && teamName.toLowerCase().includes(c.nombre.toLowerCase()));
+            if (fallbackClub && (fallbackClub.logo || fallbackClub.escudo)) return fallbackClub.logo || fallbackClub.escudo;
+            
             return '';
           };
 
@@ -2463,12 +2471,12 @@ function saveCarteleraTeamsToFirebase() {
             <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
             <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
               <div style="display: flex; align-items: center; gap: 12px;">
-                ${lLogo ? `<img src="${lLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
+                ${lLogo ? `<img src="${lLogo}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
                 <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
                 <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.localScore}</span>
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
-                ${vLogo ? `<img src="${vLogo}" style="width: 26px; height: 26px; object-fit: contain;">` : `<div style="width: 26px; height: 26px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
+                ${vLogo ? `<img src="${vLogo}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
                 <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
                 <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.visitanteScore}</span>
               </div>
@@ -19360,6 +19368,25 @@ function saveCarteleraTeamsToFirebase() {
         }
       }
     }
+
+    if (localStorage && !localStorage.getItem('rs_scouting_cartelera_mapped_v2')) {
+      let changedMatches = false;
+      state.cartelera.calendarios.forEach(cal => {
+        (cal.partidos || []).forEach(m => {
+          const mLocal = mapCarteleraTeamToDirectoryName(m.local, m.competicion);
+          const mVis = mapCarteleraTeamToDirectoryName(m.visitante, m.competicion);
+          if (mLocal !== m.local || mVis !== m.visitante) {
+             m.local = mLocal;
+             m.visitante = mVis;
+             changedMatches = true;
+          }
+        });
+      });
+      if (changedMatches) {
+         if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
+      }
+      localStorage.setItem('rs_scouting_cartelera_mapped_v2', 'true');
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -20012,15 +20039,17 @@ function saveCarteleraTeamsToFirebase() {
            const rankA = getCatRank(a);
            const rankB = getCatRank(b);
            if (rankA !== rankB) return rankA - rankB;
-           return String(a).localeCompare(String(b));
+           return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
         }
-        return String(a).localeCompare(String(b));
+        return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
       });
       
       const formatLabel = (val) => {
         let label = val;
         if (id === 'carteleraFilterFederacion') {
-           label = label.replace('FNF - Federación Navarra de Fútbol', 'FNF');
+           if (typeof label === 'string' && label.includes('-')) {
+               label = label.split('-')[0].trim();
+           }
         }
         if (id === 'carteleraFilterJornada') {
            label = label.replace(/jornada\s*/i, '');
@@ -20060,7 +20089,58 @@ function saveCarteleraTeamsToFirebase() {
     populateSelect('carteleraFilterGrupo', grupoSet, selectedCarteleraGrupo, 'Todos');
     populateSelect('carteleraFilterJornada', jorSet, selectedCarteleraJornada, 'Todas');
     populateSelect('carteleraFilterFecha', fechaSet, selectedCarteleraFecha, 'Todas');
-    populateSelect('carteleraFilterEquipo', equipoSet, selectedCarteleraEquipo, 'Todos');
+    // Custom autocomplete para Equipo
+    const eqInput = document.getElementById('carteleraFilterEquipo');
+    const eqDropdown = document.getElementById('carteleraFilterEquipoDropdown');
+    if (eqInput && eqDropdown) {
+      const allTeams = Array.from(equipoSet).sort((a,b) => String(a).localeCompare(String(b)));
+      eqInput.allTeamsData = allTeams;
+      
+      if (!eqInput.dataset.autocompleteBound) {
+        eqInput.dataset.autocompleteBound = 'true';
+        
+        const renderEqDropdown = (val) => {
+          const currentTeams = eqInput.allTeamsData || [];
+          let matches = val ? currentTeams.filter(t => String(t).toLowerCase().includes(val.toLowerCase())) : currentTeams;
+          if (matches.length === 0) {
+            eqDropdown.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 13px;">No hay coincidencias...</div>';
+            return;
+          }
+          eqDropdown.innerHTML = matches.map(t => `<div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-val="${escapeHtml(t)}">${escapeHtml(t)}</div>`).join('');
+          
+          eqDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => {
+              eqInput.value = item.dataset.val;
+              selectedCarteleraEquipo = item.dataset.val;
+              eqDropdown.classList.add('hidden');
+              renderCarteleraMatches();
+            });
+            item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
+            item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+          });
+        };
+
+        eqInput.addEventListener('focus', () => {
+          renderEqDropdown(eqInput.value);
+          eqDropdown.classList.remove('hidden');
+        });
+        
+        eqInput.addEventListener('input', () => {
+          renderEqDropdown(eqInput.value);
+          eqDropdown.classList.remove('hidden');
+          if (!eqInput.value) {
+            selectedCarteleraEquipo = 'all';
+            renderCarteleraMatches();
+          }
+        });
+        
+        document.addEventListener('click', (e) => {
+          if (!eqInput.contains(e.target) && !eqDropdown.contains(e.target)) {
+            eqDropdown.classList.add('hidden');
+          }
+        });
+      }
+    }
     
     const intEl = document.getElementById('carteleraFilterInteres');
     if (intEl) intEl.value = selectedCarteleraInteres;
@@ -20448,6 +20528,80 @@ function saveCarteleraTeamsToFirebase() {
     } catch (e) {
       container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera Jornadas: ${e.message}<br><br>${e.stack}</div>`;
       console.error(e);
+    }
+  }
+
+  function mapCarteleraTeamToDirectoryName(rawName, competicion) {
+    if (!rawName) return '';
+    let coreName = rawName.toLowerCase();
+    
+    const prefixes = ['c.d.', 'f.c.', 'a.d.', 'u.d.', 's.d.', 'c.f.', 'c.a.', 'cd', 'fc', 'ad', 'ud', 'sd', 'cf', 'ca', 'at.', 'atletico', 'atlético', 'real', 'sporting', 'racing', 'club'];
+    
+    let tokens = coreName.split(/\s+/);
+    tokens = tokens.filter(t => !prefixes.includes(t));
+    
+    coreName = tokens.join(' ').trim();
+    if (coreName.length < 3 && tokens.length > 0) {
+       coreName = tokens[0]; // fallback
+    }
+
+    const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    coreName = normalize(coreName);
+    
+    let bestMatch = null;
+    let bestScore = -1;
+    
+    for (let team of (state.teams || [])) {
+      const tName = normalize(team.name.toLowerCase());
+      
+      let hasCore = true;
+      for (let t of tokens) {
+          if (!tName.includes(normalize(t))) {
+              hasCore = false;
+              break;
+          }
+      }
+      
+      if (hasCore || tName.includes(coreName)) {
+        let score = 1;
+        if (competicion) {
+          const compCore = normalize(competicion.toLowerCase()).replace('tercera', '3').replace('primera', '1').replace('segunda', '2');
+          const compParts = compCore.split(/\s+/).filter(p => p.length > 2 || !isNaN(p));
+          for (let cp of compParts) {
+            if (tName.includes(cp)) score++;
+          }
+        }
+        
+        score -= (tName.length * 0.001); 
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = team.name;
+        }
+      }
+    }
+    
+    return bestMatch || rawName;
+  }
+
+  function convertCarteleraMatchToLiveReport(targetMatch) {
+    const mappedLocal = mapCarteleraTeamToDirectoryName(targetMatch.local, targetMatch.competicion);
+    const mappedVisitante = mapCarteleraTeamToDirectoryName(targetMatch.visitante, targetMatch.competicion);
+    
+    const prefill = {
+      local: mappedLocal,
+      visitante: mappedVisitante,
+      fecha: targetMatch.fecha || '',
+      hora: targetMatch.hora || '',
+      estadio: targetMatch.estadio || '',
+      competicion: targetMatch.competicion || '',
+      categoria: targetMatch.competicion || ''
+    };
+    
+    if (typeof openMatchReportEditor === 'function') {
+      openMatchReportEditor(null, prefill);
+    } else {
+      alert("La función openMatchReportEditor no está disponible.");
     }
   }
 
@@ -21124,7 +21278,6 @@ function saveCarteleraTeamsToFirebase() {
     bindSelect('carteleraFilterJornada', val => selectedCarteleraJornada = val);
     bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
     bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
-    bindSelect('carteleraFilterEquipo', val => selectedCarteleraEquipo = val);
 
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
     if (btnExportPdf && !btnExportPdf.dataset.initialized) {
@@ -21337,15 +21490,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           parts = line.split(/[\t]+|\s{2,}/);
         }
         if (parts.length >= 2) {
+          const rawLocal = capitalizeWords(cleanTeamName(parts[0]));
+          const rawVisitante = capitalizeWords(cleanTeamName(parts[parts.length - 1]));
+          const competicionName = calendarName || 'Liga Importada';
+          
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: currentJornada,
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: capitalizeWords(cleanTeamName(parts[0])),
-            visitante: capitalizeWords(cleanTeamName(parts[parts.length - 1])),
-            competicion: calendarName || 'Liga Importada',
+            local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
+            visitante: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawVisitante, competicionName) : rawVisitante,
+            competicion: competicionName,
             federacion: federacion,
             grupo: grupo
           });
@@ -21356,15 +21513,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (matches.length === 0) {
       lines.forEach((l, idx) => {
         if (l.length > 4) {
+          const rawLocal = capitalizeWords(cleanTeamName(l));
+          const competicionName = calendarName || 'Calendario';
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: 'Jornada 1',
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
             hora: '17:00',
-            local: capitalizeWords(cleanTeamName(l)),
+            local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
             visitante: 'Rival',
-            competicion: calendarName || 'Calendario',
+            competicion: competicionName,
             federacion: federacion,
             grupo: grupo
           });
@@ -23434,6 +23593,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       btnDelete.onclick = null;
     }
 
+    if (footer) {
+      if (!onSubmit && !onDelete) {
+        footer.style.display = 'none';
+      } else {
+        footer.style.display = '';
+        const submitBtn = document.getElementById('btnSubmitModal');
+        if (submitBtn) submitBtn.style.display = onSubmit ? '' : 'none';
+      }
+    }
+
     document.getElementById('generalModalOverlay').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
   }
@@ -23478,6 +23647,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     document.getElementById('secondaryModalTitle').textContent = title;
     document.getElementById('secondaryModalBody').innerHTML = htmlContent;
     currentSecondaryModalSubmitCallback = onSubmit;
+    
+    const secFooter = overlay.querySelector('.modal-footer');
+    if (secFooter) {
+      if (!onSubmit && !onDelete) {
+        secFooter.style.display = 'none';
+      } else {
+        secFooter.style.display = '';
+        const submitBtn = document.getElementById('btnSecondarySubmitModal');
+        if (submitBtn) submitBtn.style.display = onSubmit ? '' : 'none';
+      }
+    }
     
     overlay.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
@@ -24566,6 +24746,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     
     let countClubes = 0;
     let countEquipos = 0;
+    let countDeletedClubes = 0;
+    let countDeletedEquipos = 0;
     
     const cleanName = (name) => {
       if (!name) return name;
@@ -24575,33 +24757,65 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     };
 
     console.log("Iniciando limpieza de nombres en clubes...");
+    const clubesToDelete = [];
     for (const c of state.directory.clubes) {
       if (c.nombre && c.nombre.includes('.')) {
-        const oldName = c.nombre;
-        c.nombre = cleanName(c.nombre);
-        if (oldName !== c.nombre) {
-          console.log(`Club: ${oldName} -> ${c.nombre}`);
+        const cleaned = cleanName(c.nombre);
+        const existing = state.directory.clubes.find(x => x.id !== c.id && x.nombre && x.nombre.toLowerCase() === cleaned.toLowerCase());
+        
+        if (existing) {
+          console.log(`Club duplicado encontrado: ${c.nombre}. Se eliminará porque ya existe ${existing.nombre}.`);
+          clubesToDelete.push(c);
+        } else {
+          const oldName = c.nombre;
+          c.nombre = cleaned;
+          console.log(`Club renombrado: ${oldName} -> ${c.nombre}`);
           await saveToFirebase('clubes', c);
           countClubes++;
         }
       }
     }
+    
+    for (const c of clubesToDelete) {
+      await db.collection('clubes').doc(c.id).delete();
+      state.directory.clubes = state.directory.clubes.filter(x => x.id !== c.id);
+      countDeletedClubes++;
+    }
 
     console.log("Iniciando limpieza de nombres en equipos...");
+    const equiposToDelete = [];
     for (const eq of state.directory.equipos) {
       if (eq.nombre && eq.nombre.includes('.')) {
-        const oldName = eq.nombre;
-        eq.nombre = cleanName(eq.nombre);
-        if (oldName !== eq.nombre) {
-           console.log(`Equipo: ${oldName} -> ${eq.nombre}`);
-           await saveToFirebase('equipos', eq);
-           countEquipos++;
+        const cleaned = cleanName(eq.nombre);
+        const existing = state.directory.equipos.find(x => x.id !== eq.id && x.nombre && x.nombre.toLowerCase() === cleaned.toLowerCase());
+        
+        if (existing) {
+          console.log(`Equipo duplicado encontrado: ${eq.nombre}. Se eliminará porque ya existe ${existing.nombre}.`);
+          equiposToDelete.push(eq);
+        } else {
+          const oldName = eq.nombre;
+          eq.nombre = cleaned;
+          if (eq.clubVinculado && eq.clubVinculado.includes('.')) {
+            eq.clubVinculado = cleanName(eq.clubVinculado);
+          }
+          console.log(`Equipo renombrado: ${oldName} -> ${eq.nombre}`);
+          await saveToFirebase('equipos', eq);
+          countEquipos++;
         }
       }
     }
+    
+    for (const eq of equiposToDelete) {
+      await db.collection('equipos').doc(eq.id).delete();
+      state.directory.equipos = state.directory.equipos.filter(x => x.id !== eq.id);
+      countDeletedEquipos++;
+    }
+    
+    saveState();
+    if (typeof renderAllViews === 'function') renderAllViews();
 
-    console.log(`Limpieza terminada. Se han modificado ${countClubes} clubes y ${countEquipos} equipos.`);
-    alert(`Se han corregido los puntos en ${countClubes} clubes y ${countEquipos} equipos.`);
+    console.log(`Limpieza terminada. Se han modificado ${countClubes} clubes y ${countEquipos} equipos. Se eliminaron ${countDeletedClubes} clubes y ${countDeletedEquipos} equipos duplicados.`);
+    alert(`Operación completada:\n- ${countClubes} clubes y ${countEquipos} equipos renombrados.\n- ${countDeletedClubes} clubes y ${countDeletedEquipos} equipos duplicados eliminados.`);
   };
 
   window.borrarEquiposSin2627 = async function() {
