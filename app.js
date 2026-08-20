@@ -24604,4 +24604,55 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     alert(`Se han corregido los puntos en ${countClubes} clubes y ${countEquipos} equipos.`);
   };
 
+  window.borrarEquiposSin2627 = async function() {
+    if (!db) {
+      console.error("Firebase no está inicializado.");
+      return;
+    }
+    
+    let countDeleted = 0;
+    const equiposABorrar = state.directory.equipos.filter(eq => {
+      const nombre = eq.nombre || eq.equipo || '';
+      return !nombre.includes('26/27');
+    });
+
+    if (equiposABorrar.length === 0) {
+      alert("No se han encontrado equipos sin '26/27' en el nombre.");
+      return;
+    }
+
+    const confirmacion = confirm(`Se han encontrado ${equiposABorrar.length} equipos que NO tienen '26/27' en su nombre. ¿Estás seguro de que quieres borrarlos TODOS permanentemente? Esta acción no se puede deshacer.`);
+    if (!confirmacion) return;
+
+    console.log(`Borrando ${equiposABorrar.length} equipos...`);
+    
+    for (const eq of equiposABorrar) {
+      const id = String(eq.id || eq.codigo);
+      if (id) {
+        console.log(`Borrando equipo: ${eq.nombre || eq.equipo} (ID: ${id})`);
+        await deleteDirectoryItem('equipos', id);
+        countDeleted++;
+      }
+    }
+
+    alert(`Se han borrado ${countDeleted} equipos duplicados con éxito.`);
+    renderDirectorio();
+  };
+
+  document.getElementById('btnDeleteNo2627')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnDeleteNo2627');
+    const prevHtml = btn.innerHTML;
+    
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+    
+    if (typeof window.borrarEquiposSin2627 === 'function') {
+      await window.borrarEquiposSin2627();
+    }
+    
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
 })();
