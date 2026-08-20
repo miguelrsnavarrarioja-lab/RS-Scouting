@@ -16976,9 +16976,15 @@ function saveCarteleraTeamsToFirebase() {
                       `}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id || eq.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
-                    <i data-lucide="trash-2" style="width: 14px;"></i>
-                  </button>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--primary-blue, #2563eb); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
+                      <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+                      ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
+                    </span>
+                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id || eq.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                      <i data-lucide="trash-2" style="width: 14px;"></i>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL EQUIPO EN UNA SOLA LÍNEA -->
