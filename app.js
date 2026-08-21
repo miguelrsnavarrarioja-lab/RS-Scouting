@@ -5646,8 +5646,11 @@ function saveCarteleraTeamsToFirebase() {
   }
 
   function openJugadorFichaReadOnly(playerId) {
-    const player = state.directory.jugadores.find(j => String(j.id) === String(playerId));
-    if (!player) return;
+    const player = state.directory.jugadores.find(j => String(j.id) === String(playerId) || (j.codigo && String(j.codigo) === String(playerId)));
+    if (!player) {
+      console.warn('Jugador no encontrado en directorio:', playerId);
+      return;
+    }
 
     // Build Links Section
     let linksHTML = '';
@@ -5808,9 +5811,9 @@ function saveCarteleraTeamsToFirebase() {
         themeColor = teamObj.color;
       } else {
         // Try finding the club
-        const clubName = (teamObj.clubVinculado || teamObj.club || '').toLowerCase().trim();
+        const clubName = String(teamObj.clubVinculado || teamObj.club || '').toLowerCase().trim();
         if (clubName) {
-          const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === clubName);
+          const c = (state.directory.clubes || []).find(c => String(c.nombre || '').toLowerCase().trim() === clubName);
           if (c && c.colorPrimary) {
             themeColor = c.colorPrimary;
           }
@@ -5820,8 +5823,8 @@ function saveCarteleraTeamsToFirebase() {
 
     // Fallback to player's direct club if they have one but the team didn't yield a color
     if (themeColor === 'var(--primary-blue)' && player.club) {
-       const pClubName = player.club.toLowerCase().trim();
-       const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === pClubName);
+       const pClubName = String(player.club).toLowerCase().trim();
+       const c = (state.directory.clubes || []).find(c => String(c.nombre || '').toLowerCase().trim() === pClubName);
        if (c && c.colorPrimary) {
          themeColor = c.colorPrimary;
        }
@@ -5829,13 +5832,13 @@ function saveCarteleraTeamsToFirebase() {
 
     // FINAL FALLBACK: Check if the player's team name contains any known club name
     if (themeColor === 'var(--primary-blue)' && teamName) {
-       const pTeamLower = teamName.toLowerCase().trim();
+       const pTeamLower = String(teamName).toLowerCase().trim();
        const partialClubs = (state.directory.clubes || []).filter(c => {
-         const cName = (c.nombre || '').toLowerCase().trim();
+         const cName = String(c.nombre || '').toLowerCase().trim();
          return cName && cName.length > 3 && pTeamLower.includes(cName);
        });
        if (partialClubs.length > 0) {
-         const bestClub = partialClubs.sort((a, b) => b.nombre.length - a.nombre.length)[0];
+         const bestClub = partialClubs.sort((a, b) => String(b.nombre || '').length - String(a.nombre || '').length)[0];
          if (bestClub && bestClub.colorPrimary) {
            themeColor = bestClub.colorPrimary;
            // If we didn't have a team shield earlier, we can borrow the club's shield
@@ -5845,6 +5848,76 @@ function saveCarteleraTeamsToFirebase() {
          }
        }
     }
+
+    // Find Selección info for Shield and Link
+    const uniqueSelecciones = [];
+    if (player.seleccion && String(player.seleccion).trim()) {
+      uniqueSelecciones.push(String(player.seleccion).trim());
+    }
+    
+    // Convocatorias list for ReadOnly Ficha
+    const playerConvs = (state.directory.convocatorias || []).filter(c => {
+      const arr = c.jugadores || c.convocados || [];
+      return arr.some(j => {
+        if (typeof j === 'object' && j.id && String(j.id) === String(playerId)) return true;
+        const jName = typeof j === 'string' ? j : (j.nombre || j.jugador);
+        if (jName && player.nombre && String(jName).toLowerCase().trim() === String(player.nombre).toLowerCase().trim()) return true;
+        return false;
+      });
+    });
+
+    playerConvs.forEach(c => {
+      if (c.seleccion && String(c.seleccion).trim() && !uniqueSelecciones.some(s => String(s).toLowerCase() === String(c.seleccion).trim().toLowerCase())) {
+        uniqueSelecciones.push(String(c.seleccion).trim());
+      }
+    });
+
+    let seleccionesHTMLArray = [];
+    uniqueSelecciones.forEach(selName => {
+      const selObj = (state.directory.selecciones || []).find(s => String(s.nombre || s.seleccion || '').toLowerCase().trim() === String(selName).toLowerCase());
+      let shieldHTML = '<i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;color:var(--text-muted);"></i>';
+      let nameDisplay = escapeHtml(selName);
+      let linkClass = '';
+      
+      if (selObj) {
+        let shieldSrc = selObj.escudo || selObj.logo;
+        if (!shieldSrc && selObj.federacion) {
+          const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase().trim());
+          if (fedObj) shieldSrc = fedObj.escudo || fedObj.logo;
+        }
+        if (shieldSrc && shieldSrc !== 'Escudo Blanco.png') {
+          shieldHTML = `<img src="${shieldSrc}" alt="Escudo" style="width: 14px; height: 14px; object-fit: contain; vertical-align: middle;">`;
+        }
+        linkClass = 'team-ficha-link';
+        nameDisplay = `<span class="${linkClass}" data-selid="${selObj.id || selObj.codigo || ''}" style="text-decoration: underline; cursor: pointer;" onclick="document.getElementById('modalJugadorFicha').classList.add('hidden'); openSeleccionFichaReadOnly('${selObj.id || selObj.codigo}')">${escapeHtml(selObj.nombre || selObj.seleccion)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
+      }
+      seleccionesHTMLArray.push(`&nbsp;|&nbsp; ${shieldHTML} ${nameDisplay}`);
+    });
+    
+    let combinedSeleccionesHTML = seleccionesHTMLArray.join(' ');
+
+    const nacionales = playerConvs.filter(c => {
+      const sLower = (c.seleccion || '').toLowerCase();
+      return sLower.includes('españa') || sLower.includes('nacional');
+    });
+    
+    const autonomicas = playerConvs.filter(c => {
+      const sLower = (c.seleccion || '').toLowerCase();
+      return sLower && !sLower.includes('españa') && !sLower.includes('nacional');
+    });
+
+    const renderConvList = (list) => {
+      if (list.length === 0) return '<div style="font-size: 12px; color: var(--text-muted); padding: 4px;">No hay convocatorias registradas</div>';
+      return list.map(c => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--ficha-theme); margin-bottom: 2px;">${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);"><i data-lucide="flag" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.seleccion || '-')} &nbsp;|&nbsp; <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.fechaInicio || c.fecha || '-')}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('modalJugadorFicha').classList.add('hidden'); openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+        </div>
+      `).join('');
+    };
 
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
@@ -5858,13 +5931,16 @@ function saveCarteleraTeamsToFirebase() {
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
-                  ${player.seleccion ? ` &nbsp;|&nbsp; <i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;"></i> ${escapeHtml(player.seleccion)}` : ''}
+                  ${combinedSeleccionesHTML}
                   ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--ficha-theme);">${escapeHtml(player.dorsal)}</strong>` : ''}
                 </div>
               </div>
             </div>
             
             <div style="display: flex; gap: 12px;">
+              <button type="button" class="btn btn-danger" id="btnBorrarFichaJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #ef4444; color: white; border: none;" title="Borrar Ficha">
+                <i data-lucide="trash-2"></i>
+              </button>
               <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
                 <i data-lucide="edit-2"></i>
               </button>
@@ -5928,6 +6004,19 @@ function saveCarteleraTeamsToFirebase() {
       openPlayerEditModal(player.id);
     };
 
+    document.getElementById('btnBorrarFichaJugador').onclick = () => {
+      showCustomConfirmModal(
+        '¿Borrar Ficha de Jugador?', 
+        `¿Estás seguro de que quieres borrar la ficha de <strong>${escapeHtml(player.nombre)}</strong> permanentemente del Directorio y de la base de datos?`, 
+        () => {
+          deleteDirectoryItem('jugadores', player.id || player.codigo);
+          showCustomAlertModal('Ficha Eliminada', `La ficha de "${escapeHtml(player.nombre)}" ha sido eliminada con éxito.`);
+          renderDirectorio();
+          document.getElementById('modalJugadorFicha').classList.add('hidden');
+        }
+      );
+    };
+
     const teamLinkEl = document.querySelector('.team-ficha-link');
     if (teamLinkEl) {
       teamLinkEl.onclick = () => {
@@ -5947,7 +6036,7 @@ function saveCarteleraTeamsToFirebase() {
     const estado = player.estado || 'ALTA';
     const equipo = player.equipo || '';
     const equipoSecundario = player.equipoSecundario || '';
-    const seleccion = player.seleccion || '';
+    // We calculate the seleccion string after extracting playerConvs (see below)
     const anoNac = player.ano || player.anoNac || '';
     const subCat = calculateSubCategory(anoNac);
     const fechaNac = player.fechaNac || '';
@@ -6090,6 +6179,58 @@ function saveCarteleraTeamsToFirebase() {
     let photoData = player.foto || 'Foto Jugador General.png';
 
     const titleText = isEdit ? `🏃 Ficha de ${escapeHtml(nombre)}` : '🏃 Nuevo Jugador';
+    
+    // Convocatorias tab logic
+    const playerConvs = (state.directory.convocatorias || []).filter(c => {
+      const arr = c.jugadores || c.convocados || [];
+      return arr.some(j => {
+        if (typeof j === 'object' && j.id && String(j.id) === String(playerId)) return true;
+        const jName = typeof j === 'string' ? j : (j.nombre || j.jugador);
+        if (jName && player.nombre && String(jName).toLowerCase().trim() === String(player.nombre).toLowerCase().trim()) return true;
+        return false;
+      });
+    });
+
+    const uniqueSelecciones = [];
+    if (player.seleccion && String(player.seleccion).trim()) {
+      String(player.seleccion).split(',').forEach(s => {
+        if (s.trim() && !uniqueSelecciones.some(x => String(x).toLowerCase() === s.trim().toLowerCase())) {
+          uniqueSelecciones.push(s.trim());
+        }
+      });
+    }
+
+    playerConvs.forEach(c => {
+      if (c.seleccion && String(c.seleccion).trim() && !uniqueSelecciones.some(s => String(s).toLowerCase() === String(c.seleccion).trim().toLowerCase())) {
+        uniqueSelecciones.push(String(c.seleccion).trim());
+      }
+    });
+
+    const seleccion = uniqueSelecciones.join(', ');
+
+
+    const nacionales = playerConvs.filter(c => {
+      const sLower = (c.seleccion || '').toLowerCase();
+      return sLower.includes('españa') || sLower.includes('nacional');
+    });
+    
+    const autonomicas = playerConvs.filter(c => {
+      const sLower = (c.seleccion || '').toLowerCase();
+      return sLower && !sLower.includes('españa') && !sLower.includes('nacional');
+    });
+
+    const renderConvList = (list) => {
+      if (list.length === 0) return '<div style="font-size: 12px; color: var(--text-muted); padding: 8px;">No hay convocatorias registradas</div>';
+      return list.map(c => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--primary-blue); margin-bottom: 2px;">${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);"><i data-lucide="flag" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.seleccion || '-')} &nbsp;|&nbsp; <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.fechaInicio || c.fecha || '-')}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+        </div>
+      `).join('');
+    };
 
     const modalHTML = `
       <div class="player-modal-wrapper">
@@ -6104,6 +6245,7 @@ function saveCarteleraTeamsToFirebase() {
             <button type="button" class="player-subtab" data-ptab="extra">INFO EXTRA</button>
             <button type="button" class="player-subtab" data-ptab="rendimiento">RENDIMIENTO</button>
             <button type="button" class="player-subtab" data-ptab="trayectoria">TRAYECTORIA & OPINIÓN</button>
+            <button type="button" class="player-subtab" data-ptab="convocatorias">CONVOCATORIAS</button>
           </div>
           <div style="display: flex; gap: 8px;">
             ${isEdit ? `
@@ -6415,6 +6557,7 @@ function saveCarteleraTeamsToFirebase() {
               <div class="form-group">
                 <label class="form-label">POTENCIAL (1-5) ${potencialNum}</label>
                 <select id="pfPotencial" class="form-control">
+                  <option value="" ${!potencial ? 'selected' : ''}>Seleccionar...</option>
                   <option value="1" ${potencial === '1' ? 'selected' : ''}>1 - Bajo</option>
                   <option value="2" ${potencial === '2' ? 'selected' : ''}>2 - Medio Bajo</option>
                   <option value="3" ${potencial === '3' ? 'selected' : ''}>3 - Promedio</option>
@@ -6557,6 +6700,25 @@ function saveCarteleraTeamsToFirebase() {
             </div>
           </div>
         </form>
+          </div>
+          
+          <!-- TAB 6: CONVOCATORIAS -->
+          <div class="player-tab-pane hidden" id="ptab-convocatorias">
+            <div style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px;">
+               <div style="font-weight: 800; font-size: 13px; color: var(--text-muted); margin-bottom: 12px;"><i data-lucide="flag" style="width:16px; height:16px; vertical-align:middle;"></i> SELECCIONES NACIONALES</div>
+               <div id="pfConvocatoriasNacionales" style="display: flex; flex-direction: column; gap: 8px;">
+                 ${renderConvList(nacionales)}
+               </div>
+            </div>
+            
+            <div style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px;">
+               <div style="font-weight: 800; font-size: 13px; color: var(--text-muted); margin-bottom: 12px;"><i data-lucide="map-pin" style="width:16px; height:16px; vertical-align:middle;"></i> SELECCIONES AUTONÓMICAS</div>
+               <div id="pfConvocatoriasAutonomicas" style="display: flex; flex-direction: column; gap: 8px;">
+                 ${renderConvList(autonomicas)}
+               </div>
+            </div>
+          </div>
+        </form>
             </div>
           </div>
         </form>
@@ -6564,7 +6726,10 @@ function saveCarteleraTeamsToFirebase() {
     `;
 
     const card = document.getElementById('generalModalCard');
-    if (card) card.classList.add('large');
+    if (card) {
+      card.classList.remove('large');
+      card.classList.add('xlarge');
+    }
 
     const overlayEl = document.getElementById('generalModalOverlay');
     const isGeneralOpen = overlayEl && !overlayEl.classList.contains('hidden');
@@ -7079,7 +7244,13 @@ function saveCarteleraTeamsToFirebase() {
     const btnVolver = document.getElementById('btnVolverFicha');
     if (btnVolver) {
       btnVolver.onclick = () => {
-        hideModal();
+        const secOverlay = document.getElementById('secondaryModalOverlay');
+        const isOpenedAsSecondary = secOverlay && !secOverlay.classList.contains('hidden');
+        if (isOpenedAsSecondary) {
+            hideSecondaryModal();
+        } else {
+            hideModal();
+        }
         openJugadorFichaReadOnly(playerId);
       };
     }
@@ -8244,10 +8415,14 @@ function saveCarteleraTeamsToFirebase() {
     const team = (state.directory.equipos || []).find(eq => String(eq.id) === String(teamId));
     if (!team) return;
 
-    let themeColor = team.color || 'var(--primary-blue)';
-    if (themeColor === 'var(--primary-blue)' && team.clubVinculado) {
-      const parentClub = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === team.clubVinculado.toLowerCase());
-      if (parentClub && parentClub.colorPrimary) themeColor = parentClub.colorPrimary;
+    let themeColor = team.colorPrimary || team.color || 'var(--primary-blue)';
+    const defaultColors = ['var(--primary-blue)', '#2563eb', '#3b82f6'];
+    if (defaultColors.includes(themeColor.toLowerCase()) && (team.clubVinculado || team.club)) {
+      const parentName = (team.clubVinculado || team.club).trim().toLowerCase();
+      const parentClub = state.directory.clubes.find(c => (c.nombre || '').trim().toLowerCase() === parentName);
+      if (parentClub && parentClub.colorPrimary && !defaultColors.includes(parentClub.colorPrimary.toLowerCase())) {
+        themeColor = parentClub.colorPrimary;
+      }
     }
 
     const allPlayersList = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
@@ -8591,22 +8766,55 @@ function saveCarteleraTeamsToFirebase() {
 
     // Color and Shield from linked Team or Club
     if (staff.equipo) {
-      const eq = (state.directory.equipos || []).find(e => (e.nombre || '').toLowerCase() === staff.equipo.toLowerCase());
+      const eq = (state.directory.equipos || []).find(e => String(e.nombre || '').toLowerCase() === String(staff.equipo).toLowerCase());
       if (eq) {
         themeColor = eq.color || themeColor;
         shieldSrc = shieldSrc || eq.escudo || eq.logo || '';
         if (themeColor === 'var(--primary-blue)' && eq.clubVinculado) {
-          const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
+          const pc = state.directory.clubes.find(c => String(c.nombre || '').toLowerCase() === String(eq.clubVinculado).toLowerCase());
           if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
           if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
         }
       }
     }
     if (themeColor === 'var(--primary-blue)' && staff.clubVinculado) {
-      const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === staff.clubVinculado.toLowerCase());
+      const pc = state.directory.clubes.find(c => String(c.nombre || '').toLowerCase() === String(staff.clubVinculado).toLowerCase());
       if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
       if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
     }
+
+    const staffConvs = (state.directory.convocatorias || []).filter(c => {
+      const arr = c.staff || c.tecnicos || [];
+      return arr.some(s => {
+        if (typeof s === 'object' && s.id && String(s.id) === String(staffId)) return true;
+        const sName = typeof s === 'string' ? s : (s.nombre || s.staff);
+        if (sName && staff.nombre && String(sName).toLowerCase().trim() === String(staff.nombre).toLowerCase().trim()) return true;
+        return false;
+      });
+    });
+
+    const nacionales = staffConvs.filter(c => {
+      const sLower = String(c.seleccion || '').toLowerCase();
+      return sLower.includes('españa') || sLower.includes('nacional');
+    });
+    
+    const autonomicas = staffConvs.filter(c => {
+      const sLower = String(c.seleccion || '').toLowerCase();
+      return sLower && !sLower.includes('españa') && !sLower.includes('nacional');
+    });
+
+    const renderConvList = (list) => {
+      if (list.length === 0) return '<div style="font-size: 12px; color: var(--text-muted); padding: 8px;">No hay convocatorias registradas</div>';
+      return list.map(c => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--primary-blue); margin-bottom: 2px;">${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);"><i data-lucide="flag" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.seleccion || '-')} &nbsp;|&nbsp; <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.fechaInicio || c.fecha || '-')}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+        </div>
+      `).join('');
+    };
 
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
@@ -8652,6 +8860,42 @@ function saveCarteleraTeamsToFirebase() {
             </div>
           </div>
           
+          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px;">
+            <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">CONVOCATORIAS DE SELECCIÓN</div>
+            
+            <div style="margin-bottom: 16px;">
+              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Nacionales</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${renderConvList(nacionales)}
+              </div>
+            </div>
+            
+            <div>
+              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Autonómicas</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${renderConvList(autonomicas)}
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px;">
+            <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">CONVOCATORIAS DE SELECCIÓN</div>
+            
+            <div style="margin-bottom: 16px;">
+              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Nacionales</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${renderConvList(nacionales)}
+              </div>
+            </div>
+            
+            <div>
+              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Autonómicas</div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${renderConvList(autonomicas)}
+              </div>
+            </div>
+          </div>
+
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su formación y trayectoria completa.</p>
           </div>
@@ -10310,6 +10554,40 @@ function saveCarteleraTeamsToFirebase() {
       }
     }
 
+    let seleccionadorName = sel.seleccionador || '';
+    const selNameLower = String(sel.nombre || sel.seleccion || '').toLowerCase().trim();
+    if (selNameLower) {
+      const foundStaff = (state.directory.staff || []).find(st => {
+         const stEq = String(st.equipo || st.seleccion || '').toLowerCase().trim();
+         if (stEq === selNameLower) {
+           const cargo = String(st.cargo || '').toLowerCase();
+           return cargo.includes('seleccionador') || cargo.includes('entrenador principal') || cargo.includes('primer entrenador') || cargo.includes('entrenador');
+         }
+         return false;
+      });
+      if (foundStaff) {
+        seleccionadorName = foundStaff.nombre || foundStaff.staff || seleccionadorName;
+      }
+    }
+
+    const selConvs = (state.directory.convocatorias || []).filter(c => {
+       const cSel = String(c.seleccion || '').toLowerCase().trim();
+       return cSel === selNameLower;
+    });
+
+    const renderConvList = (list) => {
+      if (list.length === 0) return '<div style="font-size: 12px; color: var(--text-muted); padding: 8px;">No hay convocatorias registradas</div>';
+      return list.map(c => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px; margin-bottom: 8px;">
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--primary-blue); margin-bottom: 2px;">${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);"><i data-lucide="flag" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.seleccion || '-')} &nbsp;|&nbsp; <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.fechaInicio || c.fecha || '-')}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+        </div>
+      `).join('');
+    };
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
@@ -10344,7 +10622,14 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">SELECCIONADOR</div>
-              <div class="ficha-stat-value">${escapeHtml(sel.seleccionador || '-')}</div>
+              <div class="ficha-stat-value">${escapeHtml(seleccionadorName || '-')}</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px;">
+            <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">CONVOCATORIAS DE SELECCIÓN</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${renderConvList(selConvs)}
             </div>
           </div>
           
@@ -10374,28 +10659,30 @@ function saveCarteleraTeamsToFirebase() {
     let shieldSrc = conv.escudo || conv.logo || 'Escudo Blanco.png';
     let numJugadores = Array.isArray(conv.jugadores) ? conv.jugadores.length : 0;
     
-    // Attempt to get shield from Selection
+    // Attempt to get shield and color from Selection/Federation
     if (conv.seleccion) {
       const selObj = (state.directory.selecciones || []).find(s => (s.nombre || s.seleccion || '').toLowerCase() === conv.seleccion.toLowerCase());
-      if (selObj && !conv.escudo && !conv.logo) {
-         shieldSrc = selObj.escudo || selObj.logo || 'Escudo Blanco.png';
+      if (selObj) {
+        if (!conv.escudo && !conv.logo) {
+           shieldSrc = selObj.escudo || selObj.logo || 'Escudo Blanco.png';
+        }
+        if (selObj.federacion) {
+           const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
+           if (fedObj && (fedObj.colorPrimary || fedObj.colorPrincipal)) {
+             themeColor = fedObj.colorPrimary || fedObj.colorPrincipal;
+           }
+        }
       }
     }
 
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
-            <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
-              </div>
-              <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
-                <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
-                  ${conv.seleccion ? `Selección: <strong>${escapeHtml(conv.seleccion)}</strong>` : 'Convocatoria'}
-                </div>
-              </div>
+          
+          <!-- Line 1: Logo left, Buttons right -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <div style="height: 100px; display: flex; align-items: center;">
+              ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-height: 100%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
             </div>
             
             <div style="display: flex; gap: 12px;">
@@ -10405,6 +10692,14 @@ function saveCarteleraTeamsToFirebase() {
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
+            </div>
+          </div>
+          
+          <!-- Line 2: Title and Subtitle -->
+          <div style="margin-bottom: 30px;">
+            <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px; line-height: 1.2;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
+            <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
+              ${conv.seleccion ? `Selección: <strong>${escapeHtml(conv.seleccion)}</strong>` : 'Convocatoria'}
             </div>
           </div>
 
@@ -10421,14 +10716,37 @@ function saveCarteleraTeamsToFirebase() {
               <div class="ficha-stat-label">LUGAR</div>
               <div class="ficha-stat-value">${escapeHtml(conv.lugar || conv.sede || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
-              <div class="ficha-stat-label">JUGADORES CONVOCADOS</div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: background 0.2s;" onclick="openJugadoresConvocatoriaModal('${conv.id || conv.codigo}')" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='white'">
+              <div class="ficha-stat-label" style="display: flex; align-items: center; justify-content: space-between;">JUGADORES CONVOCADOS <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></div>
               <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numJugadores} Jugadores</div>
             </div>
+            ${Array.isArray(conv.partidosList) && conv.partidosList.length > 0 ? `
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+              <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                ${conv.partidosList.map(p => `
+                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 10px 12px; border-radius: 6px; font-size: 13px; align-items: center; border: 1px solid rgba(0,0,0,0.04);">
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">RIVAL</span><span style="font-weight: 600;">${escapeHtml(p.rival || '-')}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">FECHA</span><span>${escapeHtml(p.fecha || '-')}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">HORA</span><span>${escapeHtml(p.hora || '-')}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">ESTADIO</span><span>${escapeHtml(p.estadio || '-')}</span></div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : (conv.partidos ? `
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+              <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
+              <div class="ficha-stat-value" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(conv.partidos)}</div>
+            </div>
+            ` : '')}
           </div>
           
-          <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
-             <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para ver y gestionar la lista de jugadores convocados y técnicos.</p>
+          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px; cursor: pointer; transition: background 0.2s;" onclick="openJugadoresConvocatoriaModal('${conv.id || conv.codigo}')" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='white'">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px;">JUGADORES CONVOCADOS</div>
+              <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+            </div>
           </div>
         </div>
       </div>
@@ -10443,6 +10761,77 @@ function saveCarteleraTeamsToFirebase() {
       document.getElementById('modalConvocatoriaFicha').classList.add('hidden');
       openConvocatoriaEditModal(conv.id || conv.codigo);
     };
+  }
+
+  window.openJugadoresConvocatoriaModal = function(id) {
+    const conv = state.directory.convocatorias.find(c => String(c.id) === String(id) || (c.codigo && String(c.codigo) === String(id)));
+    if (!conv) return;
+    
+    let modal = document.getElementById('modalListaConvocatoria');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'modalListaConvocatoria';
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '10000'; // above everything
+      document.body.appendChild(modal);
+    }
+    
+    const html = `
+      <div class="modal-card" style="max-width: 600px; padding: 24px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="font-size: 18px; font-weight: 800; margin: 0; color: var(--text-dark);">Jugadores Convocados</h3>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalListaConvocatoria').classList.add('hidden')" style="padding: 8px; border-radius: var(--radius-md);"><i data-lucide="x" style="width: 16px; height: 16px;"></i></button>
+        </div>
+        <div style="font-size: 13px; color: var(--primary-blue); font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow-y: auto; padding-right: 4px; flex-grow: 1;">
+          ${(conv.jugadores || conv.convocados || []).length > 0 ? (conv.jugadores || conv.convocados || []).map(j => {
+            const name = escapeHtml(typeof j === 'string' ? j : (j.nombre || j.jugador));
+            let realPlayerObj = null;
+            if (typeof j === 'object' && j.id) {
+               realPlayerObj = (state.directory.jugadores || []).find(p => String(p.id) === String(j.id) || (p.codigo && String(p.codigo) === String(j.id)));
+            }
+            if (!realPlayerObj && name) {
+               realPlayerObj = (state.directory.jugadores || []).find(p => String(p.nombre || p.jugador || '').toLowerCase().trim() === String(name).toLowerCase().trim());
+            }
+            const isRealPlayer = !!realPlayerObj;
+            const finalPlayerId = realPlayerObj ? (realPlayerObj.id || realPlayerObj.codigo) : null;
+            
+            const nameDisplay = isRealPlayer 
+              ? `<a href="javascript:void(0)" class="conv-player-link" data-pid="${finalPlayerId}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${name}</a>`
+              : `<span style="font-weight: 600; font-size: 13px; color: var(--text-dark); display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px; color: var(--text-muted);"></i> ${name}</span>`;
+
+            return `
+            <div style="padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+              ${nameDisplay}
+            </div>
+            `;
+          }).join('') : '<div style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 20px; grid-column: 1 / -1;">No hay jugadores en la lista</div>'}
+        </div>
+      </div>
+    `;
+    modal.innerHTML = html;
+    modal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+    
+    modal.querySelectorAll('.conv-player-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pId = link.dataset.pid;
+        console.log('Clicked player link in convocatoria. PID:', pId);
+        try {
+          if (window.openJugadorFichaReadOnly) {
+            window.openJugadorFichaReadOnly(pId);
+          } else if (typeof openJugadorFichaReadOnly === 'function') {
+            openJugadorFichaReadOnly(pId);
+          } else {
+            alert('Error: La función openJugadorFichaReadOnly no está disponible.');
+          }
+        } catch (error) {
+          console.error(error);
+          alert('Error al abrir la ficha del jugador: ' + error.message);
+        }
+      });
+    });
   }
 
   function openTorneoFichaReadOnly(id) {
@@ -11261,12 +11650,14 @@ function saveCarteleraTeamsToFirebase() {
                     <select id="sfCategoria" class="form-control">
                       <option value="Absoluta" ${categoria === 'Absoluta' ? 'selected' : ''}>Absoluta</option>
                       <option value="Sub21" ${categoria === 'Sub21' ? 'selected' : ''}>Sub21</option>
+                      <option value="Sub20" ${categoria === 'Sub20' ? 'selected' : ''}>Sub20</option>
                       <option value="Sub19" ${categoria === 'Sub19' ? 'selected' : ''}>Sub19</option>
                       <option value="Sub18" ${categoria === 'Sub18' ? 'selected' : ''}>Sub18</option>
                       <option value="Sub17" ${categoria === 'Sub17' ? 'selected' : ''}>Sub17</option>
                       <option value="Sub16" ${categoria === 'Sub16' ? 'selected' : ''}>Sub16</option>
                       <option value="Sub15" ${categoria === 'Sub15' ? 'selected' : ''}>Sub15</option>
                       <option value="Sub14" ${categoria === 'Sub14' ? 'selected' : ''}>Sub14</option>
+                      <option value="Sub13" ${categoria === 'Sub13' ? 'selected' : ''}>Sub13</option>
                       <option value="Sub12" ${categoria === 'Sub12' ? 'selected' : ''}>Sub12</option>
                     </select>
                   </div>
@@ -11580,9 +11971,54 @@ function saveCarteleraTeamsToFirebase() {
         }
       }
 
-      const parts = [fedVal, catVal, tempShort, sexoVal].filter(Boolean);
+      let regionVal = fedVal;
+      if (fedVal) {
+        const fedObj = (state.directory.federaciones || []).find(f => f.nombre === fedVal || f.federacion === fedVal);
+        if (fedObj && fedObj.comunidad) {
+          regionVal = fedObj.comunidad;
+        } else if (fedObj && fedObj.pais) {
+          regionVal = fedObj.pais;
+        } else {
+          const lowerName = fedVal.toLowerCase();
+          if (lowerName.includes('española') || lowerName.includes('españa')) regionVal = 'España';
+          else if (lowerName.includes('madrid') || lowerName.includes('madrileña')) regionVal = 'Madrid';
+          else if (lowerName.includes('catalana') || lowerName.includes('cataluña')) regionVal = 'Cataluña';
+          else if (lowerName.includes('andaluza') || lowerName.includes('andalucía')) regionVal = 'Andalucía';
+          else if (lowerName.includes('valenciana') || lowerName.includes('valencia')) regionVal = 'C. Valenciana';
+          else if (lowerName.includes('vasca') || lowerName.includes('pais vasco')) regionVal = 'País Vasco';
+          else if (lowerName.includes('gallega') || lowerName.includes('galicia')) regionVal = 'Galicia';
+          else if (lowerName.includes('canaria')) regionVal = 'Canarias';
+          else if (lowerName.includes('balear')) regionVal = 'Baleares';
+          else if (lowerName.includes('aragonesa') || lowerName.includes('aragón')) regionVal = 'Aragón';
+          else if (lowerName.includes('asturiana') || lowerName.includes('asturias')) regionVal = 'Asturias';
+          else if (lowerName.includes('cantabra') || lowerName.includes('cantabria')) regionVal = 'Cantabria';
+          else if (lowerName.includes('manchega') || lowerName.includes('castilla la mancha') || lowerName.includes('castilla-la mancha')) regionVal = 'Castilla-La Mancha';
+          else if (lowerName.includes('leonesa') || lowerName.includes('castilla y león') || lowerName.includes('castilla y leon')) regionVal = 'Castilla y León';
+          else if (lowerName.includes('extremeña') || lowerName.includes('extremadura')) regionVal = 'Extremadura';
+          else if (lowerName.includes('murciana') || lowerName.includes('murcia')) regionVal = 'Murcia';
+          else if (lowerName.includes('navarra')) regionVal = 'Navarra';
+          else if (lowerName.includes('rioja')) regionVal = 'La Rioja';
+          else if (lowerName.includes('ceuta')) regionVal = 'Ceuta';
+          else if (lowerName.includes('melilla')) regionVal = 'Melilla';
+          else {
+            let name = fedVal.replace(/^[A-Z]+\s*-\s*/, '');
+            name = name.replace(/Real Federación|Federación|Federació|Federazioa/gi, '')
+                       .replace(/de Fútbol|de Futbol/gi, '')
+                       .replace(/del Principado de/gi, '')
+                       .replace(/de la/gi, '')
+                       .replace(/de /gi, '')
+                       .trim();
+            if (name) regionVal = name;
+          }
+        }
+      }
+
+      const parts = [regionVal, catVal, tempShort ? tempShort : '', sexoVal].filter(Boolean);
       if (parts.length > 0) {
-        const generated = parts.join(' ');
+        // Formato deseado: "España Sub12 Masculino 26/27" -> Wait, parts order: region, cat, sexo, temp
+        // The previous order was fedVal, catVal, tempShort, sexoVal -> "RFEF Sub12 26/27 Masculino" which is wrong format!
+        // The screenshot shows: "España Sub12 Femenino 26/27". So order should be Region, Cat, Sexo, Temp.
+        const generated = [regionVal, catVal, sexoVal, tempShort].filter(Boolean).join(' ');
         if (inputNombreSel) inputNombreSel.value = generated;
       }
     };
@@ -12012,19 +12448,24 @@ function saveCarteleraTeamsToFirebase() {
 
   function openConvocatoriaEditModal(convocatoriaId = null) {
     const isEdit = !!convocatoriaId;
-    const conv = isEdit ? (state.directory.convocatorias?.find(c => c.id === convocatoriaId) || {}) : {};
+    const conv = isEdit ? (state.directory.convocatorias?.find(c => String(c.id) === String(convocatoriaId) || (c.codigo && String(c.codigo) === String(convocatoriaId))) || {}) : {};
 
     const nombre = conv.nombre || conv.convocatoria || '';
     const tipoActividad = conv.tipoActividad || '';
+    const federacion = conv.federacion || '';
     const seleccion = conv.seleccionVinculada || conv.seleccion || '';
     const temporada = conv.temporada || '26/27';
     const sesion = conv.sesion || 'Sesión 1';
     const fechaInicio = conv.fechaInicio || '';
     const fechaFin = conv.fechaFin || '';
     const hora = conv.hora || '';
+    const competicion = conv.competicion || conv.motivo || '';
+    const lugar = conv.lugar || '';
+    const partidos = conv.partidos || '';
 
     let localJugadoresList = conv.jugadores ? JSON.parse(JSON.stringify(conv.jugadores)) : [];
     let localStaffList = conv.staff ? JSON.parse(JSON.stringify(conv.staff)) : [];
+    let localPartidosList = Array.isArray(conv.partidosList) ? JSON.parse(JSON.stringify(conv.partidosList)) : [];
 
     const notas = conv.notas || '';
 
@@ -12032,6 +12473,9 @@ function saveCarteleraTeamsToFirebase() {
 
     let docConvocatoriaData = conv.documentoConvocatoria || conv.pdfData || '';
     let docConvocatoriaName = conv.documentoNombre || '';
+    
+    // Initial filtered selecciones based on federacion (if editing)
+    const initialSels = (state.directory.selecciones || []).filter(s => !federacion || (s.federacion || '').toLowerCase() === federacion.toLowerCase());
 
     const modalHTML = `
       <div class="convocatoria-modal-wrapper">
@@ -12049,9 +12493,11 @@ function saveCarteleraTeamsToFirebase() {
           </button>
         </div>
 
-        <datalist id="seleccionesDatalistOptions">
-          ${(state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`).join('')}
+        <datalist id="federacionesDatalistOptions">
+          ${(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
+
+
 
         <datalist id="staffDatalistOptions">
           ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
@@ -12072,7 +12518,7 @@ function saveCarteleraTeamsToFirebase() {
               <input type="text" id="cnNombre" class="form-control" placeholder="Se genera al seleccionar Selección, Fecha, Sesión y Temporada..." value="${escapeHtml(nombre)}" required>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">TIPO ACTIVIDAD</label>
                 <select id="cnTipoActividad" class="form-control">
@@ -12084,17 +12530,32 @@ function saveCarteleraTeamsToFirebase() {
                 </select>
               </div>
               <div class="form-group">
+                <label class="form-label">FEDERACIÓN</label>
+                <input type="text" id="cnFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Escribe o selecciona..." value="${escapeHtml(federacion)}">
+              </div>
+              <div class="form-group">
                 <label class="form-label">SELECCIÓN VINCULADA</label>
-                <input type="text" id="cnSeleccion" list="seleccionesDatalistOptions" class="form-control" placeholder="Busca o escribe una selección..." value="${escapeHtml(seleccion)}">
+                <select id="cnSeleccion" class="form-control">
+                  <option value="">-- Selecciona --</option>
+                  ${initialSels.map(s => {
+                    const sName = escapeHtml(s.nombre || s.seleccion);
+                    const isSelected = (s.nombre === seleccion || s.seleccion === seleccion) ? 'selected' : '';
+                    return `<option value="${sName}" ${isSelected}>${sName}</option>`;
+                  }).join('')}
+                </select>
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
-                <label class="form-label">SESIÓN</label>
+                <label class="form-label">NÚMERO DE ACTIVIDAD</label>
                 <select id="cnSesion" class="form-control">
-                  <option value="">Seleccionar sesión...</option>
-                  ${['Sesión 1', 'Sesión 2', 'Sesión 3', 'Sesión 4', 'Sesión 5', 'Sesión 6', 'Sesión 7', 'Sesión 8', 'Sesión 9', 'Sesión 10'].map(s => `<option value="${escapeHtml(s)}" ${sesion === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                  <option value="">Seleccionar número...</option>
+                  ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
+                    const actName = tipoActividad || 'Actividad';
+                    const optVal = `${actName} ${n}`;
+                    return `<option value="${escapeHtml(optVal)}" ${sesion === optVal ? 'selected' : ''}>${escapeHtml(optVal)}</option>`;
+                  }).join('')}
                 </select>
               </div>
               <div class="form-group">
@@ -12108,6 +12569,17 @@ function saveCarteleraTeamsToFirebase() {
                   }).join('')}
                   ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
                 </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+              <div class="form-group">
+                <label class="form-label">COMPETICIÓN / MOTIVO</label>
+                <input type="text" id="cnCompeticion" class="form-control" placeholder="Ej: Campeonato de España..." value="${escapeHtml(competicion)}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">LUGAR</label>
+                <input type="text" id="cnLugar" class="form-control" placeholder="Ej: Las Rozas (Madrid)..." value="${escapeHtml(lugar)}">
               </div>
             </div>
 
@@ -12125,32 +12597,40 @@ function saveCarteleraTeamsToFirebase() {
                 <input type="time" id="cnHora" class="form-control" value="${escapeHtml(hora)}">
               </div>
             </div>
+
+            <div style="margin-bottom: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="form-label" style="margin-bottom: 0;">PARTIDOS PREVISTOS</label>
+                <button type="button" class="btn btn-primary" id="btnAddPartido" style="padding: 4px 10px; font-size: 11px; height: auto;"><i data-lucide="plus" style="width: 14px; height: 14px;"></i> Añadir Partido</button>
+              </div>
+              <div id="cnPartidosContainer"></div>
+            </div>
           </div>
 
           <!-- TAB 2: JUGADORES -->
           <div class="cn-tab-pane hidden" id="cntab-jugadores">
             <div style="background-color: var(--bg-surface); padding: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 20px;">
               <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; margin-bottom: 4px;">
-                <i data-lucide="file-text"></i> Importar Convocatoria (PDF / Imagen)
+                <i data-lucide="file-text"></i> Importar Lista de Jugadores
               </div>
-              <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Extrae automáticamente datos de la convocatoria desde archivos PDF o imágenes locales.</p>
+              <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Pega los nombres de los jugadores desde un PDF, Excel o documento de texto.</p>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
                 <div style="border: 1px dashed var(--border-light); padding: 12px; border-radius: var(--radius-md); text-align: center;">
-                  <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">📄 Archivos PDF</div>
-                  <label class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; cursor: pointer; margin: 0;">
-                    <i data-lucide="file-up"></i> Subir PDF
-                    <input type="file" accept=".pdf" class="hidden" id="cnPdfInput">
-                  </label>
-                  <div id="cnPdfStatus" style="font-size: 11px; color: var(--success); font-weight: 600; margin-top: 4px;"></div>
+                  <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">📝 Importación Rápida</div>
+                  <button type="button" class="btn btn-secondary" id="btnManualListImport" style="font-size: 11px; padding: 6px 16px; margin: 0;">
+                    <i data-lucide="clipboard-paste"></i> Pegar Lista de Nombres
+                  </button>
+                  <div id="cnManualStatus" style="font-size: 11px; color: var(--success); font-weight: 600; margin-top: 4px;"></div>
                 </div>
-                <div style="border: 1px dashed var(--border-light); padding: 12px; border-radius: var(--radius-md); text-align: center;">
-                  <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px;">🖼️ Fotos / Imágenes</div>
-                  <label class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; cursor: pointer; margin: 0;">
-                    <i data-lucide="image"></i> Subir Foto
-                    <input type="file" accept="image/*" class="hidden" id="cnImgInput">
-                  </label>
-                  <div id="cnImgStatus" style="font-size: 11px; color: var(--success); font-weight: 600; margin-top: 4px;"></div>
+              </div>
+              
+              <div id="manualListContainer" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-light);">
+                <label style="font-size: 11px; font-weight: 700; margin-bottom: 6px; display: block;">Pega la lista de jugadores (uno por línea)</label>
+                <textarea id="cnManualTextarea" class="form-control" style="font-size: 12px; height: 100px; resize: vertical; margin-bottom: 8px;" placeholder="Juan Pérez&#10;Carlos García&#10;..."></textarea>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                  <button type="button" class="btn btn-secondary" id="btnCancelManualList" style="font-size: 11px; padding: 4px 10px;">Cancelar</button>
+                  <button type="button" class="btn btn-primary" id="btnProcessManualList" style="font-size: 11px; padding: 4px 10px;"><i data-lucide="check"></i> Procesar Lista</button>
                 </div>
               </div>
             </div>
@@ -12238,6 +12718,7 @@ function saveCarteleraTeamsToFirebase() {
         id: isEdit ? convocatoriaId : 'cnv_' + Date.now(),
         nombre: nameVal,
         convocatoria: nameVal,
+        federacion: document.getElementById('cnFederacion') ? document.getElementById('cnFederacion').value.trim() : '',
         tipoActividad: document.getElementById('cnTipoActividad').value,
         seleccionVinculada: document.getElementById('cnSeleccion').value.trim(),
         seleccion: document.getElementById('cnSeleccion').value.trim(),
@@ -12246,7 +12727,10 @@ function saveCarteleraTeamsToFirebase() {
         fechaInicio: document.getElementById('cnFechaInicio').value,
         fechaFin: document.getElementById('cnFechaFin').value,
         hora: document.getElementById('cnHora').value,
-
+        competicion: document.getElementById('cnCompeticion') ? document.getElementById('cnCompeticion').value.trim() : '',
+        motivo: document.getElementById('cnCompeticion') ? document.getElementById('cnCompeticion').value.trim() : '',
+        lugar: document.getElementById('cnLugar') ? document.getElementById('cnLugar').value.trim() : '',
+        partidosList: localPartidosList.filter(p => p.rival || p.fecha || p.estadio),
         jugadores: localJugadoresList,
         staff: localStaffList,
         documentoConvocatoria: docConvocatoriaData,
@@ -12277,8 +12761,55 @@ function saveCarteleraTeamsToFirebase() {
           );
 
           if (targetPlayer) {
-            targetPlayer.convocatoria = nameVal;
-            if (updatedConv.seleccionVinculada) targetPlayer.seleccion = updatedConv.seleccionVinculada;
+            let playerChanged = false;
+            if (targetPlayer.convocatoria !== nameVal) {
+              targetPlayer.convocatoria = nameVal;
+              playerChanged = true;
+            }
+            
+            const isEquipo = state.directory.equipos && state.directory.equipos.some(e => (e.nombre || '').toLowerCase() === (updatedConv.seleccionVinculada || '').toLowerCase());
+            
+            if (updatedConv.seleccionVinculada) {
+              if (targetPlayer.seleccion !== updatedConv.seleccionVinculada) {
+                targetPlayer.seleccion = updatedConv.seleccionVinculada;
+                playerChanged = true;
+              }
+              if (isEquipo && targetPlayer.equipoPrincipal !== updatedConv.seleccionVinculada) {
+                targetPlayer.equipoPrincipal = updatedConv.seleccionVinculada;
+                targetPlayer.equipo = updatedConv.seleccionVinculada;
+                playerChanged = true;
+              }
+            }
+            
+            if (playerChanged && typeof saveToFirebase === 'function') {
+              saveToFirebase('jugadores', targetPlayer);
+            }
+            
+            // Auto-sync to matching Selección
+            if (updatedConv.seleccionVinculada && state.directory.selecciones) {
+              const selIdx = state.directory.selecciones.findIndex(s => (s.nombre || s.seleccion || '').toLowerCase() === updatedConv.seleccionVinculada.toLowerCase());
+              if (selIdx !== -1) {
+                const sel = state.directory.selecciones[selIdx];
+                if (!sel.jugadores) sel.jugadores = [];
+                if (!sel.jugadores.some(p => (typeof p === 'string' ? p : p.nombre || p.jugador || '').toLowerCase() === playerName.toLowerCase())) {
+                  sel.jugadores.push({nombre: playerName, id: targetPlayer.id});
+                  if (typeof saveToFirebase === 'function') saveToFirebase('selecciones', sel);
+                }
+              }
+            }
+            
+            // Auto-sync to matching Equipo
+            if (updatedConv.seleccionVinculada && state.directory.equipos) {
+              const eqIdx = state.directory.equipos.findIndex(e => (e.nombre || '').toLowerCase() === updatedConv.seleccionVinculada.toLowerCase());
+              if (eqIdx !== -1) {
+                const eq = state.directory.equipos[eqIdx];
+                if (!eq.plantilla) eq.plantilla = [];
+                if (!eq.plantilla.some(p => (typeof p === 'string' ? p : p.nombre || p.jugador || '').toLowerCase() === playerName.toLowerCase())) {
+                  eq.plantilla.push(playerName);
+                  if (typeof saveToFirebase === 'function') saveToFirebase('equipos', eq);
+                }
+              }
+            }
           }
         });
       }
@@ -12328,6 +12859,163 @@ function saveCarteleraTeamsToFirebase() {
         renderDirectorio();
       }
     } : null);
+
+    const renderPartidosList = () => {
+      const container = document.getElementById('cnPartidosContainer');
+      if (!container) return;
+      
+      if (localPartidosList.length === 0) {
+        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted); margin: 0; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 6px; text-align: center; border: 1px dashed var(--border-light);">No hay partidos programados. Haz clic en "Añadir Partido" para crear uno.</p>';
+        return;
+      }
+
+      container.innerHTML = localPartidosList.map((p, idx) => `
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Rival</label>
+            <input type="text" class="form-control cn-partido-rival" data-idx="${idx}" value="${escapeHtml(p.rival || '')}" placeholder="Ej: Francia" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Fecha</label>
+            <input type="date" class="form-control cn-partido-fecha" data-idx="${idx}" value="${escapeHtml(p.fecha || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Hora</label>
+            <input type="time" class="form-control cn-partido-hora" data-idx="${idx}" value="${escapeHtml(p.hora || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Estadio/Lugar</label>
+            <input type="text" class="form-control cn-partido-estadio" data-idx="${idx}" value="${escapeHtml(p.estadio || '')}" placeholder="Sede" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+          </div>
+          <div>
+            <button type="button" class="btn btn-icon btn-remove-partido" data-idx="${idx}" style="color: #ef4444; background: none; border: none; padding: 4px; min-height: 32px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+          </div>
+        </div>
+      `).join('');
+      
+      if (window.lucide) window.lucide.createIcons();
+
+      document.querySelectorAll('.cn-partido-rival').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].rival = e.target.value));
+      document.querySelectorAll('.cn-partido-fecha').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].fecha = e.target.value));
+      document.querySelectorAll('.cn-partido-hora').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].hora = e.target.value));
+      document.querySelectorAll('.cn-partido-estadio').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].estadio = e.target.value));
+      document.querySelectorAll('.btn-remove-partido').forEach(el => el.addEventListener('click', e => {
+        const idx = parseInt(e.currentTarget.dataset.idx);
+        localPartidosList.splice(idx, 1);
+        renderPartidosList();
+      }));
+    };
+
+    document.getElementById('btnAddPartido')?.addEventListener('click', () => {
+      localPartidosList.push({ rival: '', fecha: '', hora: '', estadio: '' });
+      renderPartidosList();
+    });
+
+    renderPartidosList();
+
+    const fedInput = document.getElementById('cnFederacion');
+    if (fedInput) {
+      fedInput.addEventListener('input', (e) => {
+        const fedVal = e.target.value.trim().toLowerCase();
+        const selSelect = document.getElementById('cnSeleccion');
+        if (!selSelect) return;
+        
+        let filteredSels = state.directory.selecciones || [];
+        if (fedVal) {
+          filteredSels = filteredSels.filter(s => (s.federacion || '').toLowerCase() === fedVal);
+        }
+        
+        selSelect.innerHTML = '<option value="">-- Selecciona --</option>' + 
+          filteredSels.map(s => {
+            const sName = escapeHtml(s.nombre || s.seleccion);
+            return `<option value="${sName}">${sName}</option>`;
+          }).join('');
+      });
+    }
+
+    const handleAiExtraction = async (file, isPdf, statusElId) => {
+      const statusEl = document.getElementById(statusElId);
+      if (statusEl) {
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.innerHTML = '<i data-lucide="loader-2" style="width:12px;height:12px;display:inline-block;vertical-align:middle;"></i> Analizando...';
+      }
+      if (window.lucide) window.lucide.createIcons();
+
+      const players = await extractPlayersWithGemini(file, isPdf);
+      
+      if (players) {
+        players.forEach(p => {
+          if (!localJugadoresList.some(j => (j.nombre || j.jugador || j) === p)) {
+            localJugadoresList.push({ nombre: p, jugador: p, id: 'j_' + Date.now() + Math.floor(Math.random()*1000) });
+          }
+        });
+        renderJugadoresList();
+        if (statusEl) {
+          statusEl.style.color = 'var(--success)';
+          statusEl.innerHTML = '¡Éxito! ' + players.length + ' jugadores encontrados.';
+        }
+      } else {
+        if (statusEl) {
+          statusEl.style.color = 'var(--danger)';
+          statusEl.innerHTML = 'Fallo en extracción.';
+        }
+      }
+    };
+
+    document.getElementById('cnPdfInput')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleAiExtraction(file, true, 'cnPdfStatus');
+      e.target.value = '';
+    });
+
+    document.getElementById('cnImgInput')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleAiExtraction(file, false, 'cnImgStatus');
+      e.target.value = '';
+    });
+
+    // Manual list event listeners
+    document.getElementById('btnManualListImport')?.addEventListener('click', () => {
+      const container = document.getElementById('manualListContainer');
+      if (container) container.style.display = 'block';
+    });
+    
+    document.getElementById('btnCancelManualList')?.addEventListener('click', () => {
+      const container = document.getElementById('manualListContainer');
+      const textarea = document.getElementById('cnManualTextarea');
+      if (container) container.style.display = 'none';
+      if (textarea) textarea.value = '';
+    });
+    
+    document.getElementById('btnProcessManualList')?.addEventListener('click', () => {
+      const textarea = document.getElementById('cnManualTextarea');
+      if (!textarea || !textarea.value.trim()) return;
+      
+      const lines = textarea.value.split('\n');
+      let count = 0;
+      for (const line of lines) {
+        const name = line.trim();
+        if (name && name.length > 2) { // basic filter
+          localJugadoresList.push({ nombre: name, jugador: name, id: 'j_' + Date.now() + Math.floor(Math.random()*1000) });
+          count++;
+        }
+      }
+      
+      if (count > 0) {
+        renderCnJugadoresTable();
+        const statusEl = document.getElementById('cnManualStatus');
+        if (statusEl) {
+          statusEl.style.color = 'var(--success)';
+          statusEl.innerHTML = '¡' + count + ' importados!';
+          setTimeout(() => statusEl.innerHTML = '', 3000);
+        }
+      }
+      
+      // Reset and hide
+      textarea.value = '';
+      const container = document.getElementById('manualListContainer');
+      if (container) container.style.display = 'none';
+    });
 
     // PDF Export Event Listener
     document.getElementById('btnExportConvPdf')?.addEventListener('click', () => {
@@ -12470,7 +13158,7 @@ function saveCarteleraTeamsToFirebase() {
         }
       }
 
-      const parts = [dateFormatted, selVal, tipoActVal, sesionVal, tempShort].filter(Boolean);
+      const parts = [dateFormatted, selVal, sesionVal, tempShort].filter(Boolean);
       if (parts.length > 0) {
         const generated = parts.join(' ');
         if (inputNombreConv) inputNombreConv.value = generated;
@@ -12481,8 +13169,27 @@ function saveCarteleraTeamsToFirebase() {
     inputFechaConv?.addEventListener('input', updateGeneratedConvName);
     inputSelConv?.addEventListener('change', updateGeneratedConvName);
     inputSelConv?.addEventListener('input', updateGeneratedConvName);
-    inputTipoActConv?.addEventListener('change', updateGeneratedConvName);
-    inputTipoActConv?.addEventListener('input', updateGeneratedConvName);
+    
+    if (inputTipoActConv && inputSesionConv) {
+      const updateSesionOptions = () => {
+        const actName = inputTipoActConv.value.trim() || 'Actividad';
+        const currentVal = inputSesionConv.value;
+        const currentNumMatch = currentVal.match(/\d+$/);
+        const currentNum = currentNumMatch ? currentNumMatch[0] : '';
+        
+        let newOptions = '<option value="">Seleccionar número...</option>';
+        for (let i = 1; i <= 10; i++) {
+          const optVal = `${actName} ${i}`;
+          const isSelected = currentNum === String(i) ? 'selected' : '';
+          newOptions += `<option value="${escapeHtml(optVal)}" ${isSelected}>${escapeHtml(optVal)}</option>`;
+        }
+        inputSesionConv.innerHTML = newOptions;
+        updateGeneratedConvName();
+      };
+      inputTipoActConv.addEventListener('change', updateSesionOptions);
+      inputTipoActConv.addEventListener('input', updateSesionOptions);
+    }
+    
     inputSesionConv?.addEventListener('change', updateGeneratedConvName);
     inputSesionConv?.addEventListener('input', updateGeneratedConvName);
     inputTempConv?.addEventListener('change', updateGeneratedConvName);
@@ -16507,8 +17214,10 @@ function saveCarteleraTeamsToFirebase() {
     // Show/hide year and team filter only for Jugadores
     const yearContainer = document.getElementById('dirYearFilterContainer');
     const teamContainer = document.getElementById('dirTeamFilterContainer');
+    const dupContainer = document.getElementById('dirDuplicatesFilterContainer');
     if (currentDirectoryTab === 'jugadores') {
       if (yearContainer) yearContainer.style.display = 'flex';
+      if (dupContainer) dupContainer.style.display = 'flex';
       if (teamContainer) {
         teamContainer.style.display = 'flex';
         // Populate options
@@ -16524,6 +17233,7 @@ function saveCarteleraTeamsToFirebase() {
         const yInput = document.getElementById('dirYearFilterInput');
         if (yInput) yInput.value = '';
       }
+      if (dupContainer) dupContainer.style.display = 'none';
       if (teamContainer) {
         teamContainer.style.display = 'none';
         const tInput = document.getElementById('dirTeamFilterInput');
@@ -16532,6 +17242,18 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     let rawItems = [...(state.directory[currentDirectoryTab] || [])];
+
+    if (currentDirectoryTab === 'jugadores' && state.dirShowDuplicates) {
+      const nameCounts = {};
+      rawItems.forEach(item => {
+        const n = String(item.nombre || item.jugador || '').toLowerCase().trim();
+        if (n) nameCounts[n] = (nameCounts[n] || 0) + 1;
+      });
+      rawItems = rawItems.filter(item => {
+        const n = String(item.nombre || item.jugador || '').toLowerCase().trim();
+        return nameCounts[n] > 1;
+      });
+    }
 
     // Helper to render dynamic filter selects for current directory section
     // Section filters removed per user request
@@ -17423,13 +18145,25 @@ function saveCarteleraTeamsToFirebase() {
             ${pageItems.map(c => {
               const convColor = '#7c3aed';
 
+              let badgeSrc = '';
+              const cFed = c.federacion || '';
+              if (cFed && state.directory.federaciones) {
+                const fedObj = state.directory.federaciones.find(f => (f.nombre === cFed || f.federacion === cFed));
+                if (fedObj && (fedObj.logo || fedObj.escudo)) {
+                  badgeSrc = fedObj.logo || fedObj.escudo;
+                }
+              }
+
               return `
               <div class="entity-card" style="border-top: 5px solid ${convColor} !important; background: linear-gradient(180deg, ${convColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
-                <!-- LÍNEA 1: Checkbox + Icono Megáfono amplio 48px (izquierda) y Eliminar (derecha) -->
+                <!-- LÍNEA 1: Checkbox + Icono/Escudo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${convColor}; padding: 3px; flex-shrink: 0; color: ${convColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      <i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>
+                      ${badgeSrc 
+                        ? `<img src="${badgeSrc}" style="width: 100%; height: 100%; object-fit: contain;">`
+                        : `<i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>`
+                      }
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id || c.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -18173,6 +18907,25 @@ function saveCarteleraTeamsToFirebase() {
     currentDirectoryPage = 1;
     renderDirectorio();
   });
+  
+  document.getElementById('dirDuplicatesFilterBtn')?.addEventListener('click', () => {
+    state.dirShowDuplicates = !state.dirShowDuplicates;
+    const btn = document.getElementById('dirDuplicatesFilterBtn');
+    if (btn) {
+      if (state.dirShowDuplicates) {
+        btn.style.background = 'var(--primary-blue)';
+        btn.style.color = 'white';
+        btn.style.borderColor = 'var(--primary-blue)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--text-muted)';
+        btn.style.borderColor = 'var(--border-color)';
+      }
+    }
+    currentDirectoryPage = 1;
+    renderDirectorio();
+  });
+
   document.getElementById('dirYearFilterInput')?.addEventListener('input', () => {
     currentDirectoryPage = 1;
     renderDirectorio();
@@ -23815,7 +24568,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       overlay = document.createElement('div');
       overlay.id = 'subModalOverlay';
       overlay.className = 'modal-overlay hidden';
-      overlay.style.cssText = 'z-index: 10000; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; padding: 16px; box-sizing: border-box;';
+      overlay.style.cssText = 'z-index: 10060; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; padding: 16px; box-sizing: border-box;';
 
       const card = document.createElement('div');
       card.id = 'subModalCard';
@@ -24553,8 +25306,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   }
 
   // --------------------------------------------------------------------------
-  // 12. App Initialization
   // --------------------------------------------------------------------------
+  window.openJugadorFichaReadOnly = openJugadorFichaReadOnly;
+  window.openSeleccionFichaReadOnly = openSeleccionFichaReadOnly;
+  window.openConvocatoriaFichaReadOnly = openConvocatoriaFichaReadOnly;
   document.addEventListener('DOMContentLoaded', () => {
     // Inyectar selectores múltiples de Estilo de Juego para Informes de Partido
     const matchEstilos = {'Estilos de Juego': ['Posesión / Combinativo', 'Juego Directo', 'Contraataque', 'Juego de Transiciones', 'Presión Alta', 'Bloque Medio', 'Bloque Bajo', 'Repliegue Intensivo', 'Juego por Bandas', 'Juego Interior']};
@@ -25056,4 +25811,187 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (window.lucide) window.lucide.createIcons();
   });
 
+  setTimeout(() => {
+    if (!localStorage.getItem('dhj_players_imported_2009_v1')) {
+      const playersData = [
+        ["Darlington Eloghosa Chichoro", "Athletic Club"],
+        ["Diego Piqueras Gómez", "Club Atlético de Madrid"],
+        ["Guillermo Ponce Román", "Real Madrid CF"],
+        ["Arnau Cases Ramos", "RCD Espanyol"],
+        ["Raúl Expósito Rodríguez", "FC Barcelona"],
+        ["Mario Díaz Muñoz", "Sevilla FC"],
+        ["Juan Manuel Borrero Martínez", "CD Roda"],
+        ["Sergi Mayans Mas", "FC Barcelona"],
+        ["Iker Herrera Ramos", "Valencia CF"],
+        ["Jordi Pesquer Gómez", "FC Barcelona"],
+        ["Mikel Urrestarazu García", "CD Basconia"],
+        ["Óscar Parejo Palomino", "Club Atlético de Madrid"],
+        ["Mateo Sobral Rey", "RC Celta de Vigo"],
+        ["Cherif Fofana", "Real Madrid CF"],
+        ["Serigne Fallou Ndiaye", "Villarreal CF"],
+        ["Ian Mencía Romero", "Club Atlético de Madrid"],
+        ["Mauro Valeiro Ramos", "RC Deportivo"],
+        ["Marco David Company Peláez", "Real Madrid CF"],
+        ["Ebrima Tunkara", "FC Barcelona"],
+        ["Marc Martínez Soriano", "Valencia CF"],
+        ["Bryan Bugarín Hermida", "Real Madrid CF"],
+        ["Abdou Kemo Cissé", "Club Atlético de Madrid"],
+        ["Adrián Vivó González", "Villarreal CF"],
+        ["Christian Imga", "CD Basconia"],
+        ["Santiago del Pino Morote", "Real Madrid CF"],
+        ["Enzo Alves Vieira", "Real Madrid CF"],
+        ["Yeremaiah Ramos Santana", "Real Madrid CF"],
+        ["Roberto Tomás Pérez", "FC Barcelona"]
+      ];
+
+      playersData.forEach(([playerName, clubName], index) => {
+        setTimeout(() => {
+          const teamName = clubName + ' DHJ 26/27';
+
+          let clubId = String(Date.now() + Math.floor(Math.random() * 10000));
+          const existingClub = (state.directory.clubes || []).find(c => c.nombre === clubName || c.equipo === clubName);
+          if (existingClub) {
+            clubId = existingClub.id || existingClub.codigo;
+          } else {
+            const newClub = { id: clubId, codigo: clubId, nombre: clubName, equipo: clubName };
+            if (typeof saveToFirebase === 'function') saveToFirebase('clubes', newClub);
+            if (!state.directory.clubes) state.directory.clubes = [];
+            state.directory.clubes.push(newClub);
+          }
+
+          let equipoId = String(Date.now() + Math.floor(Math.random() * 10000));
+          const existingTeam = (state.directory.equipos || []).find(e => e.nombre === teamName || e.equipo === teamName);
+          if (existingTeam) {
+            equipoId = existingTeam.id || existingTeam.codigo;
+          } else {
+            const newTeam = { 
+              id: equipoId, 
+              codigo: equipoId, 
+              nombre: teamName, 
+              equipo: teamName, 
+              clubId: clubId,
+              club: clubName,
+              categoria: 'Juvenil',
+              competicion: 'DHJ'
+            };
+            if (typeof saveToFirebase === 'function') saveToFirebase('equipos', newTeam);
+            if (!state.directory.equipos) state.directory.equipos = [];
+            state.directory.equipos.push(newTeam);
+          }
+
+          const existingPlayer = (state.directory.jugadores || []).find(p => p.nombre === playerName || p.jugador === playerName);
+          if (!existingPlayer) {
+            let pId = String(Date.now() + Math.floor(Math.random() * 10000));
+            const newPlayer = {
+              id: pId,
+              codigo: pId,
+              nombre: playerName,
+              jugador: playerName,
+              equipoId: equipoId,
+              equipo: teamName,
+              clubId: clubId,
+              club: clubName,
+              año: '2009',
+              nacimiento: '2009'
+            };
+            if (typeof saveToFirebase === 'function') saveToFirebase('jugadores', newPlayer);
+            if (!state.directory.jugadores) state.directory.jugadores = [];
+            state.directory.jugadores.push(newPlayer);
+          }
+        }, index * 50); // slight delay to avoid overwhelming firebase
+      });
+
+      localStorage.setItem('dhj_players_imported_2009_v1', '1');
+      console.log("Imported 2009 DHJ players successfully!");
+    }
+  }, 4000);
+
 })();
+
+// --- Gemini AI Logic Integration ---
+async function extractPlayersWithGemini(file, isPdf) {
+  const apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    alert("Para usar el Lector Mágico, primero debes guardar tu Clave API de Gemini en la pestaña de Configuración del Sistema.");
+    return null;
+  }
+
+  try {
+    let promptText = "Extrae únicamente la lista de nombres y apellidos completos de los jugadores de esta convocatoria. Ignora los técnicos, staff, fechas, estadios, rivales o cualquier otro texto irrelevante. Devuelve SOLO un array JSON válido de strings con los nombres completos. Ejemplo: [\"Juan Pérez García\", \"Carlos Gómez\"]. No escribas NADA más, ni bloques de código (markdown), ni explicaciones, solo el JSON puro.";
+    let contentParts = [];
+
+    if (isPdf) {
+      if (!window.pdfjsLib) {
+        throw new Error("Librería pdf.js no cargada.");
+      }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(" ");
+        fullText += pageText + "\\n";
+      }
+      contentParts.push({ text: promptText + "\\n\\nTexto extraído del documento:\\n" + fullText });
+    } else {
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve) => {
+        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+        reader.readAsDataURL(file);
+      });
+      const base64Data = await base64Promise;
+      const mimeType = file.type;
+      contentParts.push({ text: promptText });
+      contentParts.push({ inlineData: { data: base64Data, mimeType: mimeType } });
+    }
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: contentParts }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    
+    let responseText = data.candidates[0].content.parts[0].text.trim();
+    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    const players = JSON.parse(responseText);
+    
+    if (!Array.isArray(players)) throw new Error("La IA no devolvió un formato de lista válido.");
+    return players;
+  } catch (e) {
+    console.error("Gemini Extraction Error:", e);
+    alert("Hubo un problema extrayendo los datos: " + e.message);
+    return null;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const geminiInput = document.getElementById('configGeminiApiKey');
+  const btnSaveGemini = document.getElementById('btnSaveGeminiKey');
+  
+  if (geminiInput) {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) geminiInput.value = savedKey;
+  }
+
+  if (btnSaveGemini) {
+    btnSaveGemini.addEventListener('click', () => {
+      const val = geminiInput.value.trim();
+      if (val) {
+        localStorage.setItem('gemini_api_key', val);
+        alert('Clave API de Gemini guardada correctamente.');
+      } else {
+        localStorage.removeItem('gemini_api_key');
+        alert('Clave API de Gemini eliminada.');
+      }
+    });
+  }
+});

@@ -1849,6 +1849,7 @@ a {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
   width: 100%;
+  margin-top: 24px;
 }
 
 .entity-card {
@@ -2872,6 +2873,12 @@ a {
   padding: 12px 24px 0;
   background-color: var(--bg-surface);
   overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar in Firefox */
+}
+
+/* Hide scrollbar in Chrome/Safari */
+.player-modal-subtabs::-webkit-scrollbar {
+  display: none;
 }
 
 .player-subtab {
