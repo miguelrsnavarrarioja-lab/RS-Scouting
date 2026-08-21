@@ -4135,14 +4135,14 @@ function saveCarteleraTeamsToFirebase() {
           usedPositionsCount[positionVal] = (usedPositionsCount[positionVal] || 0);
           const occurrenceIndex = Math.min(usedPositionsCount[positionVal], allIndices.length - 1);
           targetIdx = allIndices[occurrenceIndex];
-          if (!isPos2) usedPositionsCount[positionVal]++;
+          usedPositionsCount[positionVal]++;
         }
         
         const pos = positions[targetIdx] || positions[idx] || {x: 50, y: 50};
         
         targetIdxCount[targetIdx] = (targetIdxCount[targetIdx] || 0);
         const offsetMultiplier = targetIdxCount[targetIdx];
-        if (!isPos2) targetIdxCount[targetIdx]++;
+        targetIdxCount[targetIdx]++;
         
         const offsetX = pos.x + (offsetMultiplier * 4);
         const offsetY = pos.y + (offsetMultiplier * 4);
