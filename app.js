@@ -10741,13 +10741,6 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             ` : '')}
           </div>
-          
-          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px; cursor: pointer; transition: background 0.2s;" onclick="openJugadoresConvocatoriaModal('${conv.id || conv.codigo}')" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='white'">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px;">JUGADORES CONVOCADOS</div>
-              <i data-lucide="chevron-right" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
-            </div>
-          </div>
         </div>
       </div>
     `;
@@ -10796,6 +10789,15 @@ function saveCarteleraTeamsToFirebase() {
             const isRealPlayer = !!realPlayerObj;
             const finalPlayerId = realPlayerObj ? (realPlayerObj.id || realPlayerObj.codigo) : null;
             
+            let extraInfo = [];
+            if (isRealPlayer) {
+               const eq = realPlayerObj.equipoPrincipal || realPlayerObj.equipo;
+               const pos = realPlayerObj.posicionPrincipal || realPlayerObj.posicion;
+               if (eq) extraInfo.push(eq);
+               if (pos) extraInfo.push(pos);
+            }
+            const extraDisplay = extraInfo.length > 0 ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(extraInfo.join(' | '))}</div>` : '';
+
             const nameDisplay = isRealPlayer 
               ? `<a href="javascript:void(0)" class="conv-player-link" data-pid="${finalPlayerId}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${name}</a>`
               : `<span style="font-weight: 600; font-size: 13px; color: var(--text-dark); display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px; color: var(--text-muted);"></i> ${name}</span>`;
@@ -10803,6 +10805,7 @@ function saveCarteleraTeamsToFirebase() {
             return `
             <div style="padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
               ${nameDisplay}
+              ${extraDisplay}
             </div>
             `;
           }).join('') : '<div style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 20px; grid-column: 1 / -1;">No hay jugadores en la lista</div>'}
