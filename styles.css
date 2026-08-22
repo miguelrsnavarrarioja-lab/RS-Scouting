@@ -4399,3 +4399,15 @@ body.dark-theme .notif-item.unread {
 .dropdown-item-player:hover, .dropdown-item-create:hover {
   background-color: var(--bg-body);
 }
+
+/* Bulk Delete Toggle Logic */
+#directoryContentBox:not(.bulk-selection-active) .dir-item-checkbox {
+  display: none !important;
+}
+#directoryContentBox:not(.bulk-selection-active) #bulkDeleteToolbar {
+  display: none !important;
+}
+#directoryContentBox:not(.bulk-selection-active) th.checkbox-col,
+#directoryContentBox:not(.bulk-selection-active) td.checkbox-col {
+  display: none !important;
+}

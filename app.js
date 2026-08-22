@@ -651,21 +651,7 @@ function saveCarteleraTeamsToFirebase() {
         
         // Run seeding and migrations to ensure directory is completely populated
         if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
-        if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
-        if (typeof seedNavarraTerceraRFEFTeams === 'function') seedNavarraTerceraRFEFTeams();
-        if (typeof seedNavarraAutonomicaTeams === 'function') seedNavarraAutonomicaTeams();
-        if (typeof seedNavarraPrimeraAutonomicaJuvenilTeams === 'function') seedNavarraPrimeraAutonomicaJuvenilTeams();
-        if (typeof seedNavarraRegionalPreferenteTeams === 'function') seedNavarraRegionalPreferenteTeams();
-        if (typeof seedNavarraRegionalPreferenteGroup2Teams === 'function') seedNavarraRegionalPreferenteGroup2Teams();
-        if (typeof seedNavarraLigaCadeteTeams === 'function') seedNavarraLigaCadeteTeams();
-        if (typeof seedNavarraPrimeraAutonomicaCadeteTeams === 'function') seedNavarraPrimeraAutonomicaCadeteTeams();
-        if (typeof seedNavarraPrimeraRegionalG1Teams === 'function') seedNavarraPrimeraRegionalG1Teams();
-        if (typeof seedNavarraPrimeraRegionalG2Teams === 'function') seedNavarraPrimeraRegionalG2Teams();
-        if (typeof seedNavarraPrimeraRegionalG3Teams === 'function') seedNavarraPrimeraRegionalG3Teams();
-        if (typeof seedNavarraPrimeraRegionalG4Teams === 'function') seedNavarraPrimeraRegionalG4Teams();
-        if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
-        if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
-        if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
+
         if (typeof ensureFederacionesSeleccionesSeeded === 'function') ensureFederacionesSeleccionesSeeded();
         if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
 
@@ -1022,7 +1008,7 @@ function saveCarteleraTeamsToFirebase() {
     const todayStrForKpis = nowForKpis.toISOString().split('T')[0];
     const totalVistos = reports.filter(r => r.completado).length;
     const scheduledMatches = reports.filter(r => !r.completado && r.date >= todayStrForKpis).length;
-    const directMatches = reports.filter(r => !r.completado && r.date < todayStrForKpis).length;
+    const directMatches = reports.filter(r => !r.completado).length; // Informes pendientes = todos los incompletos
     const pendingTasks = agenda.filter(a => !a.completada && !a.archivada);
     const highPriorityTasks = pendingTasks.filter(a => a.prioridad === 'Alta').length;
 
@@ -1138,11 +1124,14 @@ function saveCarteleraTeamsToFirebase() {
       }
     });
 
-    const currentSeasonEndYear = new Date().getFullYear() + (new Date().getMonth() >= 6 ? 1 : 0);
+    // Calculate season end year dynamically: July 1st (month 6) starts a new season
+    const now = new Date();
+    const currentSeasonEndYear = now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear();
 
     function getPlayerAgeGroup(subAge) {
       if (isNaN(subAge) || subAge <= 0) return 'Sin Categoría';
-      if (subAge >= 20) return 'Senior';
+      if (subAge >= 24) return 'Senior';
+      if (subAge >= 20 && subAge <= 23) return 'Sub-23';
       if (subAge >= 17 && subAge <= 19) return 'Juveniles';
       if (subAge >= 15 && subAge <= 16) return 'Cadetes';
       if (subAge >= 13 && subAge <= 14) return 'Infantiles';
@@ -1152,7 +1141,7 @@ function saveCarteleraTeamsToFirebase() {
     }
 
     const ageGroupStats = {};
-    const groupOrder = ['Senior', 'Juveniles', 'Cadetes', 'Infantiles', 'Alevines', 'Benjamines', 'Sin Categoría'];
+    const groupOrder = ['Senior', 'Sub-23', 'Juveniles', 'Cadetes', 'Infantiles', 'Alevines', 'Benjamines', 'Sin Categoría'];
 
     Object.keys(groups).forEach(year => {
       let groupName = 'Sin Categoría';
@@ -1316,7 +1305,11 @@ function saveCarteleraTeamsToFirebase() {
         const iconName = isAllSeen ? 'user-check' : 'user';
         
         let subLabel = '';
-        if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
+        if (y.subAge >= 24) {
+          subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SENIOR</span>`;
+        } else if (y.subAge > 0) {
+          subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
+        }
         
         html += `
         <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
@@ -5631,8 +5624,10 @@ function saveCarteleraTeamsToFirebase() {
     if (!anoNac) return '';
     const y = parseInt(anoNac, 10);
     if (isNaN(y) || y < 1950 || y > 2030) return String(anoNac);
-    const currentSeasonYear = 2025;
+    const now = new Date();
+    const currentSeasonYear = now.getMonth() >= 6 ? now.getFullYear() + 1 : now.getFullYear();
     const age = currentSeasonYear - y;
+    if (age >= 24) return 'SENIOR';
     if (age <= 5) return 'Sub6';
     return `Sub${age}`;
   }
@@ -5908,16 +5903,45 @@ function saveCarteleraTeamsToFirebase() {
 
     const renderConvList = (list) => {
       if (list.length === 0) return '<div style="font-size: 12px; color: var(--text-muted); padding: 4px;">No hay convocatorias registradas</div>';
-      return list.map(c => `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+      return list.map(c => {
+        let isBaja = false;
+        let motivoBaja = '';
+        const arr = c.jugadores || c.convocados || [];
+        const jEntry = arr.find(j => {
+          if (typeof j === 'object' && j.id && String(j.id) === String(playerId)) return true;
+          const jName = typeof j === 'string' ? j : (j.nombre || j.jugador);
+          if (jName && player.nombre && String(jName).toLowerCase().trim() === String(player.nombre).toLowerCase().trim()) return true;
+          return false;
+        });
+        if (jEntry && typeof jEntry === 'object' && jEntry.baja) {
+          isBaja = true;
+          motivoBaja = jEntry.motivoBaja || '';
+        }
+        
+        return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: ${isBaja ? 'rgba(239, 68, 68, 0.05)' : 'rgba(0,0,0,0.02)'}; border: 1px solid rgba(0,0,0,0.04); border-radius: 6px; ${isBaja ? 'border-left: 4px solid #ef4444;' : ''}">
           <div>
-            <div style="font-weight: 700; font-size: 13px; color: var(--ficha-theme); margin-bottom: 2px;">${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}</div>
+            <div style="font-weight: 700; font-size: 13px; color: var(--ficha-theme); margin-bottom: 2px;">
+              ${escapeHtml(c.nombre || c.convocatoria || 'Sin Nombre')}
+            </div>
             <div style="font-size: 11px; color: var(--text-muted);"><i data-lucide="flag" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.seleccion || '-')} &nbsp;|&nbsp; <i data-lucide="calendar" style="width: 12px; height: 12px; vertical-align: middle;"></i> ${escapeHtml(c.fechaInicio || c.fecha || '-')}</div>
           </div>
-          <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('modalJugadorFicha').classList.add('hidden'); openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${isBaja ? `<div style="font-size: 10px; color: #ef4444; font-weight: 700; text-align: right; line-height: 1.1;">BAJA<br><span style="font-weight: 500;">${escapeHtml(motivoBaja)}</span></div>` : ''}
+            <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('modalJugadorFicha').classList.add('hidden'); openConvocatoriaFichaReadOnly('${c.id || c.codigo}')" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"><i data-lucide="eye" style="width: 12px; height: 12px;"></i> Ficha</button>
+          </div>
         </div>
-      `).join('');
+        `;
+      }).join('');
     };
+
+    let nameTextColor = 'var(--ficha-theme)';
+    let btnEditStyle = 'background: var(--ficha-theme); border: none; color: white;';
+    const tcLower = themeColor.toLowerCase().trim();
+    if (tcLower === '#ffffff' || tcLower === '#fff' || tcLower === 'white' || tcLower === '#f8f9fa' || tcLower === '#f1f5f9') {
+      nameTextColor = '#1e293b'; // Dark text for white/light team colors
+      btnEditStyle = 'background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b;';
+    }
 
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
@@ -5928,7 +5952,7 @@ function saveCarteleraTeamsToFirebase() {
             <div style="display: flex; gap: 24px; align-items: center;">
               <img src="${player.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: ${nameTextColor}; font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
                   ${combinedSeleccionesHTML}
@@ -5941,7 +5965,7 @@ function saveCarteleraTeamsToFirebase() {
               <button type="button" class="btn btn-danger" id="btnBorrarFichaJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #ef4444; color: white; border: none;" title="Borrar Ficha">
                 <i data-lucide="trash-2"></i>
               </button>
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); ${btnEditStyle}" title="Editar Ficha">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -5983,6 +6007,12 @@ function saveCarteleraTeamsToFirebase() {
               <div class="ficha-stat-label">POTENCIAL</div>
               <div class="ficha-stat-value">${escapeHtml(player.potencial || '-')}</div>
             </div>
+          </div>
+
+          <div style="display: flex; justify-content: center; margin-bottom: 30px;">
+            <span style="background: linear-gradient(135deg, #1e293b, #0f172a); color: #ffffff; font-size: 15px; font-weight: 800; padding: 8px 28px; border-radius: 9999px; box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.3); border: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px; text-transform: uppercase;">
+              ${escapeHtml(calculateSubCategory(player.ano || player.anoNac) || '-')}
+            </span>
           </div>
 
           ${linksHTML}
@@ -8503,6 +8533,14 @@ function saveCarteleraTeamsToFirebase() {
     }
     destacadosHTML += `</div>`;
 
+    let nameTextColor = 'var(--ficha-theme)';
+    let btnEditStyle = 'background: var(--ficha-theme); border: none; color: white;';
+    const tcLower = themeColor.toLowerCase().trim();
+    if (tcLower === '#ffffff' || tcLower === '#fff' || tcLower === 'white' || tcLower === '#f8f9fa' || tcLower === '#f1f5f9') {
+      nameTextColor = '#1e293b';
+      btnEditStyle = 'background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b;';
+    }
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
@@ -8512,7 +8550,7 @@ function saveCarteleraTeamsToFirebase() {
                 ${shieldSrc ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: ${nameTextColor}; font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${team.categoria ? `Categoría: <strong>${escapeHtml(team.categoria)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${team.temporada ? `Temporada: <strong>${escapeHtml(team.temporada)}</strong>` : ''}
@@ -8521,7 +8559,7 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Equipo">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); ${btnEditStyle}" title="Editar Equipo">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -8650,6 +8688,14 @@ function saveCarteleraTeamsToFirebase() {
        equiposHTML += `</div>`;
     }
 
+    let nameTextColor = 'var(--ficha-theme)';
+    let btnEditStyle = 'background: var(--ficha-theme); border: none; color: white;';
+    const tcLower = themeColor.toLowerCase().trim();
+    if (tcLower === '#ffffff' || tcLower === '#fff' || tcLower === 'white' || tcLower === '#f8f9fa' || tcLower === '#f1f5f9') {
+      nameTextColor = '#1e293b';
+      btnEditStyle = 'background: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b;';
+    }
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
@@ -8659,7 +8705,7 @@ function saveCarteleraTeamsToFirebase() {
                 ${club.escudo || club.logo ? `<img src="${club.escudo || club.logo}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: ${nameTextColor}; font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${tiposStr ? `Tipo: <strong>${escapeHtml(tiposStr)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${club.anoFundacion ? `Fundación: <strong>${escapeHtml(club.anoFundacion)}</strong>` : ''}
@@ -8668,7 +8714,7 @@ function saveCarteleraTeamsToFirebase() {
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Club">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); ${btnEditStyle}" title="Editar Club">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -10725,11 +10771,14 @@ function saveCarteleraTeamsToFirebase() {
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                 ${conv.partidosList.map(p => `
-                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 10px 12px; border-radius: 6px; font-size: 13px; align-items: center; border: 1px solid rgba(0,0,0,0.04);">
+                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr 1.5fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 10px 12px; border-radius: 6px; font-size: 13px; align-items: center; border: 1px solid rgba(0,0,0,0.04);">
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">RIVAL</span><span style="font-weight: 600;">${escapeHtml(p.rival || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">FECHA</span><span>${escapeHtml(p.fecha || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">HORA</span><span>${escapeHtml(p.hora || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">ESTADIO</span><span>${escapeHtml(p.estadio || '-')}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">TV</span>
+                      ${p.tv === 'Sí' ? `<span style="display: inline-flex; align-items: center; gap: 4px; color: var(--primary-blue); font-weight: 600;"><i data-lucide="tv" style="width: 14px; height: 14px;"></i> ${escapeHtml(p.canal || 'Sí')}</span>` : '<span style="color: var(--text-muted);">-</span>'}
+                    </div>
                   </div>
                 `).join('')}
               </div>
@@ -10779,6 +10828,8 @@ function saveCarteleraTeamsToFirebase() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow-y: auto; padding-right: 4px; flex-grow: 1;">
           ${(conv.jugadores || conv.convocados || []).length > 0 ? (conv.jugadores || conv.convocados || []).map(j => {
             const name = escapeHtml(typeof j === 'string' ? j : (j.nombre || j.jugador));
+            const isBaja = typeof j === 'object' && j.baja === true;
+            const motivoBaja = typeof j === 'object' ? (j.motivoBaja || '') : '';
             let realPlayerObj = null;
             if (typeof j === 'object' && j.id) {
                realPlayerObj = (state.directory.jugadores || []).find(p => String(p.id) === String(j.id) || (p.codigo && String(p.codigo) === String(j.id)));
@@ -10799,12 +10850,13 @@ function saveCarteleraTeamsToFirebase() {
             const extraDisplay = extraInfo.length > 0 ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${escapeHtml(extraInfo.join(' | '))}</div>` : '';
 
             const nameDisplay = isRealPlayer 
-              ? `<a href="javascript:void(0)" class="conv-player-link" data-pid="${finalPlayerId}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${name}</a>`
-              : `<span style="font-weight: 600; font-size: 13px; color: var(--text-dark); display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px; color: var(--text-muted);"></i> ${name}</span>`;
+              ? `<a href="javascript:void(0)" class="conv-player-link" data-pid="${finalPlayerId}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; ${isBaja ? 'text-decoration: line-through; opacity: 0.7;' : ''}"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${name}</a>`
+              : `<span style="font-weight: 600; font-size: 13px; color: var(--text-dark); display: inline-flex; align-items: center; gap: 4px; ${isBaja ? 'text-decoration: line-through; opacity: 0.7;' : ''}"><i data-lucide="user" style="width: 13px; height: 13px; color: var(--text-muted);"></i> ${name}</span>`;
 
             return `
-            <div style="padding: 10px 12px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
+            <div style="padding: 10px 12px; background: ${isBaja ? 'rgba(239, 68, 68, 0.05)' : 'rgba(0,0,0,0.02)'}; border: 1px solid rgba(0,0,0,0.04); border-radius: 6px;">
               ${nameDisplay}
+              ${isBaja ? `<div style="font-size: 10px; color: #ef4444; font-weight: 600; margin-top: 4px;"><i data-lucide="info" style="width: 10px; height: 10px;"></i> Baja: ${escapeHtml(motivoBaja)}</div>` : ''}
               ${extraDisplay}
             </div>
             `;
@@ -12873,7 +12925,7 @@ function saveCarteleraTeamsToFirebase() {
       }
 
       container.innerHTML = localPartidosList.map((p, idx) => `
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.5fr 0.8fr 1.2fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Rival</label>
             <input type="text" class="form-control cn-partido-rival" data-idx="${idx}" value="${escapeHtml(p.rival || '')}" placeholder="Ej: Francia" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
@@ -12887,8 +12939,19 @@ function saveCarteleraTeamsToFirebase() {
             <input type="time" class="form-control cn-partido-hora" data-idx="${idx}" value="${escapeHtml(p.hora || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
-            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Estadio/Lugar</label>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Estadio</label>
             <input type="text" class="form-control cn-partido-estadio" data-idx="${idx}" value="${escapeHtml(p.estadio || '')}" placeholder="Sede" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">TV</label>
+            <select class="form-control cn-partido-tv" data-idx="${idx}" style="padding: 4px 8px; font-size: 12px; min-height: 32px; min-width: 50px;">
+              <option value="No" ${!p.tv || p.tv === 'No' ? 'selected' : ''}>No</option>
+              <option value="Sí" ${p.tv === 'Sí' ? 'selected' : ''}>Sí</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Canal</label>
+            <input type="text" class="form-control cn-partido-canal" data-idx="${idx}" value="${escapeHtml(p.canal || '')}" placeholder="Canal" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
             <button type="button" class="btn btn-icon btn-remove-partido" data-idx="${idx}" style="color: #ef4444; background: none; border: none; padding: 4px; min-height: 32px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
@@ -12902,6 +12965,8 @@ function saveCarteleraTeamsToFirebase() {
       document.querySelectorAll('.cn-partido-fecha').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].fecha = e.target.value));
       document.querySelectorAll('.cn-partido-hora').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].hora = e.target.value));
       document.querySelectorAll('.cn-partido-estadio').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].estadio = e.target.value));
+      document.querySelectorAll('.cn-partido-tv').forEach(el => el.addEventListener('change', e => localPartidosList[e.target.dataset.idx].tv = e.target.value));
+      document.querySelectorAll('.cn-partido-canal').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].canal = e.target.value));
       document.querySelectorAll('.btn-remove-partido').forEach(el => el.addEventListener('click', e => {
         const idx = parseInt(e.currentTarget.dataset.idx);
         localPartidosList.splice(idx, 1);
@@ -12999,7 +13064,7 @@ function saveCarteleraTeamsToFirebase() {
       for (const line of lines) {
         const name = line.trim();
         if (name && name.length > 2) { // basic filter
-          localJugadoresList.push({ nombre: name, jugador: name, id: 'j_' + Date.now() + Math.floor(Math.random()*1000) });
+          localJugadoresList.push({ nombre: name, jugador: name, id: 'j_' + Date.now() + Math.floor(Math.random()*1000), baja: false, motivoBaja: '' });
           count++;
         }
       }
@@ -13227,7 +13292,7 @@ function saveCarteleraTeamsToFirebase() {
       if (extractedNames.length > 0) {
         extractedNames.forEach(name => {
           if (!localJugadoresList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === name.toLowerCase())) {
-            localJugadoresList.push(name);
+            localJugadoresList.push({ nombre: name, baja: false, motivoBaja: '' });
             addedCount++;
           }
         });
@@ -13235,7 +13300,7 @@ function saveCarteleraTeamsToFirebase() {
         const sampleNames = ['Carlos Rodríguez', 'Mateo Fernández', 'Lucas Gómez'];
         sampleNames.forEach(name => {
           if (!localJugadoresList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === name.toLowerCase())) {
-            localJugadoresList.push(name);
+            localJugadoresList.push({ nombre: name, baja: false, motivoBaja: '' });
             addedCount++;
           }
         });
@@ -13262,13 +13327,23 @@ function saveCarteleraTeamsToFirebase() {
         const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           const jName = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+          const isBaja = typeof j === 'object' && j.baja === true;
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
           return `
-            <tr style="border-bottom: 1px solid var(--border-light);">
-              <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
-              <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-cn-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
+            <tr style="border-bottom: 1px solid var(--border-light); ${isBaja ? 'background: rgba(239, 68, 68, 0.05);' : ''}">
+              <td style="padding: 8px 12px; font-weight: 700;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div>${isBaja ? `<span style="text-decoration: line-through; opacity: 0.7;">${nameHTML}</span>` : nameHTML}</div>
+                  ${isBaja ? `<div style="font-size: 10px; color: #ef4444; font-weight: 600;"><i data-lucide="info" style="width: 10px; height: 10px;"></i> Baja: ${escapeHtml(j.motivoBaja || '')}</div>` : ''}
+                </div>
+              </td>
+              <td style="padding: 8px 12px; text-align: right; white-space: nowrap;">
+                <label style="font-size: 10px; font-weight: 600; color: ${isBaja ? '#ef4444' : 'var(--text-muted)'}; margin-right: 8px; cursor: pointer;">
+                  <input type="checkbox" class="cn-jugador-baja-toggle" data-idx="${idx}" ${isBaja ? 'checked' : ''} style="vertical-align: middle; margin-right: 4px;"> Baja
+                </label>
+                ${isBaja ? `<input type="text" class="form-control cn-jugador-baja-motivo" data-idx="${idx}" value="${escapeHtml(j.motivoBaja || '')}" placeholder="Motivo..." style="font-size: 10px; padding: 2px 6px; height: 22px; width: 100px; display: inline-block; margin-right: 8px; vertical-align: middle;">` : ''}
+                <button type="button" class="btn-action-icon danger btn-del-cn-jugador" data-idx="${idx}" style="width: 26px; height: 26px; vertical-align: middle;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -13293,6 +13368,26 @@ function saveCarteleraTeamsToFirebase() {
             renderCnJugadoresTable();
           });
         });
+
+        tbody.querySelectorAll('.cn-jugador-baja-toggle').forEach(chk => {
+          chk.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.idx, 10);
+            if (typeof localJugadoresList[idx] === 'string') {
+              localJugadoresList[idx] = { nombre: localJugadoresList[idx], baja: false, motivoBaja: '' };
+            }
+            localJugadoresList[idx].baja = e.target.checked;
+            renderCnJugadoresTable();
+          });
+        });
+
+        tbody.querySelectorAll('.cn-jugador-baja-motivo').forEach(input => {
+          input.addEventListener('input', (e) => {
+            const idx = parseInt(e.target.dataset.idx, 10);
+            if (typeof localJugadoresList[idx] === 'object') {
+              localJugadoresList[idx].motivoBaja = e.target.value;
+            }
+          });
+        });
       }
       if (window.lucide) window.lucide.createIcons();
     }
@@ -13301,7 +13396,7 @@ function saveCarteleraTeamsToFirebase() {
     document.getElementById('btnAddCnJugador')?.addEventListener('click', () => {
       const val = document.getElementById('cnJugadorInput').value.trim();
       if (!val) return alert('Ingresa o selecciona el nombre del jugador');
-      localJugadoresList.push(val);
+      localJugadoresList.push({ nombre: val, baja: false, motivoBaja: '' });
       document.getElementById('cnJugadorInput').value = '';
       renderCnJugadoresTable();
     });
@@ -15698,7 +15793,7 @@ function saveCarteleraTeamsToFirebase() {
 
       state.directory.clubes.forEach(club => {
         if (!club) return;
-        const normName = String(club.nombre || club.equipo || '').toLowerCase().trim();
+        const normName = String(club.nombre || club.equipo || '').toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
         if (!normName) return;
 
         // Filter out phantom concatenated clubs (e.g. "Zaragoza-Racing Club, UD Montecarlo")
@@ -15755,7 +15850,7 @@ function saveCarteleraTeamsToFirebase() {
 
       state.directory.equipos.forEach(eq => {
         if (!eq) return;
-        const normName = String(eq.nombre || eq.equipo || '').toLowerCase().trim();
+        const normName = String(eq.nombre || eq.equipo || '').toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
         const normComp = String(eq.competicion || '').toLowerCase().trim();
         const normGrup = String(eq.grupo || '').toLowerCase().trim();
         const key = `${normName}|${normComp}|${normGrup}`;
@@ -17571,7 +17666,19 @@ function saveCarteleraTeamsToFirebase() {
       </div>
     ` : '';
 
-    const bulkToolbarHTML = '';
+    const bulkToolbarHTML = ['jugadores', 'clubes', 'equipos'].includes(currentDirectoryTab) ? `
+      <div id="bulkDeleteToolbar" style="background: #fee2e2; border: 1px solid #ef4444; border-radius: var(--radius-md); padding: 8px 16px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; transform: scale(1.2);" title="Seleccionar/Deseleccionar todos">
+          <span style="color: #991b1b; font-weight: 700; font-size: 13px;">
+            <span id="dirSelectedCount">0</span> registros seleccionados
+          </span>
+        </div>
+        <button id="btnBulkDeleteDir" class="btn btn-danger btn-sm hidden" style="padding: 6px 12px; font-size: 12px; display: none; align-items: center; gap: 4px;">
+          <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar Seleccionados
+        </button>
+      </div>
+    ` : '';
 
     const container = document.getElementById('directoryContentBox');
     if (filtered.length === 0) {
@@ -17592,6 +17699,7 @@ function saveCarteleraTeamsToFirebase() {
             <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
+                  <th class="checkbox-col" style="padding: 12px 16px; width: 40px; text-align: center;"></th>
                   <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
                   <th style="padding: 12px 16px; width: 5%;">DORSAL</th>
                   <th style="padding: 12px 16px; width: 8%;">AÑO</th>
@@ -17600,11 +17708,15 @@ function saveCarteleraTeamsToFirebase() {
                   <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
                   <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
                   <th style="padding: 12px 16px; width: 12%;">PROYECCIÓN</th>
+                  <th style="padding: 12px 16px; width: 8%;"></th>
                 </tr>
               </thead>
               <tbody>
                 ${pageItems.map(j => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
+                    <td class="checkbox-col" style="padding: 10px 16px; text-align: center;">
+                      <input type="checkbox" class="dir-item-checkbox" data-id="${j.id}" style="cursor: pointer; transform: scale(1.2);">
+                    </td>
                     <td style="padding: 10px 16px;">
                       <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
                         <img src="${j.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
@@ -17620,6 +17732,11 @@ function saveCarteleraTeamsToFirebase() {
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
+                    <td style="padding: 8px 12px; text-align: right;">
+                      <button type="button" class="btn btn-outline-danger btn-delete-dir-item" data-id="${j.id}" style="padding: 4px 8px; border: 1px solid transparent;" title="Eliminar Jugador" onmouseover="this.style.border='1px solid #ef4444'" onmouseout="this.style.border='1px solid transparent'">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px; color: #ef4444;"></i>
+                      </button>
+                    </td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -17657,17 +17774,15 @@ function saveCarteleraTeamsToFirebase() {
               `¿Eliminar ${itemName}?`,
               `¿Estás seguro de que deseas eliminar permanentemente a "${escapeHtml(itemName)}" del directorio y de Firebase?`,
               () => {
-                if ('jugadores' === 'clubes') {
-                  deleteDirectoryItem(currentDirectoryTab, itemId);
-                } else {
-                  deleteDirectoryItem('jugadores', itemId);
-                }
+                deleteDirectoryItem('jugadores', itemId);
                 showCustomAlertModal('Registro Eliminado', `El registro "${escapeHtml(itemName)}" ha sido eliminado con éxito.`);
                 renderDirectorio();
               }
             );
           });
         });
+
+
       } else if (currentDirectoryTab === 'clubes') {
         container.innerHTML = `
           ${subFilterBarHTML}
@@ -17682,6 +17797,7 @@ function saveCarteleraTeamsToFirebase() {
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id || c.codigo}" style="cursor: pointer; transform: scale(1.2);">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${clubPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       <img src="${clubLogo}" data-tried="0" onerror="
                         if (this.dataset.tried === '0' && '${c.codigo}') {
@@ -17810,6 +17926,7 @@ function saveCarteleraTeamsToFirebase() {
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id || eq.codigo}" style="cursor: pointer; transform: scale(1.2);">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${eqPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `
                         <img src="${finalImgSrc}" data-tried="0" onerror="
@@ -18963,6 +19080,34 @@ function saveCarteleraTeamsToFirebase() {
     }
   });
   document.getElementById('btnAddNewDirectoryItem')?.addEventListener('click', () => openAddDirectoryItemModal());
+  const btnToggleBulk = document.getElementById('btnToggleBulkDelete');
+  if (btnToggleBulk) {
+    btnToggleBulk.addEventListener('click', () => {
+      const dirBox = document.getElementById('directoryContentBox');
+      dirBox.classList.toggle('bulk-selection-active');
+      const isActive = dirBox.classList.contains('bulk-selection-active');
+      
+      btnToggleBulk.style.background = isActive ? 'var(--primary-blue-light, #eff6ff)' : 'white';
+      btnToggleBulk.style.borderColor = isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)';
+      btnToggleBulk.style.color = isActive ? 'var(--primary-blue, #2563eb)' : 'var(--text-dark)';
+      
+      if (!isActive) {
+         const cbs = dirBox.querySelectorAll('.dir-item-checkbox');
+         cbs.forEach(cb => cb.checked = false);
+         const selectAll = document.getElementById('dirSelectAllCheckbox');
+         if (selectAll) selectAll.checked = false;
+         
+         const bulkDeleteBtn = document.getElementById('btnBulkDeleteDir');
+         if (bulkDeleteBtn) {
+            bulkDeleteBtn.classList.add('hidden');
+            bulkDeleteBtn.style.display = 'none';
+         }
+         const selectedCountSpan = document.getElementById('dirSelectedCount');
+         if (selectedCountSpan) selectedCountSpan.textContent = '0';
+      }
+    });
+  }
+
   document.getElementById('btnAddNewPlayerHeader')?.addEventListener('click', () => {
     if (currentDirectoryTab === 'jugadores') openPlayerModal(null);
     else if (currentDirectoryTab === 'clubes') openClubModal(null);
@@ -25814,100 +25959,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (window.lucide) window.lucide.createIcons();
   });
 
-  setTimeout(() => {
-    if (!localStorage.getItem('dhj_players_imported_2009_v1')) {
-      const playersData = [
-        ["Darlington Eloghosa Chichoro", "Athletic Club"],
-        ["Diego Piqueras Gómez", "Club Atlético de Madrid"],
-        ["Guillermo Ponce Román", "Real Madrid CF"],
-        ["Arnau Cases Ramos", "RCD Espanyol"],
-        ["Raúl Expósito Rodríguez", "FC Barcelona"],
-        ["Mario Díaz Muñoz", "Sevilla FC"],
-        ["Juan Manuel Borrero Martínez", "CD Roda"],
-        ["Sergi Mayans Mas", "FC Barcelona"],
-        ["Iker Herrera Ramos", "Valencia CF"],
-        ["Jordi Pesquer Gómez", "FC Barcelona"],
-        ["Mikel Urrestarazu García", "CD Basconia"],
-        ["Óscar Parejo Palomino", "Club Atlético de Madrid"],
-        ["Mateo Sobral Rey", "RC Celta de Vigo"],
-        ["Cherif Fofana", "Real Madrid CF"],
-        ["Serigne Fallou Ndiaye", "Villarreal CF"],
-        ["Ian Mencía Romero", "Club Atlético de Madrid"],
-        ["Mauro Valeiro Ramos", "RC Deportivo"],
-        ["Marco David Company Peláez", "Real Madrid CF"],
-        ["Ebrima Tunkara", "FC Barcelona"],
-        ["Marc Martínez Soriano", "Valencia CF"],
-        ["Bryan Bugarín Hermida", "Real Madrid CF"],
-        ["Abdou Kemo Cissé", "Club Atlético de Madrid"],
-        ["Adrián Vivó González", "Villarreal CF"],
-        ["Christian Imga", "CD Basconia"],
-        ["Santiago del Pino Morote", "Real Madrid CF"],
-        ["Enzo Alves Vieira", "Real Madrid CF"],
-        ["Yeremaiah Ramos Santana", "Real Madrid CF"],
-        ["Roberto Tomás Pérez", "FC Barcelona"]
-      ];
 
-      playersData.forEach(([playerName, clubName], index) => {
-        setTimeout(() => {
-          const teamName = clubName + ' DHJ 26/27';
-
-          let clubId = String(Date.now() + Math.floor(Math.random() * 10000));
-          const existingClub = (state.directory.clubes || []).find(c => c.nombre === clubName || c.equipo === clubName);
-          if (existingClub) {
-            clubId = existingClub.id || existingClub.codigo;
-          } else {
-            const newClub = { id: clubId, codigo: clubId, nombre: clubName, equipo: clubName };
-            if (typeof saveToFirebase === 'function') saveToFirebase('clubes', newClub);
-            if (!state.directory.clubes) state.directory.clubes = [];
-            state.directory.clubes.push(newClub);
-          }
-
-          let equipoId = String(Date.now() + Math.floor(Math.random() * 10000));
-          const existingTeam = (state.directory.equipos || []).find(e => e.nombre === teamName || e.equipo === teamName);
-          if (existingTeam) {
-            equipoId = existingTeam.id || existingTeam.codigo;
-          } else {
-            const newTeam = { 
-              id: equipoId, 
-              codigo: equipoId, 
-              nombre: teamName, 
-              equipo: teamName, 
-              clubId: clubId,
-              club: clubName,
-              categoria: 'Juvenil',
-              competicion: 'DHJ'
-            };
-            if (typeof saveToFirebase === 'function') saveToFirebase('equipos', newTeam);
-            if (!state.directory.equipos) state.directory.equipos = [];
-            state.directory.equipos.push(newTeam);
-          }
-
-          const existingPlayer = (state.directory.jugadores || []).find(p => p.nombre === playerName || p.jugador === playerName);
-          if (!existingPlayer) {
-            let pId = String(Date.now() + Math.floor(Math.random() * 10000));
-            const newPlayer = {
-              id: pId,
-              codigo: pId,
-              nombre: playerName,
-              jugador: playerName,
-              equipoId: equipoId,
-              equipo: teamName,
-              clubId: clubId,
-              club: clubName,
-              año: '2009',
-              nacimiento: '2009'
-            };
-            if (typeof saveToFirebase === 'function') saveToFirebase('jugadores', newPlayer);
-            if (!state.directory.jugadores) state.directory.jugadores = [];
-            state.directory.jugadores.push(newPlayer);
-          }
-        }, index * 50); // slight delay to avoid overwhelming firebase
-      });
-
-      localStorage.setItem('dhj_players_imported_2009_v1', '1');
-      console.log("Imported 2009 DHJ players successfully!");
-    }
-  }, 4000);
 
 })();
 
