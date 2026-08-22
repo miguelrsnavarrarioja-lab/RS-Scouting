@@ -4541,7 +4541,7 @@ function saveCarteleraTeamsToFirebase() {
     const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
     
     const currentMinsFromTimer = getCurrentMatchMinute();
-    const defaultMins = type === 'titular' ? 90 : (currentMinsFromTimer > 0 ? (90 - currentMinsFromTimer) : 0);
+    const defaultMins = '';
 
     // Auto-load directory player traits if player exists in directory and match evaluation hasn't been created yet
     const playerInDir = (state.directory && state.directory.jugadores && pName) ? state.directory.jugadores.find(p => {
@@ -4690,7 +4690,7 @@ function saveCarteleraTeamsToFirebase() {
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: center;">
             <div>
               <label class="form-label" style="font-size: 10px; font-weight: 800; display: block; text-align: center;">MINUTOS JUGADOS</label>
-              <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
+              <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos !== undefined ? pEval.minutos : ''}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px;">
               <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%;">
@@ -4880,7 +4880,7 @@ function saveCarteleraTeamsToFirebase() {
         const played = Math.max(0, minutoSalida || 45);
         minsInput.value = played;
       } else {
-        minsInput.value = type === 'titular' ? 90 : 0;
+        minsInput.value = '';
       }
     }
 
@@ -5232,6 +5232,9 @@ function saveCarteleraTeamsToFirebase() {
       const repId = currentEditingReportId || ('rep_' + Date.now());
       if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
 
+      const currentMatchMin = getCurrentMatchMinute();
+      const finalMatchMin = currentMatchMin > 0 ? currentMatchMin : 90;
+
       ['local', 'visitante'].forEach(t => {
         const rows = document.querySelectorAll(`#${t}TitularesRows .lineup-row, #${t}SuplentesRows .lineup-row`);
         rows.forEach((r) => {
@@ -5239,13 +5242,38 @@ function saveCarteleraTeamsToFirebase() {
           const pName = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
           const evalKey = `${repId}_${t}_${pNum}`;
           if (state.matchPlayerEvaluations[evalKey]) {
-            if (r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
-              if (!state.matchPlayerEvaluations[evalKey].minutos) {
-                state.matchPlayerEvaluations[evalKey].minutos = 90;
-              }
+            const pEval = state.matchPlayerEvaluations[evalKey];
+            const isTitular = r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares');
+            
+            let autoMins = '';
+            if (isTitular) {
+                if (pEval.sustituido) {
+                    autoMins = Math.max(0, pEval.minutoSalida || 0);
+                } else {
+                    autoMins = finalMatchMin;
+                }
+            } else {
+                if (pEval.entra) {
+                    if (pEval.sustituido) {
+                        autoMins = Math.max(0, (pEval.minutoSalida || finalMatchMin) - (pEval.minutoEntrada || 0));
+                    } else {
+                        autoMins = Math.max(0, finalMatchMin - (pEval.minutoEntrada || 0));
+                    }
+                }
             }
+
+            if (pEval.minutos === '' || pEval.minutos === undefined) {
+               if (autoMins !== '') pEval.minutos = autoMins;
+            } else if (currentMatchMin > 0) {
+               if (isTitular && !pEval.sustituido) {
+                   pEval.minutos = autoMins;
+               } else if (!isTitular && pEval.entra && !pEval.sustituido) {
+                   pEval.minutos = autoMins;
+               }
+            }
+
             if (pName) {
-              syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
+              syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, pEval);
             }
           }
         });
