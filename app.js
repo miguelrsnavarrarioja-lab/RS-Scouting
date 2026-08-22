@@ -2427,9 +2427,37 @@ function saveCarteleraTeamsToFirebase() {
             </h3>
           </div>
         `;
-        const cardsHTML = g.reports.map(r => {
-          let lLogo = '';
-          let vLogo = '';
+        const dayGroupsMap = new Map();
+        g.reports.forEach(r => {
+          let dayLabel = 'Sin Fecha';
+          let daySortKey = 0;
+          if (r.date || r.fecha) {
+            const d = new Date(r.date || r.fecha);
+            if (!isNaN(d.getTime())) {
+              const days = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+              const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+              dayLabel = `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}`;
+              daySortKey = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            }
+          }
+          if (!dayGroupsMap.has(dayLabel)) dayGroupsMap.set(dayLabel, { sortKey: daySortKey, reports: [] });
+          dayGroupsMap.get(dayLabel).reports.push(r);
+        });
+
+        const sortedDayGroups = Array.from(dayGroupsMap.entries()).map(([label, data]) => ({ label, ...data })).sort((a, b) => b.sortKey - a.sortKey);
+
+        let cardsHTML = '';
+        sortedDayGroups.forEach(dg => {
+          cardsHTML += `
+            <div class="day-group-header match-card-day-header" data-group-id="${groupId}" style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 4px;">
+              <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: var(--text-muted); display: flex; align-items: center; gap: 8px; padding-bottom: 6px; border-bottom: 2px dashed var(--border-light);">
+                <i data-lucide="calendar-days" style="width: 16px; height: 16px;"></i> ${dg.label}
+              </h4>
+            </div>
+          `;
+          cardsHTML += dg.reports.map(r => {
+            let lLogo = '';
+            let vLogo = '';
           
           const getLogo = (teamName) => {
             if(!teamName) return '';
@@ -2501,21 +2529,22 @@ function saveCarteleraTeamsToFirebase() {
             </div>
           </div>
           `;
-        }).join('');
+          }).join('');
+        });
         return headerHTML + cardsHTML;
       }).join('');
 
       container.querySelectorAll('.week-group-header').forEach(header => {
         header.addEventListener('click', () => {
           const groupId = header.dataset.groupId;
-          const cards = container.querySelectorAll(`.match-card[data-group-id="${groupId}"]`);
+          const cards = container.querySelectorAll(`.match-card[data-group-id="${groupId}"], .day-group-header[data-group-id="${groupId}"]`);
           const icon = header.querySelector('.week-group-icon');
           
           if (!cards.length) return;
           const isHidden = cards[0].style.display === 'none';
           
           if (isHidden) {
-            cards.forEach(c => c.style.display = 'flex');
+            cards.forEach(c => c.style.display = c.classList.contains('day-group-header') ? 'block' : 'flex');
             if (icon) icon.style.transform = 'rotate(0deg)';
           } else {
             cards.forEach(c => c.style.display = 'none');
