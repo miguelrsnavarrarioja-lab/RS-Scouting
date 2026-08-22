@@ -8933,43 +8933,6 @@ function saveCarteleraTeamsToFirebase() {
               <div class="ficha-stat-value">${escapeHtml(staff.contrato || '-')}</div>
             </div>
           </div>
-          
-          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px;">
-            <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">CONVOCATORIAS DE SELECCIÓN</div>
-            
-            <div style="margin-bottom: 16px;">
-              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Nacionales</div>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                ${renderConvList(nacionales)}
-              </div>
-            </div>
-            
-            <div>
-              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Autonómicas</div>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                ${renderConvList(autonomicas)}
-              </div>
-            </div>
-          </div>
-
-          <div style="margin-top: 20px; background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: 8px;">
-            <div style="font-weight: 800; font-size: 12px; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">CONVOCATORIAS DE SELECCIÓN</div>
-            
-            <div style="margin-bottom: 16px;">
-              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Nacionales</div>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                ${renderConvList(nacionales)}
-              </div>
-            </div>
-            
-            <div>
-              <div style="font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Autonómicas</div>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                ${renderConvList(autonomicas)}
-              </div>
-            </div>
-          </div>
-
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su formación y trayectoria completa.</p>
           </div>
@@ -18471,10 +18434,18 @@ function saveCarteleraTeamsToFirebase() {
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(s.nombre)}</span>
                       </a>
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(s.cargo || 'Cargo N/A')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(s.equipo || s.club || s.seleccion || 'N/A')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(s.email || s.correo || 'N/A')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(s.telefono || 'N/A')}</td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-staff" data-field="cargo" data-id="${s.id || s.codigo}" list="stCargoList" value="${escapeHtml(s.cargo || '')}" style="width: 100%; border: 1px solid transparent; background: transparent; padding: 4px; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" placeholder="Cargo N/A">
+                    </td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-staff" data-field="equipo" data-id="${s.id || s.codigo}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeHtml(s.equipo || s.club || s.seleccion || '')}" style="width: 100%; border: 1px solid transparent; background: transparent; padding: 4px; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" placeholder="N/A">
+                    </td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-staff" data-field="email" data-id="${s.id || s.codigo}" value="${escapeHtml(s.email || s.correo || '')}" style="width: 100%; border: 1px solid transparent; background: transparent; padding: 4px; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" placeholder="N/A">
+                    </td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-staff" data-field="telefono" data-id="${s.id || s.codigo}" value="${escapeHtml(s.telefono || '')}" style="width: 100%; border: 1px solid transparent; background: transparent; padding: 4px; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'" placeholder="N/A">
+                    </td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -18485,6 +18456,25 @@ function saveCarteleraTeamsToFirebase() {
 
         container.querySelectorAll('.staff-name-link, .btn-open-staff-modal').forEach(el => {
           el.addEventListener('click', () => openStaffModal(el.dataset.id));
+        });
+
+        container.querySelectorAll('.inline-edit-staff').forEach(input => {
+          input.addEventListener('change', (e) => {
+            const staffId = e.target.dataset.id;
+            const field = e.target.dataset.field;
+            const newVal = e.target.value.trim();
+            const staffMember = (state.directory.staff || []).find(s => String(s.id) === String(staffId) || (s.codigo && String(s.codigo) === String(staffId)));
+            if (staffMember) {
+              staffMember[field] = newVal;
+              if (field === 'email') staffMember.correo = newVal;
+              if (field === 'equipo') {
+                staffMember.club = newVal;
+                staffMember.seleccion = newVal;
+              }
+              saveState();
+              if (typeof showToast === 'function') showToast(`Campo actualizado correctamente`);
+            }
+          });
         });
 
         container.querySelectorAll('.btn-delete-dir-item').forEach(btn => {
@@ -25586,7 +25576,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         'agentesDatalistOptions': 'agentes',
         'trayClubDatalistOptions': 'equipos',
         'clubesEstadioDatalistOptions': 'clubes',
-        'reportEquiposSeleccionesDatalistOptions': 'equipos_selecciones'
+        'reportEquiposSeleccionesDatalistOptions': 'equipos_selecciones',
+        'stCargoList': 'cargo'
       };
 
       inputs.forEach(input => {
@@ -25648,6 +25639,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                 entityCategory = datalistToCategory[listId];
                 if (entityCategory === 'equipos_selecciones') {
                     dataArr = [...(state.directory?.equipos || []), ...(state.directory?.selecciones || [])];
+                } else if (entityCategory === 'cargo') {
+                    const existingCargos = Array.from(new Set((state.directory?.staff || []).map(s => s.cargo).filter(Boolean)));
+                    dataArr = Array.from(new Set([...OPTIONS_CARGOS_STAFF, ...existingCargos]));
                 } else {
                     dataArr = state.directory?.[entityCategory] || [];
                 }
@@ -25696,6 +25690,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             dropdown.querySelectorAll('.dropdown-item-create-smart').forEach(li => {
                 li.addEventListener('mousedown', (e) => {
                     e.preventDefault();
+                    if (entityCategory === 'cargo') {
+                        input.value = val;
+                        dropdown.style.display = 'none';
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        return;
+                    }
                     const newName = val;
                     const saveCategory = entityCategory === 'equipos_selecciones' ? 'equipos' : entityCategory;
                     const newId = saveCategory.substring(0,3) + '_' + Date.now();
