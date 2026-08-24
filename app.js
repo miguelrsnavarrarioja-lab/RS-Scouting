@@ -20729,6 +20729,55 @@ function saveCarteleraTeamsToFirebase() {
     renderComparativaContent();
   }
 
+  function setupPlayerAutocomplete(inputId, dropdownId, onSelect) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
+
+    input.addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase().trim();
+      if (!val) {
+        dropdown.style.display = 'none';
+        onSelect('');
+        return;
+      }
+
+      const players = state.directory?.jugadores || [];
+      const matches = players.filter(p => (p.nombre || '').toLowerCase().includes(val) || (p.equipo || '').toLowerCase().includes(val));
+
+      if (matches.length > 0) {
+        dropdown.innerHTML = matches.map(p => `
+          <div class="autocomplete-option" style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); display: flex; flex-direction: column;" data-id="${p.id}">
+            <span style="font-weight: 700; color: var(--text-main); font-size: 14px;">${escapeHtml(p.nombre)}</span>
+            ${p.equipo ? `<span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(p.equipo)}</span>` : ''}
+          </div>
+        `).join('');
+        dropdown.style.display = 'block';
+
+        dropdown.querySelectorAll('.autocomplete-option').forEach(opt => {
+          opt.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevents input blur from firing before click
+            onSelect(opt.dataset.id);
+            dropdown.style.display = 'none';
+          });
+          opt.addEventListener('mouseenter', () => opt.style.backgroundColor = 'var(--bg-subtle, #f8fafc)');
+          opt.addEventListener('mouseleave', () => opt.style.backgroundColor = 'transparent');
+        });
+      } else {
+        dropdown.innerHTML = `<div style="padding: 10px 12px; color: var(--text-muted); font-size: 13px;">No hay resultados</div>`;
+        dropdown.style.display = 'block';
+      }
+    });
+
+    input.addEventListener('focus', () => {
+      if (input.value) input.dispatchEvent(new Event('input'));
+    });
+
+    input.addEventListener('blur', () => {
+      dropdown.style.display = 'none';
+    });
+  }
+
   function renderComparativaContent() {
     const container = document.getElementById('comparativaContent');
     if (!container) return;
@@ -20819,32 +20868,23 @@ function saveCarteleraTeamsToFirebase() {
       container.innerHTML = `
         <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar y Seleccionar Jugador</label>
-          <input type="text" id="compIndividualSelect" list="dlCompIndividual" class="form-control" style="max-width: 400px; font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.individualPlayerId))}">
-          <datalist id="dlCompIndividual">
-            ${getPlayerDatalistHTML()}
-          </datalist>
+          <div style="position: relative; max-width: 400px;">
+            <input type="text" id="compIndividualSelect" class="form-control" style="font-weight: 600; width: 100%;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.individualPlayerId))}" autocomplete="off">
+            <div id="compIndividualDropdown" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-light); z-index: 1000; display: none; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto;"></div>
+          </div>
         </div>
         ${profileHTML}
       `;
 
-      document.getElementById('compIndividualSelect').onchange = (e) => {
-        const val = e.target.value;
-        const opts = document.getElementById('dlCompIndividual').options;
-        let matchedId = '';
-        for (let i = 0; i < opts.length; i++) {
-          if (opts[i].value === val) {
-            matchedId = opts[i].dataset.id;
-            break;
-          }
-        }
-        if (!val) {
+      setupPlayerAutocomplete('compIndividualSelect', 'compIndividualDropdown', (selectedId) => {
+        if (!selectedId) {
           comparativaState.individualPlayerId = '';
-          renderComparativaContent();
-        } else if (matchedId) {
-          comparativaState.individualPlayerId = matchedId;
-          renderComparativaContent();
+        } else {
+          comparativaState.individualPlayerId = selectedId;
         }
-      };
+        renderComparativaContent();
+      });
+      
       
     } else {
       const maxSlots = 3;
@@ -20852,12 +20892,10 @@ function saveCarteleraTeamsToFirebase() {
       
       for(let i=0; i<maxSlots; i++) {
         selectorsHTML += `
-          <div style="flex: 1; min-width: 200px;">
+          <div style="flex: 1; min-width: 200px; position: relative;">
             <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar Jugador ${i+1}</label>
-            <input type="text" class="form-control comp-multi-select" data-index="${i}" list="dlCompMulti_${i}" style="font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.multiplePlayerIds[i]))}">
-            <datalist id="dlCompMulti_${i}">
-              ${getPlayerDatalistHTML()}
-            </datalist>
+            <input type="text" id="compMultiSelect_${i}" class="form-control comp-multi-select" data-index="${i}" style="font-weight: 600; width: 100%;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.multiplePlayerIds[i]))}" autocomplete="off">
+            <div id="compMultiDropdown_${i}" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--border-light); z-index: 1000; display: none; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto;"></div>
           </div>
         `;
       }
@@ -20944,29 +20982,21 @@ function saveCarteleraTeamsToFirebase() {
         `;
       }
 
-      container.innerHTML = selectorsHTML + tableHTML;
+      container.innerHTML = `
+        ${selectorsHTML}
+        ${tableHTML}
+      `;
 
-      container.querySelectorAll('.comp-multi-select').forEach(sel => {
-        sel.onchange = (e) => {
-          const idx = parseInt(e.target.dataset.index, 10);
-          const val = e.target.value;
-          const opts = document.getElementById(`dlCompMulti_${idx}`).options;
-          let matchedId = '';
-          for (let i = 0; i < opts.length; i++) {
-            if (opts[i].value === val) {
-              matchedId = opts[i].dataset.id;
-              break;
-            }
+      for(let i=0; i<maxSlots; i++) {
+        setupPlayerAutocomplete(`compMultiSelect_${i}`, `compMultiDropdown_${i}`, (selectedId) => {
+          if (!selectedId) {
+            comparativaState.multiplePlayerIds[i] = '';
+          } else {
+            comparativaState.multiplePlayerIds[i] = selectedId;
           }
-          if (!val) {
-            comparativaState.multiplePlayerIds[idx] = '';
-            renderComparativaContent();
-          } else if (matchedId) {
-            comparativaState.multiplePlayerIds[idx] = matchedId;
-            renderComparativaContent();
-          }
-        };
-      });
+          renderComparativaContent();
+        });
+      }
     }
 
     // --- Chart.js rendering logic ---
