@@ -27,6 +27,13 @@
       }
       return matrix[b.length][a.length];
   };
+  window.getCountryFlag = function(country) {
+    const flags = {
+      'ESPAÑA': '🇪🇸', 'POLONIA': '🇵🇱', 'FRANCIA': '🇫🇷', 'ALEMANIA': '🇩🇪', 'ITALIA': '🇮🇹', 'PORTUGAL': '🇵🇹', 'INGLATERRA': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'ARGENTINA': '🇦🇷', 'BRASIL': '🇧🇷', 'URUGUAY': '🇺🇾', 'COLOMBIA': '🇨🇴', 'CHILE': '🇨🇱', 'MÉXICO': '🇲🇽', 'MEXICO': '🇲🇽', 'ESTADOS UNIDOS': '🇺🇸', 'USA': '🇺🇸', 'MARRUECOS': '🇲🇦', 'SENEGAL': '🇸🇳', 'NIGERIA': '🇳🇬', 'GHANA': '🇬🇭', 'JAPÓN': '🇯🇵', 'JAPON': '🇯🇵', 'COREA DEL SUR': '🇰🇷', 'CROACIA': '🇭🇷', 'BÉLGICA': '🇧🇪', 'BELGICA': '🇧🇪', 'PAÍSES BAJOS': '🇳🇱', 'PAISES BAJOS': '🇳🇱', 'HOLANDA': '🇳🇱', 'SUIZA': '🇨🇭', 'SUECIA': '🇸🇪', 'DINAMARCA': '🇩🇰', 'NORUEGA': '🇳🇴', 'AUSTRIA': '🇦🇹', 'ESCOCIA': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'GALES': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'IRLANDA': '🇮🇪', 'ECUADOR': '🇪🇨', 'PERÚ': '🇵🇪', 'PERU': '🇵🇪', 'VENEZUELA': '🇻🇪', 'PARAGUAY': '🇵🇾', 'BOLIVIA': '🇧🇴', 'COSTA RICA': '🇨🇷', 'PANAMÁ': '🇵🇦', 'PANAMA': '🇵🇦', 'HONDURAS': '🇭🇳', 'EL SALVADOR': '🇸🇻', 'GUATEMALA': '🇬🇹', 'CANADÁ': '🇨🇦', 'CANADA': '🇨🇦', 'AUSTRALIA': '🇦🇺', 'NUEVA ZELANDA': '🇳🇿', 'CAMERÚN': '🇨🇲', 'CAMERUN': '🇨🇲', 'COSTA DE MARFIL': '🇨🇮', 'EGIPTO': '🇪🇬', 'ARGELIA': '🇩🇿', 'SERBIA': '🇷🇸', 'UCRANIA': '🇺🇦', 'TURQUÍA': '🇹🇷', 'TURQUIA': '🇹🇷', 'GRECIA': '🇬🇷', 'REPÚBLICA CHECA': '🇨🇿', 'REPUBLICA CHECA': '🇨🇿', 'RUMANÍA': '🇷🇴', 'RUMANIA': '🇷🇴', 'RUSIA': '🇷🇺', 'ESLOVAQUIA': '🇸🇰', 'ESLOVENIA': '🇸🇮', 'HUNGRÍA': '🇭🇺', 'HUNGRIA': '🇭🇺'
+    };
+    const c = country ? country.trim().toUpperCase() : '';
+    return flags[c] || '🌍';
+  };
 
   window.flexibleMatch = function(val, text) {
       val = (val||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -6333,6 +6340,7 @@ function saveCarteleraTeamsToFirebase() {
             <button type="button" class="player-subtab" data-ptab="rendimiento">RENDIMIENTO</button>
             <button type="button" class="player-subtab" data-ptab="trayectoria">TRAYECTORIA & OPINIÓN</button>
             <button type="button" class="player-subtab" data-ptab="convocatorias">CONVOCATORIAS</button>
+            <button type="button" class="player-subtab" data-ptab="estadisticas">ESTADÍSTICAS</button>
           </div>
           <div style="display: flex; gap: 8px;">
             ${isEdit ? `
@@ -6805,6 +6813,43 @@ function saveCarteleraTeamsToFirebase() {
                </div>
             </div>
           </div>
+
+          <div class="player-tab-pane hidden" id="ptab-estadisticas">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <h4 style="margin-bottom: 16px; color: var(--text-muted); font-size: 13px; font-weight: 800;">VALORACIONES (1-5)</h4>
+                
+                <div class="form-group mb-3">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">Aspecto Físico <span id="valFisicoOut" style="font-weight: 800; color: var(--primary-blue);">${player.atributos?.fisico || 3}</span></label>
+                  <input type="range" id="attrFisico" min="1" max="5" step="1" class="form-range" value="${player.atributos?.fisico || 3}">
+                </div>
+                
+                <div class="form-group mb-3">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">Aspecto Emocional <span id="valEmocionalOut" style="font-weight: 800; color: var(--primary-blue);">${player.atributos?.emocional || 3}</span></label>
+                  <input type="range" id="attrEmocional" min="1" max="5" step="1" class="form-range" value="${player.atributos?.emocional || 3}">
+                </div>
+                
+                <div class="form-group mb-3">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">Aspecto Defensivo <span id="valDefensivoOut" style="font-weight: 800; color: var(--primary-blue);">${player.atributos?.defensivo || 3}</span></label>
+                  <input type="range" id="attrDefensivo" min="1" max="5" step="1" class="form-range" value="${player.atributos?.defensivo || 3}">
+                </div>
+                
+                <div class="form-group mb-3">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">Aspecto Ofensivo <span id="valOfensivoOut" style="font-weight: 800; color: var(--primary-blue);">${player.atributos?.ofensivo || 3}</span></label>
+                  <input type="range" id="attrOfensivo" min="1" max="5" step="1" class="form-range" value="${player.atributos?.ofensivo || 3}">
+                </div>
+                
+                <div class="form-group mb-3">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">Posición / Táctica <span id="valPosicionOut" style="font-weight: 800; color: var(--primary-blue);">${player.atributos?.posicion || 3}</span></label>
+                  <input type="range" id="attrPosicion" min="1" max="5" step="1" class="form-range" value="${player.atributos?.posicion || 3}">
+                </div>
+              </div>
+              
+              <div style="display: flex; justify-content: center; align-items: center; background: var(--bg-surface); border-radius: 8px; border: 1px solid var(--border-light); padding: 16px;">
+                <canvas id="playerRadarChart" style="max-height: 250px;"></canvas>
+              </div>
+            </div>
+          </div>
         </form>
             </div>
           </div>
@@ -6837,6 +6882,14 @@ function saveCarteleraTeamsToFirebase() {
       p.sexo = document.getElementById('pfSexo')?.value || 'MASCULINO';
       p.comunidad = document.getElementById('pfComunidad')?.value || '';
       p.localidad = document.getElementById('pfLocalidad')?.value.trim() || '';
+      
+      p.atributos = {
+        fisico: parseInt(document.getElementById('attrFisico')?.value || 3, 10),
+        emocional: parseInt(document.getElementById('attrEmocional')?.value || 3, 10),
+        defensivo: parseInt(document.getElementById('attrDefensivo')?.value || 3, 10),
+        ofensivo: parseInt(document.getElementById('attrOfensivo')?.value || 3, 10),
+        posicion: parseInt(document.getElementById('attrPosicion')?.value || 3, 10)
+      };
 
       p.pierna = document.getElementById('pfPierna')?.value || 'Derecha';
       p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
@@ -6924,6 +6977,59 @@ function saveCarteleraTeamsToFirebase() {
         showModal(titleText, modalHTML, modalSubmitHandler);
     }
 // Subtab switching logic
+    let playerRadarChartInstance = null;
+    const initPlayerRadarChart = () => {
+      const ctx = document.getElementById('playerRadarChart');
+      if (!ctx || typeof Chart === 'undefined') return;
+      
+      const dataFis = parseInt(document.getElementById('attrFisico').value, 10);
+      const dataEmo = parseInt(document.getElementById('attrEmocional').value, 10);
+      const dataDef = parseInt(document.getElementById('attrDefensivo').value, 10);
+      const dataOfe = parseInt(document.getElementById('attrOfensivo').value, 10);
+      const dataPos = parseInt(document.getElementById('attrPosicion').value, 10);
+
+      const chartData = {
+        labels: ['Físico', 'Emocional', 'Defensivo', 'Ofensivo', 'Posición'],
+        datasets: [{
+          label: 'Valoración',
+          data: [dataFis, dataEmo, dataDef, dataOfe, dataPos],
+          backgroundColor: 'rgba(37, 99, 235, 0.2)',
+          borderColor: 'rgba(37, 99, 235, 1)',
+          pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: 'rgba(37, 99, 235, 1)'
+        }]
+      };
+
+      if (playerRadarChartInstance) {
+        playerRadarChartInstance.data = chartData;
+        playerRadarChartInstance.update();
+      } else {
+        playerRadarChartInstance = new Chart(ctx, {
+          type: 'radar',
+          data: chartData,
+          options: {
+            scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 5, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false } },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
+    };
+
+    ['Fisico', 'Emocional', 'Defensivo', 'Ofensivo', 'Posicion'].forEach(attr => {
+      const el = document.getElementById('attr' + attr);
+      const out = document.getElementById('val' + attr + 'Out');
+      if (el && out) {
+        el.addEventListener('input', (e) => {
+          out.textContent = e.target.value;
+          initPlayerRadarChart();
+        });
+      }
+    });
+
     const subtabs = document.querySelectorAll('.player-subtab');
     const panes = document.querySelectorAll('.player-tab-pane');
     subtabs.forEach(tab => {
@@ -6934,8 +7040,13 @@ function saveCarteleraTeamsToFirebase() {
         tab.classList.add('active');
         const targetPane = document.getElementById('ptab-' + tab.dataset.ptab);
         if (targetPane) targetPane.classList.remove('hidden');
+
+        if (tab.dataset.ptab === 'estadisticas') {
+          setTimeout(initPlayerRadarChart, 50);
+        }
       });
     });
+
 
     // Status pill toggle logic
     document.querySelectorAll('#pfEstadoGroup .status-pill-btn').forEach(btn => {
@@ -7246,7 +7357,7 @@ function saveCarteleraTeamsToFirebase() {
       }
       container.innerHTML = localPaises.map((p, idx) => `
         <span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--primary-blue); font-weight: 700;">
-          🌍 ${escapeHtml(p)}
+          ${window.getCountryFlag(p)} ${escapeHtml(p)}
           <i data-lucide="x" class="btn-remove-pais cursor-pointer" data-idx="${idx}" style="width: 14px; height: 14px; color: var(--primary-blue);"></i>
         </span>
       `).join('');
@@ -7323,6 +7434,19 @@ function saveCarteleraTeamsToFirebase() {
         subBadge.textContent = sub ? sub : 'Sub...';
       }
     });
+
+    const fechaInput = document.getElementById('pfFechaNac');
+    if (fechaInput && anoInput) {
+      fechaInput.addEventListener('change', () => {
+        if (fechaInput.value) {
+          const year = fechaInput.value.split('-')[0];
+          if (year && year.length === 4) {
+            anoInput.value = year;
+            anoInput.dispatchEvent(new Event('input'));
+          }
+        }
+      });
+    }
 
     const removeLargeClass = () => card.classList.remove('large');
     document.getElementById('btnCloseModal')?.addEventListener('click', removeLargeClass, { once: true });
@@ -18283,14 +18407,24 @@ function saveCarteleraTeamsToFirebase() {
           ${bulkToolbarHTML}
           <div class="directory-cards-grid">
             ${pageItems.map(c => {
-              const convColor = '#7c3aed';
+              let convColor = '#7c3aed';
+              const selName = c.seleccionVinculada || c.seleccion || '';
+              if (selName && state.directory.selecciones) {
+                const selObj = state.directory.selecciones.find(s => s.nombre === selName);
+                if (selObj && selObj.colorPrimary) {
+                  convColor = selObj.colorPrimary;
+                }
+              }
 
               let badgeSrc = '';
               const cFed = c.federacion || '';
               if (cFed && state.directory.federaciones) {
                 const fedObj = state.directory.federaciones.find(f => (f.nombre === cFed || f.federacion === cFed));
-                if (fedObj && (fedObj.logo || fedObj.escudo)) {
-                  badgeSrc = fedObj.logo || fedObj.escudo;
+                if (fedObj) {
+                  if (fedObj.logo || fedObj.escudo) badgeSrc = fedObj.logo || fedObj.escudo;
+                  if (convColor === '#7c3aed' && (fedObj.colorPrimary || fedObj.colorPrincipal)) {
+                    convColor = fedObj.colorPrimary || fedObj.colorPrincipal;
+                  }
                 }
               }
 
@@ -20656,6 +20790,13 @@ function saveCarteleraTeamsToFirebase() {
                    ${stats.positions.length > 0 ? stats.positions.map(pos => `<span style="background: var(--bg-subtle); border: 1px solid var(--border-light); padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: var(--text-main);">${escapeHtml(pos)}</span>`).join('') : '<span style="font-size: 12px; color: var(--text-muted);">Sin posiciones registradas</span>'}
                  </div>
                </div>
+
+               <div style="margin-top: 24px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--border-light);">
+                 <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase; text-align: center;">Gráfico de Perfil</h4>
+                 <div style="position: relative; height: 250px; width: 100%;">
+                   <canvas id="compIndividualRadarChart"></canvas>
+                 </div>
+               </div>
                
             </div>
 
@@ -20774,6 +20915,12 @@ function saveCarteleraTeamsToFirebase() {
         };
 
         tableHTML = `
+          <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px; margin-bottom: 24px;">
+            <h4 style="margin: 0 0 16px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase; text-align: center;">Comparativa de Perfiles</h4>
+            <div style="position: relative; height: 350px; width: 100%; max-width: 600px; margin: 0 auto;">
+              <canvas id="compMultiRadarChart"></canvas>
+            </div>
+          </div>
           <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px; overflow-x: auto;">
              <div style="min-width: 600px;">
                 ${renderRow('Jugador', p => escapeHtml(p.nombre))}
@@ -20820,6 +20967,71 @@ function saveCarteleraTeamsToFirebase() {
           }
         };
       });
+    }
+
+    // --- Chart.js rendering logic ---
+    if (comparativaState.mode === 'individual') {
+      const stats = calculatePlayerStats(comparativaState.individualPlayerId);
+      const ctx = document.getElementById('compIndividualRadarChart');
+      if (ctx && stats && typeof Chart !== 'undefined') {
+        const at = stats.atributos || {};
+        new Chart(ctx, {
+          type: 'radar',
+          data: {
+            labels: ['Físico', 'Emocional', 'Defensivo', 'Ofensivo', 'Posición'],
+            datasets: [{
+              label: stats.nombre,
+              data: [at.fisico || 3, at.emocional || 3, at.defensivo || 3, at.ofensivo || 3, at.posicion || 3],
+              backgroundColor: 'rgba(37, 99, 235, 0.2)',
+              borderColor: 'rgba(37, 99, 235, 1)',
+              pointBackgroundColor: 'rgba(37, 99, 235, 1)'
+            }]
+          },
+          options: {
+            scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 5, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false } },
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
+    } else {
+      const ctx = document.getElementById('compMultiRadarChart');
+      if (ctx && typeof Chart !== 'undefined') {
+        const colors = [
+          { bg: 'rgba(37, 99, 235, 0.2)', border: 'rgba(37, 99, 235, 1)' },
+          { bg: 'rgba(220, 38, 38, 0.2)', border: 'rgba(220, 38, 38, 1)' },
+          { bg: 'rgba(16, 185, 129, 0.2)', border: 'rgba(16, 185, 129, 1)' }
+        ];
+        const selectedPlayers = comparativaState.multiplePlayerIds.map(id => calculatePlayerStats(id)).filter(p => p !== null);
+        
+        const datasets = selectedPlayers.map((p, index) => {
+          const at = p.atributos || {};
+          const colorObj = colors[index % colors.length];
+          return {
+            label: p.nombre,
+            data: [at.fisico || 3, at.emocional || 3, at.defensivo || 3, at.ofensivo || 3, at.posicion || 3],
+            backgroundColor: colorObj.bg,
+            borderColor: colorObj.border,
+            pointBackgroundColor: colorObj.border
+          };
+        });
+
+        if (datasets.length > 0) {
+          new Chart(ctx, {
+            type: 'radar',
+            data: {
+              labels: ['Físico', 'Emocional', 'Defensivo', 'Ofensivo', 'Posición'],
+              datasets: datasets
+            },
+            options: {
+              scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 5, ticks: { stepSize: 1 } } },
+              responsive: true,
+              maintainAspectRatio: false
+            }
+          });
+        }
+      }
     }
   }
 
