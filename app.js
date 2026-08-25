@@ -5,9 +5,57 @@
 (function () {
   'use strict';
 
+  function bringToFront(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    const modals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+    let maxZ = 10000;
+    modals.forEach(m => {
+      const z = parseInt(window.getComputedStyle(m).zIndex, 10);
+      if (!isNaN(z) && z > maxZ) maxZ = z;
+    });
+    el.style.zIndex = maxZ + 10;
+  }
+
+
   // --------------------------------------------------------------------------
   // Global Fuzzy Matching Utilities
   // --------------------------------------------------------------------------
+  
+  // Expose specific modal functions to global scope so inline onclick attributes work
+  window.openJugadorFichaReadOnly = function(id) { return openJugadorFichaReadOnly(id); };
+  window.openPlayerModal = function(id) { return openPlayerModal(id); };
+  window.openImportTextCalendarModal = function() { return openImportTextCalendarModal(); };
+  window.openConvocatoriaFichaReadOnly = function(id) { return openConvocatoriaFichaReadOnly(id); };
+
+  window.showOnlyDuplicatePlayers = false;
+  window.toggleDuplicatesFilter = function() {
+    window.showOnlyDuplicatePlayers = !window.showOnlyDuplicatePlayers;
+    const btn = document.getElementById('dirDuplicatesContainer');
+    if (btn) {
+      if (window.showOnlyDuplicatePlayers) {
+        btn.style.background = 'var(--primary-blue)';
+        btn.style.borderColor = 'var(--primary-blue)';
+        const icon = btn.querySelector('i, svg');
+        if (icon) icon.style.color = 'white';
+        const span = btn.querySelector('span');
+        if (span) span.style.color = 'white';
+      } else {
+        btn.style.background = 'white';
+        btn.style.borderColor = 'var(--border-medium)';
+        const icon = btn.querySelector('i, svg');
+        if (icon) icon.style.color = 'var(--text-muted)';
+        const span = btn.querySelector('span');
+        if (span) span.style.color = '#334155';
+      }
+    }
+    if (typeof window.renderDirectorio === 'function') {
+      window.renderDirectorio();
+    } else if (typeof renderDirectorio === 'function') {
+      renderDirectorio();
+    }
+  };
+
   window.levenshteinDistance = function (a, b) {
     const matrix = [];
     for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -2198,7 +2246,7 @@
       lucide.createIcons();
     }
     
-    overlay.classList.remove('hidden');
+    bringToFront('secondaryModalOverlay'); overlay.classList.remove('hidden');
   }
 
   // Filter listener bindings
@@ -3997,7 +4045,12 @@
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamNameLower);
 
     let match = jugadores.find(p => {
-      const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
+      const pTeams = [
+        (p.equipo || '').toLowerCase().trim(),
+        (p.equipoVinculado || '').toLowerCase().trim(),
+        (p.club || '').toLowerCase().trim(),
+        (p.seleccion || '').toLowerCase().trim()
+      ].filter(Boolean);
       
       let matchDorsal = false;
       const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
@@ -4022,9 +4075,8 @@
       if (!matchDorsal) return false;
 
       let matchesTeam = false;
-      if (pTeam) {
-        matchesTeam = pTeam === teamNameLower || 
-                      (pTeam.length > 2 && (pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam)));
+      if (pTeams.length > 0) {
+        matchesTeam = pTeams.some(t => t === teamNameLower || (t.length > 2 && (t.includes(teamNameLower) || teamNameLower.includes(t))));
       }
 
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
@@ -4096,8 +4148,18 @@
 
     if (teamName) {
       jugadores.forEach(p => {
-        const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-        let matchesTeam = pTeam === teamName || pTeam.includes(teamName) || teamName.includes(pTeam);
+        const pTeams = [
+          (p.equipo || '').toLowerCase().trim(),
+          (p.equipoVinculado || '').toLowerCase().trim(),
+          (p.club || '').toLowerCase().trim(),
+          (p.seleccion || '').toLowerCase().trim()
+        ].filter(Boolean);
+        
+        let matchesTeam = false;
+        if (pTeams.length > 0) {
+          matchesTeam = pTeams.some(t => t === teamName || (t.length > 2 && (t.includes(teamName) || teamName.includes(t))));
+        }
+        
         const pName = (p.nombre || p.jugador || p.name || '');
 
         if (!matchesTeam && targetTeam && targetTeam.plantilla) {
@@ -4577,15 +4639,29 @@
       const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
 
       let badgesHTML = '';
+      let isZurdo = false;
+      if (nameVal && state.directory && state.directory.jugadores) {
+        const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
+        if (foundP) {
+          const pierna = (foundP.pierna || '').toLowerCase();
+          if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
+        }
+      }
+
       if (evalObj && evalObj.stats) {
         const stats = evalObj.stats;
         const goles = stats.goles || 0;
+        const asistencias = stats.asistencias || 0;
         const amarillas = stats.amarillas || 0;
         const rojas = stats.rojas || 0;
 
         if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${asistencias}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
         if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
         else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+      }
+      if (isZurdo) {
+        badgesHTML += `<div style="position: absolute; bottom: -4px; right: -4px; font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
       }
 
       let shortName = '';
@@ -4682,15 +4758,29 @@
         const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
 
         let badgesHTML = '';
+        let isZurdo = false;
+        if (nameVal && state.directory && state.directory.jugadores) {
+          const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
+          if (foundP) {
+            const pierna = (foundP.pierna || '').toLowerCase();
+            if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
+          }
+        }
+
         if (evalObj && evalObj.stats) {
           const stats = evalObj.stats;
           const goles = stats.goles || 0;
+          const asistencias = stats.asistencias || 0;
           const amarillas = stats.amarillas || 0;
           const rojas = stats.rojas || 0;
 
           if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${asistencias}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
           if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
           else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+        }
+        if (isZurdo) {
+          badgesHTML += `<div style="position: absolute; bottom: -4px; right: -4px; font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
         }
 
         return `
@@ -5557,6 +5647,22 @@
           state.reports[idx].playerEvaluations[evalKey] = evalObj;
           saveToFirebase('informes', state.reports[idx]);
         }
+      }
+
+      // Recalculate team goals automatically
+      let totalGoals = 0;
+      const prefix = `${currentEditingReportId || 'temp'}_${team}_`;
+      Object.keys(state.matchPlayerEvaluations).forEach(key => {
+        if (key.startsWith(prefix)) {
+          const ev = state.matchPlayerEvaluations[key];
+          if (ev.stats && ev.stats.goles) {
+            totalGoals += parseInt(ev.stats.goles, 10) || 0;
+          }
+        }
+      });
+      const scoreInput = document.getElementById(team === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
+      if (scoreInput) {
+        scoreInput.value = totalGoals;
       }
 
       // Update pitch visually to reflect any new stat badges (like goals)
@@ -6433,11 +6539,11 @@
             <div style="display: flex; gap: 24px; align-items: center;">
               <img src="${player.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
                   ${player.seleccion ? ` &nbsp;|&nbsp; ${seleccionShieldHTML} <span class="${seleccionLinkClass}" data-selid="${seleccionObj ? seleccionObj.id : ''}">${seleccionNameDisplay}</span>` : ''}
-                  ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--ficha-theme);">${escapeHtml(player.dorsal)}</strong>` : ''}
+                  ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--text-main);">${escapeHtml(player.dorsal)}</strong>` : ''}
                 </div>
               </div>
             </div>
@@ -6446,54 +6552,54 @@
               <button type="button" class="btn btn-primary" id="btnExportarFichaPDF" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: #10b981; border: none; color: white;" title="Exportar a PDF">
                 <i data-lucide="printer"></i>
               </button>
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Ficha">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-danger" id="btnEliminarJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: #ef4444; border: none; color: white;" title="Eliminar Ficha">
                 <i data-lucide="trash-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-subtle); border: 1px solid var(--border-light); color: var(--text-main);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" id="btnAtributosCard" style="background: white; border: 2px solid var(--primary-blue); padding: 16px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='#eff6ff'" onmouseout="this.style.backgroundColor='white'">
+            <div class="ficha-stat-box" id="btnAtributosCard" class="ficha-stat-box" style="background: var(--bg-subtle); border: 2px solid var(--primary-blue); padding: 16px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
               <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">ATRIBUTOS</div>
               <div class="ficha-stat-value" style="color: var(--primary-blue); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px;">
-                Ver / Editar <i data-lucide="edit-3" style="width: 18px; height: 18px;"></i>
+                Ver / Editar <i data-lucide="edit-3"></i>
               </div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">AÑO NAC.</div>
               <div class="ficha-stat-value">${escapeHtml(player.ano || player.anoNac || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">POS. PRINCIPAL</div>
               <div class="ficha-stat-value">${escapeHtml(displayPosPri || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">POS. SECUNDARIA</div>
               <div class="ficha-stat-value">${escapeHtml(displayPosSec || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">LATERALIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(player.pierna || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">PARTIDOS VISTOS</div>
               <div class="ficha-stat-value">${partidosVistosCount}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">EN MAPAS RS</div>
               <div class="ficha-stat-value">${inMapas}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">PROYECCIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">POTENCIAL</div>
               <div class="ficha-stat-value">${escapeHtml(player.potencial || '-')}</div>
             </div>
@@ -6505,7 +6611,7 @@
     `;
 
     document.getElementById('modalJugadorFichaBody').innerHTML = html;
-    document.getElementById('modalJugadorFicha').classList.remove('hidden');
+    bringToFront('modalJugadorFicha'); document.getElementById('modalJugadorFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     // Event Listeners for local scope functions
@@ -9163,7 +9269,7 @@
                 ${shieldSrc ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${team.categoria ? `Categoría: <strong>${escapeHtml(team.categoria)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${team.temporada ? `Temporada: <strong>${escapeHtml(team.temporada)}</strong>` : ''}
@@ -9172,7 +9278,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Equipo">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Equipo">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -9209,11 +9315,11 @@
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PLANTILLA</div>
-                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numPlantilla} Jugadores</div>
+                <div class="ficha-stat-value" style="color: var(--text-main);">${numPlantilla} Jugadores</div>
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">STAFF TÉCNICO</div>
-                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numStaff} Miembros</div>
+                <div class="ficha-stat-value" style="color: var(--text-main);">${numStaff} Miembros</div>
               </div>
             </div>
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
@@ -9247,7 +9353,7 @@
     `;
 
     document.getElementById('modalEquipoFichaBody').innerHTML = html;
-    document.getElementById('modalEquipoFicha').classList.remove('hidden');
+    bringToFront('modalEquipoFicha'); document.getElementById('modalEquipoFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     // Tab logic
@@ -9333,7 +9439,7 @@
                 ${club.escudo || club.logo ? `<img src="${club.escudo || club.logo}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${tiposStr ? `Tipo: <strong>${escapeHtml(tiposStr)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${club.anoFundacion ? `Fundación: <strong>${escapeHtml(club.anoFundacion)}</strong>` : ''}
@@ -9342,7 +9448,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Club">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Club">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -9376,7 +9482,7 @@
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">EQUIPOS VINCULADOS</div>
-                <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numEquipos} Equipos</div>
+                <div class="ficha-stat-value" style="color: var(--text-main);">${numEquipos} Equipos</div>
               </div>
             </div>
 
@@ -9397,7 +9503,7 @@
     `;
 
     document.getElementById('modalClubFichaBody').innerHTML = html;
-    document.getElementById('modalClubFicha').classList.remove('hidden');
+    bringToFront('modalClubFicha'); document.getElementById('modalClubFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     // Tab logic
@@ -9464,16 +9570,16 @@
             <div style="display: flex; gap: 24px; align-items: center;">
               <img src="${staff.foto || shieldSrc || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
-                  ${staff.cargo ? `<span>Cargo: <strong style="color: var(--ficha-theme);">${escapeHtml(staff.cargo)}</strong></span>` : ''}
-                  ${staff.equipo ? `<span>Equipo: <strong style="color: var(--ficha-theme);">${escapeHtml(staff.equipo)}</strong></span>` : ''}
+                  ${staff.cargo ? `<span>Cargo: <strong style="color: var(--text-main);">${escapeHtml(staff.cargo)}</strong></span>` : ''}
+                  ${staff.equipo ? `<span>Equipo: <strong style="color: var(--text-main);">${escapeHtml(staff.equipo)}</strong></span>` : ''}
                 </div>
               </div>
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Staff">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Staff">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -9509,7 +9615,7 @@
     `;
 
     document.getElementById('modalStaffFichaBody').innerHTML = html;
-    document.getElementById('modalStaffFicha').classList.remove('hidden');
+    bringToFront('modalStaffFicha'); document.getElementById('modalStaffFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaStaff').onclick = () => {
@@ -11080,7 +11186,7 @@
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(fed.nombre || fed.federacion || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(fed.nombre || fed.federacion || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${fed.pais ? `País: <strong>${escapeHtml(fed.pais)}</strong>` : 'Federación'}
                 </div>
@@ -11088,7 +11194,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11122,7 +11228,7 @@
     `;
 
     document.getElementById('modalFederacionFichaBody').innerHTML = html;
-    document.getElementById('modalFederacionFicha').classList.remove('hidden');
+    bringToFront('modalFederacionFicha'); document.getElementById('modalFederacionFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaFed').onclick = () => document.getElementById('modalFederacionFicha').classList.add('hidden');
@@ -11132,11 +11238,47 @@
     };
   }
 
+
+  window.openSelConvocatoriasModal = function(selName) {
+    if (!selName) return;
+    const selNameLower = selName.toLowerCase();
+    const convs = (state.directory.convocatorias || []).filter(c => {
+      if (!c) return false;
+      const cSel = c.seleccionVinculada || c.seleccion || '';
+      return cSel.toLowerCase() === selNameLower;
+    });
+
+    let listHtml = '';
+    if (convs.length === 0) {
+      listHtml = '<p style="text-align: center; color: var(--text-muted);">No hay convocatorias para esta selección.</p>';
+    } else {
+      listHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+      convs.forEach(c => {
+        const cName = escapeHtml(c.nombre || c.convocatoria || 'Convocatoria');
+        const cDate = escapeHtml(c.fechaInicio || c.fecha || '');
+        const cAct = escapeHtml(c.tipoActividad || '');
+        listHtml += `
+          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="window.openConvocatoriaFichaReadOnly('${c.id || c.codigo}')">
+            <div>
+              <div style="font-weight: 700; color: var(--primary-blue); font-size: 14px;">${cName}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${cDate ? `<strong>Fechas:</strong> ${cDate} ` : ''}${cAct ? `&nbsp;|&nbsp; <strong>Tipo:</strong> ${cAct}` : ''}</div>
+            </div>
+            <i data-lucide="chevron-right" style="color: var(--text-muted); width: 16px; height: 16px;"></i>
+          </div>
+        `;
+      });
+      listHtml += '</div>';
+    }
+
+    showSecondaryModal('Convocatorias: ' + escapeHtml(selName), listHtml, null);
+    if (window.lucide) window.lucide.createIcons();
+  };
+
   function openSeleccionFichaReadOnly(id) {
     const sel = (state.directory.selecciones || []).find(s => String(s.id) === String(id) || (s.codigo && String(s.codigo) === String(id)));
     if (!sel) return;
 
-    let themeColor = 'var(--primary-blue)';
+    let themeColor = sel.colorPrincipal || sel.color || 'var(--primary-blue)';
     let shieldSrc = sel.escudo || sel.logo || 'Escudo Blanco.png';
     let federacionNombre = sel.federacion || '';
 
@@ -11145,7 +11287,37 @@
       const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === federacionNombre.toLowerCase());
       if (fedObj) {
         if (!sel.escudo && !sel.logo) shieldSrc = fedObj.escudo || fedObj.logo || 'Escudo Blanco.png';
+        if (!sel.colorPrincipal && !sel.color) themeColor = fedObj.colorPrincipal || fedObj.color || themeColor;
       }
+    }
+
+    // Buscar Primer Entrenador en el directorio
+    let primerEntrenador = sel.seleccionador || '-';
+    if (state.directory.staff && Array.isArray(state.directory.staff)) {
+      const selName = (sel.nombre || sel.seleccion || '').toLowerCase();
+      const headCoach = state.directory.staff.find(s => {
+        if (!s) return false;
+        const sSel = s.seleccion ? String(s.seleccion).toLowerCase() : '';
+        const sEq = s.equipo ? String(s.equipo).toLowerCase() : '';
+        if (sSel === selName || sEq === selName) {
+          if (s.cargo === 'Primer Entrenador' || s.cargo === 'Seleccionador') return true;
+        }
+        return false;
+      });
+      if (headCoach) {
+        primerEntrenador = headCoach.nombre || headCoach.staff || primerEntrenador;
+      }
+    }
+
+    // Obtener convocatorias de esta selección
+    let selConvocatorias = [];
+    if (state.directory.convocatorias && Array.isArray(state.directory.convocatorias)) {
+      const selName = (sel.nombre || sel.seleccion || '').toLowerCase();
+      selConvocatorias = state.directory.convocatorias.filter(c => {
+        if (!c) return false;
+        const cSel = c.seleccionVinculada || c.seleccion || '';
+        return cSel.toLowerCase() === selName;
+      });
     }
 
     const html = `
@@ -11157,7 +11329,7 @@
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(sel.nombre || sel.seleccion || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(sel.nombre || sel.seleccion || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${sel.categoria ? `Categoría: <strong>${escapeHtml(sel.categoria)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${sel.pais ? `País: <strong>${escapeHtml(sel.pais)}</strong>` : ''}
@@ -11166,7 +11338,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11175,14 +11347,22 @@
             </div>
           </div>
 
-          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
-              <div class="ficha-stat-label">FEDERACIÓN</div>
-              <div class="ficha-stat-value">${escapeHtml((federacionNombre || '').split(' - ')[0] || '-')}</div>
+          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); display: grid;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+              <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">FEDERACIÓN</div>
+              <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml((federacionNombre || '').split(' - ')[0] || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
-              <div class="ficha-stat-label">SELECCIONADOR</div>
-              <div class="ficha-stat-value">${escapeHtml(sel.seleccionador || '-')}</div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+              <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">SELECCIONADOR</div>
+              <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(primerEntrenador)}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeHtml(sel.nombre || sel.seleccion || '')}')">
+              <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CONVOCATORIAS</div>
+              <div class="ficha-stat-value" style="font-size: 18px; font-weight: 800; color: var(--primary-blue);">${selConvocatorias.length}</div>
+            </div>
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeHtml(sel.id || sel.codigo || '')}')">
+              <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CAMPOGRAMAS</div>
+              <div class="ficha-stat-value" style="font-size: 14px; font-weight: 800; color: var(--primary-blue); margin-top: 4px;"><i data-lucide="layout-template" style="width: 16px; height: 16px; vertical-align: middle;"></i> Ver Táctica</div>
             </div>
           </div>
           
@@ -11194,7 +11374,7 @@
     `;
 
     document.getElementById('modalSeleccionFichaBody').innerHTML = html;
-    document.getElementById('modalSeleccionFicha').classList.remove('hidden');
+    bringToFront('modalSeleccionFicha'); document.getElementById('modalSeleccionFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaSel').onclick = () => document.getElementById('modalSeleccionFicha').classList.add('hidden');
@@ -11203,6 +11383,61 @@
       openSelectionEditModal(sel.id || sel.codigo);
     };
   }
+
+  window.openSelCampogramaPickerModal = (selId) => {
+    const selObj = (state.directory.selecciones || []).find(s => s && (String(s.id) === String(selId) || (s.codigo && String(s.codigo) === String(selId))));
+    if (!selObj) return;
+
+    const allConvocatorias = state.directory.convocatorias || [];
+    const currentSelName = (selObj.nombre || selObj.seleccion || '').toLowerCase().trim();
+
+    const selectionConvocatorias = allConvocatorias.filter(c => {
+      if (!c) return false;
+      const cSelId = String(c.seleccionId || c.seleccion_id || '');
+      const cSelName = String(c.seleccion || c.nombreSeleccion || c.equipo || '').toLowerCase().trim();
+      return (selId && cSelId === String(selId)) || (currentSelName && cSelName && (cSelName === currentSelName || cSelName.includes(currentSelName) || currentSelName.includes(cSelName)));
+    });
+
+    if (selectionConvocatorias.length === 0) {
+      alert('No hay convocatorias registradas para esta selección.');
+      return;
+    }
+
+    const optionsHtml = selectionConvocatorias.map(c => `
+      <option value="${c.id}">${escapeHtml(c.nombre || c.titulo || c.convocatoria || ('Convocatoria ' + (c.fecha || '')))}</option>
+    `).join('');
+
+    const html = `
+      <div style="padding: 16px;">
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; display: block;">ELIGE UNA CONVOCATORIA</label>
+        <select id="pickerConvocatoriaSelect" class="form-control" style="width: 100%; margin-bottom: 20px;">
+          ${optionsHtml}
+        </select>
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmarPickerConv">Ver Campograma</button>
+        </div>
+      </div>
+    `;
+
+    showModal('Seleccionar Convocatoria', html, null);
+
+    const btnConfirmar = document.querySelector('.modal-body #btnConfirmarPickerConv');
+    if (btnConfirmar) {
+      btnConfirmar.onclick = () => {
+        const selectedId = document.querySelector('.modal-body #pickerConvocatoriaSelect').value;
+        const conv = selectionConvocatorias.find(c => String(c.id) === String(selectedId));
+        hideModal(); // Close picker
+        if (conv) {
+          // If no tactical system is defined in conv, default to selection's system
+          if (!conv.sistemaTactico && selObj.sistemaHabitual) {
+            conv.sistemaTactico = selObj.sistemaHabitual;
+          }
+          showConvCampogramaModal(conv);
+        }
+      };
+    }
+  };
 
   function openConvocatoriaFichaReadOnly(id) {
     const conv = state.directory.convocatorias.find(c => String(c.id) === String(id) || (c.codigo && String(c.codigo) === String(id)));
@@ -11232,7 +11467,7 @@
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${conv.seleccion ? `Selección: <strong>${escapeHtml(conv.seleccion)}</strong>` : 'Convocatoria'}
                 </div>
@@ -11240,7 +11475,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11264,12 +11499,12 @@
             </div>
             <div class="ficha-stat-box" id="btnViewConvocados" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">JUGADORES CONVOCADOS</div>
-              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numJugadores} Jugadores</div>
+              <div class="ficha-stat-value" style="color: var(--text-main);">${numJugadores} Jugadores</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="users" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver plantilla</div>
             </div>
             <div class="ficha-stat-box" id="btnViewCampogramaConv" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">CAMPOGRAMA</div>
-              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${escapeHtml(conv.sistemaTactico || '1-4-3-3')}</div>
+              <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(conv.sistemaTactico || '1-4-3-3')}</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="layout-template" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver mapa táctico</div>
             </div>
             ${Array.isArray(conv.partidosList) && conv.partidosList.length > 0 ? `
@@ -11303,7 +11538,7 @@
     `;
 
     document.getElementById('modalConvocatoriaFichaBody').innerHTML = html;
-    document.getElementById('modalConvocatoriaFicha').classList.remove('hidden');
+    bringToFront('modalConvocatoriaFicha'); document.getElementById('modalConvocatoriaFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaConv').onclick = () => document.getElementById('modalConvocatoriaFicha').classList.add('hidden');
@@ -11341,46 +11576,82 @@
     const jugadores = Array.isArray(conv.jugadores) ? conv.jugadores : [];
     const parsedJugadores = jugadores.map(j => (typeof j === 'string') ? { nombre: j, baja: false } : j);
     
-    const groups = { 'POR': [], 'DEF': [], 'MED': [], 'DEL': [] };
-    parsedJugadores.forEach(j => {
-      if (j.baja) return;
-      const pName = (j.nombre || j.jugador || '').trim();
-      const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === pName.toLowerCase());
-      const rawDem = (pObj ? pObj.demarcacion : '') || 'MED';
-      const dGen = mapToDemarcacionGeneral(rawDem);
-      if (groups[dGen]) groups[dGen].push(pObj || { nombre: pName, demarcacion: 'MED' });
-    });
+    const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+    const squadPlayers = parsedJugadores.map(item => {
+      if (item.baja) return null;
+      const pName = (item.nombre || item.jugador || item.name || '').trim();
+      const pObj = playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+      if (pObj) return pObj;
+      return { nombre: pName, demarcacion: item.pos1 || 'MC', id: null };
+    }).filter(Boolean);
 
-    ['POR', 'DEF', 'MED', 'DEL'].forEach(zone => {
-      const slots = posMap[zone] || [];
-      const players = groups[zone];
-      if (players.length > 0 && slots.length > 0) {
-        const playersPerSlot = Math.ceil(players.length / slots.length);
-        slots.forEach((slot, idx) => {
-          const chunk = players.slice(idx * playersPerSlot, (idx + 1) * playersPerSlot);
-          if (chunk.length > 0) {
-            const htmlNames = chunk.map(p => {
-              const pName = escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador));
-              const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
-              return `
-                <div class="campograma-player-name" style="margin-bottom:2px; ${pObj ? 'cursor:pointer; pointer-events:auto; text-decoration:underline;' : ''}" ${pObj ? `onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}')"` : ''}>
-                  ${pName}
-                </div>
-              `;
-            }).join('');
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
 
-            const dot = document.createElement('div');
-            dot.className = 'campograma-dot';
-            dot.style.left = slot.x + '%';
-            dot.style.top = slot.y + '%';
-            dot.innerHTML = `
-              <div class="campograma-dot-circle" style="background-color: var(--primary-blue); color: white; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; font-weight: bold; border: 1px solid white;"></div>
-              <div class="campograma-dot-label" style="background: rgba(255,255,255,0.85);">${htmlNames}</div>
-            `;
-            container.appendChild(dot);
+    let resolvedColor = '#2563eb';
+    const selName = (conv.seleccion || conv.seleccionVinculada || conv.nombreSeleccion || conv.equipo || '').toLowerCase().trim();
+    const selId = conv.seleccionId || conv.seleccion_id;
+    if (state.directory && state.directory.selecciones) {
+      const selObj = state.directory.selecciones.find(s => s && ((selId && String(s.id) === String(selId)) || (selName && (s.nombre || s.seleccion || '').toLowerCase().trim() === selName)));
+      if (selObj) {
+        resolvedColor = selObj.colorPrimary || selObj.colorPrincipal || selObj.color || resolvedColor;
+        
+        // Federation fallback if no explicit selection color
+        if (!selObj.colorPrimary && !selObj.colorPrincipal && !selObj.color && selObj.federacion) {
+          const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
+          if (fedObj) {
+            resolvedColor = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || resolvedColor;
           }
-        });
+        }
       }
+    }
+    
+    const curPrimaryColor = resolvedColor;
+    const curTextColor = typeof getContrastColor === 'function' ? getContrastColor(curPrimaryColor) : '#ffffff';
+
+    container.innerHTML = posMap.map((posCoords, slotIdx) => {
+      const posCode = defaultPositions[slotIdx] || 'MC';
+      const matchingPlayers = slotMap[slotIdx] || [];
+
+      let playersHTML = '';
+      if (matchingPlayers.length > 0) {
+        playersHTML = matchingPlayers.map(p => `
+          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+          </div>
+        `).join('');
+      } else {
+        playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
+      }
+
+      const renderX = 100 - posCoords.y;
+      const renderY = posCoords.x;
+      return `
+        <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <!-- Position Badge/Card (e.g. DBD, DBZ, PO, etc.) -->
+          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+            ${escapeHtml(posCode)}
+          </div>
+          <!-- Player Names Below Card -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            ${playersHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.campograma-player-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pId = link.dataset.playerid;
+        if (pId) {
+          if (typeof openJugadorFichaReadOnly === 'function') {
+            openJugadorFichaReadOnly(pId);
+          } else {
+            openPlayerModal(pId);
+          }
+        }
+      });
     });
   }
 
@@ -11451,7 +11722,7 @@
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(t.nombre || t.torneo || 'Torneo')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(t.nombre || t.torneo || 'Torneo')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${t.tipo ? `Tipo: <strong>${escapeHtml(t.tipo)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${t.categoria ? `Categoría: <strong>${escapeHtml(t.categoria)}</strong>` : ''}
@@ -11460,7 +11731,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11484,7 +11755,7 @@
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EQUIPOS PARTICIPANTES</div>
-              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${escapeHtml(t.numEquipos || '-')}</div>
+              <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(t.numEquipos || '-')}</div>
             </div>
           </div>
           
@@ -11496,7 +11767,7 @@
     `;
 
     document.getElementById('modalTorneoFichaBody').innerHTML = html;
-    document.getElementById('modalTorneoFicha').classList.remove('hidden');
+    bringToFront('modalTorneoFicha'); document.getElementById('modalTorneoFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaTorneo').onclick = () => document.getElementById('modalTorneoFicha').classList.add('hidden');
@@ -11524,7 +11795,7 @@
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(ag.nombre || ag.agencia || 'Agencia')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(ag.nombre || ag.agencia || 'Agencia')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${ag.pais ? `País: <strong>${escapeHtml(ag.pais)}</strong>` : 'Agencia de Representación'}
                 </div>
@@ -11532,7 +11803,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11556,7 +11827,7 @@
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AGENTES ASOCIADOS</div>
-              <div class="ficha-stat-value" style="color: var(--ficha-theme);">${numAgentes} Agentes</div>
+              <div class="ficha-stat-value" style="color: var(--text-main);">${numAgentes} Agentes</div>
             </div>
           </div>
           
@@ -11570,7 +11841,7 @@
     `;
 
     document.getElementById('modalAgenciaFichaBody').innerHTML = html;
-    document.getElementById('modalAgenciaFicha').classList.remove('hidden');
+    bringToFront('modalAgenciaFicha'); document.getElementById('modalAgenciaFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaAgencia').onclick = () => document.getElementById('modalAgenciaFicha').classList.add('hidden');
@@ -11599,16 +11870,16 @@
             <div style="display: flex; gap: 24px; align-items: center;">
               <img src="${agt.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
-                  ${agt.agencia ? `<span>Agencia: <strong style="color: var(--ficha-theme);">${escapeHtml(agt.agencia)}</strong></span>` : ''}
+                  ${agt.agencia ? `<span>Agencia: <strong style="color: var(--text-main);">${escapeHtml(agt.agencia)}</strong></span>` : ''}
                   ${agt.zonaInfluencia ? `<span>Zona: <strong>${escapeHtml(agt.zonaInfluencia)}</strong></span>` : ''}
                 </div>
               </div>
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11644,7 +11915,7 @@
     `;
 
     document.getElementById('modalAgenteFichaBody').innerHTML = html;
-    document.getElementById('modalAgenteFicha').classList.remove('hidden');
+    bringToFront('modalAgenteFicha'); document.getElementById('modalAgenteFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaAgente').onclick = () => document.getElementById('modalAgenteFicha').classList.add('hidden');
@@ -11683,7 +11954,7 @@
                 </div>
               `}
               <div>
-                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(est.nombre || 'Estadio')}</h2>
+                <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(est.nombre || 'Estadio')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${est.ciudad ? `Ciudad: <strong>${escapeHtml(est.ciudad)}</strong> &nbsp;|&nbsp; ` : ''}
                   ${est.equipoLocal ? `Equipo Local: <strong>${escapeHtml(est.equipoLocal)}</strong>` : ''}
@@ -11692,7 +11963,7 @@
             </div>
             
             <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar">
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
               <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
@@ -11728,7 +11999,7 @@
     `;
 
     document.getElementById('modalEstadioFichaBody').innerHTML = html;
-    document.getElementById('modalEstadioFicha').classList.remove('hidden');
+    bringToFront('modalEstadioFicha'); document.getElementById('modalEstadioFicha').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById('btnCerrarFichaEstadio').onclick = () => document.getElementById('modalEstadioFicha').classList.add('hidden');
@@ -12105,7 +12376,7 @@
       } else {
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
-          const foundStaff = state.directory.staff?.find(st => (st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase()));
+          const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
           const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
@@ -12286,8 +12557,19 @@
     const notas = sel.notas || '';
 
     let logoData = sel.logo || sel.escudo || '';
-    let colorPrimary = sel.colorPrimary || sel.colorPrincipal || '#2563eb';
-    let colorSecondary = sel.colorSecondary || sel.colorSecundario || '#ffffff';
+    let colorPrimary = sel.colorPrimary || sel.colorPrincipal || '';
+    let colorSecondary = sel.colorSecondary || sel.colorSecundario || '';
+    
+    if (federacion) {
+      const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === federacion.toLowerCase());
+      if (fedObj) {
+        if (!colorPrimary || colorPrimary === '#2563eb') colorPrimary = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || colorPrimary;
+        if (!colorSecondary || colorSecondary === '#ffffff') colorSecondary = fedObj.colorSecondary || fedObj.colorSecundario || colorSecondary;
+      }
+    }
+    
+    if (!colorPrimary) colorPrimary = '#2563eb';
+    if (!colorSecondary) colorSecondary = '#ffffff';
 
     const titleText = isEdit ? `🌍 Ficha de ${escapeHtml(nombre)}` : '🌍 Nueva Selección';
 
@@ -12297,6 +12579,7 @@
 
         <div class="player-modal-subtabs mb-4">
           <button type="button" class="player-subtab active" data-sestab="institucional">INSTITUCIONAL</button>
+          <button type="button" class="player-subtab" data-sestab="jugadores">JUGADORES</button>
           <button type="button" class="player-subtab" data-sestab="staff">STAFF</button>
           <button type="button" class="player-subtab" data-sestab="estilo">ESTILO Y JUEGO</button>
           <button type="button" class="player-subtab" data-sestab="campograma">CAMPOGRAMA</button>
@@ -12385,28 +12668,38 @@
                   </select>
                 </div>
 
-                <div class="form-group">
-                  <div class="player-section-title mb-2">
-                    <i data-lucide="users"></i> JUGADORES CONVOCADOS / VINCULADOS
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 100px; gap: 8px;" class="mb-2">
-                    <input type="text" id="sfJugadorSearchInput" list="jugadoresDatalistOptions" class="form-control" placeholder="Buscar jugador a convocar...">
-                    <button type="button" class="btn btn-primary" id="btnAddSelJugadorRow"><i data-lucide="plus"></i> Añadir</button>
-                  </div>
-
-                  <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                    <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-                      <thead>
-                        <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
-                          <th style="padding: 8px 12px;">JUGADOR CONVOCADO</th>
-                          <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
-                        </tr>
-                      </thead>
-                      <tbody id="sfJugadoresTableBody"></tbody>
-                    </table>
-                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: JUGADORES -->
+          <div class="sel-tab-pane hidden" id="sestab-jugadores">
+            <div class="form-group mb-4">
+              <div class="player-section-title mb-2">
+                <i data-lucide="users"></i> JUGADORES CONVOCADOS / VINCULADOS
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 100px; gap: 8px;" class="mb-2">
+                <input type="text" id="sfJugadorSearchInput" list="jugadoresDatalistOptions" class="form-control" placeholder="Buscar jugador a convocar...">
+                <button type="button" class="btn btn-primary" id="btnAddSelJugadorRow"><i data-lucide="plus"></i> Añadir</button>
+              </div>
+
+              <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
+                      <th style="padding: 8px 12px;">JUGADOR CONVOCADO</th>
+                      <th style="padding: 8px 12px; width: 80px;">POSICIÓN 1</th>
+                      <th style="padding: 8px 12px; width: 80px;">POSICIÓN 2</th>
+                      <th style="padding: 8px 12px; width: 60px;">AÑO</th>
+                      <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sfJugadoresTableBody"></tbody>
+                </table>
+              </div>
+            </div>
               </div>
             </div>
           </div>
@@ -12750,16 +13043,34 @@
       const tbody = document.getElementById('sfJugadoresTableBody');
       if (!tbody) return;
       if (localJugadoresList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: var(--text-muted);">No hay jugadores convocados vinculados a esta selección.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted);">No hay jugadores convocados vinculados a esta selección.</td></tr>`;
       } else {
         const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
-          const jName = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+          if (typeof j === 'string') {
+            j = { nombre: j, pos1: '', pos2: '', ano: '' };
+            localJugadoresList[idx] = j;
+          }
+
+          const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
+          
+          let dispPos1 = j.pos1 || (foundP ? (foundP.posicionPrincipal || foundP.posicion || foundP.demarcacion || foundP.pos || '') : '');
+          let dispPos2 = j.pos2 || (foundP ? (foundP.posicionSecundaria || '') : '');
+          let dispAno = j.ano || (foundP ? (foundP.ano || foundP.anoNacimiento || '') : '');
+
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
+          const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+          const pos1HTML = `<select class="form-control sel-jugador-pos1" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${dispPos1 === p || (!dispPos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${idx}" value="${escapeHtml(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
+
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
+              <td style="padding: 8px 12px;">${pos1HTML}</td>
+              <td style="padding: 8px 12px;">${pos2HTML}</td>
+              <td style="padding: 8px 12px;">${anoHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
                 <button type="button" class="btn-action-icon danger btn-del-sel-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
@@ -12779,6 +13090,29 @@
           });
         });
 
+        tbody.querySelectorAll('.sel-jugador-pos1').forEach(sel => {
+          sel.addEventListener('change', (e) => {
+            const index = parseInt(sel.dataset.idx, 10);
+            localJugadoresList[index].pos1 = e.target.value;
+            renderSelectionCampogramaPins();
+          });
+        });
+
+        tbody.querySelectorAll('.sel-jugador-pos2').forEach(sel => {
+          sel.addEventListener('change', (e) => {
+            const index = parseInt(sel.dataset.idx, 10);
+            localJugadoresList[index].pos2 = e.target.value;
+            renderSelectionCampogramaPins();
+          });
+        });
+
+        tbody.querySelectorAll('.sel-jugador-ano').forEach(input => {
+          input.addEventListener('input', (e) => {
+            const index = parseInt(input.dataset.idx, 10);
+            localJugadoresList[index].ano = e.target.value;
+          });
+        });
+
         tbody.querySelectorAll('.btn-del-sel-jugador').forEach(btn => {
           btn.addEventListener('click', () => {
             const index = parseInt(btn.dataset.idx, 10);
@@ -12794,7 +13128,38 @@
     document.getElementById('btnAddSelJugadorRow')?.addEventListener('click', () => {
       const val = document.getElementById('sfJugadorSearchInput').value.trim();
       if (!val) return alert('Ingresa o selecciona el nombre del jugador');
-      localJugadoresList.push(val);
+      
+      const allPlayers = (state.directory && state.directory.jugadores) || [];
+      const pObj = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === val.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === val.toLowerCase()));
+      let pos1 = pObj ? (pObj.posicionPrincipal || pObj.posicion || pObj.demarcacion || pObj.pos || '') : '';
+      let pos2 = pObj ? (pObj.posicionSecundaria || '') : '';
+      let ano = pObj ? (pObj.ano || pObj.anoNacimiento || '') : '';
+
+      if (!pos1 && state.reports && Array.isArray(state.reports)) {
+        const pLower = val.toLowerCase();
+        for (let r of state.reports) {
+          if (pos1) break;
+          const processLineup = (lineupData) => {
+            if (!lineupData || pos1) return;
+            try {
+              const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
+              if (Array.isArray(lineup)) {
+                const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                if (lp) {
+                  if (lp.pos) pos1 = lp.pos;
+                  if (lp.pos2) pos2 = lp.pos2;
+                }
+              }
+            } catch(e) {}
+          };
+          processLineup(r.titularesLocal || r.localTitulares);
+          processLineup(r.suplentesLocal || r.localSuplentes);
+          processLineup(r.titularesVisitante || r.visitanteTitulares);
+          processLineup(r.suplentesVisitante || r.visitanteSuplentes);
+        }
+      }
+
+      localJugadoresList.push({ nombre: val, pos1: pos1, pos2: pos2, ano: ano });
       document.getElementById('sfJugadorSearchInput').value = '';
       renderSelJugadoresTable();
     });
@@ -12808,7 +13173,7 @@
       } else {
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
-          const foundStaff = state.directory.staff?.find(st => (st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase()));
+          const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
           const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
@@ -12925,7 +13290,24 @@
       const allPlayers = (state.directory && state.directory.jugadores) || [];
       const squadPlayers = convocadosList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-        return allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        const globalP = allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        if (!globalP) return null;
+        
+        // Overlay updated local positions if available
+        const localMatch = localJugadoresList.find(j => {
+          const jN = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+          return jN.toLowerCase() === pName.toLowerCase();
+        });
+
+        if (localMatch && (localMatch.pos1 || localMatch.pos2)) {
+          return {
+            ...globalP,
+            posicionPrincipal: localMatch.pos1 || globalP.posicionPrincipal,
+            posicionSecundaria: localMatch.pos2 || globalP.posicionSecundaria
+          };
+        }
+        
+        return globalP;
       }).filter(Boolean);
 
       const curPrimaryColor = document.getElementById('sfColorPrimary')?.value || colorPrimary || '#2563eb';
@@ -13169,6 +13551,24 @@
 
     let localJugadoresList = conv.jugadores ? JSON.parse(JSON.stringify(conv.jugadores)) : [];
     let localStaffList = conv.staff ? JSON.parse(JSON.stringify(conv.staff)) : [];
+    
+    // Auto-vincular staff desde el directorio basado en la selección
+    if (localStaffList.length === 0 && seleccion && state.directory.staff && Array.isArray(state.directory.staff)) {
+      state.directory.staff.forEach(s => {
+        if (!s) return;
+        const sSel = s.seleccion ? String(s.seleccion).toLowerCase() : '';
+        const sEq = s.equipo ? String(s.equipo).toLowerCase() : '';
+        const targetSel = String(seleccion).toLowerCase();
+        
+        if (sSel === targetSel || sEq === targetSel) {
+          const sName = s.nombre || s.staff;
+          if (sName && !localStaffList.includes(sName)) {
+            localStaffList.push(sName);
+          }
+        }
+      });
+    }
+
     let localPartidosList = Array.isArray(conv.partidosList) ? JSON.parse(JSON.stringify(conv.partidosList)) : [];
 
     const notas = conv.notas || '';
@@ -13778,6 +14178,31 @@
     inputSelConv?.addEventListener('change', updateGeneratedConvName);
     inputSelConv?.addEventListener('input', updateGeneratedConvName);
 
+    // Auto-vincular staff al cambiar la selección en el desplegable
+    inputSelConv?.addEventListener('change', () => {
+      const selVal = inputSelConv.value.trim();
+      if (selVal && state.directory.staff && Array.isArray(state.directory.staff)) {
+        let added = false;
+        state.directory.staff.forEach(s => {
+          if (!s) return;
+          const sSel = s.seleccion ? String(s.seleccion).toLowerCase() : '';
+          const sEq = s.equipo ? String(s.equipo).toLowerCase() : '';
+          const targetSel = String(selVal).toLowerCase();
+          
+          if (sSel === targetSel || sEq === targetSel) {
+            const sName = s.nombre || s.staff;
+            if (sName && !localStaffList.includes(sName)) {
+              localStaffList.push(sName);
+              added = true;
+            }
+          }
+        });
+        if (added && typeof renderCnStaffTable === 'function') {
+          renderCnStaffTable();
+        }
+      }
+    });
+
     if (inputTipoActConv && inputSesionConv) {
       const updateSesionOptions = () => {
         const actName = inputTipoActConv.value.trim() || 'Actividad';
@@ -13831,9 +14256,39 @@
 
       let addedCount = 0;
       if (extractedNames.length > 0) {
+        const allPlayers = (state.directory && state.directory.jugadores) || [];
         extractedNames.forEach(name => {
           if (!localJugadoresList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === name.toLowerCase())) {
-            localJugadoresList.push({ nombre: name, baja: false, motivo: '' });
+            const pObj = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === name.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === name.toLowerCase()));
+            let pos1 = pObj ? (pObj.posicionPrincipal || pObj.posicion || pObj.demarcacion || pObj.pos || '') : '';
+            let pos2 = pObj ? (pObj.posicionSecundaria || '') : '';
+            
+            // Check reports if positions are missing
+            if (!pos1 && state.reports && Array.isArray(state.reports)) {
+              const pLower = name.toLowerCase();
+              for (let r of state.reports) {
+                if (pos1) break;
+                const processLineup = (lineupData) => {
+                  if (!lineupData || pos1) return;
+                  try {
+                    const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
+                    if (Array.isArray(lineup)) {
+                      const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                      if (lp) {
+                        if (lp.pos) pos1 = lp.pos;
+                        if (lp.pos2) pos2 = lp.pos2;
+                      }
+                    }
+                  } catch(e) {}
+                };
+                processLineup(r.titularesLocal || r.localTitulares);
+                processLineup(r.suplentesLocal || r.localSuplentes);
+                processLineup(r.titularesVisitante || r.visitanteTitulares);
+                processLineup(r.suplentesVisitante || r.visitanteSuplentes);
+              }
+            }
+
+            localJugadoresList.push({ nombre: name, pos1: pos1, pos2: pos2, baja: false, motivo: '' });
             addedCount++;
           }
         });
@@ -13850,21 +14305,11 @@
       const tbody = document.getElementById('cnJugadoresTableBody');
       if (!tbody || !thead) return;
 
-      const validPartidos = localPartidosList.filter(p => p.rival || p.fecha || p.estadio);
-      let partidosHeaders = '';
-      if (validPartidos.length === 0) {
-        partidosHeaders = `<th style="padding: 8px 12px; text-align: center; width: 80px;">DORSAL</th>`;
-      } else {
-        partidosHeaders = validPartidos.map(p => {
-          const pName = escapeHtml(p.rival || 'Partido');
-          return `<th style="padding: 8px 12px; text-align: center; width: 80px;" title="${pName}">D. ${pName.length > 10 ? pName.substring(0,8)+'...' : pName}</th>`;
-        }).join('');
-      }
-
       thead.innerHTML = `
         <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
           <th style="padding: 8px 12px;">JUGADOR</th>
-          ${partidosHeaders}
+          <th style="padding: 8px 12px; width: 80px;">POSICIÓN 1</th>
+          <th style="padding: 8px 12px; width: 80px;">POSICIÓN 2</th>
           <th style="padding: 8px 12px; width: 60px; text-align: center;">BAJA</th>
           <th style="padding: 8px 12px;">MOTIVO DE BAJA</th>
           <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
@@ -13872,44 +14317,29 @@
       `;
 
       if (localJugadoresList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${4 + (validPartidos.length === 0 ? 1 : validPartidos.length)}" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
       } else {
         const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           // Normalize to object if it was a string
           if (typeof j === 'string') {
-            j = { nombre: j, baja: false, motivo: '', dorsalesPorPartido: {}, dorsal: '' };
+            j = { nombre: j, baja: false, motivo: '' };
             localJugadoresList[idx] = j;
           }
-          if (!j.dorsalesPorPartido) j.dorsalesPorPartido = {};
 
           const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
           
-          let dorsalesHTML = '';
-          if (validPartidos.length === 0) {
-            dorsalesHTML = `
-              <td style="padding: 8px 12px; text-align: center;">
-                <input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" data-matchid="general" value="${escapeHtml(j.dorsal || '')}" placeholder="--" style="font-size: 11px; padding: 4px; height: 26px; text-align: center; width: 40px; margin: 0 auto;">
-              </td>
-            `;
-          } else {
-            dorsalesHTML = validPartidos.map((p, pIdx) => {
-              const matchKey = p.id || p.rival || 'Partido ' + pIdx; // use rival or a generated ID as key
-              const dVal = j.dorsalesPorPartido[matchKey] || '';
-              return `
-                <td style="padding: 8px 12px; text-align: center;">
-                  <input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" data-matchid="${escapeHtml(matchKey)}" value="${escapeHtml(dVal)}" placeholder="--" style="font-size: 11px; padding: 4px; height: 26px; text-align: center; width: 40px; margin: 0 auto;">
-                </td>
-              `;
-            }).join('');
-          }
+          const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+          const pos1HTML = `<select class="form-control cn-jugador-pos1" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos1 === p || (!j.pos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const pos2HTML = `<select class="form-control cn-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos2 === p || (!j.pos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
 
           return `
             <tr style="border-bottom: 1px solid var(--border-light); ${j.baja ? 'opacity: 0.7; background-color: #fef2f2;' : ''}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
-              ${dorsalesHTML}
+              <td style="padding: 8px 12px;">${pos1HTML}</td>
+              <td style="padding: 8px 12px;">${pos2HTML}</td>
               <td style="padding: 8px 12px; text-align: center;">
                 <input type="checkbox" class="cn-jugador-baja" data-idx="${idx}" ${j.baja ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
               </td>
@@ -13935,6 +14365,22 @@
           });
         });
 
+        tbody.querySelectorAll('.cn-jugador-pos1').forEach(sel => {
+          sel.addEventListener('change', (e) => {
+            const index = parseInt(sel.dataset.idx, 10);
+            localJugadoresList[index].pos1 = e.target.value;
+            renderCnCampogramaPins();
+          });
+        });
+
+        tbody.querySelectorAll('.cn-jugador-pos2').forEach(sel => {
+          sel.addEventListener('change', (e) => {
+            const index = parseInt(sel.dataset.idx, 10);
+            localJugadoresList[index].pos2 = e.target.value;
+            renderCnCampogramaPins();
+          });
+        });
+
         tbody.querySelectorAll('.cn-jugador-baja').forEach(cb => {
           cb.addEventListener('change', (e) => {
             const index = parseInt(cb.dataset.idx, 10);
@@ -13953,18 +14399,7 @@
           });
         });
 
-        tbody.querySelectorAll('.cn-jugador-dorsal').forEach(input => {
-          input.addEventListener('input', (e) => {
-            const index = parseInt(input.dataset.idx, 10);
-            const matchId = input.dataset.matchid;
-            if (matchId === 'general') {
-              localJugadoresList[index].dorsal = e.target.value;
-            } else {
-              if (!localJugadoresList[index].dorsalesPorPartido) localJugadoresList[index].dorsalesPorPartido = {};
-              localJugadoresList[index].dorsalesPorPartido[matchId] = e.target.value;
-            }
-          });
-        });
+
 
         tbody.querySelectorAll('.btn-del-cn-jugador').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -13985,7 +14420,38 @@
     document.getElementById('btnAddCnJugador')?.addEventListener('click', () => {
       const val = document.getElementById('cnJugadorInput').value.trim();
       if (!val) return alert('Ingresa o selecciona el nombre del jugador');
-      localJugadoresList.push(val);
+      
+      const allPlayers = (state.directory && state.directory.jugadores) || [];
+      const pObj = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === val.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === val.toLowerCase()));
+      let pos1 = pObj ? (pObj.posicionPrincipal || pObj.posicion || pObj.demarcacion || pObj.pos || '') : '';
+      let pos2 = pObj ? (pObj.posicionSecundaria || '') : '';
+
+      // Check reports if positions are missing
+      if (!pos1 && state.reports && Array.isArray(state.reports)) {
+        const pLower = val.toLowerCase();
+        for (let r of state.reports) {
+          if (pos1) break;
+          const processLineup = (lineupData) => {
+            if (!lineupData || pos1) return;
+            try {
+              const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
+              if (Array.isArray(lineup)) {
+                const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                if (lp) {
+                  if (lp.pos) pos1 = lp.pos;
+                  if (lp.pos2) pos2 = lp.pos2;
+                }
+              }
+            } catch(e) {}
+          };
+          processLineup(r.titularesLocal || r.localTitulares);
+          processLineup(r.suplentesLocal || r.localSuplentes);
+          processLineup(r.titularesVisitante || r.visitanteTitulares);
+          processLineup(r.suplentesVisitante || r.visitanteSuplentes);
+        }
+      }
+
+      localJugadoresList.push({ nombre: val, pos1: pos1, pos2: pos2, baja: false, motivo: '' });
       document.getElementById('cnJugadorInput').value = '';
       renderCnJugadoresTable();
     });
@@ -13999,7 +14465,7 @@
       } else {
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
-          const foundStaff = state.directory.staff?.find(st => (st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase()));
+          const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
           const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
@@ -14056,59 +14522,76 @@
       if (!container || !sysSelect) return;
 
       const currentSys = sysSelect.value || '1-4-3-3';
-      const posMap = FORMATION_POSITIONS[currentSys] || FORMATION_POSITIONS['1-4-3-3'];
+      const posMapCoords = FORMATION_POSITIONS[currentSys] || FORMATION_POSITIONS['1-4-3-3'];
+      const posMapNames = SYSTEM_STARTER_POSITIONS[currentSys] || SYSTEM_STARTER_POSITIONS['1-4-3-3'];
 
       container.innerHTML = '';
-      let playerCount = 0;
-
-      // Group active players by demarcacionGeneral
-      const groups = { 'POR': [], 'DEF': [], 'MED': [], 'DEL': [] };
-      localJugadoresList.forEach(j => {
-        if (j.baja) return; // Skip bajas
-        const pName = (j.nombre || j.jugador || '').trim();
-        const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === pName.toLowerCase());
-        const rawDem = (pObj ? pObj.demarcacion : '') || 'MED';
-        const dGen = mapToDemarcacionGeneral(rawDem);
-        if (groups[dGen]) {
-          groups[dGen].push(pObj || { nombre: pName, demarcacion: 'MED' });
-          playerCount++;
-        }
-      });
+      const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+      const squadPlayers = localJugadoresList.map(j => {
+        if (j.baja) return null;
+        const pName = (j.nombre || j.jugador || j.name || '').trim();
+        const pObj = playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        if (pObj) return pObj;
+        return { nombre: pName, demarcacion: j.pos1 || 'MC', id: null };
+      }).filter(Boolean);
 
       const countLabel = document.getElementById('lblCnCampogramaCount');
-      if (countLabel) countLabel.textContent = `${playerCount} Jugadores`;
+      if (countLabel) countLabel.textContent = `${squadPlayers.length} Jugadores`;
 
-      ['POR', 'DEF', 'MED', 'DEL'].forEach(zone => {
-        const slots = posMap[zone] || [];
-        const players = groups[zone];
-        if (players.length > 0 && slots.length > 0) {
-          const playersPerSlot = Math.ceil(players.length / slots.length);
-          slots.forEach((slot, idx) => {
-            const chunk = players.slice(idx * playersPerSlot, (idx + 1) * playersPerSlot);
-            if (chunk.length > 0) {
-              const htmlNames = chunk.map(p => `
-                <div class="campograma-player-name" style="margin-bottom:2px;">
-                  ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
-                </div>
-              `).join('');
+      const slotMap = distributePlayersToSlots(squadPlayers, posMapNames);
 
-              const dot = document.createElement('div');
-              dot.className = 'campograma-dot';
-              dot.style.left = slot.x + '%';
-              dot.style.top = slot.y + '%';
-              dot.innerHTML = `
-                <div class="campograma-dot-circle" style="background-color: var(--primary-blue); color: white; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; font-weight: bold; border: 1px solid white;"></div>
-                <div class="campograma-dot-label" style="background: rgba(255,255,255,0.85);">${htmlNames}</div>
-              `;
-              container.appendChild(dot);
+      let resolvedColor = '#2563eb';
+      const selName = document.getElementById('cnSeleccion')?.value.trim().toLowerCase();
+      if (selName && state.directory && state.directory.selecciones) {
+        const selObj = state.directory.selecciones.find(s => (s.nombre || s.seleccion || '').toLowerCase().trim() === selName);
+        if (selObj) {
+          resolvedColor = selObj.colorPrimary || selObj.colorPrincipal || selObj.color || resolvedColor;
+          if (!selObj.colorPrimary && !selObj.colorPrincipal && !selObj.color && selObj.federacion) {
+            const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
+            if (fedObj) {
+              resolvedColor = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || resolvedColor;
             }
-          });
+          }
         }
-      });
+      }
+      const curPrimaryColor = typeof colorPrimary !== 'undefined' ? colorPrimary : resolvedColor;
+      const curTextColor = typeof getContrastColor === 'function' ? getContrastColor(curPrimaryColor) : '#ffffff';
+
+      container.innerHTML = posMapCoords.map((posCoords, slotIdx) => {
+        const posCode = posMapNames[slotIdx] || 'MC';
+        const matchingPlayers = slotMap[slotIdx] || [];
+
+        let playersHTML = '';
+        if (matchingPlayers.length > 0) {
+          playersHTML = matchingPlayers.map(p => `
+            <div class="campograma-player-link" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+              ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+            </div>
+          `).join('');
+        } else {
+          playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
+        }
+
+        const renderX = 100 - posCoords.y;
+        const renderY = posCoords.x;
+        return `
+          <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+            <!-- Position Badge/Card (e.g. DBD, DBZ, PO, etc.) -->
+            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+              ${escapeHtml(posCode)}
+            </div>
+            <!-- Player Names Below Card -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+              ${playersHTML}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     renderCnCampogramaPins();
     document.getElementById('cnCampogramaSistema')?.addEventListener('change', renderCnCampogramaPins);
+    document.getElementById('cnSeleccion')?.addEventListener('change', renderCnCampogramaPins);
 
     const removeLargeClass = () => card.classList.remove('large');
     document.getElementById('btnCloseModal')?.addEventListener('click', removeLargeClass, { once: true });
@@ -17993,9 +18476,11 @@
     const yearContainer = document.getElementById('dirYearFilterContainer');
     const teamContainer = document.getElementById('dirTeamFilterContainer');
     const cargoContainer = document.getElementById('dirCargoFilterContainer');
+    const duplicatesContainer = document.getElementById('dirDuplicatesContainer');
     
     if (currentDirectoryTab === 'jugadores') {
       if (yearContainer) yearContainer.style.display = 'flex';
+      if (duplicatesContainer) duplicatesContainer.style.display = 'flex';
       if (teamContainer) {
         teamContainer.style.display = 'flex';
         // Populate options
@@ -18012,6 +18497,7 @@
         const yInput = document.getElementById('dirYearFilterInput');
         if (yInput) yInput.value = '';
       }
+      if (duplicatesContainer) duplicatesContainer.style.display = 'none';
       if (teamContainer) {
         teamContainer.style.display = 'none';
         const tInput = document.getElementById('dirTeamFilterInput');
@@ -18024,6 +18510,7 @@
         const yInput = document.getElementById('dirYearFilterInput');
         if (yInput) yInput.value = '';
       }
+      if (duplicatesContainer) duplicatesContainer.style.display = 'none';
       if (teamContainer) {
         teamContainer.style.display = 'none';
         const tInput = document.getElementById('dirTeamFilterInput');
@@ -18095,9 +18582,25 @@
       });
     }
 
+    let duplicatesSet = null;
+    if (currentDirectoryTab === 'jugadores' && window.showOnlyDuplicatePlayers) {
+      const nameCounts = {};
+      subFilteredItems.forEach(i => {
+         const n = (i.nombre || i.jugador || i.name || '').toLowerCase().trim();
+         if (n) {
+           nameCounts[n] = (nameCounts[n] || 0) + 1;
+         }
+      });
+      duplicatesSet = new Set(Object.keys(nameCounts).filter(n => nameCounts[n] > 1));
+    }
+
     // 3. Search Filter (STRICTLY ON NAME / TITLE AS REQUESTED BY USER), Year Filter & Team Filter
     const filtered = subFilteredItems.filter(item => {
       if (currentDirectoryTab === 'jugadores') {
+        if (duplicatesSet) {
+           const n = (item.nombre || item.jugador || item.name || '').toLowerCase().trim();
+           if (!duplicatesSet.has(n)) return false;
+        }
         if (filterYear) {
           const itemYear = String(item.anoNac || item.ano || item.anyo || '').trim();
           const searchY = filterYear.toLowerCase();
@@ -22293,11 +22796,23 @@
           if (comp) compSet.add(comp);
           if (grupo) grupoSet.add(grupo);
           if (jor) jorSet.add(jor);
-          if (fecha) fechaSet.add(fecha);
+          
+          if (fecha) {
+            if (!selectedCarteleraJornada || selectedCarteleraJornada === 'all') {
+              fechaSet.add(fecha);
+            } else if (jor === selectedCarteleraJornada) {
+              fechaSet.add(fecha);
+            }
+          }
+          
           if (loc) equipoSet.add(loc);
           if (vis) equipoSet.add(vis);
         });
       });
+
+      if (selectedCarteleraFecha && selectedCarteleraFecha !== 'all' && !fechaSet.has(selectedCarteleraFecha)) {
+        selectedCarteleraFecha = 'all';
+      }
 
       const populateSelect = (id, optionsSet, selectedValue, defaultLabel) => {
         const el = document.getElementById(id);
@@ -23617,7 +24132,10 @@
     bindSelect('carteleraFilterCategoria', val => selectedCarteleraCategoria = val);
     bindSelect('carteleraFilterFederacion', val => selectedCarteleraFederacion = val);
     bindSelect('carteleraFilterGrupo', val => selectedCarteleraGrupo = val);
-    bindSelect('carteleraFilterJornada', val => selectedCarteleraJornada = val);
+    bindSelect('carteleraFilterJornada', val => {
+      selectedCarteleraJornada = val;
+      renderCarteleraFilters();
+    });
     bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
     bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
 
@@ -26006,7 +26524,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
     }
 
-    document.getElementById('generalModalOverlay').classList.remove('hidden');
+    bringToFront('generalModalOverlay'); document.getElementById('generalModalOverlay').classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -26062,7 +26580,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
     }
 
-    overlay.classList.remove('hidden');
+    bringToFront('secondaryModalOverlay'); overlay.classList.remove('hidden');
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -26143,7 +26661,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       </div>
     `;
 
-    overlay.classList.remove('hidden');
+    bringToFront('secondaryModalOverlay'); overlay.classList.remove('hidden');
 
     setTimeout(() => {
       const inputEl = document.getElementById('customPromptInput');
@@ -26206,7 +26724,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       </div>
     `;
 
-    overlay.classList.remove('hidden');
+    bringToFront('secondaryModalOverlay'); overlay.classList.remove('hidden');
 
     const confirmBtn = document.getElementById('btnCustomConfirmOk');
     const cancelBtn = document.getElementById('btnCustomConfirmCancel');
@@ -26262,7 +26780,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       </div>
     `;
 
-    overlay.classList.remove('hidden');
+    bringToFront('secondaryModalOverlay'); overlay.classList.remove('hidden');
 
     const btnOk = document.getElementById('btnCustomAlertOk');
     if (btnOk) {
@@ -26957,6 +27475,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // 12. App Initialization
   // --------------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
+
     // Inyectar selectores múltiples de Estilo de Juego para Informes de Partido
     const matchEstilos = { 'Estilos de Juego': ['Posesión / Combinativo', 'Juego Directo', 'Contraataque', 'Juego de Transiciones', 'Presión Alta', 'Bloque Medio', 'Bloque Bajo', 'Repliegue Intensivo', 'Juego por Bandas', 'Juego Interior'] };
     const localCont = document.getElementById('localEstiloJuegoContainer');
