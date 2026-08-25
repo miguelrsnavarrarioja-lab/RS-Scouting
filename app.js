@@ -2465,9 +2465,6 @@
     if (window.lucide) window.lucide.createIcons();
   }
 
-    if (window.lucide) window.lucide.createIcons();
-  }
-
   function renderPartidosList() {
     document.getElementById('partidosListState').classList.remove('hidden');
     document.getElementById('matchReportEditorState').classList.add('hidden');
