@@ -9294,8 +9294,10 @@
     let clubVinculado = team.clubVinculado || team.club || '';
     const categoria = team.categoria || '';
     const grupoVal = team.grupo || '';
+    const grupoVal2 = team.grupo2 || '';
     const temporada = team.temporada || '26/27';
     const competicionVal = team.competicion || '';
+    const competicionVal2 = team.competicion2 || '';
     const torneoVal = team.torneo || '';
     let federacion = team.federacion || '';
 
@@ -9483,10 +9485,6 @@
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="form-label">GRUPO</label>
-                    <input type="text" id="tfGrupo" class="form-control" placeholder="Ej. Grupo 2, Grupo XV..." value="${escapeHtml(grupoVal)}">
-                  </div>
-                  <div class="form-group">
                     <label class="form-label">TEMPORADA</label>
                     <select id="tfTemporada" class="form-control">
                       <option value="">Seleccionar temporada...</option>
@@ -9496,6 +9494,15 @@
       return `<option value="${escapeHtml(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('')}
                       ${temporada && !LISTA_TEMPORADAS_EQUIPO.some(t => t === temporada || (t.substring(2, 4) + '/' + t.substring(7, 9)) === temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">TORNEO</label>
+                    <select id="tfTorneo" class="form-control">
+                      <option value="">Seleccionar torneo...</option>
+                      ${(state.customTorneos || ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico']).map(t => `<option value="${escapeHtml(t)}" ${torneoVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                      ${torneoVal && !(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeHtml(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
+                      <option value="__NEW_TORNEO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo torneo...</option>
                     </select>
                   </div>
                 </div>
@@ -9511,12 +9518,33 @@
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="form-label">TORNEO</label>
-                    <select id="tfTorneo" class="form-control">
-                      <option value="">Seleccionar torneo...</option>
-                      ${(state.customTorneos || ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico']).map(t => `<option value="${escapeHtml(t)}" ${torneoVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
-                      ${torneoVal && !(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeHtml(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
-                      <option value="__NEW_TORNEO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo torneo...</option>
+                    <label class="form-label">GRUPO</label>
+                    <select id="tfGrupo" class="form-control">
+                      <option value="">Seleccionar grupo...</option>
+                      ${(state.customGrupos || ['Único', '1', '2', '3', '4', '5', 'XV']).map(g => `<option value="${escapeHtml(g)}" ${grupoVal === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal && !(state.customGrupos || []).includes(grupoVal) ? `<option value="${escapeHtml(grupoVal)}" selected>${escapeHtml(grupoVal)}</option>` : ''}
+                      <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px dashed var(--border-color);" class="mb-4">
+                  <div class="form-group" style="margin: 0;">
+                    <label class="form-label">COMPETICIÓN 2 (Opcional)</label>
+                    <select id="tfCompeticion2" class="form-control">
+                      <option value="">Añadir segunda competición...</option>
+                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeHtml(c)}" ${competicionVal2 === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${competicionVal2 && !(state.customCompeticiones || []).includes(competicionVal2) ? `<option value="${escapeHtml(competicionVal2)}" selected>${escapeHtml(competicionVal2)}</option>` : ''}
+                      <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin: 0;">
+                    <label class="form-label">GRUPO 2 (Opcional)</label>
+                    <select id="tfGrupo2" class="form-control">
+                      <option value="">Añadir segundo grupo...</option>
+                      ${(state.customGrupos || ['Único', '1', '2', '3', '4', '5', 'XV']).map(g => `<option value="${escapeHtml(g)}" ${grupoVal2 === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal2 && !(state.customGrupos || []).includes(grupoVal2) ? `<option value="${escapeHtml(grupoVal2)}" selected>${escapeHtml(grupoVal2)}</option>` : ''}
+                      <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
                     </select>
                   </div>
                 </div>
@@ -9664,8 +9692,10 @@
         club: targetClubName || (parentClub ? parentClub.nombre : ''),
         categoria: document.getElementById('tfCategoria').value.trim(),
         grupo: document.getElementById('tfGrupo').value.trim(),
+        grupo2: document.getElementById('tfGrupo2')?.value.trim() || '',
         temporada: document.getElementById('tfTemporada').value.trim(),
         competicion: document.getElementById('tfCompeticion').value.trim(),
+        competicion2: document.getElementById('tfCompeticion2')?.value.trim() || '',
         torneo: document.getElementById('tfTorneo').value.trim(),
         federacion: document.getElementById('tfFederacion').value.trim(),
 
@@ -9881,9 +9911,26 @@
         }
         const clubPri = foundClub.colorPrimary || foundClub.colorPrimario || foundClub.color1 || foundClub.colorCamiseta;
         const clubSec = foundClub.colorSecondary || foundClub.colorSecundario || foundClub.color2;
+        const clubPri2 = foundClub.colorPrimary2;
+        const clubSec2 = foundClub.colorSecondary2;
+        const clubPat = foundClub.patronCamiseta;
+        const clubPat2 = foundClub.patronCamiseta2;
+        const clubFed = foundClub.federacion;
+
+        const inputColorPri2 = document.getElementById('tfColorPrimary2');
+        const inputColorSec2 = document.getElementById('tfColorSecondary2');
+        const inputPat = document.getElementById('tfPatronCamiseta');
+        const inputPat2 = document.getElementById('tfPatronCamiseta2');
+        const inputFed = document.getElementById('tfFederacion');
 
         if (clubPri && inputColorPri) inputColorPri.value = clubPri;
         if (clubSec && inputColorSec) inputColorSec.value = clubSec;
+        if (clubPri2 && inputColorPri2) inputColorPri2.value = clubPri2;
+        if (clubSec2 && inputColorSec2) inputColorSec2.value = clubSec2;
+        if (clubPat && inputPat) inputPat.value = clubPat;
+        if (clubPat2 && inputPat2) inputPat2.value = clubPat2;
+        if (clubFed && inputFed) inputFed.value = clubFed;
+        
         applyTeamColorsHeader(inputColorPri?.value, inputColorSec?.value);
       }
     };
@@ -9970,6 +10017,75 @@
             opt.selected = true;
             compSelect.insertBefore(opt, compSelect.lastElementChild);
             compSelect.value = trimmed;
+          }
+        });
+      }
+    });
+
+    const compSelect2 = document.getElementById('tfCompeticion2');
+    compSelect2?.addEventListener('change', (e) => {
+      if (e.target.value === '__NEW_COMPETICION__') {
+        compSelect2.value = '';
+        showCustomPromptModal('Añadir Nueva Competición Secundaria', '', (newComp) => {
+          if (newComp && newComp.trim()) {
+            const trimmed = newComp.trim();
+            if (!state.customCompeticiones) state.customCompeticiones = ['Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División'];
+            if (!state.customCompeticiones.includes(trimmed)) {
+              state.customCompeticiones.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            compSelect2.insertBefore(opt, compSelect2.lastElementChild);
+            compSelect2.value = trimmed;
+          }
+        });
+      }
+    });
+
+    const grupoSelect = document.getElementById('tfGrupo');
+    grupoSelect?.addEventListener('change', (e) => {
+      if (e.target.value === '__NEW_GRUPO__') {
+        grupoSelect.value = '';
+        showCustomPromptModal('Añadir Nuevo Grupo', '', (newGrupo) => {
+          if (newGrupo && newGrupo.trim()) {
+            const trimmed = newGrupo.trim();
+            if (!state.customGrupos) state.customGrupos = ['Único', '1', '2', '3', '4', '5', 'XV'];
+            if (!state.customGrupos.includes(trimmed)) {
+              state.customGrupos.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            grupoSelect.insertBefore(opt, grupoSelect.lastElementChild);
+            grupoSelect.value = trimmed;
+          }
+        });
+      }
+    });
+
+    const grupoSelect2 = document.getElementById('tfGrupo2');
+    grupoSelect2?.addEventListener('change', (e) => {
+      if (e.target.value === '__NEW_GRUPO__') {
+        grupoSelect2.value = '';
+        showCustomPromptModal('Añadir Nuevo Grupo Secundario', '', (newGrupo) => {
+          if (newGrupo && newGrupo.trim()) {
+            const trimmed = newGrupo.trim();
+            if (!state.customGrupos) state.customGrupos = ['Único', '1', '2', '3', '4', '5', 'XV'];
+            if (!state.customGrupos.includes(trimmed)) {
+              state.customGrupos.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            grupoSelect2.insertBefore(opt, grupoSelect2.lastElementChild);
+            grupoSelect2.value = trimmed;
           }
         });
       }
@@ -18127,6 +18243,7 @@
 
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Competición:</strong> ${escapeHtml(eq.competicion || 'N/A')}</div>
+                  ${eq.competicion2 ? `<div><strong>Competición 2:</strong> ${escapeHtml(eq.competicion2)} ${eq.grupo2 ? `(Grupo: ${escapeHtml(eq.grupo2)})` : ''}</div>` : ''}
                   <div style="font-weight: 800; color: var(--text-main);">Media de Edad: ${(() => {
               let totalAge = 0; let countAge = 0;
               const currentYear = new Date().getFullYear();
@@ -23120,10 +23237,12 @@
           </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Grupo (Opcional)</label>
-            <select id="importGrupo" class="form-control" style="font-size: 13px; font-weight: 700;">
+            <select id="importGrupo" class="form-control mb-1" style="font-size: 13px; font-weight: 700;">
               <option value="">-- Sin Grupo --</option>
               ${groupOptions}
+              <option value="__custom__" style="font-weight: bold; color: var(--primary-blue);">+ Añadir nuevo grupo...</option>
             </select>
+            <input type="text" id="importGrupoCustom" class="form-control hidden" placeholder="Ej: Copa G1" style="font-size: 13px; font-weight: 700;">
           </div>
         </div>
 
@@ -23147,7 +23266,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       let compName = selValue === '__custom__' ? customValue : selValue;
 
       const fedValue = document.getElementById('importFederacion')?.value.trim() || '';
-      const grpValue = document.getElementById('importGrupo')?.value.trim() || '';
+      
+      const grpSelValue = document.getElementById('importGrupo')?.value;
+      const grpCustomValue = document.getElementById('importGrupoCustom')?.value.trim();
+      let grpValue = grpSelValue === '__custom__' ? grpCustomValue : (grpSelValue || '');
+      
       const tempValue = document.getElementById('importTemporada')?.value.trim() || '';
 
       if (!compName) {
@@ -23181,6 +23304,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           compCust.focus();
         } else {
           compCust.classList.add('hidden');
+        }
+      };
+    }
+
+    const grpSel = document.getElementById('importGrupo');
+    const grpCust = document.getElementById('importGrupoCustom');
+    if (grpSel && grpCust) {
+      grpSel.onchange = () => {
+        if (grpSel.value === '__custom__') {
+          grpCust.classList.remove('hidden');
+          grpCust.focus();
+        } else {
+          grpCust.classList.add('hidden');
         }
       };
     }
