@@ -5950,7 +5950,7 @@
           r: {
             angleLines: { display: true },
             suggestedMin: 0,
-            suggestedMax: 5,
+            suggestedMax: 10,
             ticks: {
               stepSize: 1
             }
@@ -6001,23 +6001,25 @@
 
     if (teamName) {
       const pTeamLower = teamName.toLowerCase().trim();
+      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const pTeamNorm = normStr(teamName);
 
       // 1. Try exact match
       teamObj = (state.directory.equipos || []).find(eq => {
         const eqName = (eq.nombre || '').toLowerCase().trim();
         const eqAlt = (eq.equipo || '').toLowerCase().trim();
-        return eqName === pTeamLower || eqAlt === pTeamLower;
+        return eqName === pTeamLower || eqAlt === pTeamLower || normStr(eq.nombre) === pTeamNorm || normStr(eq.equipo) === pTeamNorm;
       });
 
-      // 2. Try partial match (e.g., "C.D. Oberena DHJ" contains "C.D. Oberena")
+      // 2. Try partial match
       if (!teamObj) {
         const partialMatches = (state.directory.equipos || []).filter(eq => {
-          const eqName = (eq.nombre || '').toLowerCase().trim();
-          return eqName && eqName.length > 3 && pTeamLower.includes(eqName);
+          const eqName = normStr(eq.nombre);
+          return eqName && eqName.length > 3 && pTeamNorm.includes(eqName);
         });
         if (partialMatches.length > 0) {
           // Get the most specific (longest) match
-          teamObj = partialMatches.sort((a, b) => b.nombre.length - a.nombre.length)[0];
+          teamObj = partialMatches.sort((a, b) => normStr(b.nombre).length - normStr(a.nombre).length)[0];
         }
       }
 
@@ -6029,6 +6031,42 @@
         }
         teamLinkClass = 'team-ficha-link';
         teamNameDisplay = `<span style="text-decoration: underline; cursor: pointer;">${escapeHtml(teamObj.nombre)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
+      }
+    }
+
+    // Find Selección info for Shield and Link
+    let seleccionName = player.seleccion;
+    let seleccionObj = null;
+    let seleccionShieldHTML = '<i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;"></i>';
+    let seleccionLinkClass = '';
+    let seleccionNameDisplay = escapeHtml(seleccionName || '');
+
+    if (seleccionName) {
+      const pSelLower = seleccionName.toLowerCase().trim();
+      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const pSelNorm = normStr(seleccionName);
+
+      seleccionObj = (state.directory.selecciones || []).find(sel => {
+        return (sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || (sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
+      });
+
+      if (!seleccionObj) {
+        const partialMatches = (state.directory.selecciones || []).filter(sel => {
+          const selName = normStr(sel.nombre || sel.seleccion);
+          return selName && selName.length > 3 && pSelNorm.includes(selName);
+        });
+        if (partialMatches.length > 0) {
+          seleccionObj = partialMatches.sort((a, b) => normStr(b.nombre || b.seleccion).length - normStr(a.nombre || a.seleccion).length)[0];
+        }
+      }
+
+      if (seleccionObj) {
+        const shieldSrc = seleccionObj.escudo || seleccionObj.logo;
+        if (shieldSrc) {
+          seleccionShieldHTML = `<img src="${shieldSrc}" alt="Escudo Selección" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+        }
+        seleccionLinkClass = 'seleccion-ficha-link';
+        seleccionNameDisplay = `<span style="text-decoration: underline; cursor: pointer;">${escapeHtml(seleccionObj.nombre || seleccionObj.seleccion)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
       }
     }
 
@@ -6155,13 +6193,14 @@
 
     // FINAL FALLBACK: Check if the player's team name contains any known club name
     if (themeColor === 'var(--primary-blue)' && teamName) {
-      const pTeamLower = teamName.toLowerCase().trim();
+      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const pTeamNorm = normStr(teamName);
       const partialClubs = (state.directory.clubes || []).filter(c => {
-        const cName = (c.nombre || '').toLowerCase().trim();
-        return cName && cName.length > 3 && pTeamLower.includes(cName);
+        const cName = normStr(c.nombre);
+        return cName && cName.length > 3 && pTeamNorm.includes(cName);
       });
       if (partialClubs.length > 0) {
-        const bestClub = partialClubs.sort((a, b) => b.nombre.length - a.nombre.length)[0];
+        const bestClub = partialClubs.sort((a, b) => normStr(b.nombre).length - normStr(a.nombre).length)[0];
         if (bestClub && bestClub.colorPrimary) {
           themeColor = bestClub.colorPrimary;
           // If we didn't have a team shield earlier, we can borrow the club's shield
@@ -6184,7 +6223,7 @@
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--ficha-theme); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
-                  ${player.seleccion ? ` &nbsp;|&nbsp; <i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;"></i> ${escapeHtml(player.seleccion)}` : ''}
+                  ${player.seleccion ? ` &nbsp;|&nbsp; ${seleccionShieldHTML} <span class="${seleccionLinkClass}" data-selid="${seleccionObj ? seleccionObj.id : ''}">${seleccionNameDisplay}</span>` : ''}
                   ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--ficha-theme);">${escapeHtml(player.dorsal)}</strong>` : ''}
                 </div>
               </div>
@@ -6292,6 +6331,14 @@
       teamLinkEl.onclick = () => {
         document.getElementById('modalJugadorFicha').classList.add('hidden');
         openTeamModal(teamLinkEl.dataset.teamid);
+      };
+    }
+    
+    const seleccionLinkEl = document.querySelector('.seleccion-ficha-link');
+    if (seleccionLinkEl) {
+      seleccionLinkEl.onclick = () => {
+        document.getElementById('modalJugadorFicha').classList.add('hidden');
+        openSeleccionFichaReadOnly(seleccionLinkEl.dataset.selid);
       };
     }
   }
@@ -6889,31 +6936,31 @@
                   <label class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Emocional</span> <span id="valAtrEmocional" style="font-weight: 700; color: var(--primary-blue);">${player.atrEmocional || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="5" value="${player.atrEmocional || 3}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="10" value="${player.atrEmocional || 3}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Físico</span> <span id="valAtrFisico" style="font-weight: 700; color: var(--primary-blue);">${player.atrFisico || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="5" value="${player.atrFisico || 3}" oninput="document.getElementById('valAtrFisico').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="10" value="${player.atrFisico || 3}" oninput="document.getElementById('valAtrFisico').textContent=this.value; updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Acciones Defensivas</span> <span id="valAtrDefensa" style="font-weight: 700; color: var(--primary-blue);">${player.atrDefensa || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="5" value="${player.atrDefensa || 3}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="10" value="${player.atrDefensa || 3}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Acciones Ofensivas</span> <span id="valAtrAtaque" style="font-weight: 700; color: var(--primary-blue);">${player.atrAtaque || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="5" value="${player.atrAtaque || 3}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="10" value="${player.atrAtaque || 3}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
                     <span>Capacidad Puesto Específico</span> <span id="valAtrPuesto" style="font-weight: 700; color: var(--primary-blue);">${player.atrPuesto || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="5" value="${player.atrPuesto || 3}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="10" value="${player.atrPuesto || 3}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; updatePlayerAtributosChart();">
                 </div>
               </div>
               
@@ -20549,6 +20596,8 @@
     let positions = new Set();
     let valoraciones = [];
     let appearances = 0;
+    let allPositivas = [];
+    let allNegativas = [];
 
     (state.reports || []).forEach(rep => {
       let playedInThisMatch = false;
@@ -20591,6 +20640,8 @@
 
         playerEntries.forEach(e => {
           if (e.pos) positions.add(e.pos);
+          if (e.accionesPositivas && Array.isArray(e.accionesPositivas)) allPositivas.push(...e.accionesPositivas);
+          if (e.accionesNegativas && Array.isArray(e.accionesNegativas)) allNegativas.push(...e.accionesNegativas);
         });
       }
 
@@ -20601,12 +20652,23 @@
 
     valoraciones.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
+    const getTopItems = (arr, n) => {
+      const counts = {};
+      arr.forEach(item => { counts[item] = (counts[item] || 0) + 1; });
+      return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
+    };
+
+    const fortalezas = getTopItems(allPositivas, 2).join(', ') || '-';
+    const debilidades = getTopItems(allNegativas, 2).join(', ') || '-';
+
     return {
       ...player,
       appearances,
       avgNota,
       positions: Array.from(positions),
-      valoraciones
+      valoraciones,
+      fortalezas,
+      debilidades
     };
   }
 
@@ -20688,7 +20750,10 @@
                   </div>
                   <div>
                     <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main, #1e293b);">${escapeHtml(stats.nombre)}</h2>
-                    <div style="color: var(--text-muted, #64748b); font-size: 14px; font-weight: 600;">${escapeHtml(stats.equipo || 'Sin Equipo')}</div>
+                    <div style="color: var(--text-muted, #64748b); font-size: 14px; font-weight: 600;">
+                      ${escapeHtml(stats.equipo || 'Sin Equipo')}
+                      ${stats.seleccion ? ` &nbsp;|&nbsp; 🏳️ ${escapeHtml(stats.seleccion)}` : ''}
+                    </div>
                   </div>
                </div>
 
@@ -20698,16 +20763,16 @@
                     <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.posicion || '-')}</div>
                   </div>
                   <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Posición Secundaria</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.posicionSecundaria || '-')}</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Lateralidad</div>
+                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.lateralidad || '-')}</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Año / Edad</div>
                     <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${escapeHtml(stats.ano || '-')}</div>
-                  </div>
-                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
-                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Altura</div>
-                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${stats.altura ? escapeHtml(stats.altura) + ' cm' : '-'}</div>
-                  </div>
-                  <div style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md);">
-                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Peso</div>
-                    <div style="font-size: 14px; font-weight: 800; color: var(--text-main);">${stats.peso ? escapeHtml(stats.peso) + ' kg' : '-'}</div>
                   </div>
                </div>
                
@@ -20730,6 +20795,14 @@
                  </div>
                </div>
                
+               <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase;">Fortalezas y Debilidades (Informes)</h4>
+                 <div style="display: flex; flex-direction: column; gap: 8px;">
+                   <div><span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">FORTALEZAS:</span> <span style="font-size: 13px; font-weight: 600; color: var(--status-success);">${escapeHtml(stats.fortalezas)}</span></div>
+                   <div><span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">DEBILIDADES:</span> <span style="font-size: 13px; font-weight: 600; color: var(--status-danger, #ef4444);">${escapeHtml(stats.debilidades)}</span></div>
+                 </div>
+               </div>
+
                <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-light);">
                  <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase;">Gráfico de Atributos</h4>
                  <div style="position: relative; width: 100%; height: 250px;">
@@ -20802,6 +20875,12 @@
       const selectedPlayers = comparativaState.multiplePlayerIds.map(id => calculatePlayerStats(id));
       const activePlayers = selectedPlayers.filter(p => p !== null);
 
+      const multiColorsBorder = [
+        'rgba(59, 130, 246, 1)', // Blue
+        'rgba(16, 185, 129, 1)', // Green
+        'rgba(249, 115, 22, 1)'  // Orange
+      ];
+
       if (activePlayers.length > 0) {
 
         const renderRow = (label, propFn) => {
@@ -20809,7 +20888,8 @@
             <div style="width: 140px; font-weight: 800; color: var(--text-muted); font-size: 12px; display: flex; align-items: center;">${label}</div>`;
           for (let i = 0; i < maxSlots; i++) {
             const p = selectedPlayers[i];
-            row += `<div style="flex: 1; text-align: center; font-weight: ${label === 'Jugador' ? '800' : '600'}; color: var(--text-main); font-size: 14px; display: flex; align-items: center; justify-content: center;">`;
+            const textColor = label === 'Jugador' ? multiColorsBorder[i] : 'var(--text-main)';
+            row += `<div style="flex: 1; text-align: center; font-weight: ${label === 'Jugador' ? '800' : '600'}; color: ${textColor}; font-size: 14px; display: flex; align-items: center; justify-content: center;">`;
             if (p) {
               row += propFn(p);
             } else {
@@ -20821,7 +20901,7 @@
           return row;
         };
 
-        const renderBarRow = (label, propName, maxVal, color) => {
+        const renderBarRow = (label, propName, maxVal, baseColor) => {
           let row = `<div style="display: flex; border-bottom: 1px solid var(--border-light); padding: 16px 0; align-items: center;">
             <div style="width: 140px; font-weight: 800; color: var(--text-muted); font-size: 12px;">${label}</div>`;
           for (let i = 0; i < maxSlots; i++) {
@@ -20833,11 +20913,13 @@
 
               let pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
               if (pct > 100) pct = 100;
+              
+              const barColor = multiColorsBorder[i];
 
               row += `
                  <div style="font-size: 18px; font-weight: 900; color: var(--text-dark);">${p[propName] || 0}</div>
                  <div style="width: 80%; height: 8px; background: var(--bg-subtle, #f8fafc); border-radius: 4px; overflow: hidden; position: relative;">
-                   <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${pct}%; background: ${color}; border-radius: 4px; transition: width 0.5s ease-out;"></div>
+                   <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${pct}%; background: ${barColor}; border-radius: 4px; transition: width 0.5s ease-out;"></div>
                  </div>
                `;
             } else {
@@ -20853,15 +20935,18 @@
           <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px; overflow-x: auto;">
              <div style="min-width: 600px;">
                 ${renderRow('Jugador', p => escapeHtml(p.nombre))}
-                ${renderRow('Equipo', p => escapeHtml(p.equipo || 'Sin Equipo'))}
+                ${renderRow('Equipo', p => `${escapeHtml(p.equipo || 'Sin Equipo')}${p.seleccion ? ` &nbsp;|&nbsp; 🏳️ ${escapeHtml(p.seleccion)}` : ''}`)}
                 ${renderRow('Año', p => escapeHtml(p.ano || '-'))}
-                ${renderRow('Altura / Peso', p => `${p.altura ? escapeHtml(p.altura) + 'cm' : '-'} / ${p.peso ? escapeHtml(p.peso) + 'kg' : '-'}`)}
                 ${renderRow('Posición Principal', p => escapeHtml(p.posicion || '-'))}
+                ${renderRow('Posición Secundaria', p => escapeHtml(p.posicionSecundaria || '-'))}
+                ${renderRow('Lateralidad', p => escapeHtml(p.lateralidad || '-'))}
                 ${renderRow('Posiciones Vistas', p => p.positions.length > 0 ? p.positions.map(pos => escapeHtml(pos)).join(', ') : '-')}
                 
                 <h4 style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase;">Métricas de Rendimiento</h4>
                 ${renderBarRow('Nota Media', 'avgNota', 10, 'var(--primary-blue)')}
                 ${renderBarRow('Partidos Analizados', 'appearances', Math.max(...activePlayers.map(p => p.appearances || 0), 5), 'var(--status-success)')}
+                ${renderRow('Fortalezas (Top)', p => p.fortalezas !== '-' ? `<span style="color:var(--status-success); font-size:12px;">${escapeHtml(p.fortalezas)}</span>` : '-')}
+                ${renderRow('Debilidades (Top)', p => p.debilidades !== '-' ? `<span style="color:var(--status-danger, #ef4444); font-size:12px;">${escapeHtml(p.debilidades)}</span>` : '-')}
              </div>
           </div>
           
@@ -20956,7 +21041,7 @@
             r: {
               angleLines: { display: true },
               suggestedMin: 0,
-              suggestedMax: 5,
+              suggestedMax: 10,
               ticks: { stepSize: 1 }
             }
           },
@@ -20975,13 +21060,16 @@
       if (activePlayers.length === 0) return;
 
       const colors = [
-        { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 1)' }, // Blue
-        { bg: 'rgba(16, 185, 129, 0.2)', border: 'rgba(16, 185, 129, 1)' }, // Green
-        { bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 1)' }    // Red
+        { bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 1)' }, // Blue
+        { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 1)' }, // Green
+        { bg: 'rgba(249, 115, 22, 0.1)', border: 'rgba(249, 115, 22, 1)' }  // Orange
       ];
 
-      const datasets = activePlayers.map((p, index) => {
-        return {
+      // To map correctly when some slots are empty, we assign color based on their original slot index
+      const datasets = [];
+      selectedPlayers.forEach((p, index) => {
+        if (!p) return;
+        datasets.push({
           label: p.nombre,
           data: [
             p.atrEmocional || 3,
@@ -20990,14 +21078,14 @@
             p.atrAtaque || 3,
             p.atrPuesto || 3
           ],
-          backgroundColor: colors[index % colors.length].bg,
-          borderColor: colors[index % colors.length].border,
-          pointBackgroundColor: colors[index % colors.length].border,
+          backgroundColor: colors[index].bg,
+          borderColor: colors[index].border,
+          pointBackgroundColor: colors[index].border,
           pointBorderColor: '#fff',
           pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: colors[index % colors.length].border,
+          pointHoverBorderColor: colors[index].border,
           borderWidth: 2
-        };
+        });
       });
 
       comparativaMultiChartInstance = new Chart(ctx, {
@@ -21013,7 +21101,7 @@
             r: {
               angleLines: { display: true },
               suggestedMin: 0,
-              suggestedMax: 5,
+              suggestedMax: 10,
               ticks: { stepSize: 1 }
             }
           },
@@ -21033,6 +21121,22 @@
     if (!container) return;
 
     const clone = container.cloneNode(true);
+
+    // Convert canvas elements to images so they print correctly
+    const originalCanvases = container.querySelectorAll('canvas');
+    const clonedCanvases = clone.querySelectorAll('canvas');
+    originalCanvases.forEach((canvas, index) => {
+      const img = document.createElement('img');
+      img.src = canvas.toDataURL('image/png');
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      
+      // Preserve dimensions for the image to prevent scaling issues
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width) img.style.width = rect.width + 'px';
+      
+      clonedCanvases[index].parentNode.replaceChild(img, clonedCanvases[index]);
+    });
 
     clone.querySelectorAll('select').forEach(sel => {
       const selectedText = sel.options[sel.selectedIndex]?.text || '';
@@ -21061,6 +21165,7 @@
               --primary-blue: #2563eb;
               --primary-dark: #1e3a8a;
               --status-success: #10b981;
+              --status-danger: #ef4444;
               --text-main: #1e293b;
               --text-muted: #64748b;
               --bg-card: #ffffff;
@@ -25352,6 +25457,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
         tableRows += `
           <tr style="border-bottom: 1px solid var(--border-light); font-size: 13px;">
+            <td style="padding: 12px 8px; text-align: center;">
+              <input type="checkbox" class="mapas-player-checkbox" value="${p.id}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary-blue);">
+            </td>
             <td style="padding: 12px 8px;">
               <a href="#" class="mapas-table-link" data-playerid="${p.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none;">${nameEscaped}</a>
             </td>
@@ -25365,9 +25473,34 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
 
       if (!tableRows) {
-        tableRows = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores marcados como ${escapeHtml(activeMapTag)} para estos filtros.</td></tr>`;
+        tableRows = `<tr><td colspan="7" style="padding: 24px; text-align: center; color: var(--text-muted); font-style: italic;">No hay jugadores marcados como ${escapeHtml(activeMapTag)} para estos filtros.</td></tr>`;
       }
       tableBody.innerHTML = tableRows;
+
+      const btnComparador = document.getElementById('btnMapasToComparador');
+      const updateComparadorBtn = () => {
+        const checked = tableBody.querySelectorAll('.mapas-player-checkbox:checked');
+        if (btnComparador) {
+          btnComparador.style.display = checked.length > 0 ? 'block' : 'none';
+          btnComparador.innerHTML = `Ir al Comparador (${checked.length}) <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i>`;
+          if (window.lucide) window.lucide.createIcons();
+        }
+        
+        // Disable remaining checkboxes if 3 are checked
+        const allBoxes = tableBody.querySelectorAll('.mapas-player-checkbox');
+        if (checked.length >= 3) {
+          allBoxes.forEach(cb => {
+            if (!cb.checked) cb.disabled = true;
+          });
+        } else {
+          allBoxes.forEach(cb => cb.disabled = false);
+        }
+      };
+
+      tableBody.querySelectorAll('.mapas-player-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateComparadorBtn);
+      });
+      updateComparadorBtn(); // Initialize state
 
       tableBody.querySelectorAll('.mapas-table-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -25427,6 +25560,34 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
     });
   }
+
+  window.goToComparadorFromMapas = function() {
+    const tableBody = document.getElementById('mapasPlayersTbody');
+    if (!tableBody) return;
+    
+    const checked = Array.from(tableBody.querySelectorAll('.mapas-player-checkbox:checked'));
+    if (checked.length === 0) return;
+    
+    // Set Comparador state
+    comparativaState.mode = 'multiple';
+    comparativaState.multiplePlayerIds = ['', '', ''];
+    
+    checked.forEach((cb, i) => {
+      if (i < 3) {
+        comparativaState.multiplePlayerIds[i] = cb.value;
+      }
+    });
+    
+    // Trigger navigation
+    const compTab = document.querySelector('.nav-tab[data-tab="comparativa"]');
+    if (compTab) compTab.click();
+    
+    // Ensure the multiple tab is active in the Comparador
+    setTimeout(() => {
+      const multiBtn = document.querySelector('.nav-tab[data-comptab="multiple"]');
+      if (multiBtn) multiBtn.click();
+    }, 50);
+  };
 
   function exportarMapasPDF() {
     const selCat = document.getElementById('selMapasCategoria')?.value || 'Todas las categorías';

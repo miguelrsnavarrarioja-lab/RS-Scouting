@@ -59,7 +59,7 @@
         </button>
         <button class="nav-tab" data-tab="comparativa">
           <i data-lucide="bar-chart-2"></i>
-          <span>Comparativa</span>
+          <span>Comparador</span>
         </button>
         <button class="nav-tab" data-tab="mapas">
           <i data-lucide="layout-dashboard"></i>
@@ -1202,8 +1202,8 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
     <!-- ==================== COMPARATIVA VIEW ==================== -->
     <section class="tab-view" id="view-comparativa">
       <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="bar-chart-2"></i> Análisis y Comparativa
+        <h1 class="page-title" id="comparativaTitle">
+          <i data-lucide="bar-chart-2"></i> Comparador
         </h1>
         <button class="btn btn-secondary" id="btnExportComparativaPDF" title="Exportar vista actual a PDF">
           <i data-lucide="printer"></i> Exportar PDF
@@ -1215,7 +1215,7 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
           <i data-lucide="user"></i> Análisis Individual
         </button>
         <button class="btn btn-secondary comp-mode-tab" data-mode="multiple" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
-          <i data-lucide="users"></i> Comparativa Múltiple (Hasta 3)
+          <i data-lucide="users"></i> Comparador Jugadores
         </button>
       </div>
 
@@ -1266,10 +1266,14 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start;" id="mapasExportContainer">
         
         <div style="grid-column: span 1; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
-           <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 16px;">Jugadores en el 11 Ideal</h3>
+           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+             <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 0;">Jugadores en el 11 Ideal</h3>
+             <button id="btnMapasToComparador" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; display: none;" onclick="goToComparadorFromMapas()">Ir al Comparador <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i></button>
+           </div>
            <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
              <thead>
                <tr style="border-bottom: 2px solid var(--border-light); color: var(--text-muted); font-size: 12px;">
+                 <th style="padding: 12px 8px; width: 30px;"></th>
                  <th style="padding: 12px 8px;">NOMBRE COMPLETO</th>
                  <th style="padding: 12px 8px;">AÑO</th>
                  <th style="padding: 12px 8px;">EQUIPO</th>
