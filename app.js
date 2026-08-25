@@ -2246,9 +2246,25 @@
   let currentEditingReportId = null;
   let timerInterval = null;
   let timerSeconds = 0;
+  const _d = new Date();
+  const _dayOfWeek = _d.getDay() === 0 ? 6 : _d.getDay() - 1;
+  const _monday = new Date(_d);
+  _monday.setDate(_d.getDate() - _dayOfWeek);
+  const _sunday = new Date(_monday);
+  _sunday.setDate(_monday.getDate() + 6);
+  const _m1 = _monday.getMonth();
+  const _m2 = _sunday.getMonth();
+  const _fullMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  let currentWeekLabel = '';
+  if (_m1 === _m2) {
+    currentWeekLabel = `Semana del ${_monday.getDate()} al ${_sunday.getDate()} de ${_fullMonthNames[_m1]}`;
+  } else {
+    currentWeekLabel = `Semana del ${_monday.getDate()} de ${_fullMonthNames[_m1]} al ${_sunday.getDate()} de ${_fullMonthNames[_m2]}`;
+  }
+
   let currentPartidosCategoryTab = 'all';
   let currentPartidosMonthTab = 'all';
-  let currentPartidosWeekTab = 'all';
+  let currentPartidosWeekTab = currentWeekLabel;
   let currentPartidosDayTab = 'all';
   let currentPartidosStatusTab = 'all';
 
@@ -2305,6 +2321,11 @@
       }
     });
 
+    if (weekMap[currentWeekLabel] === undefined) {
+      weekMap[currentWeekLabel] = 0;
+      weekSortMap[currentWeekLabel] = _monday.getTime();
+    }
+
     const categories = Object.keys(catMap).sort();
     const months = Object.keys(monthMap).sort((a, b) => b.localeCompare(a)); // Descending order
     const weeks = Object.keys(weekMap).sort((a, b) => weekSortMap[b] - weekSortMap[a]); // Descending order
@@ -2318,148 +2339,102 @@
     });
 
     let html = `
-      <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-bottom: 1px dashed var(--border-light); padding-bottom: 8px;">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="file-check-2" style="width: 14px;"></i> Estado:
-          </span>
-          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'all' ? 'active' : ''}" data-partidosstatus="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            TODOS (${reports.length})
-          </button>
-          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'incompleto' ? 'active' : ''}" data-partidosstatus="incompleto" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'incompleto' ? 'var(--alert-red, #ef4444)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'incompleto' ? 'var(--alert-red, #ef4444)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'incompleto' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            SIN COMPLETAR (${countIncompleto})
-          </button>
-          <button type="button" class="player-subtab status-subtab ${currentPartidosStatusTab === 'completado' ? 'active' : ''}" data-partidosstatus="completado" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosStatusTab === 'completado' ? 'var(--success-green, #22c55e)' : 'var(--border-light)'}; background: ${currentPartidosStatusTab === 'completado' ? 'var(--success-green, #22c55e)' : '#ffffff'}; color: ${currentPartidosStatusTab === 'completado' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            COMPLETADOS (${countCompletado})
-          </button>
-        </div>
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="trophy" style="width: 14px;"></i> Competición:
-          </span>
-          <button type="button" class="player-subtab cat-subtab ${currentPartidosCategoryTab === 'all' ? 'active' : ''}" data-partidoscat="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosCategoryTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosCategoryTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            TODOS (${reports.length})
-          </button>
-    `;
-
-    categories.forEach(cat => {
-      const count = catMap[cat];
-      const isActive = currentPartidosCategoryTab === cat;
-      html += `
-          <button type="button" class="player-subtab cat-subtab ${isActive ? 'active' : ''}" data-partidoscat="${escapeHtml(cat)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            ${escapeHtml(cat).toUpperCase()} (${count})
-          </button>
-      `;
-    });
-
-    html += `
-        </div>
+      <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 12px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
         
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="calendar" style="width: 14px;"></i> Mes:
-          </span>
-          <button type="button" class="player-subtab month-subtab ${currentPartidosMonthTab === 'all' ? 'active' : ''}" data-partidosmonth="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosMonthTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosMonthTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosMonthTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            TODOS
-          </button>
-    `;
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="file-check-2" style="width: 14px;"></i> Estado:
+            </span>
+            <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosStatusTab === 'all' ? 'selected' : ''}>TODOS (${reports.length})</option>
+              <option value="incompleto" ${currentPartidosStatusTab === 'incompleto' ? 'selected' : ''}>SIN COMPLETAR (${countIncompleto})</option>
+              <option value="completado" ${currentPartidosStatusTab === 'completado' ? 'selected' : ''}>COMPLETADOS (${countCompletado})</option>
+            </select>
+          </div>
 
-    months.forEach(monthKey => {
-      const count = monthMap[monthKey];
-      const isActive = currentPartidosMonthTab === monthKey;
-      const [y, m] = monthKey.split('-');
-      const monthLabel = `${monthNames[parseInt(m) - 1]} ${y}`;
-      html += `
-          <button type="button" class="player-subtab month-subtab ${isActive ? 'active' : ''}" data-partidosmonth="${monthKey}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            ${monthLabel} (${count})
-          </button>
-      `;
-    });
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="trophy" style="width: 14px;"></i> Competición:
+            </span>
+            <select id="partidosCatSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
+              ${categories.map(cat => {
+                const count = catMap[cat];
+                return `<option value="${escapeHtml(cat)}" ${currentPartidosCategoryTab === cat ? 'selected' : ''}>${escapeHtml(cat).toUpperCase()} (${count})</option>`;
+              }).join('')}
+            </select>
+          </div>
 
-    html += `
-        </div>
-        
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="calendar-days" style="width: 14px;"></i> Semana:
-          </span>
-          <button type="button" class="player-subtab week-subtab ${currentPartidosWeekTab === 'all' ? 'active' : ''}" data-partidosweek="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosWeekTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosWeekTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosWeekTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            TODAS
-          </button>
-    `;
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="calendar" style="width: 14px;"></i> Mes:
+            </span>
+            <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosMonthTab === 'all' ? 'selected' : ''}>TODOS</option>
+              ${months.map(monthKey => {
+                const count = monthMap[monthKey];
+                const [y, m] = monthKey.split('-');
+                const monthLabel = `${monthNames[parseInt(m) - 1]} ${y}`;
+                return `<option value="${monthKey}" ${currentPartidosMonthTab === monthKey ? 'selected' : ''}>${monthLabel} (${count})</option>`;
+              }).join('')}
+            </select>
+          </div>
 
-    weeks.forEach(weekKey => {
-      const count = weekMap[weekKey];
-      const isActive = currentPartidosWeekTab === weekKey;
-      html += `
-          <button type="button" class="player-subtab week-subtab ${isActive ? 'active' : ''}" data-partidosweek="${escapeHtml(weekKey)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            ${escapeHtml(weekKey)} (${count})
-          </button>
-      `;
-    });
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="calendar-days" style="width: 14px;"></i> Semana:
+            </span>
+            <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
+              ${weeks.map(weekKey => {
+                const count = weekMap[weekKey];
+                return `<option value="${escapeHtml(weekKey)}" ${currentPartidosWeekTab === weekKey ? 'selected' : ''}>${escapeHtml(weekKey)} (${count})</option>`;
+              }).join('')}
+            </select>
+          </div>
 
-    html += `
-        </div>
-
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
-          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="clock" style="width: 14px;"></i> Día:
-          </span>
-          <button type="button" class="player-subtab day-subtab ${currentPartidosDayTab === 'all' ? 'active' : ''}" data-partidosday="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosDayTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosDayTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosDayTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            TODOS
-          </button>
-    `;
-
-    days.forEach(dayKey => {
-      const count = dayMap[dayKey];
-      const isActive = currentPartidosDayTab === dayKey;
-      html += `
-          <button type="button" class="player-subtab day-subtab ${isActive ? 'active' : ''}" data-partidosday="${escapeHtml(dayKey)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
-            ${escapeHtml(dayKey)} (${count})
-          </button>
-      `;
-    });
-
-    html += `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="clock" style="width: 14px;"></i> Día:
+            </span>
+            <select id="partidosDaySelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
+              ${days.map(dayKey => {
+                const count = dayMap[dayKey];
+                return `<option value="${escapeHtml(dayKey)}" ${currentPartidosDayTab === dayKey ? 'selected' : ''}>${escapeHtml(dayKey)} (${count})</option>`;
+              }).join('')}
+            </select>
+          </div>
         </div>
       </div>
     `;
 
     container.innerHTML = html;
 
-    container.querySelectorAll('.status-subtab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentPartidosStatusTab = tab.dataset.partidosstatus || 'all';
-        renderPartidosList();
-      });
+    document.getElementById('partidosStatusSelect')?.addEventListener('change', (e) => {
+      currentPartidosStatusTab = e.target.value;
+      renderPartidosList();
     });
 
-    container.querySelectorAll('.cat-subtab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentPartidosCategoryTab = tab.dataset.partidoscat || 'all';
-        renderPartidosList();
-      });
+    document.getElementById('partidosCatSelect')?.addEventListener('change', (e) => {
+      currentPartidosCategoryTab = e.target.value;
+      renderPartidosList();
     });
 
-    container.querySelectorAll('.month-subtab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentPartidosMonthTab = tab.dataset.partidosmonth || 'all';
-        renderPartidosList();
-      });
+    document.getElementById('partidosMonthSelect')?.addEventListener('change', (e) => {
+      currentPartidosMonthTab = e.target.value;
+      renderPartidosList();
     });
 
-    container.querySelectorAll('.week-subtab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentPartidosWeekTab = tab.dataset.partidosweek || 'all';
-        renderPartidosList();
-      });
+    document.getElementById('partidosWeekSelect')?.addEventListener('change', (e) => {
+      currentPartidosWeekTab = e.target.value;
+      renderPartidosList();
     });
 
-    container.querySelectorAll('.day-subtab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        currentPartidosDayTab = tab.dataset.partidosday || 'all';
-        renderPartidosList();
-      });
+    document.getElementById('partidosDaySelect')?.addEventListener('change', (e) => {
+      currentPartidosDayTab = e.target.value;
+      renderPartidosList();
     });
 
     if (window.lucide) window.lucide.createIcons();
