@@ -2854,7 +2854,7 @@ a {
 
 .modal-body {
   padding: 20px;
-  max-height: 75vh;
+  max-height: 85vh;
   overflow-y: auto;
 }
 

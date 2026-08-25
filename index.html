@@ -1122,6 +1122,9 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
               <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios y de Interés
             </h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-primary" id="btnCarteleraDestacadosFinde" style="font-size: 12px; padding: 4px 10px; font-weight: 700;">
+                <i data-lucide="zap" style="width: 13px;"></i> Destacados del Finde
+              </button>
               <button class="btn btn-sm btn-secondary" id="btnAddInterestingTeam" style="font-size: 12px; padding: 4px 10px; border-color: #9333ea; color: #7e22ce;">
                 <i data-lucide="eye" style="width: 13px;"></i> Equipo Jugadores Interesantes
               </button>
@@ -1250,16 +1253,41 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
           <input type="text" id="selMapasEquipo" list="dl_selMapasEquipo" class="form-control" style="font-weight: 600;" placeholder="-- Todos los equipos --">
           <datalist id="dl_selMapasEquipo"></datalist>
         </div>
-        <div id="filterMapasSistema" style="width: 200px;">
-          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
-          <select id="selMapasSistema" class="form-control" style="font-weight: 600;">
-            <option value="1-4-3-3">1-4-3-3</option>
-            <option value="1-4-4-2">1-4-4-2</option>
-            <option value="1-4-2-3-1">1-4-2-3-1</option>
-            <option value="1-3-5-2">1-3-5-2</option>
-            <option value="1-5-3-2">1-5-3-2</option>
-            <option value="1-3-4-3">1-3-4-3</option>
+        <div id="filterMapasSistema" style="display: flex; align-items: flex-end; gap: 8px;">
+          <div style="width: 200px;">
+            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
+            <select id="selMapasSistema" class="form-control" style="font-weight: 600;">
+            <optgroup label="Fútbol 11">
+              <option value="1-4-3-3">1-4-3-3</option>
+              <option value="1-4-4-2">1-4-4-2 (Línea)</option>
+              <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
+              <option value="1-4-2-3-1">1-4-2-3-1</option>
+              <option value="1-4-1-4-1">1-4-1-4-1</option>
+              <option value="1-4-3-2-1">1-4-3-2-1</option>
+              <option value="1-4-3-1-2">1-4-3-1-2</option>
+              <option value="1-4-5-1">1-4-5-1</option>
+              <option value="1-3-5-2">1-3-5-2</option>
+              <option value="1-3-4-3">1-3-4-3</option>
+              <option value="1-3-4-2-1">1-3-4-2-1</option>
+              <option value="1-3-4-1-2">1-3-4-1-2</option>
+              <option value="1-3-3-3-1">1-3-3-3-1</option>
+              <option value="1-5-3-2">1-5-3-2</option>
+              <option value="1-5-4-1">1-5-4-1</option>
+              <option value="1-5-2-3">1-5-2-3</option>
+            </optgroup>
+            <optgroup label="Fútbol 7">
+              <option value="1-3-2-1 (F7)">1-3-2-1 (Fútbol 7)</option>
+              <option value="1-3-1-2 (F7)">1-3-1-2 (Fútbol 7)</option>
+              <option value="1-2-3-1 (F7)">1-2-3-1 (Fútbol 7)</option>
+              <option value="1-2-2-2 (F7)">1-2-2-2 (Fútbol 7)</option>
+              <option value="1-2-1-3 (F7)">1-2-1-3 (Fútbol 7)</option>
+              <option value="1-3-3 (F7)">1-3-3 (Fútbol 7)</option>
+              <option value="1-4-2 (F7)">1-4-2 (Fútbol 7)</option>
+              <option value="1-1-4-1 (F7)">1-1-4-1 (Fútbol 7)</option>
+            </optgroup>
           </select>
+          </div>
+          <button id="btnSaveMapasSistema" class="btn btn-primary" style="height: 38px; padding: 0 12px;" title="Guardar sistema para esta etiqueta"><i data-lucide="save"></i></button>
         </div>
       </div>
 
@@ -1277,7 +1305,8 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
                  <th style="padding: 12px 8px;">NOMBRE COMPLETO</th>
                  <th style="padding: 12px 8px;">AÑO</th>
                  <th style="padding: 12px 8px;">EQUIPO</th>
-                 <th style="padding: 12px 8px;">POSICIÓN</th>
+                 <th style="padding: 12px 8px;">POS.</th>
+                 <th style="padding: 12px 8px;">POS. SEC.</th>
                  <th style="padding: 12px 8px;">PIE</th>
                  <th style="padding: 12px 8px;">NIVEL RS</th>
                </tr>

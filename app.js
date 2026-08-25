@@ -366,6 +366,7 @@
     // Always save config immediately (including seeding flags and deletion tombstones)
     if (!state.deletedTombstones) state.deletedTombstones = {};
     const configToSave = Object.assign({}, state.settings || {}, {
+      mapPreferences: state.mapPreferences || {},
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       customTabOrder: state.customTabOrder || [],
       dirTabOrder: state.dirTabOrder || [],
@@ -618,6 +619,9 @@
           if (Array.isArray(configData.dirTabOrder)) {
             state.dirTabOrder = configData.dirTabOrder;
           }
+          if (configData.mapPreferences && typeof configData.mapPreferences === 'object') {
+            state.mapPreferences = configData.mapPreferences;
+          }
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -688,6 +692,7 @@
           if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) state.favColumns = configData.favColumns;
           if (Array.isArray(configData.customTabOrder)) state.customTabOrder = configData.customTabOrder;
           if (Array.isArray(configData.dirTabOrder)) state.dirTabOrder = configData.dirTabOrder;
+          if (configData.mapPreferences && typeof configData.mapPreferences === 'object') state.mapPreferences = configData.mapPreferences;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -3887,14 +3892,17 @@
   };
 
   function findPlayerByTeamAndDorsal(teamName, dorsalNum) {
-    if (!dorsalNum) return null;
+    if (!dorsalNum || !teamName) return null;
     const dStr = String(dorsalNum).trim();
     if (!dStr) return null;
 
     const jugadores = state.directory.jugadores || [];
-    const teamNameLower = teamName ? teamName.trim().toLowerCase() : '';
-
-    // First search for player belonging to teamName with matching dorsal
+    const teamNameLower = teamName.trim().toLowerCase();
+    
+    // Exact team string matching first, to avoid false positives
+    // If we can't find exact, we'll try fuzzy matching but it can be dangerous if teams share names
+    
+    // Find target team in directory
     const equipos = state.directory.equipos || [];
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamNameLower);
 
@@ -3902,10 +3910,10 @@
       const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
       const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
       
+      if (pDorsal !== dStr) return false;
+
       let matchesTeam = false;
-      if (!teamNameLower) {
-        matchesTeam = true;
-      } else if (pTeam) {
+      if (pTeam) {
         matchesTeam = pTeam === teamNameLower || 
                       (pTeam.length > 2 && (pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam)));
       }
@@ -3917,18 +3925,8 @@
           return itemName === pName;
         });
       }
-      return matchesTeam && pDorsal === dStr;
+      return matchesTeam;
     });
-
-    if (match) return match;
-
-    // Fallback: search for any player with matching dorsal only if team not specified
-    if (!teamNameLower) {
-      match = jugadores.find(p => {
-        const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
-        return pDorsal === dStr;
-      });
-    }
 
     return match || null;
   }
@@ -6172,66 +6170,65 @@
       }
     }
 
-    // Count Partidos Vistos
-    let partidosVistosCount = 0;
-    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
-    if (pNameLower) {
-      (state.reports || []).forEach(rep => {
-        if (rep.status !== 'completado') return;
-        let found = false;
-        const check = (pObj) => { if (pObj && (pObj.name || '').toLowerCase().trim() === pNameLower) found = true; };
-        (rep.localTitulares || []).forEach(check);
-        (rep.localSuplentes || []).forEach(check);
-        (rep.visitanteTitulares || []).forEach(check);
-        (rep.visitanteSuplentes || []).forEach(check);
-        if (found) partidosVistosCount++;
-      });
-    }
-
     // Check Mapas RS
     let inMapas = 'No';
-    if (player.tags && (player.tags.includes('Mapa RS') || player.tags.includes('Alerta RS') || player.tags.includes('Seguimiento Intensivo'))) {
+    if (player.controlSeguimiento && player.controlSeguimiento.length > 0) {
       inMapas = 'Sí';
     }
 
-    // Auto-fill Posiciones from reports for display if empty
+    // Count Partidos Vistos and Auto-fill Posiciones
+    let partidosVistosCount = 0;
+    let posicionesVistas = new Set();
+    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+    
+    if (pNameLower) {
+      (state.reports || []).forEach(rep => {
+        if (!rep.completado) return;
+        
+        let foundInThisReport = false;
+        const checkPlayer = (pObj, teamName) => {
+          if (!pObj) return;
+          const name = (pObj.name || '');
+          if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
+            foundInThisReport = true;
+            if (pObj.pos && pObj.pos !== '-') {
+              posicionesVistas.add(pObj.pos);
+            }
+          }
+        };
+
+        (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+        (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+        (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+        (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+
+        if (foundInThisReport) partidosVistosCount++;
+        
+        if (rep.localSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(role => {
+            if (rep.localSystems[role]) {
+              (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+              (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+            }
+          });
+        }
+        if (rep.visitanteSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(role => {
+            if (rep.visitanteSystems[role]) {
+              (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+              (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+            }
+          });
+        }
+      });
+    }
+
     let displayPosPri = player.posicionPrincipal || player.posicion || '';
     let displayPosSec = player.posicionSecundaria || '';
 
     if (!displayPosPri || !displayPosSec) {
-      let posicionesVistas = new Set();
+      // For active tactical systems in current report
       if (pNameLower) {
-        (state.reports || []).forEach(rep => {
-          const checkPlayer = (pObj, teamName) => {
-            if (pObj && pObj.pos && pObj.pos !== '-') {
-              const name = (pObj.name || '');
-              if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
-                posicionesVistas.add(pObj.pos);
-              }
-            }
-          };
-          (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-          (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-          (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-          (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-
-          if (rep.localSystems) {
-            ['principal', 'secundario', 'ocasional'].forEach(role => {
-              if (rep.localSystems[role]) {
-                (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-                (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-              }
-            });
-          }
-          if (rep.visitanteSystems) {
-            ['principal', 'secundario', 'ocasional'].forEach(role => {
-              if (rep.visitanteSystems[role]) {
-                (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-                (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-              }
-            });
-          }
-        });
 
         if (typeof matchTacticalSystems !== 'undefined') {
           if (typeof saveCurrentTacticalRoleState === 'function') {
@@ -6484,13 +6481,18 @@
     const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
     if (pNameLower) {
       (state.reports || []).forEach(rep => {
+        if (!rep.completado) return;
+        
         const checkPlayer = (pObj, teamName) => {
           if (!pObj) return;
           const name = (pObj.name || '');
-          if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual) && pObj.pos) {
-            posicionesVistas.add(pObj.pos);
+          if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
+            if (pObj.pos && pObj.pos !== '-') {
+              posicionesVistas.add(pObj.pos);
+            }
           }
         };
+
         (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
         (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
         (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
@@ -6516,7 +6518,6 @@
 
       // Also scan unsaved active report UI (matchTacticalSystems)
       if (typeof matchTacticalSystems !== 'undefined') {
-        // Temporarily save DOM state to matchTacticalSystems before reading it
         if (typeof saveCurrentTacticalRoleState === 'function') {
           saveCurrentTacticalRoleState('local');
           saveCurrentTacticalRoleState('visitante');
@@ -7203,7 +7204,9 @@
       p.lesiones = [...localLesiones];
       p.paises = [...localPaises];
       p.trayectoria = [...localTrayectoria];
-      p.controlSeguimiento = typeof controlSeguimiento !== 'undefined' ? controlSeguimiento : (p.controlSeguimiento || []);
+      
+      const selectedTags = Array.from(document.querySelectorAll('#pfControlGroup input[type="checkbox"]:checked')).map(cb => cb.value);
+      p.controlSeguimiento = selectedTags;
 
       if (typeof photoData !== 'undefined') {
         p.foto = photoData;
@@ -7314,9 +7317,10 @@
         container = document.createElement('div');
         container.id = 'matchCommentsModal';
         container.className = 'modal-overlay hidden';
-        container.style.zIndex = '10050'; // Higher than general modal (10020)
+        container.style.zIndex = '999999'; // Force above everything
         document.body.appendChild(container);
       }
+      container.style.zIndex = '999999'; // Ensure it's always high in case it was already created
 
       let commentsHTML = '';
       if (matchComments.length === 0) {
@@ -21931,12 +21935,15 @@
         ${contentHtml}
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-        <button type="button" class="btn btn-secondary" onclick="hideModal()">Cerrar</button>
+        <button type="button" class="btn btn-secondary" id="btnCloseViewTeamsModal">Cerrar</button>
       </div>
     `);
 
     const modalBody = document.querySelector('.modal-body');
     if (modalBody) {
+      const closeBtn = modalBody.querySelector('#btnCloseViewTeamsModal');
+      if (closeBtn) closeBtn.onclick = () => hideModal();
+
       modalBody.querySelectorAll('.btn-remove-team-modal').forEach(btn => {
         btn.onclick = (e) => {
           e.stopPropagation();
@@ -22158,10 +22165,8 @@
 
           const isTeamInList = (teamLower, matchComp, list) => list.some(pt => {
             const parts = pt.split('|||');
-            const ptCat = parts.length > 1 ? parts[0] : 'all';
             const ptTeam = parts.length > 1 ? parts[1] : pt;
-            if (ptCat !== 'all' && String(matchComp).toLowerCase() !== ptCat) return false;
-            return ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
+            return ptTeam === teamLower || ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
           });
 
           const isPriorityLocal = isTeamInList(locLower, comp, priorityTeamsLower);
@@ -22220,10 +22225,34 @@
         });
       }
       // Apply Interest filter
-      if (selectedCarteleraInteres === 'priority') {
+      if (selectedCarteleraInteres === 'priority_teams') {
         allMatches = allMatches.filter(m => m.isPriorityLocal || m.isPriorityVisitante);
       } else if (selectedCarteleraInteres === 'tracked_players') {
         allMatches = allMatches.filter(m => m.isInterestingLocal || m.isInterestingVisitante);
+      }
+
+      if (window.filterCarteleraThisWeekend) {
+        const now = new Date();
+        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; 
+        const friday = new Date(now); 
+        friday.setDate(now.getDate() + (4 - dayOfWeek)); 
+        friday.setHours(0,0,0,0);
+        const sunday = new Date(friday); 
+        sunday.setDate(friday.getDate() + 2); 
+        sunday.setHours(23,59,59,999);
+        
+        allMatches = allMatches.filter(m => {
+          if (!m.fecha) return false;
+          let mDate;
+          if (m.fecha.includes('-')) {
+             mDate = new Date(m.fecha);
+          } else if (m.fecha.includes('/')) {
+             const parts = m.fecha.split('/');
+             if (parts.length === 3 && parts[2].length === 4) mDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+          if (!mDate || isNaN(mDate.getTime())) return false;
+          return mDate >= friday && mDate <= sunday;
+        });
       }
 
       currentCarteleraFilteredMatches = allMatches;
@@ -23216,10 +23245,38 @@
       btnAddInteresting.onclick = () => openAddTeamsModal('interesting');
     }
 
+    const btnDestacadosFinde = document.getElementById('btnCarteleraDestacadosFinde');
+    if (btnDestacadosFinde && !btnDestacadosFinde.dataset.initialized) {
+      btnDestacadosFinde.dataset.initialized = 'true';
+      btnDestacadosFinde.onclick = () => {
+        selectedCarteleraCategoria = 'all';
+        selectedCarteleraFederacion = 'all';
+        selectedCarteleraGrupo = 'all';
+        selectedCarteleraJornada = 'all';
+        selectedCarteleraFecha = 'all';
+        selectedCarteleraEquipo = 'all';
+        selectedCarteleraInteres = 'priority_teams';
+        window.filterCarteleraThisWeekend = true;
+
+        const ids = ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterJornada', 'carteleraFilterFecha', 'carteleraFilterEquipo'];
+        ids.forEach(id => {
+           const el = document.getElementById(id);
+           if (el) el.value = (id === 'carteleraFilterEquipo' ? '' : 'all');
+        });
+        const intEl = document.getElementById('carteleraFilterInteres');
+        if (intEl) intEl.value = 'priority_teams';
+
+        renderCarteleraMatches();
+      };
+    }
+
     const searchInput = document.getElementById('carteleraSearchInput');
     if (searchInput && !searchInput.dataset.initialized) {
       searchInput.dataset.initialized = 'true';
-      searchInput.oninput = () => renderCarteleraMatches();
+      searchInput.oninput = () => {
+        window.filterCarteleraThisWeekend = false;
+        renderCarteleraMatches();
+      };
     }
 
     const bindSelect = (id, setter) => {
@@ -25980,6 +26037,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     bindDatalistEvent(selEquipo, renderMapasPins);
     document.getElementById('selMapasSistema').onchange = renderMapasPins;
+    
+    const btnSaveMapasSistema = document.getElementById('btnSaveMapasSistema');
+    if (btnSaveMapasSistema) {
+      btnSaveMapasSistema.onclick = () => {
+        const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+        const tag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+        if (!state.mapPreferences) state.mapPreferences = {};
+        state.mapPreferences[tag] = document.getElementById('selMapasSistema').value;
+        if (typeof saveState === 'function') saveState();
+        if (typeof showToast === 'function') showToast(`Sistema táctico guardado para ${tag}`, 'success');
+      };
+    }
 
     const btnExport = document.getElementById('btnExportMapasPDF');
     if (btnExport) btnExport.onclick = exportarMapasPDF;
@@ -25991,6 +26060,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         btn.classList.add('active');
 
         const tag = btn.dataset.tag;
+
+        // Recuperar el sistema guardado para esta etiqueta
+        if (state.mapPreferences && state.mapPreferences[tag]) {
+          const sel = document.getElementById('selMapasSistema');
+          if (sel) sel.value = state.mapPreferences[tag];
+        }
 
         // Mostrar/Ocultar el filtro de equipo
         const filterEquipo = document.getElementById('filterMapasEquipo');
@@ -26013,6 +26088,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       };
     });
 
+    const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+    const initTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+    if (state.mapPreferences && state.mapPreferences[initTag]) {
+      const sel = document.getElementById('selMapasSistema');
+      if (sel) sel.value = state.mapPreferences[initTag];
+    }
+    
     renderMapasPins();
   }
 
@@ -26050,24 +26132,44 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     filteredPlayers.forEach(p => {
       const pPrimary = (p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
-      let assigned = false;
+      const pSecondary = (p.posicionSecundaria || p.posicionSec || '').toUpperCase().trim();
+      let primaryAssigned = false;
+      let secondaryAssigned = false;
 
-      // Exact match
+      // Exact match Primary
       defaultPositions.forEach((posCode, idx) => {
-        if (!assigned && posCode.toUpperCase().trim() === pPrimary) {
-          slotMap[idx].push(p);
-          assigned = true;
+        if (!primaryAssigned && posCode.toUpperCase().trim() === pPrimary) {
+          slotMap[idx].push({ player: p, isSecondary: false });
+          primaryAssigned = true;
         }
       });
 
-      // Fuzzy match if not exactly assigned
-      if (!assigned) {
+      // Fuzzy match Primary
+      if (!primaryAssigned) {
         defaultPositions.forEach((posCode, idx) => {
-          if (!assigned && pPrimary && (pPrimary.includes(posCode) || posCode.includes(pPrimary))) {
-            slotMap[idx].push(p);
-            assigned = true;
+          if (!primaryAssigned && pPrimary && (pPrimary.includes(posCode) || posCode.includes(pPrimary))) {
+            slotMap[idx].push({ player: p, isSecondary: false });
+            primaryAssigned = true;
           }
         });
+      }
+      
+      // Secondary position assignment
+      if (pSecondary) {
+        defaultPositions.forEach((posCode, idx) => {
+          if (!secondaryAssigned && posCode.toUpperCase().trim() === pSecondary) {
+            slotMap[idx].push({ player: p, isSecondary: true });
+            secondaryAssigned = true;
+          }
+        });
+        if (!secondaryAssigned) {
+          defaultPositions.forEach((posCode, idx) => {
+            if (!secondaryAssigned && pSecondary && (pSecondary.includes(posCode) || posCode.includes(pSecondary))) {
+              slotMap[idx].push({ player: p, isSecondary: true });
+              secondaryAssigned = true;
+            }
+          });
+        }
       }
     });
 
@@ -26093,6 +26195,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const yearEscaped = escapeHtml(p.ano || '-');
         const teamEscaped = escapeHtml(p.equipo || '-');
         const posEscaped = escapeHtml(p.posicionPrincipal || p.posicion || p.pos || '-');
+        const posSecEscaped = escapeHtml(p.posicionSecundaria || p.posicionSec || '-');
 
         let pieEscaped = '-';
         if (p.pierna) {
@@ -26117,6 +26220,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${yearEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${teamEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${posEscaped}</td>
+            <td style="padding: 12px 8px; font-weight: 600; color: var(--text-muted);">${posSecEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${pieEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 700; color: var(--primary-blue);">${levelEscaped}</td>
           </tr>
@@ -26174,11 +26278,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       let playersHTML = '';
       if (matchingPlayers.length > 0) {
-        playersHTML = matchingPlayers.map(p => `
-          <div class="mapas-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-            ${escapeHtml(p.nombre || p.jugador)}
+        playersHTML = matchingPlayers.map(obj => {
+          const p = obj.player;
+          const isSecondary = obj.isSecondary;
+          const fullName = p.nombre || p.jugador || '';
+          const shortName = fullName.split(' ').slice(0, 2).join(' ');
+          const tooltipText = `${fullName}${p.equipo ? ` - ${p.equipo}` : ''}${isSecondary ? ' (Pos. Secundaria)' : ''}`;
+          
+          let bgStyle = 'background: rgba(15, 23, 42, 0.92); color: #ffffff; border: 1px solid rgba(255,255,255,0.3);';
+          if (isSecondary) {
+            bgStyle = 'background: rgba(234, 179, 8, 0.95); color: #1e293b; border: 1px solid #ca8a04;';
+          }
+
+          return `
+          <div class="mapas-player-link" data-playerid="${p.id}" style="${bgStyle} font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(tooltipText)}">
+            ${escapeHtml(shortName)}
           </div>
-        `).join('');
+          `;
+        }).join('');
       } else {
         playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin jugadores</div>`;
       }
