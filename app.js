@@ -1188,8 +1188,10 @@
     const completedReports = (state.reports || []).filter(r => r.completado);
     const vistosSet = new Set();
     completedReports.forEach(r => {
-      if (r.equipoLocal) vistosSet.add(r.equipoLocal.toLowerCase().trim());
-      if (r.equipoVisitante) vistosSet.add(r.equipoVisitante.toLowerCase().trim());
+      const loc = r.localTeam || r.local || r.equipoLocal;
+      const vis = r.visitanteTeam || r.visitante || r.equipoVisitante;
+      if (loc) vistosSet.add(loc.toLowerCase().trim());
+      if (vis) vistosSet.add(vis.toLowerCase().trim());
     });
 
     const categoryStats = {};
@@ -2246,6 +2248,8 @@
   let timerSeconds = 0;
   let currentPartidosCategoryTab = 'all';
   let currentPartidosMonthTab = 'all';
+  let currentPartidosWeekTab = 'all';
+  let currentPartidosDayTab = 'all';
   let currentPartidosStatusTab = 'all';
 
   function renderMatchCategorySubtabs() {
@@ -2255,8 +2259,14 @@
     const reports = state.reports || [];
     const catMap = {};
     const monthMap = {};
+    const weekMap = {};
+    const weekSortMap = {};
+    const dayMap = {};
+    const daySortMap = {};
 
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const fullMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     reports.forEach(r => {
       const cat = (r.competicion || '').trim();
@@ -2270,12 +2280,35 @@
         if (!isNaN(d.getTime())) {
           const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
+
+          const dayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1;
+          const monday = new Date(d);
+          monday.setDate(d.getDate() - dayOfWeek);
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          const m1 = monday.getMonth();
+          const m2 = sunday.getMonth();
+          
+          let weekLabel = '';
+          if (m1 === m2) {
+            weekLabel = `Semana del ${monday.getDate()} al ${sunday.getDate()} de ${fullMonthNames[m1]}`;
+          } else {
+            weekLabel = `Semana del ${monday.getDate()} de ${fullMonthNames[m1]} al ${sunday.getDate()} de ${fullMonthNames[m2]}`;
+          }
+          weekMap[weekLabel] = (weekMap[weekLabel] || 0) + 1;
+          weekSortMap[weekLabel] = monday.getTime();
+
+          const dayLabel = `${dayNames[d.getDay()]}, ${d.getDate()} de ${fullMonthNames[d.getMonth()]}`;
+          dayMap[dayLabel] = (dayMap[dayLabel] || 0) + 1;
+          daySortMap[dayLabel] = d.getTime();
         }
       }
     });
 
     const categories = Object.keys(catMap).sort();
     const months = Object.keys(monthMap).sort((a, b) => b.localeCompare(a)); // Descending order
+    const weeks = Object.keys(weekMap).sort((a, b) => weekSortMap[b] - weekSortMap[a]); // Descending order
+    const days = Object.keys(dayMap).sort((a, b) => daySortMap[b] - daySortMap[a]); // Descending order
 
     let countCompletado = 0;
     let countIncompleto = 0;
@@ -2345,6 +2378,50 @@
 
     html += `
         </div>
+        
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="calendar-days" style="width: 14px;"></i> Semana:
+          </span>
+          <button type="button" class="player-subtab week-subtab ${currentPartidosWeekTab === 'all' ? 'active' : ''}" data-partidosweek="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosWeekTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosWeekTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosWeekTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            TODAS
+          </button>
+    `;
+
+    weeks.forEach(weekKey => {
+      const count = weekMap[weekKey];
+      const isActive = currentPartidosWeekTab === weekKey;
+      html += `
+          <button type="button" class="player-subtab week-subtab ${isActive ? 'active' : ''}" data-partidosweek="${escapeHtml(weekKey)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            ${escapeHtml(weekKey)} (${count})
+          </button>
+      `;
+    });
+
+    html += `
+        </div>
+
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="clock" style="width: 14px;"></i> Día:
+          </span>
+          <button type="button" class="player-subtab day-subtab ${currentPartidosDayTab === 'all' ? 'active' : ''}" data-partidosday="all" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentPartidosDayTab === 'all' ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentPartidosDayTab === 'all' ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentPartidosDayTab === 'all' ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            TODOS
+          </button>
+    `;
+
+    days.forEach(dayKey => {
+      const count = dayMap[dayKey];
+      const isActive = currentPartidosDayTab === dayKey;
+      html += `
+          <button type="button" class="player-subtab day-subtab ${isActive ? 'active' : ''}" data-partidosday="${escapeHtml(dayKey)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+            ${escapeHtml(dayKey)} (${count})
+          </button>
+      `;
+    });
+
+    html += `
+        </div>
       </div>
     `;
 
@@ -2371,6 +2448,23 @@
       });
     });
 
+    container.querySelectorAll('.week-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentPartidosWeekTab = tab.dataset.partidosweek || 'all';
+        renderPartidosList();
+      });
+    });
+
+    container.querySelectorAll('.day-subtab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        currentPartidosDayTab = tab.dataset.partidosday || 'all';
+        renderPartidosList();
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
+
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -2386,19 +2480,49 @@
       const matchesCat = (currentPartidosCategoryTab === 'all') || (cat === currentPartidosCategoryTab);
 
       let matchesMonth = true;
-      if (currentPartidosMonthTab !== 'all') {
-        const dateStr = r.date || r.fecha;
-        if (dateStr) {
-          const d = new Date(dateStr);
-          if (!isNaN(d.getTime())) {
+      let matchesWeek = true;
+      let matchesDay = true;
+
+      const dateStr = r.date || r.fecha;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          if (currentPartidosMonthTab !== 'all') {
             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             matchesMonth = (monthKey === currentPartidosMonthTab);
-          } else {
-            matchesMonth = false;
+          }
+          const fullMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+          const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+          
+          if (currentPartidosWeekTab !== 'all') {
+            const dayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1;
+            const monday = new Date(d);
+            monday.setDate(d.getDate() - dayOfWeek);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const m1 = monday.getMonth();
+            const m2 = sunday.getMonth();
+            let weekLabel = '';
+            if (m1 === m2) {
+              weekLabel = `Semana del ${monday.getDate()} al ${sunday.getDate()} de ${fullMonthNames[m1]}`;
+            } else {
+              weekLabel = `Semana del ${monday.getDate()} de ${fullMonthNames[m1]} al ${sunday.getDate()} de ${fullMonthNames[m2]}`;
+            }
+            matchesWeek = (weekLabel === currentPartidosWeekTab);
+          }
+          if (currentPartidosDayTab !== 'all') {
+            const dayLabel = `${dayNames[d.getDay()]}, ${d.getDate()} de ${fullMonthNames[d.getMonth()]}`;
+            matchesDay = (dayLabel === currentPartidosDayTab);
           }
         } else {
-          matchesMonth = false;
+          if (currentPartidosMonthTab !== 'all') matchesMonth = false;
+          if (currentPartidosWeekTab !== 'all') matchesWeek = false;
+          if (currentPartidosDayTab !== 'all') matchesDay = false;
         }
+      } else {
+        if (currentPartidosMonthTab !== 'all') matchesMonth = false;
+        if (currentPartidosWeekTab !== 'all') matchesWeek = false;
+        if (currentPartidosDayTab !== 'all') matchesDay = false;
       }
 
       const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
@@ -2408,7 +2532,7 @@
       if (currentPartidosStatusTab === 'completado') matchesStatus = !!r.completado;
       if (currentPartidosStatusTab === 'incompleto') matchesStatus = !r.completado;
 
-      return matchesCat && matchesMonth && matchesSearch && matchesStatus;
+      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus;
     });
 
     // Ordenar los informes según estado (Incompletos primero, luego Completados) y luego por fecha más reciente
