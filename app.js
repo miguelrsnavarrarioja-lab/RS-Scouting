@@ -3844,19 +3844,34 @@
   }
 
   // Formation Change Listeners
-  document.getElementById('localFormationSelect')?.addEventListener('change', () => {
-    saveCurrentTacticalRoleState('local');
-    const formation = document.getElementById('localFormationSelect').value;
-    updateStarterPositionsForFormation('local', formation);
-    renderPitchPins('local');
-  });
+  const handleFormationChange = (team) => {
+    saveCurrentTacticalRoleState(team);
+    const selectEl = document.getElementById(`${team}FormationSelect`);
+    const formation = selectEl ? selectEl.value : '1-4-3-3';
+    const role = activeTacticalRole[team] || 'principal';
+    
+    let titulares = matchTacticalSystems[team][role].titulares || [];
+    const expected = formation.includes('(F7)') ? 7 : 11;
+    
+    if (titulares.length !== expected) {
+      if (titulares.length > expected) titulares.length = expected;
+      else {
+        while (titulares.length < expected) titulares.push({ num: '', name: '', pos: '', pos2: '' });
+      }
+    }
+    
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || [];
+    titulares.forEach((t, i) => {
+      if (defaultPositions[i]) t.pos = defaultPositions[i];
+    });
 
-  document.getElementById('visitanteFormationSelect')?.addEventListener('change', () => {
-    saveCurrentTacticalRoleState('visitante');
-    const formation = document.getElementById('visitanteFormationSelect').value;
-    updateStarterPositionsForFormation('visitante', formation);
-    renderPitchPins('visitante');
-  });
+    renderPlayerRows(team, titulares, matchTacticalSystems[team][role].suplentes);
+    renderPitchPins(team);
+    attachLineupRowListeners(team);
+  };
+
+  document.getElementById('localFormationSelect')?.addEventListener('change', () => handleFormationChange('local'));
+  document.getElementById('visitanteFormationSelect')?.addEventListener('change', () => handleFormationChange('visitante'));
 
   // Attach role-tabs click listeners
   ['local', 'visitante'].forEach(team => {
@@ -4036,18 +4051,21 @@
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
 
-    // Titulares (dynamic based on role, default 11)
+    // Titulares (dynamic based on role, default 11 or 7 for F7)
     const currentRole = activeTacticalRole[team] || 'principal';
     let titCount = titulares.length;
+    const isF7 = formation.includes('(F7)');
+    const expectedTitCount = isF7 ? 7 : 11;
 
     if (currentRole === 'principal') {
-      titCount = 11;
-      while (titulares.length < 11) titulares.push({ num: '', name: '', pos: '', pos2: '' });
-      titulares.length = 11;
+      titCount = expectedTitCount;
+      while (titulares.length < expectedTitCount) titulares.push({ num: '', name: '', pos: '', pos2: '' });
+      titulares.length = expectedTitCount;
     } else {
-      if (titCount === 0) {
-        titCount = 11;
-        for (let i = 0; i < 11; i++) titulares.push({ num: '', name: '', pos: '', pos2: '' });
+      if (titCount === 0 || titCount !== expectedTitCount) {
+        titCount = expectedTitCount;
+        titulares.length = 0;
+        for (let i = 0; i < expectedTitCount; i++) titulares.push({ num: '', name: '', pos: '', pos2: '' });
       }
     }
 
