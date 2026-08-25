@@ -150,11 +150,19 @@
             </div>
           </div>
           <div class="kpi-card" data-shortcut="partidos">
-            <div class="kpi-icon green"><i data-lucide="file-text"></i></div>
+            <div class="kpi-icon green"><i data-lucide="radio"></i></div>
             <div class="kpi-info">
-              <span class="kpi-label">Informes Generados</span>
-              <span class="kpi-value" id="kpiTotalReports">0</span>
-              <span class="kpi-subtext">Evaluaciones creadas</span>
+              <span class="kpi-label">Informes Directo</span>
+              <span class="kpi-value" id="kpiTotalDirecto">0</span>
+              <span class="kpi-subtext">Visionados en vivo</span>
+            </div>
+          </div>
+          <div class="kpi-card" data-shortcut="partidos">
+            <div class="kpi-icon red"><i data-lucide="video"></i></div>
+            <div class="kpi-info">
+              <span class="kpi-label">Informes Vídeo</span>
+              <span class="kpi-value" id="kpiTotalVideo">0</span>
+              <span class="kpi-subtext">Visionados diferidos</span>
             </div>
           </div>
           <div class="kpi-card" data-shortcut="directorio">
@@ -187,14 +195,6 @@
               <span class="kpi-label">Cartelera (Semana)</span>
               <span class="kpi-value" id="kpiPriorityMatchesThisWeek">0</span>
               <span class="kpi-subtext">Partidos prioritarios</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="mapas">
-            <div class="kpi-icon purple"><i data-lucide="map"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Mapas 11 Ideal</span>
-              <span class="kpi-value" style="font-size: 18px;">Alineaciones</span>
-              <span class="kpi-subtext">Generador visual</span>
             </div>
           </div>
           <!-- NEW: Jugadores por Año -->
@@ -454,6 +454,13 @@
               <div class="form-group">
                 <label>FEDERACIÓN</label>
                 <input type="text" id="reportFederacion" list="reportFederacionesDatalistOptions" class="form-control" placeholder="Buscar o elegir federación...">
+              </div>
+              <div class="form-group">
+                <label>VISIONADO</label>
+                <select id="reportVisionado" class="form-control">
+                  <option value="DIRECTO">DIRECTO</option>
+                  <option value="VÍDEO">VÍDEO</option>
+                </select>
               </div>
             </div>
           </div>

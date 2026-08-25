@@ -1018,7 +1018,8 @@
     const elVistos = document.getElementById('kpiTotalMatchesVistos');
     const elScheduled = document.getElementById('kpiScheduledMatchesCount');
     const elDirect = document.getElementById('kpiDirectMatchesCount');
-    const elTotalReports = document.getElementById('kpiTotalReports');
+    const elTotalDirecto = document.getElementById('kpiTotalDirecto');
+    const elTotalVideo = document.getElementById('kpiTotalVideo');
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
@@ -1028,7 +1029,13 @@
     if (elVistos) elVistos.textContent = totalVistos;
     if (elScheduled) elScheduled.textContent = scheduledMatches;
     if (elDirect) elDirect.textContent = directMatches;
-    if (elTotalReports) elTotalReports.textContent = reports.length;
+    
+    const totalDirecto = reports.filter(r => r.completado && (!r.visionado || r.visionado === 'DIRECTO' || r.visionado === 'En vivo')).length;
+    const totalVideo = reports.filter(r => r.completado && (r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo')).length;
+    
+    if (elTotalDirecto) elTotalDirecto.textContent = totalDirecto;
+    if (elTotalVideo) elTotalVideo.textContent = totalVideo;
+
     if (elTotalPlayers) elTotalPlayers.textContent = players.length;
     if (elPendingTasks) elPendingTasks.textContent = pendingTasks.length;
     if (elHighPriorityTasks) elHighPriorityTasks.textContent = `${highPriorityTasks} prioridad alta`;
@@ -2275,6 +2282,7 @@
   let currentPartidosWeekTab = currentWeekLabel;
   let currentPartidosDayTab = 'all';
   let currentPartidosStatusTab = 'all';
+  let currentPartidosVisionadoTab = 'all';
 
   function renderMatchCategorySubtabs() {
     const container = document.getElementById('matchCategorySubtabsBar');
@@ -2287,6 +2295,7 @@
     const weekSortMap = {};
     const dayMap = {};
     const daySortMap = {};
+    const visionadoMap = { 'DIRECTO': 0, 'VÍDEO': 0 };
 
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     const fullMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -2297,6 +2306,9 @@
       if (cat) {
         catMap[cat] = (catMap[cat] || 0) + 1;
       }
+      
+      const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
+      visionadoMap[vis] = (visionadoMap[vis] || 0) + 1;
 
       const dateStr = r.date || r.fecha;
       if (dateStr) {
@@ -2427,6 +2439,17 @@
               }).join('')}
             </select>
           </div>
+          
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="tv" style="width: 14px;"></i> Visionado:
+            </span>
+            <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosVisionadoTab === 'all' ? 'selected' : ''}>TODOS</option>
+              <option value="DIRECTO" ${currentPartidosVisionadoTab === 'DIRECTO' ? 'selected' : ''}>DIRECTO (${visionadoMap['DIRECTO']})</option>
+              <option value="VÍDEO" ${currentPartidosVisionadoTab === 'VÍDEO' ? 'selected' : ''}>VÍDEO (${visionadoMap['VÍDEO']})</option>
+            </select>
+          </div>
         </div>
       </div>
     `;
@@ -2455,6 +2478,11 @@
 
     document.getElementById('partidosDaySelect')?.addEventListener('change', (e) => {
       currentPartidosDayTab = e.target.value;
+      renderPartidosList();
+    });
+
+    document.getElementById('partidosVisionadoSelect')?.addEventListener('change', (e) => {
+      currentPartidosVisionadoTab = e.target.value;
       renderPartidosList();
     });
 
@@ -2524,8 +2552,14 @@
       let matchesStatus = true;
       if (currentPartidosStatusTab === 'completado') matchesStatus = !!r.completado;
       if (currentPartidosStatusTab === 'incompleto') matchesStatus = !r.completado;
+      
+      let matchesVisionado = true;
+      if (currentPartidosVisionadoTab !== 'all') {
+        const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
+        matchesVisionado = (vis === currentPartidosVisionadoTab);
+      }
 
-      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus;
+      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus && matchesVisionado;
     });
 
     // Ordenar los informes según estado (Incompletos primero, luego Completados) y luego por fecha más reciente
@@ -2666,6 +2700,7 @@
               <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
+                ${r.visionado ? `<span class="match-category-tag" style="background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-light);">${escapeHtml(r.visionado)}</span>` : ''}
               </div>
 
               <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
@@ -2982,6 +3017,7 @@
     document.getElementById('reportCompeticion').value = repData.competicion || '';
     document.getElementById('reportCategoria').value = repData.categoria || '';
     document.getElementById('reportFederacion').value = repData.federacion || '';
+    document.getElementById('reportVisionado').value = repData.visionado || 'DIRECTO';
 
     // Initialize Tactical Systems (Principal, Secundario, Ocasional)
     activeTacticalRole = { local: 'principal', visitante: 'principal' };
@@ -5663,6 +5699,7 @@
         competicion: document.getElementById('reportCompeticion')?.value || '',
         categoria: document.getElementById('reportCategoria')?.value || '',
         federacion: document.getElementById('reportFederacion')?.value || '',
+        visionado: document.getElementById('reportVisionado')?.value || 'DIRECTO',
 
         localSystems: matchTacticalSystems.local,
         visitanteSystems: matchTacticalSystems.visitante,
@@ -11181,11 +11218,12 @@
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                 ${conv.partidosList.map(p => `
-                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 10px 12px; border-radius: 6px; font-size: 13px; align-items: center; border: 1px solid rgba(0,0,0,0.04);">
+                  <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr 1.5fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 10px 12px; border-radius: 6px; font-size: 13px; align-items: center; border: 1px solid rgba(0,0,0,0.04);">
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">RIVAL</span><span style="font-weight: 600;">${escapeHtml(p.rival || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">FECHA</span><span>${escapeHtml(p.fecha || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">HORA</span><span>${escapeHtml(p.hora || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">ESTADIO</span><span>${escapeHtml(p.estadio || '-')}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">TV</span><span style="font-weight: 600; color: ${p.hasTv ? 'var(--primary-color)' : 'inherit'};">${p.hasTv ? escapeHtml(p.tvChannel || 'Sí') : 'No'}</span></div>
                   </div>
                 `).join('')}
               </div>
@@ -13340,7 +13378,7 @@
       }
 
       container.innerHTML = localPartidosList.map((p, idx) => `
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.5fr 1.5fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Rival</label>
             <input type="text" class="form-control cn-partido-rival" data-idx="${idx}" value="${escapeHtml(p.rival || '')}" placeholder="Ej: Francia" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
@@ -13358,6 +13396,16 @@
             <input type="text" class="form-control cn-partido-estadio" data-idx="${idx}" value="${escapeHtml(p.estadio || '')}" placeholder="Sede" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
+            <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">TV</label>
+            <div style="display: flex; gap: 4px;">
+              <select class="form-control cn-partido-hastv select-compact" data-idx="${idx}" style="padding: 4px; font-size: 12px; min-height: 32px; width: 50px;">
+                <option value="false" ${!p.hasTv ? 'selected' : ''}>No</option>
+                <option value="true" ${p.hasTv ? 'selected' : ''}>Sí</option>
+              </select>
+              <input type="text" class="form-control cn-partido-tvchannel" data-idx="${idx}" value="${escapeHtml(p.tvChannel || '')}" placeholder="Canal..." style="padding: 4px 8px; font-size: 12px; min-height: 32px; flex: 1; ${!p.hasTv ? 'display:none;' : ''}">
+            </div>
+          </div>
+          <div>
             <button type="button" class="btn btn-icon btn-remove-partido" data-idx="${idx}" style="color: #ef4444; background: none; border: none; padding: 4px; min-height: 32px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
           </div>
         </div>
@@ -13369,6 +13417,14 @@
       document.querySelectorAll('.cn-partido-fecha').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].fecha = e.target.value));
       document.querySelectorAll('.cn-partido-hora').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].hora = e.target.value));
       document.querySelectorAll('.cn-partido-estadio').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].estadio = e.target.value));
+      
+      document.querySelectorAll('.cn-partido-hastv').forEach(el => el.addEventListener('change', e => {
+        const idx = e.target.dataset.idx;
+        localPartidosList[idx].hasTv = (e.target.value === 'true');
+        renderPartidosList();
+      }));
+      document.querySelectorAll('.cn-partido-tvchannel').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].tvChannel = e.target.value));
+
       document.querySelectorAll('.btn-remove-partido').forEach(el => el.addEventListener('click', e => {
         const idx = parseInt(e.currentTarget.dataset.idx);
         localPartidosList.splice(idx, 1);
@@ -13377,7 +13433,7 @@
     };
 
     document.getElementById('btnAddPartido')?.addEventListener('click', () => {
-      localPartidosList.push({ rival: '', fecha: '', hora: '', estadio: '' });
+      localPartidosList.push({ rival: '', fecha: '', hora: '', estadio: '', hasTv: false, tvChannel: '' });
       renderPartidosList();
     });
 
