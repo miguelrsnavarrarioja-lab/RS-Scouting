@@ -3099,12 +3099,13 @@
 
     ['local', 'visitante'].forEach(team => {
       const teamName = team === 'local' ? localTeamName : visitanteTeamName;
+      const opponentName = team === 'local' ? visitanteTeamName : localTeamName;
       ['principal', 'secundario', 'ocasional'].forEach(role => {
         ['titulares', 'suplentes'].forEach(group => {
           const players = matchTacticalSystems[team]?.[role]?.[group] || [];
           players.forEach(p => {
             if (p.num && (!p.name || !p.name.trim())) {
-              const matchedPlayer = findPlayerByTeamAndDorsal(teamName, p.num);
+              const matchedPlayer = findPlayerByTeamAndDorsal(teamName, p.num, opponentName);
               if (matchedPlayer) {
                 p.name = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
               }
@@ -3525,6 +3526,10 @@
 
     // Auto-fill player names based on dorsals if team changes
     if (teamName) {
+      const localTeamName = document.getElementById('reportLocalTeam').value.trim();
+      const visitanteTeamName = document.getElementById('reportVisitanteTeam').value.trim();
+      const opponentName = team === 'local' ? visitanteTeamName : localTeamName;
+      
       const containers = [
         document.getElementById(`${team}TitularesRows`),
         document.getElementById(`${team}SuplentesRows`)
@@ -3536,7 +3541,7 @@
           const nameInput = row.querySelector('input.name');
           const posSelect = row.querySelector('select.pos');
           if (numInput && numInput.value && nameInput && !nameInput.value.trim()) {
-            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numInput.value);
+            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numInput.value, opponentName);
             if (matchedPlayer) {
               nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
               const matchedPos = matchedPlayer.posicionPrincipal || matchedPlayer.posicion || matchedPlayer.pos || '';
@@ -3976,7 +3981,7 @@
     'BEN': ['BENB']
   };
 
-  function findPlayerByTeamAndDorsal(teamName, dorsalNum) {
+  function findPlayerByTeamAndDorsal(teamName, dorsalNum, opponentName = '') {
     if (!dorsalNum || !teamName) return null;
     const dStr = String(dorsalNum).trim();
     if (!dStr) return null;
@@ -3993,9 +3998,28 @@
 
     let match = jugadores.find(p => {
       const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
-      const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
       
-      if (pDorsal !== dStr) return false;
+      let matchDorsal = false;
+      const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
+      if (pDorsal === dStr) matchDorsal = true;
+
+      // Check dorsalesPorPartido if opponentName is provided
+      if (!matchDorsal && p.dorsalesPorPartido) {
+        if (opponentName) {
+           const normOpponent = opponentName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+           const foundMatchKey = Object.keys(p.dorsalesPorPartido).find(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(normOpponent) || normOpponent.includes(k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+           if (foundMatchKey && String(p.dorsalesPorPartido[foundMatchKey]).trim() === dStr) {
+             matchDorsal = true;
+           }
+        } 
+        if (!matchDorsal) {
+           // fallback to any match if no opponent specified or no specific match found
+           const vals = Object.values(p.dorsalesPorPartido).map(v => String(v).trim());
+           if (vals.includes(dStr)) matchDorsal = true;
+        }
+      }
+
+      if (!matchDorsal) return false;
 
       let matchesTeam = false;
       if (pTeam) {
@@ -4234,9 +4258,10 @@
         numInput.addEventListener('change', () => {
           const numVal = numInput.value;
           const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || '';
+          const opponentName = document.getElementById(team === 'local' ? 'reportVisitanteTeam' : 'reportLocalTeam')?.value.trim() || '';
 
           if (numVal) {
-            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal);
+            const matchedPlayer = findPlayerByTeamAndDorsal(teamName, numVal, opponentName);
             if (matchedPlayer) {
               if (nameInput) nameInput.value = matchedPlayer.nombre || matchedPlayer.jugador || matchedPlayer.name || '';
               renderPitchPins(team);
@@ -13315,13 +13340,7 @@
               <label class="form-label">JUGADORES CONVOCADOS</label>
               <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
                 <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-                  <thead>
-                    <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
-                      <th style="padding: 8px 12px;">JUGADOR</th>
-                      <th style="padding: 8px 12px; width: 60px; text-align: center;">BAJA</th>
-                      <th style="padding: 8px 12px;">MOTIVO DE BAJA</th>
-                      <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
-                    </tr>
+                  <thead id="cnJugadoresTableHead">
                   </thead>
                   <tbody id="cnJugadoresTableBody"></tbody>
                 </table>
@@ -13549,10 +13568,19 @@
 
       if (window.lucide) window.lucide.createIcons();
 
-      document.querySelectorAll('.cn-partido-rival').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].rival = e.target.value));
-      document.querySelectorAll('.cn-partido-fecha').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].fecha = e.target.value));
+      document.querySelectorAll('.cn-partido-rival').forEach(el => el.addEventListener('input', e => {
+        localPartidosList[e.target.dataset.idx].rival = e.target.value;
+        renderCnJugadoresTable();
+      }));
+      document.querySelectorAll('.cn-partido-fecha').forEach(el => el.addEventListener('input', e => {
+        localPartidosList[e.target.dataset.idx].fecha = e.target.value;
+        renderCnJugadoresTable();
+      }));
       document.querySelectorAll('.cn-partido-hora').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].hora = e.target.value));
-      document.querySelectorAll('.cn-partido-estadio').forEach(el => el.addEventListener('input', e => localPartidosList[e.target.dataset.idx].estadio = e.target.value));
+      document.querySelectorAll('.cn-partido-estadio').forEach(el => el.addEventListener('input', e => {
+        localPartidosList[e.target.dataset.idx].estadio = e.target.value;
+        renderCnJugadoresTable();
+      }));
       
       document.querySelectorAll('.cn-partido-hastv').forEach(el => el.addEventListener('change', e => {
         const idx = e.target.dataset.idx;
@@ -13565,12 +13593,14 @@
         const idx = parseInt(e.currentTarget.dataset.idx);
         localPartidosList.splice(idx, 1);
         renderPartidosList();
+        renderCnJugadoresTable();
       }));
     };
 
     document.getElementById('btnAddPartido')?.addEventListener('click', () => {
       localPartidosList.push({ rival: '', fecha: '', hora: '', estadio: '', hasTv: false, tvChannel: '' });
       renderPartidosList();
+      renderCnJugadoresTable();
     });
 
     renderPartidosList();
@@ -13816,24 +13846,70 @@
 
     // Jugadores Table Logic
     function renderCnJugadoresTable() {
+      const thead = document.getElementById('cnJugadoresTableHead');
       const tbody = document.getElementById('cnJugadoresTableBody');
-      if (!tbody) return;
+      if (!tbody || !thead) return;
+
+      const validPartidos = localPartidosList.filter(p => p.rival || p.fecha || p.estadio);
+      let partidosHeaders = '';
+      if (validPartidos.length === 0) {
+        partidosHeaders = `<th style="padding: 8px 12px; text-align: center; width: 80px;">DORSAL</th>`;
+      } else {
+        partidosHeaders = validPartidos.map(p => {
+          const pName = escapeHtml(p.rival || 'Partido');
+          return `<th style="padding: 8px 12px; text-align: center; width: 80px;" title="${pName}">D. ${pName.length > 10 ? pName.substring(0,8)+'...' : pName}</th>`;
+        }).join('');
+      }
+
+      thead.innerHTML = `
+        <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
+          <th style="padding: 8px 12px;">JUGADOR</th>
+          ${partidosHeaders}
+          <th style="padding: 8px 12px; width: 60px; text-align: center;">BAJA</th>
+          <th style="padding: 8px 12px;">MOTIVO DE BAJA</th>
+          <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
+        </tr>
+      `;
+
       if (localJugadoresList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${4 + (validPartidos.length === 0 ? 1 : validPartidos.length)}" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
       } else {
         const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           // Normalize to object if it was a string
           if (typeof j === 'string') {
-            j = { nombre: j, baja: false, motivo: '' };
+            j = { nombre: j, baja: false, motivo: '', dorsalesPorPartido: {}, dorsal: '' };
             localJugadoresList[idx] = j;
           }
+          if (!j.dorsalesPorPartido) j.dorsalesPorPartido = {};
+
           const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
+          
+          let dorsalesHTML = '';
+          if (validPartidos.length === 0) {
+            dorsalesHTML = `
+              <td style="padding: 8px 12px; text-align: center;">
+                <input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" data-matchid="general" value="${escapeHtml(j.dorsal || '')}" placeholder="--" style="font-size: 11px; padding: 4px; height: 26px; text-align: center; width: 40px; margin: 0 auto;">
+              </td>
+            `;
+          } else {
+            dorsalesHTML = validPartidos.map((p, pIdx) => {
+              const matchKey = p.id || p.rival || 'Partido ' + pIdx; // use rival or a generated ID as key
+              const dVal = j.dorsalesPorPartido[matchKey] || '';
+              return `
+                <td style="padding: 8px 12px; text-align: center;">
+                  <input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" data-matchid="${escapeHtml(matchKey)}" value="${escapeHtml(dVal)}" placeholder="--" style="font-size: 11px; padding: 4px; height: 26px; text-align: center; width: 40px; margin: 0 auto;">
+                </td>
+              `;
+            }).join('');
+          }
+
           return `
             <tr style="border-bottom: 1px solid var(--border-light); ${j.baja ? 'opacity: 0.7; background-color: #fef2f2;' : ''}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
+              ${dorsalesHTML}
               <td style="padding: 8px 12px; text-align: center;">
                 <input type="checkbox" class="cn-jugador-baja" data-idx="${idx}" ${j.baja ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
               </td>
@@ -13874,6 +13950,19 @@
           input.addEventListener('input', (e) => {
             const index = parseInt(input.dataset.idx, 10);
             localJugadoresList[index].motivo = e.target.value;
+          });
+        });
+
+        tbody.querySelectorAll('.cn-jugador-dorsal').forEach(input => {
+          input.addEventListener('input', (e) => {
+            const index = parseInt(input.dataset.idx, 10);
+            const matchId = input.dataset.matchid;
+            if (matchId === 'general') {
+              localJugadoresList[index].dorsal = e.target.value;
+            } else {
+              if (!localJugadoresList[index].dorsalesPorPartido) localJugadoresList[index].dorsalesPorPartido = {};
+              localJugadoresList[index].dorsalesPorPartido[matchId] = e.target.value;
+            }
           });
         });
 
