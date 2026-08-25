@@ -651,24 +651,7 @@
         setFirebaseHeaderStatus('synced');
 
         // Run seeding and migrations to ensure directory is completely populated
-        if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
-        if (typeof seedNavarraLNJTeams === 'function') seedNavarraLNJTeams();
-        if (typeof seedNavarraTerceraRFEFTeams === 'function') seedNavarraTerceraRFEFTeams();
-        if (typeof seedNavarraAutonomicaTeams === 'function') seedNavarraAutonomicaTeams();
-        if (typeof seedNavarraPrimeraAutonomicaJuvenilTeams === 'function') seedNavarraPrimeraAutonomicaJuvenilTeams();
-        if (typeof seedNavarraRegionalPreferenteTeams === 'function') seedNavarraRegionalPreferenteTeams();
-        if (typeof seedNavarraRegionalPreferenteGroup2Teams === 'function') seedNavarraRegionalPreferenteGroup2Teams();
-        if (typeof seedNavarraLigaCadeteTeams === 'function') seedNavarraLigaCadeteTeams();
-        if (typeof seedNavarraPrimeraAutonomicaCadeteTeams === 'function') seedNavarraPrimeraAutonomicaCadeteTeams();
-        if (typeof seedNavarraPrimeraRegionalG1Teams === 'function') seedNavarraPrimeraRegionalG1Teams();
-        if (typeof seedNavarraPrimeraRegionalG2Teams === 'function') seedNavarraPrimeraRegionalG2Teams();
-        if (typeof seedNavarraPrimeraRegionalG3Teams === 'function') seedNavarraPrimeraRegionalG3Teams();
-        if (typeof seedNavarraPrimeraRegionalG4Teams === 'function') seedNavarraPrimeraRegionalG4Teams();
-        if (typeof seedNavarraPrimeraRegionalG5Teams === 'function') seedNavarraPrimeraRegionalG5Teams();
-        if (typeof seedDhjGroup3Teams === 'function') seedDhjGroup3Teams();
-        if (typeof seedDhjGroup2Teams === 'function') seedDhjGroup2Teams();
-        if (typeof ensureFederacionesSeleccionesSeeded === 'function') ensureFederacionesSeleccionesSeeded();
-        if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
+        // Seeding and migrations removed per user request
 
         if (typeof renderAllViews === 'function') {
           renderAllViews();
@@ -6229,14 +6212,17 @@
               </div>
             </div>
             
-            <div style="display: flex; gap: 12px;">
-              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-primary" id="btnExportarFichaPDF" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: #10b981; border: none; color: white;" title="Exportar a PDF">
+                <i data-lucide="printer"></i>
+              </button>
+              <button type="button" class="btn btn-primary" id="btnAbrirEditorJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: var(--ficha-theme); border: none;" title="Editar Ficha">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-danger" id="btnEliminarJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #ef4444; border: none; color: white;" title="Eliminar Ficha">
+              <button type="button" class="btn btn-danger" id="btnEliminarJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: #ef4444; border: none; color: white;" title="Eliminar Ficha">
                 <i data-lucide="trash-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaJugador" style="padding: 10px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -6341,6 +6327,10 @@
         openSeleccionFichaReadOnly(seleccionLinkEl.dataset.selid);
       };
     }
+    
+    document.getElementById('btnExportarFichaPDF').onclick = () => {
+      exportJugadorFichaPDF(playerId);
+    };
   }
 
   function openPlayerEditModal(playerId = null, tabIdToOpen = 'general') {
@@ -15626,6 +15616,9 @@
 
     let cleanedCount = 0;
     state.directory.equipos.forEach(eq => {
+      let modified = false;
+      const eqNameLower = (eq.nombre || '').toLowerCase().trim();
+      
       if (Array.isArray(eq.plantilla)) {
         const origLen = eq.plantilla.length;
         eq.plantilla = eq.plantilla.filter(item => {
@@ -15633,9 +15626,28 @@
           return validNamesSet.has(nameStr);
         });
         if (eq.plantilla.length < origLen) {
-          cleanedCount += (origLen - eq.plantilla.length);
-          saveToFirebase('equipos', eq);
+          modified = true;
         }
+      } else {
+        eq.plantilla = [];
+      }
+
+      if (eqNameLower && validPlayers.length) {
+        validPlayers.forEach(p => {
+          const pEq = (p.equipoPrincipal || p.equipo || '').toLowerCase().trim();
+          if (pEq === eqNameLower) {
+            const pName = p.nombre || p.jugador || p.name || '';
+            if (pName && !eq.plantilla.some(item => (typeof item === 'string' ? item : (item.nombre || '')).toLowerCase().trim() === pName.toLowerCase().trim())) {
+              eq.plantilla.push(pName);
+              modified = true;
+            }
+          }
+        });
+      }
+
+      if (modified) {
+        cleanedCount++;
+        saveToFirebase('equipos', eq);
       }
     });
 
@@ -17421,10 +17433,7 @@
     // Run heavy migrations and cleanup routines ONCE on startup for instant tab rendering
     if (!window._hasRunDirectoryOptimizations) {
       window._hasRunDirectoryOptimizations = true;
-      if (typeof migrateFederacionesClubs === 'function') migrateFederacionesClubs();
-      if (typeof deduplicateDirectoryData === 'function') deduplicateDirectoryData();
       if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
-      if (typeof fixTeamNamesBatch === "function") fixTeamNamesBatch();
     }
 
     if (currentFederationFilter && currentFederationFilter !== 'TODAS') {
@@ -17899,6 +17908,7 @@
               player.ano = newYear;
               player.anoNac = newYear;
               saveState();
+              saveToFirebase('jugadores', player);
               if (typeof showToast === 'function') showToast(`Año actualizado a ${newYear || 'vacío'}`);
             }
           });
@@ -21114,6 +21124,369 @@
         }
       });
     }
+  }
+
+  function exportJugadorFichaPDF(playerId) {
+    const player = state.directory.jugadores.find(j => String(j.id) === String(playerId));
+    if (!player) return;
+
+    const stats = calculatePlayerStats(playerId);
+    
+    // Generar gráfico radar para PDF
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 400;
+    tempCanvas.height = 400;
+    tempCanvas.style.display = 'none';
+    document.body.appendChild(tempCanvas);
+
+    const valEmo = stats.atrEmocional || 3;
+    const valFis = stats.atrFisico || 3;
+    const valDef = stats.atrDefensa || 3;
+    const valAta = stats.atrAtaque || 3;
+    const valPue = stats.atrPuesto || 3;
+
+    const tempChart = new Chart(tempCanvas.getContext('2d'), {
+      type: 'radar',
+      data: {
+        labels: ['Emocional', 'Físico', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto'],
+        datasets: [{
+          label: 'Atributos',
+          data: [valEmo, valFis, valDef, valAta, valPue],
+          backgroundColor: 'rgba(37, 99, 235, 0.2)',
+          borderColor: 'rgba(37, 99, 235, 1)',
+          pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+          pointBorderColor: '#fff',
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: false,
+        scales: {
+          r: {
+            angleLines: { display: true },
+            suggestedMin: 0,
+            suggestedMax: 10,
+            ticks: { stepSize: 1 }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    const chartImgSrc = tempCanvas.toDataURL('image/png');
+    tempChart.destroy();
+    document.body.removeChild(tempCanvas);
+
+    // Obtener Escudos si existen
+    let teamName = player.equipo || player.equipoPrincipal || 'Sin Equipo';
+    let teamShieldSrc = '';
+    const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+    const pTeamNorm = normStr(teamName);
+    const pTeamLower = teamName.toLowerCase().trim();
+    
+    let teamObj = (state.directory.equipos || []).find(eq => {
+      const eqName = (eq.nombre || '').toLowerCase().trim();
+      const eqAlt = (eq.equipo || '').toLowerCase().trim();
+      return eqName === pTeamLower || eqAlt === pTeamLower || normStr(eq.nombre) === pTeamNorm || normStr(eq.equipo) === pTeamNorm;
+    });
+    if(!teamObj) {
+        const partialMatches = (state.directory.equipos || []).filter(eq => {
+          const eqName = normStr(eq.nombre);
+          return eqName && eqName.length > 3 && pTeamNorm.includes(eqName);
+        });
+        if (partialMatches.length > 0) {
+          teamObj = partialMatches.sort((a, b) => normStr(b.nombre).length - normStr(a.nombre).length)[0];
+        }
+    }
+    if (teamObj) {
+      teamShieldSrc = teamObj.escudo || teamObj.logo || '';
+    }
+
+    let seleccionName = player.seleccion || '';
+    let selShieldSrc = '';
+    if(seleccionName) {
+      const pSelNorm = normStr(seleccionName);
+      const pSelLower = seleccionName.toLowerCase().trim();
+      let seleccionObj = (state.directory.selecciones || []).find(sel => {
+        return (sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || (sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
+      });
+      if (!seleccionObj) {
+        const partialMatches = (state.directory.selecciones || []).filter(sel => {
+          const selName = normStr(sel.nombre || sel.seleccion);
+          return selName && selName.length > 3 && pSelNorm.includes(selName);
+        });
+        if (partialMatches.length > 0) {
+          seleccionObj = partialMatches.sort((a, b) => normStr(b.nombre || b.seleccion).length - normStr(a.nombre || a.seleccion).length)[0];
+        }
+      }
+      if(seleccionObj) {
+        selShieldSrc = seleccionObj.escudo || seleccionObj.logo || '';
+      }
+    }
+
+    // Helper functions for template
+    const renderBox = (label, value) => {
+      if (!value || value === '-') return '';
+      return `<div class="stat-box">
+        <div class="stat-label">${escapeHtml(label)}</div>
+        <div class="stat-value">${escapeHtml(value)}</div>
+      </div>`;
+    };
+
+    const renderTextSection = (title, text) => {
+      if (!text) return '';
+      return `<div class="section-block">
+        <h3 class="subsection-title">${escapeHtml(title)}</h3>
+        <div class="trayectoria-box">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
+      </div>`;
+    };
+
+    let teamHtmlStr = teamShieldSrc ? `<img src="${teamShieldSrc}" class="shield">` : '';
+    let selHtmlStr = seleccionName ? `<div class="team-badge" style="margin-top: 4px;">${selShieldSrc ? '<img src="' + selShieldSrc + '" class="shield">' : '🏳️'} ${escapeHtml(seleccionName)}</div>` : '';
+
+    const printWin = window.open('', '', 'width=1000,height=900');
+    printWin.document.write(`
+      <html>
+        <head>
+          <title>Ficha Completa - ${escapeHtml(stats.nombre)}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+            :root {
+              --primary: #1e3a8a;
+              --secondary: #3b82f6;
+              --text: #1e293b;
+              --text-light: #64748b;
+              --bg: #f8fafc;
+              --border: #e2e8f0;
+              --success: #10b981;
+              --danger: #ef4444;
+              --warning: #f59e0b;
+            }
+            body {
+              font-family: 'Inter', sans-serif;
+              color: var(--text);
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            
+            .page {
+              padding: 40px;
+              max-width: 900px;
+              margin: 0 auto;
+            }
+            
+            .header-banner {
+              display: flex;
+              gap: 32px;
+              align-items: center;
+              background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+              padding: 40px;
+              border-radius: 16px;
+              color: white;
+              margin-bottom: 32px;
+              box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.2);
+            }
+            .avatar {
+              width: 140px;
+              height: 140px;
+              border-radius: 50%;
+              object-fit: cover;
+              border: 4px solid rgba(255,255,255,0.9);
+              background: #fff;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+            .title { margin: 0 0 12px 0; font-size: 36px; font-weight: 900; letter-spacing: -0.02em; }
+            .team-badge { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.15); padding: 6px 12px; border-radius: 20px; width: fit-content;}
+            .shield { width: 24px; height: 24px; object-fit: contain; }
+            
+            .section { margin-bottom: 40px; page-break-inside: avoid; }
+            .section-title { 
+              font-size: 20px; 
+              font-weight: 900; 
+              color: var(--primary); 
+              border-bottom: 3px solid var(--primary); 
+              padding-bottom: 8px; 
+              margin-bottom: 24px; 
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+            }
+            .subsection-title {
+              font-size: 14px;
+              font-weight: 800;
+              color: var(--secondary);
+              text-transform: uppercase;
+              margin: 0 0 12px 0;
+            }
+            
+            .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+            .stat-box { 
+              background: var(--bg); 
+              border: 1px solid var(--border); 
+              padding: 16px; 
+              border-radius: 12px; 
+            }
+            .stat-label { font-size: 11px; font-weight: 800; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+            .stat-value { font-size: 16px; font-weight: 800; color: var(--text); }
+            
+            .grid-2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 32px; }
+            .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+            
+            .metric-card {
+               background: var(--bg);
+               border: 1px solid var(--border);
+               padding: 24px;
+               border-radius: 16px;
+               text-align: center;
+            }
+            .metric-val { font-size: 42px; font-weight: 900; color: var(--secondary); line-height: 1; margin-bottom: 8px;}
+            .metric-lbl { font-size: 12px; font-weight: 800; color: var(--text-light); text-transform: uppercase; }
+            
+            .radar-img { max-width: 100%; height: auto; max-height: 350px; margin: 0 auto; display: block;}
+            
+            .trayectoria-box { 
+              font-size: 14px; 
+              line-height: 1.7; 
+              color: var(--text); 
+              background: var(--bg); 
+              padding: 24px; 
+              border-radius: 12px; 
+              border: 1px solid var(--border); 
+            }
+            .section-block { margin-bottom: 24px; }
+            
+            .f-d-box { margin-bottom: 20px; }
+            .f-d-lbl { font-size: 13px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; }
+            .f-d-val { font-size: 15px; font-weight: 600; padding: 12px; border-radius: 8px; border-left: 4px solid; background: #fff;}
+            .f-d-val.fort { border-left-color: var(--success); color: var(--success); border: 1px solid var(--border); border-left: 4px solid var(--success); }
+            .f-d-val.deb { border-left-color: var(--danger); color: var(--danger); border: 1px solid var(--border); border-left: 4px solid var(--danger); }
+            
+            .page-break { page-break-before: always; }
+            
+            @media print {
+               body { background: white; }
+               .page { padding: 20px; }
+               .header-banner { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <!-- HEADER -->
+            <div class="header-banner">
+              <img src="${player.foto || 'Foto Jugador General.png'}" class="avatar" onerror="this.src='Foto Jugador General.png'">
+              <div>
+                <h1 class="title">${escapeHtml(player.nombre || 'Sin Nombre')}</h1>
+                <div class="team-badge">
+                  ${teamHtmlStr} ${escapeHtml(teamName)}
+                </div>
+                ${selHtmlStr}
+              </div>
+            </div>
+            
+            <!-- DATOS DE PERFIL -->
+            <div class="section">
+              <div class="section-title">Perfil del Jugador</div>
+              <div class="grid-stats">
+                ${renderBox('Año / Edad', player.ano || player.anoNac)}
+                ${renderBox('Posición Principal', player.posicion || player.posicionPrincipal)}
+                ${renderBox('Posición Secundaria', player.posicionSecundaria)}
+                ${renderBox('Lateralidad', player.pierna || player.lateralidad)}
+                ${renderBox('Nacionalidad / Autonomía', (player.pais || player.paises || 'España') + (player.comunidad ? ' (' + player.comunidad + ')' : ''))}
+                ${renderBox('Dorsal', player.dorsal)}
+                ${renderBox('Agencia / Representante', (player.agencia || player.agente || player.agenteRepresentante) ? ((player.agencia || '') + ' ' + (player.agente || player.agenteRepresentante || '')).trim() : null)}
+                ${renderBox('Fin Contrato', player.finContrato)}
+                ${renderBox('Valor Mercado', player.valorMercado || player.valor || player.rendimientoAcumuladoAvgNum)}
+              </div>
+            </div>
+
+            <!-- DATOS DEPORTIVOS (MÉTRICAS Y ATRIBUTOS) -->
+            <div class="section">
+              <div class="section-title">Análisis de Rendimiento (Scouting)</div>
+              
+              <div class="grid-2">
+                <div>
+                  <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                    <div class="metric-card" style="flex: 1;">
+                      <div class="metric-val">${stats.avgNota}</div>
+                      <div class="metric-lbl">Nota Media</div>
+                    </div>
+                    <div class="metric-card" style="flex: 1;">
+                      <div class="metric-val" style="color: var(--success);">${stats.appearances}</div>
+                      <div class="metric-lbl">Partidos Vistos</div>
+                    </div>
+                    <div class="metric-card" style="flex: 1;">
+                      <div class="metric-val" style="color: var(--warning);">${player.potencial || player.potencialAvgNum || '-'}</div>
+                      <div class="metric-lbl">Potencial</div>
+                    </div>
+                  </div>
+                  
+                  <div class="f-d-box">
+                    <div class="f-d-lbl">🌟 Fortalezas (Top)</div>
+                    <div class="f-d-val fort">${escapeHtml(stats.fortalezas || '-')}</div>
+                  </div>
+                  <div class="f-d-box">
+                    <div class="f-d-lbl">⚠️ Debilidades (Top)</div>
+                    <div class="f-d-val deb">${escapeHtml(stats.debilidades || '-')}</div>
+                  </div>
+                </div>
+                
+                <div class="metric-card" style="padding: 16px;">
+                   <div class="subsection-title" style="text-align: center;">Gráfico de Atributos</div>
+                   <img src="${chartImgSrc}" class="radar-img">
+                   <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+                      <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">EMO: <span style="color:var(--text)">${valEmo}</span></span>
+                      <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">FÍS: <span style="color:var(--text)">${valFis}</span></span>
+                      <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">DEF: <span style="color:var(--text)">${valDef}</span></span>
+                      <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">ATA: <span style="color:var(--text)">${valAta}</span></span>
+                      <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">PUE: <span style="color:var(--text)">${valPue}</span></span>
+                   </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="page-break"></div>
+
+            <!-- OBSERVACIONES Y DETALLES -->
+            <div class="section">
+              <div class="section-title">Informes Detallados</div>
+              
+              ${renderTextSection('Descripción Técnica / Táctica', player.descTecnica)}
+              ${renderTextSection('Descripción Física', player.descFisica)}
+              ${renderTextSection('Descripción Emocional / Carácter', player.descEmocional)}
+              ${renderTextSection('Perfil RS (Estilo de Juego)', player.perfilRS)}
+              ${renderTextSection('Comentario General', player.comentarioGeneral)}
+            </div>
+
+            <!-- TRAYECTORIA Y EXTRA -->
+            ${(player.trayectoria || player.infoExtra || player.lesiones || player.historialEntrenadores) ? `
+            <div class="section">
+              <div class="section-title">Historial y Contexto</div>
+              
+              ${renderTextSection('Historial de Lesiones Relevantes', Array.isArray(player.lesiones) ? player.lesiones.join(', ') : player.lesiones)}
+              ${renderTextSection('Historial de Entrenadores', player.historialEntrenadores)}
+              ${renderTextSection('Trayectoria / Biografía', typeof player.trayectoria === 'string' ? player.trayectoria : (Array.isArray(player.trayectoria) ? player.trayectoria.map(t => t.equipo ? (t.temporada + ' - ' + t.equipo + (t.goles ? ' | Goles: ' + t.goles : '')) : t).join('\n') : ''))}
+              ${renderTextSection('Información Extra / Contexto Familiar', player.infoExtra)}
+            </div>
+            ` : ''}
+            
+          </div>
+        </body>
+      </html>
+    `);
+    
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+    }, 500);
   }
 
   function exportarComparativaPDF() {
