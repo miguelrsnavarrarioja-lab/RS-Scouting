@@ -208,13 +208,11 @@ a {
 
 .brand-name {
   font-family: var(--font-heading);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 900;
   color: var(--primary-blue-hover);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.2px;
   display: inline-block;
-  transform: scaleX(0.85);
-  transform-origin: left center;
   white-space: nowrap;
 }
 
@@ -3850,7 +3848,7 @@ a {
   }
 
   .brand-name {
-    font-size: 16px;
+    font-size: 20px;
   }
 
   .main-nav {

@@ -22048,7 +22048,7 @@
 
       let html = `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
-        <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
+        <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
@@ -22066,7 +22066,7 @@
 
       const formatTeamName = (str) => {
         if (!str) return '';
-        return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+        return str; // Return as-is to preserve acronyms and custom casing
       };
 
       html += allMatches.map(m => {
@@ -22187,7 +22187,7 @@
           </div>
 
           <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; text-transform: capitalize;">
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
                   <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
@@ -22242,7 +22242,7 @@
 
           const formatTeamName = (str) => {
             if (!str) return '';
-            return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+            return str;
           };
 
           return `
@@ -23073,13 +23073,21 @@
       });
     });
 
-    const fedSet = new Set();
+    const fedSet = new Set([
+      'RFEF', 
+      'FNF - Federación Navarra de Fútbol', 
+      'FAF - Real Federación Aragonesa de Fútbol', 
+      'FVA - Federación Vasca de Fútbol',
+      'FRF - Federación Riojana de Fútbol',
+      'FCF - Federació Catalana de Futbol',
+      'RFFM - Real Federación de Fútbol de Madrid'
+    ]);
     (state.directory.federaciones || []).forEach(f => {
       if (f.nombre) fedSet.add(f.nombre);
     });
     const fedOptions = Array.from(fedSet).sort().map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
 
-    const groupSet = new Set();
+    const groupSet = new Set(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', '1', '2', '3', '4', '5', '6', '7', '8']);
     (state.directory.equipos || []).forEach(e => {
       if (e.grupo) groupSet.add(e.grupo);
     });
@@ -23098,7 +23106,11 @@
           <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la competición (ej: 1DIV)">
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-3">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 800; font-size: 13px;">Temporada</label>
+            <input type="text" id="importTemporada" class="form-control" placeholder="Ej: 26/27" style="font-size: 13px; font-weight: 700;">
+          </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Federación (Opcional)</label>
             <select id="importFederacion" class="form-control" style="font-size: 13px; font-weight: 700;">
@@ -23136,6 +23148,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       const fedValue = document.getElementById('importFederacion')?.value.trim() || '';
       const grpValue = document.getElementById('importGrupo')?.value.trim() || '';
+      const tempValue = document.getElementById('importTemporada')?.value.trim() || '';
 
       if (!compName) {
         alert('Por favor selecciona o escribe el nombre de la competición.');
@@ -23151,7 +23164,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
 
       try {
-        parseCalendarText(rawText, compName, fedValue, grpValue);
+        parseCalendarText(rawText, compName, fedValue, grpValue, tempValue);
         hideModal();
       } catch (err) {
         alert("Error al importar: " + err.message);
@@ -23182,7 +23195,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     reader.readAsText(file);
   }
 
-  function parseCalendarText(rawText, calendarName, federacion = '', grupo = '') {
+  function parseCalendarText(rawText, calendarName, federacion = '', grupo = '', temporada = '') {
     const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const matches = [];
     let currentJornada = 'Jornada 1';
@@ -23204,13 +23217,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     const cleanTeamName = (name) => {
       if (!name) return '';
+      // Remove dots
+      name = name.replace(/\./g, '');
       // Remove trailing squad letters like "B", "A", B, A (case insensitive)
       return name.trim().replace(/\s+"?[a-zA-Z]"?$/i, '').trim();
     };
 
     const capitalizeWords = (str) => {
       if (!str) return '';
-      return str.toLowerCase().replace(/(^|[\s\-\.])\S/g, l => l.toUpperCase());
+      return str.trim(); // Retener formato original en lugar de poner minúsculas, para no romper siglas como CD, FC, AD
     };
 
     lines.forEach((line, idx) => {
@@ -23240,9 +23255,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           parts = line.split(/[\t]+|\s{2,}/);
         }
         if (parts.length >= 2) {
-          const rawLocal = capitalizeWords(cleanTeamName(parts[0]));
-          const rawVisitante = capitalizeWords(cleanTeamName(parts[parts.length - 1]));
+          let rawLocal = capitalizeWords(cleanTeamName(parts[0]));
+          let rawVisitante = capitalizeWords(cleanTeamName(parts[parts.length - 1]));
           const competicionName = calendarName || 'Liga Importada';
+          
+          if (temporada) {
+            rawLocal = `${rawLocal} ${competicionName} ${temporada}`;
+            rawVisitante = `${rawVisitante} ${competicionName} ${temporada}`;
+          } else if (competicionName !== 'Liga Importada') {
+            rawLocal = `${rawLocal} ${competicionName}`;
+            rawVisitante = `${rawVisitante} ${competicionName}`;
+          }
 
           matches.push({
             id: 'cm_' + Date.now() + '_' + idx,
