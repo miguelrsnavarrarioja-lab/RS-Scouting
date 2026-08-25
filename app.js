@@ -1490,8 +1490,32 @@
     container.innerHTML = upcoming.map(r => {
       const getLogo = (name) => {
         if (!name) return '';
+        
+        const c2 = (state.directory?.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === name.toLowerCase());
+        if (c2 && (c2.logo || c2.escudo)) return c2.logo || c2.escudo;
+
         const eq = (state.directory?.equipos || []).find(e => e.nombre && e.nombre.toLowerCase() === name.toLowerCase());
-        return eq?.escudo || '';
+        if (eq) {
+          if (eq.escudo || eq.logo) return eq.escudo || eq.logo;
+          if (eq.clubVinculado) {
+            const c = (state.directory?.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === eq.clubVinculado.toLowerCase());
+            if (c && (c.logo || c.escudo)) return c.logo || c.escudo;
+          }
+        }
+
+        const sel = (state.directory?.selecciones || []).find(s => s.nombre && s.nombre.toLowerCase() === name.toLowerCase());
+        if (sel && sel.federacion) {
+          const fed = (state.directory?.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
+          if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
+        }
+        
+        const fed = (state.directory?.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === name.toLowerCase());
+        if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
+
+        const fallbackClub = (state.directory?.clubes || []).find(c => c.nombre && name.toLowerCase().includes(c.nombre.toLowerCase()));
+        if (fallbackClub && (fallbackClub.logo || fallbackClub.escudo)) return fallbackClub.logo || fallbackClub.escudo;
+
+        return '';
       };
 
       const localLogo = getLogo(r.equipoLocal);
@@ -2674,6 +2698,7 @@
 
             const getLogo = (teamName) => {
               if (!teamName) return '';
+              
               const c2 = (state.directory.clubes || []).find(c => c.nombre && c.nombre.toLowerCase() === teamName.toLowerCase());
               if (c2 && (c2.logo || c2.escudo)) return c2.logo || c2.escudo;
 
@@ -2685,6 +2710,15 @@
                   if (c && (c.logo || c.escudo)) return c.logo || c.escudo;
                 }
               }
+
+              const sel = (state.directory.selecciones || []).find(s => s.nombre && s.nombre.toLowerCase() === teamName.toLowerCase());
+              if (sel && sel.federacion) {
+                const fed = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
+                if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
+              }
+              
+              const fed = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === teamName.toLowerCase());
+              if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
 
               const fallbackClub = (state.directory.clubes || []).find(c => c.nombre && teamName.toLowerCase().includes(c.nombre.toLowerCase()));
               if (fallbackClub && (fallbackClub.logo || fallbackClub.escudo)) return fallbackClub.logo || fallbackClub.escudo;
@@ -11693,6 +11727,22 @@
 
     let localStaffList = fed.staff ? JSON.parse(JSON.stringify(fed.staff)) : [];
     let localClubesList = fed.clubes ? JSON.parse(JSON.stringify(fed.clubes)) : [];
+    let localSeleccionesList = fed.seleccionesVinculadas ? JSON.parse(JSON.stringify(fed.seleccionesVinculadas)) : [];
+
+    // Auto-vincular selecciones desde el directorio
+    if (state.directory.selecciones && Array.isArray(state.directory.selecciones)) {
+      const fedNameLower = (fed.nombre || fed.federacion || '').toLowerCase().trim();
+      if (fedNameLower) {
+        state.directory.selecciones.forEach(s => {
+          if (s.federacion && s.federacion.toLowerCase().trim() === fedNameLower) {
+            const sName = s.nombre || '';
+            if (sName && !localSeleccionesList.includes(sName)) {
+              localSeleccionesList.push(sName);
+            }
+          }
+        });
+      }
+    }
 
     const notas = fed.notas || '';
     let logoData = fed.logo || fed.escudo || '';
@@ -11710,6 +11760,7 @@
           <button type="button" class="player-subtab" data-ftab="staff">STAFF</button>
           <button type="button" class="player-subtab" data-ftab="contacto">CONTACTO</button>
           <button type="button" class="player-subtab" data-ftab="clubes">CLUBES VINCULADOS</button>
+          <button type="button" class="player-subtab" data-ftab="selecciones">SELECCIONES VINCULADAS</button>
           <button type="button" class="player-subtab" data-ftab="notas">NOTAS Y ARCHIVOS</button>
         </div>
 
@@ -11828,6 +11879,30 @@
             </div>
           </div>
 
+          <!-- TAB 4.5: SELECCIONES VINCULADAS -->
+          <div class="fed-tab-pane hidden" id="ftab-selecciones">
+            <div class="player-section-title mb-2">
+              <i data-lucide="flag"></i> Selecciones Vinculadas
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 100px; gap: 8px;" class="mb-4">
+              <input type="text" id="ffSeleccionSearchInput" class="form-control" placeholder="Nombre de la selección (Ej: Sub18 Masculina)...">
+              <button type="button" class="btn btn-primary" id="btnAddFedSeleccionRow"><i data-lucide="plus"></i> Añadir</button>
+            </div>
+
+            <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+              <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
+                    <th style="padding: 8px 12px;">SELECCIÓN VINCULADA</th>
+                    <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
+                  </tr>
+                </thead>
+                <tbody id="ffSeleccionesTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- TAB 5: NOTAS Y ARCHIVOS -->
           <div class="fed-tab-pane hidden" id="ftab-notas">
             <div class="form-group mb-6">
@@ -11873,6 +11948,7 @@
 
         staff: localStaffList,
         clubes: localClubesList,
+        seleccionesVinculadas: localSeleccionesList,
         notas: document.getElementById('ffNotas').value.trim(),
 
         logo: logoData,
@@ -11937,6 +12013,29 @@
             state.directory.clubes.unshift(targetClub);
           } else {
             targetClub.federacion = nameVal;
+          }
+        });
+      }
+
+      // Bidirectional sync for Selecciones Vinculadas
+      if (Array.isArray(localSeleccionesList) && state.directory.selecciones) {
+        localSeleccionesList.forEach(s => {
+          const selName = typeof s === 'string' ? s : (s.nombre || '');
+          if (!selName) return;
+
+          let targetSel = state.directory.selecciones.find(sel =>
+            (sel.nombre && sel.nombre.toLowerCase() === selName.toLowerCase())
+          );
+
+          if (!targetSel) {
+            targetSel = {
+              id: 'sel_' + Date.now() + Math.floor(Math.random() * 100),
+              nombre: selName,
+              federacion: nameVal
+            };
+            state.directory.selecciones.unshift(targetSel);
+          } else {
+            targetSel.federacion = nameVal;
           }
         });
       }
@@ -12078,6 +12177,43 @@
       localClubesList.push(val);
       document.getElementById('ffClubSearchInput').value = '';
       renderFedClubesTable();
+    });
+
+    // Selecciones Table Logic
+    function renderFedSeleccionesTable() {
+      const tbody = document.getElementById('ffSeleccionesTableBody');
+      if (!tbody) return;
+      if (localSeleccionesList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: var(--text-muted);">No hay selecciones vinculadas a esta federación.</td></tr>`;
+      } else {
+        tbody.innerHTML = localSeleccionesList.map((s, idx) => `
+          <tr style="border-bottom: 1px solid var(--border-light);">
+            <td style="padding: 8px 12px; font-weight: 700;">${escapeHtml(s)}</td>
+            <td style="padding: 8px 12px; text-align: right;">
+              <button type="button" class="btn-action-icon danger btn-del-fed-seleccion" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <i data-lucide="trash-2" style="width: 12px;"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+
+        tbody.querySelectorAll('.btn-del-fed-seleccion').forEach(btn => {
+          btn.addEventListener('click', () => {
+            localSeleccionesList.splice(parseInt(btn.dataset.idx, 10), 1);
+            renderFedSeleccionesTable();
+          });
+        });
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+    renderFedSeleccionesTable();
+
+    document.getElementById('btnAddFedSeleccionRow')?.addEventListener('click', () => {
+      const val = document.getElementById('ffSeleccionSearchInput').value.trim();
+      if (!val) return alert('Ingresa el nombre de la selección');
+      localSeleccionesList.push(val);
+      document.getElementById('ffSeleccionSearchInput').value = '';
+      renderFedSeleccionesTable();
     });
 
     // File Input Label
