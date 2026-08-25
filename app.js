@@ -1089,19 +1089,22 @@
     const completedReports = (state.reports || []).filter(r => r.completado);
     const seenPlayerNames = new Set();
     completedReports.forEach(r => {
-      const processLineup = (lineupStr) => {
-        if (!lineupStr) return;
+      const processLineup = (lineupData) => {
+        if (!lineupData) return;
         try {
-          const lineup = JSON.parse(lineupStr);
-          lineup.forEach(p => {
-            if (p.name) seenPlayerNames.add(p.name.toLowerCase().trim());
-          });
+          const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
+          if (Array.isArray(lineup)) {
+            lineup.forEach(p => {
+              const n = p.name || p.nombre;
+              if (n) seenPlayerNames.add(n.toLowerCase().trim());
+            });
+          }
         } catch (e) { }
       };
-      processLineup(r.titularesLocal);
-      processLineup(r.suplentesLocal);
-      processLineup(r.titularesVisitante);
-      processLineup(r.suplentesVisitante);
+      processLineup(r.titularesLocal || r.localTitulares);
+      processLineup(r.suplentesLocal || r.localSuplentes);
+      processLineup(r.titularesVisitante || r.visitanteTitulares);
+      processLineup(r.suplentesVisitante || r.visitanteSuplentes);
     });
 
     const groups = {
@@ -7291,7 +7294,7 @@
         container = document.createElement('div');
         container.id = 'matchCommentsModal';
         container.className = 'modal-overlay hidden';
-        container.style.zIndex = '9999'; // Higher than general modal
+        container.style.zIndex = '10050'; // Higher than general modal (10020)
         document.body.appendChild(container);
       }
 
