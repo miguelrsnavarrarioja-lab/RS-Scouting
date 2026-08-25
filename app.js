@@ -3886,9 +3886,16 @@
     const targetTeam = equipos.find(t => t.nombre && t.nombre.toLowerCase() === teamNameLower);
 
     let match = jugadores.find(p => {
-      const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
+      const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
       const pDorsal = String(p.dorsal || p.numero || p.num || '').trim();
-      let matchesTeam = !teamNameLower || pTeam === teamNameLower || pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam);
+      
+      let matchesTeam = false;
+      if (!teamNameLower) {
+        matchesTeam = true;
+      } else if (pTeam) {
+        matchesTeam = pTeam === teamNameLower || 
+                      (pTeam.length > 2 && (pTeam.includes(teamNameLower) || teamNameLower.includes(pTeam)));
+      }
 
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
         const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
