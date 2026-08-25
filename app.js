@@ -2298,8 +2298,7 @@
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) {
           const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
-
+          
           const dayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1;
           const monday = new Date(d);
           monday.setDate(d.getDate() - dayOfWeek);
@@ -2314,17 +2313,31 @@
           } else {
             weekLabel = `Semana del ${monday.getDate()} de ${fullMonthNames[m1]} al ${sunday.getDate()} de ${fullMonthNames[m2]}`;
           }
-          weekMap[weekLabel] = (weekMap[weekLabel] || 0) + 1;
-          weekSortMap[weekLabel] = monday.getTime();
 
           const dayLabel = `${dayNames[d.getDay()]}, ${d.getDate()} de ${fullMonthNames[d.getMonth()]}`;
-          dayMap[dayLabel] = (dayMap[dayLabel] || 0) + 1;
-          daySortMap[dayLabel] = d.getTime();
+
+          // Add to month map
+          monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
+
+          // Cascade to week map
+          const matchesMonth = currentPartidosMonthTab === 'all' || monthKey === currentPartidosMonthTab;
+          if (matchesMonth) {
+            weekMap[weekLabel] = (weekMap[weekLabel] || 0) + 1;
+            weekSortMap[weekLabel] = monday.getTime();
+          }
+
+          // Cascade to day map
+          const matchesWeek = currentPartidosWeekTab === 'all' || weekLabel === currentPartidosWeekTab;
+          if (matchesMonth && matchesWeek) {
+            dayMap[dayLabel] = (dayMap[dayLabel] || 0) + 1;
+            daySortMap[dayLabel] = d.getTime();
+          }
         }
       }
     });
 
-    if (weekMap[currentWeekLabel] === undefined) {
+    const _currentMonthKey = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}`;
+    if ((currentPartidosMonthTab === 'all' || currentPartidosMonthTab === _currentMonthKey) && weekMap[currentWeekLabel] === undefined) {
       weekMap[currentWeekLabel] = 0;
       weekSortMap[currentWeekLabel] = _monday.getTime();
     }
