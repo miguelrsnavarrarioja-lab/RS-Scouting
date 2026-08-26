@@ -23200,7 +23200,7 @@
       });
 
       const getTecnicoSelect = (matchId, selectedValue) => {
-        let selHtml = `<select class="form-control form-control-sm cartelera-match-tecnico" data-matchid="${matchId}" style="font-size: 11px; height: 26px; padding: 2px 4px; width: 100px;">`;
+        let selHtml = `<select class="form-control form-control-sm cartelera-match-tecnico" data-matchid="${matchId}" style="font-size: 11px; height: 26px; padding: 2px 4px; width: 100%;">`;
         selHtml += `<option value="">Técnico...</option>`;
         currentTecnicos.forEach(t => {
           const sel = (t === selectedValue) ? 'selected' : '';
@@ -23218,13 +23218,13 @@
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
               <th style="padding: 10px 12px; width: 12%;">COMPETICIÓN</th>
-              <th style="padding: 10px 12px; width: 14%;">LOCAL</th>
-              <th style="padding: 10px 12px; width: 14%;">VISITANTE</th>
+              <th style="padding: 10px 12px; width: 16%;">LOCAL</th>
+              <th style="padding: 10px 12px; width: 16%;">VISITANTE</th>
               <th style="padding: 10px 12px; width: 9%;">FECHA ORIG.</th>
-              <th style="padding: 10px 12px; width: 11%;">FECHA ASIGN.</th>
-              <th style="padding: 10px 12px; width: 8%;">HORA</th>
-              <th style="padding: 10px 12px; width: 12%;">TÉCNICO</th>
-              <th style="padding: 10px 12px; text-align: right; width: 14%;">ACCIONES</th>
+              <th style="padding: 10px 12px; width: 9%;">FECHA ASIGN.</th>
+              <th style="padding: 10px 12px; width: 6%;">HORA</th>
+              <th style="padding: 10px 12px; width: 14%;">TÉCNICO</th>
+              <th style="padding: 10px 12px; text-align: center; width: 12%;">ACCIONES</th>
             </tr>
           </thead>
           <tbody>
@@ -23284,7 +23284,7 @@
           <td style="padding: 8px 12px;">
             ${getTecnicoSelect(m.id, m.tecnico)}
           </td>
-          <td style="padding: 8px 12px; text-align: right;">
+          <td style="padding: 8px 12px; text-align: center;">
             <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
               <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
             </button>
@@ -23362,13 +23362,13 @@
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
                   <th style="padding: 10px 12px; width: 12%;">COMPETICIÓN</th>
-                  <th style="padding: 10px 12px; width: 15%;">LOCAL</th>
-                  <th style="padding: 10px 12px; width: 15%;">VISITANTE</th>
-                  <th style="padding: 10px 12px; width: 10%;">FECHA ORIG.</th>
-                  <th style="padding: 10px 12px; width: 11%;">FECHA ASIGN.</th>
+                  <th style="padding: 10px 12px; width: 18%;">LOCAL</th>
+                  <th style="padding: 10px 12px; width: 18%;">VISITANTE</th>
+                  <th style="padding: 10px 12px; width: 9%;">FECHA ORIG.</th>
+                  <th style="padding: 10px 12px; width: 9%;">FECHA ASIGN.</th>
                   <th style="padding: 10px 12px; width: 8%;">HORA</th>
                   <th style="padding: 10px 12px; width: 14%;">TÉCNICO</th>
-                  <th style="padding: 10px 12px; text-align: right; width: 15%;">ACCIONES</th>
+                  <th style="padding: 10px 12px; text-align: center; width: 12%;">ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
@@ -23432,7 +23432,7 @@
                       <td style="padding: 8px 12px;">
                         ${getTecnicoSelect(m.id, m.tecnico)}
                       </td>
-                      <td style="padding: 8px 12px; text-align: right;">
+                      <td style="padding: 8px 12px; text-align: center;">
                         <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                           <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
                         </button>
