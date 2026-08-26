@@ -6070,6 +6070,40 @@
     '2033/2034', '2034/2035', '2035/2036'
   ];
 
+  function sortFederations(feds) {
+    const getPriority = (name) => {
+      const lowerName = (name || '').toLowerCase();
+      if (lowerName.includes('navarra')) return 1;
+      if (lowerName.includes('aragón') || lowerName.includes('aragon')) return 2;
+      if (lowerName.includes('rioja')) return 3;
+      if (lowerName.includes('española') || lowerName === 'rfef') return 4;
+      return 5;
+    };
+    return [...feds].sort((a, b) => {
+      const nameA = typeof a === 'string' ? a : (a.nombre || a.federacion || '');
+      const nameB = typeof b === 'string' ? b : (b.nombre || b.federacion || '');
+      const pA = getPriority(nameA);
+      const pB = getPriority(nameB);
+      if (pA !== pB) return pA - pB;
+      return nameA.localeCompare(nameB);
+    });
+  }
+
+  function getAllGroupsArray() {
+    const groupSet = new Set(state.customGrupos || ['Único', '1', '2', '3', '4', '5', 'XV', 'Navarra']);
+    (state.directory?.equipos || []).forEach(e => {
+      if (e.grupo) groupSet.add(e.grupo);
+    });
+    return Array.from(groupSet).sort((a, b) => {
+      const isNumA = !isNaN(a);
+      const isNumB = !isNaN(b);
+      if (isNumA && !isNumB) return -1;
+      if (!isNumA && isNumB) return 1;
+      if (isNumA && isNumB) return parseInt(a) - parseInt(b);
+      return a.localeCompare(b);
+    });
+  }
+
   const LOCALIDADES_POR_COMUNIDAD = {
     'Navarra': [
       'Pamplona', 'Tudela', 'Barañáin', 'Burlada', 'Estella-Lizarra', 'Tafalla', 'Zizur Mayor',
@@ -7954,7 +7988,7 @@
         </div>
 
         <datalist id="federacionesDatalistOptions">
-          ${(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="estadiosDatalistOptions">
@@ -9753,7 +9787,7 @@
         </datalist>
 
         <datalist id="federacionesDatalistOptions">
-          ${(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="staffDatalistOptions">
@@ -9867,8 +9901,8 @@
                     <label class="form-label">GRUPO</label>
                     <select id="tfGrupo" class="form-control">
                       <option value="">Seleccionar grupo...</option>
-                      ${(state.customGrupos || ['Único', '1', '2', '3', '4', '5', 'XV']).map(g => `<option value="${escapeHtml(g)}" ${grupoVal === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                      ${grupoVal && !(state.customGrupos || []).includes(grupoVal) ? `<option value="${escapeHtml(grupoVal)}" selected>${escapeHtml(grupoVal)}</option>` : ''}
+                      ${getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}" ${grupoVal === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal && !getAllGroupsArray().includes(grupoVal) ? `<option value="${escapeHtml(grupoVal)}" selected>${escapeHtml(grupoVal)}</option>` : ''}
                       <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
                     </select>
                   </div>
@@ -9888,8 +9922,8 @@
                     <label class="form-label">GRUPO 2 (Opcional)</label>
                     <select id="tfGrupo2" class="form-control">
                       <option value="">Añadir segundo grupo...</option>
-                      ${(state.customGrupos || ['Único', '1', '2', '3', '4', '5', 'XV']).map(g => `<option value="${escapeHtml(g)}" ${grupoVal2 === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                      ${grupoVal2 && !(state.customGrupos || []).includes(grupoVal2) ? `<option value="${escapeHtml(grupoVal2)}" selected>${escapeHtml(grupoVal2)}</option>` : ''}
+                      ${getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}" ${grupoVal2 === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal2 && !getAllGroupsArray().includes(grupoVal2) ? `<option value="${escapeHtml(grupoVal2)}" selected>${escapeHtml(grupoVal2)}</option>` : ''}
                       <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
                     </select>
                   </div>
@@ -23617,65 +23651,21 @@
   function openAddTeamsModal(type) {
     ensureCarteleraState();
     const isPriority = type === 'priority';
-    const catSet = new Set([
-      'División de Honor Juvenil',
-      'Liga Nacional Juvenil',
-      'Preferente Juvenil',
-      'Primera RFEF',
-      'Segunda RFEF',
-      'Tercera RFEF',
-      'Cadete División de Honor',
-      'Cadete Preferente',
-      'Infantil',
-      'Senior'
-    ]);
-
-    const fedSet = new Set();
-
-    (state.directory.equipos || []).forEach(e => {
-      if (e.categoria) catSet.add(e.categoria);
-      if (e.competicion) catSet.add(e.competicion);
-      if (e.liga) catSet.add(e.liga);
-      if (e.federacion) fedSet.add(e.federacion);
-    });
-
-    (state.cartelera?.calendarios || []).forEach(cal => {
-      (cal.partidos || []).forEach(m => {
-        if (m.competicion) catSet.add(m.competicion);
-        if (m.federacion) fedSet.add(m.federacion);
-      });
-    });
-
-    const categories = Array.from(catSet).sort();
-    const federations = Array.from(fedSet).sort();
-
-    const groupSet = new Set([
-      'Todos los Grupos',
-      'Grupo 1',
-      'Grupo 2',
-      'Grupo 3',
-      'Grupo 4',
-      'Grupo 5',
-      'Grupo 6',
-      'Grupo 7',
-      'Grupo Subgrupo A',
-      'Grupo Subgrupo B'
-    ]);
-
-    (state.directory.equipos || []).forEach(e => {
-      if (e.grupo) groupSet.add(e.grupo);
-    });
-
-    const groups = Array.from(groupSet);
+    const categories = typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : [];
+    const federations = sortFederations(state.directory?.federaciones || []).map(f => f.nombre || f.federacion).filter(Boolean);
+    const groups = getAllGroupsArray();
 
     const catOptions = `<option value="all">-- Todas las Competiciones --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
-    const groupOptions = groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+    const groupOptions = `<option value="Todos los Grupos">Todos los Grupos</option>` + groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
     const modalTitle = isPriority ? '⭐ Gestor de Equipos Prioritarios' : '👁️ Gestor de Equipos Interesantes';
     const mainColor = isPriority ? '#2563eb' : '#9333ea';
     const icon = isPriority ? 'check' : 'eye';
     const btnLabel = isPriority ? 'Guardar Equipos Prioritarios' : 'Guardar Equipos Interesantes';
+
+    const card = document.getElementById('generalModalCard');
+    if (card) card.classList.add('xlarge');
 
     showModal(modalTitle, `
       <style>
@@ -23747,7 +23737,7 @@
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button type="button" class="btn btn-secondary" onclick="hideModal()">Cancelar</button>
+          <button type="button" class="btn btn-secondary" id="btnCancelAddTeamModal">Cancelar</button>
           <button type="submit" class="btn btn-primary" style="font-weight: 800; background: ${mainColor};">
             <i data-lucide="${icon}"></i> ${btnLabel}
           </button>
@@ -23856,6 +23846,8 @@
         checkboxes.forEach(c => c.checked = !allChecked);
       };
     }
+
+    document.getElementById('btnCancelAddTeamModal').onclick = hideModal;
 
     document.getElementById('formAddTeamModal').onsubmit = (e) => {
       e.preventDefault();
@@ -24295,81 +24287,48 @@
   function openImportTextCalendarModal() {
     ensureCarteleraState();
 
-    // Gather available categories from state.directory.equipos & state.cartelera
-    const catSet = new Set([
-      ...(typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : []),
-      'División de Honor Juvenil',
-      'Liga Nacional Juvenil',
-      'Preferente Juvenil',
-      'Primera RFEF',
-      'Segunda RFEF',
-      'Tercera RFEF',
-      'Cadete División de Honor',
-      'Cadete Preferente',
-      'Infantil',
-      'Senior'
-    ]);
+    const catOptions = (typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : []).map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+    const tempOptions = (typeof LISTA_TEMPORADAS_EQUIPO !== 'undefined' ? LISTA_TEMPORADAS_EQUIPO : []).map(t => {
+      const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
+      return `<option value="${escapeHtml(shortFormat)}">${escapeHtml(t)} (${shortFormat})</option>`;
+    }).join('');
+    const fedOptions = sortFederations(state.directory?.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}">${escapeHtml(f.nombre || f.federacion)}</option>`).join('');
+    const groupOptions = getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
 
-    (state.directory.equipos || []).forEach(e => {
-      const c = e.competicion || e.categoria || e.liga;
-      if (c) catSet.add(c);
-    });
-
-    (state.cartelera?.calendarios || []).forEach(cal => {
-      (cal.partidos || []).forEach(m => {
-        if (m.competicion) catSet.add(m.competicion);
-      });
-    });
-
-    const fedSet = new Set([
-      'RFEF', 
-      'FNF - Federación Navarra de Fútbol', 
-      'FAF - Real Federación Aragonesa de Fútbol', 
-      'FVA - Federación Vasca de Fútbol',
-      'FRF - Federación Riojana de Fútbol',
-      'FCF - Federació Catalana de Futbol',
-      'RFFM - Real Federación de Fútbol de Madrid'
-    ]);
-    (state.directory.federaciones || []).forEach(f => {
-      if (f.nombre) fedSet.add(f.nombre);
-    });
-    const fedOptions = Array.from(fedSet).sort().map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
-
-    const groupSet = new Set(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', '1', '2', '3', '4', '5', '6', '7', '8']);
-    (state.directory.equipos || []).forEach(e => {
-      if (e.grupo) groupSet.add(e.grupo);
-    });
-    const groupOptions = Array.from(groupSet).sort().map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
-
-    const catOptions = Array.from(catSet).sort().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    const card = document.getElementById('generalModalCard');
+    if (card) card.classList.add('xlarge');
 
     showModal('📥 Importador de Calendario de Partidos', `
       <form id="formImportTextCalendar" onsubmit="return false;">
         <div class="form-group mb-3">
-          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Competición</label>
+          <label class="form-label" style="font-weight: 800; font-size: 13px;">Elegir Categoría / Competición</label>
           <select id="importCompSelect" class="form-control mb-2" style="font-size: 13px; font-weight: 700;">
+            <option value="">Seleccionar categoría...</option>
             ${catOptions}
-            <option value="__custom__">+ Otra Competición personalizada...</option>
+            <option value="__custom__" style="font-weight: bold; color: var(--primary-blue);">+ Otra categoría personalizada...</option>
           </select>
-          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la competición (ej: 1DIV)">
+          <input type="text" id="importCompCustom" class="form-control hidden" placeholder="Escribe el nombre de la categoría (ej: 1DIV)">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-3">
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Temporada</label>
-            <input type="text" id="importTemporada" class="form-control" placeholder="Ej: 26/27" style="font-size: 13px; font-weight: 700;">
+            <select id="importTemporada" class="form-control" style="font-size: 13px; font-weight: 700;">
+              <option value="">Seleccionar temporada...</option>
+              ${tempOptions}
+            </select>
           </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Federación (Opcional)</label>
             <select id="importFederacion" class="form-control" style="font-size: 13px; font-weight: 700;">
-              <option value="">-- Sin Federación --</option>
+              <option value="">Seleccionar federación...</option>
               ${fedOptions}
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" style="font-weight: 800; font-size: 13px;">Grupo (Opcional)</label>
             <select id="importGrupo" class="form-control mb-1" style="font-size: 13px; font-weight: 700;">
-              <option value="">-- Sin Grupo --</option>
+              <option value="">Seleccionar grupo...</option>
               ${groupOptions}
               <option value="__custom__" style="font-weight: bold; color: var(--primary-blue);">+ Añadir nuevo grupo...</option>
             </select>
