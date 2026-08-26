@@ -24487,6 +24487,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (parts.length >= 2) {
           let rawLocal = capitalizeWords(cleanTeamName(parts[0]));
           let rawVisitante = capitalizeWords(cleanTeamName(parts[parts.length - 1]));
+
+          if (rawLocal.toLowerCase().includes('descansa') || rawVisitante.toLowerCase().includes('descansa')) {
+            return;
+          }
+
           const competicionName = calendarName || 'Liga Importada';
           
           if (temporada) {
