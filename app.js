@@ -23113,11 +23113,11 @@
       if (window.filterCarteleraThisWeekend) {
         const now = new Date();
         const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; 
-        const friday = new Date(now); 
-        friday.setDate(now.getDate() + (4 - dayOfWeek)); 
-        friday.setHours(0,0,0,0);
-        const sunday = new Date(friday); 
-        sunday.setDate(friday.getDate() + 2); 
+        const monday = new Date(now); 
+        monday.setDate(now.getDate() - dayOfWeek); 
+        monday.setHours(0,0,0,0);
+        const sunday = new Date(monday); 
+        sunday.setDate(monday.getDate() + 6); 
         sunday.setHours(23,59,59,999);
         
         allMatches = allMatches.filter(m => {
@@ -23130,7 +23130,7 @@
              if (parts.length === 3 && parts[2].length === 4) mDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
           }
           if (!mDate || isNaN(mDate.getTime())) return false;
-          return mDate >= friday && mDate <= sunday;
+          return mDate >= monday && mDate <= sunday;
         });
       }
 
@@ -23144,14 +23144,19 @@
 
       // ELSE SUBVIEW IS DESTACADOS
 
-      // Sort: Jornada (numerically), then Fecha/Hora
+      // Sort: if filterCarteleraThisWeekend is active, sort by date/time directly. Otherwise by Jornada then date/time.
       allMatches.sort((a, b) => {
+        const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
+        const dateB = new Date((b.fecha || '9999-12-31') + 'T' + (b.hora || '00:00'));
+
+        if (window.filterCarteleraThisWeekend) {
+          return dateA - dateB;
+        }
+
         const jorA = parseInt(String(a.jornada || '').match(/\d+/) || [999]);
         const jorB = parseInt(String(b.jornada || '').match(/\d+/) || [999]);
         if (jorA !== jorB) return jorA - jorB;
 
-        const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
-        const dateB = new Date((b.fecha || '9999-12-31') + 'T' + (b.hora || '00:00'));
         return dateA - dateB;
       });
 
@@ -23458,6 +23463,15 @@
 
   function mapCarteleraTeamToDirectoryName(rawName, competicion) {
     if (!rawName) return '';
+    
+    // Corregir nombres antes del mapeo para que conserven la categoría (ej: "Real Zaragoza SAD DHJ 26/27")
+    if (rawName.toLowerCase().includes('zaragoza-racing club')) {
+      rawName = rawName.replace(/zaragoza-racing club/gi, 'Racing Club Zaragoza');
+    }
+    if (rawName.toLowerCase().includes('real zaragoza') && !rawName.toLowerCase().includes('sad')) {
+      rawName = rawName.replace(/real zaragoza/gi, 'Real Zaragoza SAD');
+    }
+
     let coreName = rawName.toLowerCase();
 
     const prefixes = ['c.d.', 'f.c.', 'a.d.', 'u.d.', 's.d.', 'c.f.', 'c.a.', 'cd', 'fc', 'ad', 'ud', 'sd', 'cf', 'ca', 'at.', 'atletico', 'atlético', 'real', 'sporting', 'racing', 'club'];
@@ -24500,12 +24514,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       if (line.includes(' vs ') || line.includes(' - ') || line.includes(' VS ') || line.match(/\s{2,}/) || line.includes('\t')) {
         let parts;
-        if (line.includes(' vs ') || line.includes(' VS ')) {
+        if (line.includes('\t')) {
+          parts = line.split(/\t+/);
+        } else if (line.match(/\s{3,}/)) {
+          parts = line.split(/\s{3,}/);
+        } else if (line.includes(' vs ') || line.includes(' VS ')) {
           parts = line.split(/\s+(?:vs|VS)\s+/);
         } else if (line.includes(' - ')) {
           parts = line.split(/\s+-\s+/);
         } else {
-          parts = line.split(/[\t]+|\s{2,}/);
+          parts = line.split(/\s{2,}/);
         }
         if (parts.length >= 2) {
           let rawLocal = capitalizeWords(cleanTeamName(parts[0]));
