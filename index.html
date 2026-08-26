@@ -124,81 +124,47 @@
     <section class="tab-view active" id="view-dashboard">
 
 
-      <!-- MAIN HERO SECTION: LOGO ON LEFT + KPI METRICS ON RIGHT -->
+      <!-- MAIN HERO SECTION: 3-COLUMN LAYOUT -->
       <div class="dashboard-main-hero-grid">
-        <!-- LEFT: LOGO HERO CARD -->
-        <div class="dashboard-logo-card">
-          <img src="Logo MS 2.png" alt="MS Fútbol Scout Logo" class="dashboard-hero-logo">
-        </div>
-
-        <!-- RIGHT: KPI METRICS GRID -->
-        <div class="kpi-grid">
-          <div class="kpi-card" data-shortcut="partidos">
-            <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Informes Terminados</span>
-              <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
-              <span class="kpi-subtext">Total completados</span>
+        
+        <!-- LEFT COLUMN -->
+        <div class="dashboard-side-col">
+          <div class="kpi-grid-2x2">
+            <div class="kpi-card" data-shortcut="partidos">
+              <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Informes Terminados</span>
+                <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
+                <span class="kpi-subtext">Total completados</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="partidos">
+              <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Informes Pendientes</span>
+                <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
+                <span class="kpi-subtext">Sin completar</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="partidos">
+              <div class="kpi-icon green"><i data-lucide="radio"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Informes Directo</span>
+                <span class="kpi-value" id="kpiTotalDirecto">0</span>
+                <span class="kpi-subtext">Visionados en vivo</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="partidos">
+              <div class="kpi-icon red"><i data-lucide="video"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Informes Vídeo</span>
+                <span class="kpi-value" id="kpiTotalVideo">0</span>
+                <span class="kpi-subtext">Visionados diferidos</span>
+              </div>
             </div>
           </div>
-          <div class="kpi-card" data-shortcut="partidos">
-            <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Informes Pendientes</span>
-              <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
-              <span class="kpi-subtext">Sin completar</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="partidos">
-            <div class="kpi-icon green"><i data-lucide="radio"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Informes Directo</span>
-              <span class="kpi-value" id="kpiTotalDirecto">0</span>
-              <span class="kpi-subtext">Visionados en vivo</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="partidos">
-            <div class="kpi-icon red"><i data-lucide="video"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Informes Vídeo</span>
-              <span class="kpi-value" id="kpiTotalVideo">0</span>
-              <span class="kpi-subtext">Visionados diferidos</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="directorio">
-            <div class="kpi-icon purple"><i data-lucide="users"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Jugadores</span>
-              <span class="kpi-value" id="kpiTotalPlayers">0</span>
-              <span class="kpi-subtext">En directorio activo</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="agenda">
-            <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Tareas Pendientes</span>
-              <span class="kpi-value" id="kpiPendingTasks">0</span>
-              <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="agenda">
-            <div class="kpi-icon info"><i data-lucide="clock"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Eventos Pendientes</span>
-              <span class="kpi-value" id="kpiPendingEvents">0</span>
-              <span class="kpi-subtext">Próximos eventos</span>
-            </div>
-          </div>
-          <div class="kpi-card" data-shortcut="cartelera">
-            <div class="kpi-icon orange"><i data-lucide="star"></i></div>
-            <div class="kpi-info">
-              <span class="kpi-label">Cartelera (Semana)</span>
-              <span class="kpi-value" id="kpiPriorityMatchesThisWeek">0</span>
-              <span class="kpi-subtext">Partidos prioritarios</span>
-            </div>
-          </div>
-          <!-- NEW: Jugadores por Año -->
-          <div class="widget-card" style="grid-column: span 2; padding: 16px; margin: 0;">
+          
+          <div class="widget-card" style="padding: 16px; margin: 0; flex-grow: 1;">
             <div class="widget-header" style="margin-bottom: 12px;">
               <div class="widget-title">
                 <i data-lucide="bar-chart-2"></i>
@@ -209,9 +175,51 @@
               <!-- Rendered dynamically -->
             </div>
           </div>
+        </div>
 
-          <!-- NEW: Equipos Vistos por Categoría -->
-          <div class="widget-card" style="grid-column: span 2; padding: 16px; margin: 0;">
+        <!-- MIDDLE: LOGO HERO CARD -->
+        <div class="dashboard-logo-card">
+          <img src="Logo MS 2.png" alt="MS Fútbol Scout Logo" class="dashboard-hero-logo">
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="dashboard-side-col">
+          <div class="kpi-grid-2x2">
+            <div class="kpi-card" data-shortcut="directorio">
+              <div class="kpi-icon purple"><i data-lucide="users"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Jugadores</span>
+                <span class="kpi-value" id="kpiTotalPlayers">0</span>
+                <span class="kpi-subtext">En directorio activo</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="agenda">
+              <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Tareas Pendientes</span>
+                <span class="kpi-value" id="kpiPendingTasks">0</span>
+                <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="agenda">
+              <div class="kpi-icon info"><i data-lucide="clock"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Eventos Pendientes</span>
+                <span class="kpi-value" id="kpiPendingEvents">0</span>
+                <span class="kpi-subtext">Próximos eventos</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="cartelera">
+              <div class="kpi-icon orange"><i data-lucide="star"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Cartelera (Semana)</span>
+                <span class="kpi-value" id="kpiPriorityMatchesThisWeek">0</span>
+                <span class="kpi-subtext">Partidos prioritarios</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="widget-card" style="padding: 16px; margin: 0; flex-grow: 1;">
             <div class="widget-header" style="margin-bottom: 12px;">
               <div class="widget-title">
                 <i data-lucide="pie-chart"></i>
@@ -223,6 +231,7 @@
             </div>
           </div>
         </div>
+        
       </div> <!-- End of dashboard-main-hero-grid -->
 
     </section>
@@ -1200,6 +1209,10 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
               <input type="text" id="carteleraFilterEquipo" class="form-control" placeholder="Todos" autocomplete="off">
               <div id="carteleraFilterEquipoDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
             </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Técnico</label>
+              <select id="carteleraFilterTecnico" class="form-control"></select>
+            </div>
           </div>
       </div>
 
@@ -1212,6 +1225,15 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
       <div class="cartelera-matches-grid" id="carteleraMatchesGrid" style="display: flex; flex-direction: column; gap: 18px; width: 100%;">
         <!-- Rendered by JS -->
       </div>
+      
+      <datalist id="carteleraTecnicosList">
+        <option value="Miguel">Miguel</option>
+        <option value="Victor">Victor</option>
+        <option value="Dani">Dani</option>
+        <option value="Xabi">Xabi</option>
+        <option value="Luki">Luki</option>
+        <option value="Tomas">Tomas</option>
+      </datalist>
     </section>
 
     <!-- ==================== COMPARATIVA VIEW ==================== -->

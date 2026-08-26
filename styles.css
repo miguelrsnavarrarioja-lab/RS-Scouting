@@ -3377,10 +3377,22 @@ a {
 /* Dashboard Main Hero Layout (Logo Card on Left + KPI Cards on Right) */
 .dashboard-main-hero-grid {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 1.25fr 1fr 1.25fr;
   gap: 24px;
   margin-bottom: 28px;
   align-items: stretch;
+}
+
+.dashboard-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kpi-grid-2x2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
 
 .dashboard-logo-card {
@@ -3416,6 +3428,7 @@ a {
 }
 
 /* KPI Cards Grid inside Main Hero Grid */
+/* KPI Cards Grid inside Main Hero Grid (deprecated for new layout, kept for compatibility if needed) */
 .dashboard-main-hero-grid .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -3423,11 +3436,23 @@ a {
   margin-bottom: 0;
 }
 
+@media (max-width: 1200px) {
+  .dashboard-main-hero-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard-logo-card {
+    grid-column: span 2;
+    order: -1;
+    min-height: 200px;
+  }
+}
+
 @media (max-width: 1024px) {
   .dashboard-main-hero-grid {
     grid-template-columns: 1fr;
   }
   .dashboard-logo-card {
+    grid-column: span 1;
     min-height: 180px;
     padding: 20px;
   }
@@ -3437,7 +3462,8 @@ a {
 }
 
 @media (max-width: 640px) {
-  .dashboard-main-hero-grid .kpi-grid {
+  .dashboard-main-hero-grid .kpi-grid,
+  .kpi-grid-2x2 {
     grid-template-columns: 1fr;
   }
 }

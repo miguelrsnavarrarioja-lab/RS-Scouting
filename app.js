@@ -4661,7 +4661,7 @@
         else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
       }
       if (isZurdo) {
-        badgesHTML += `<div style="position: absolute; bottom: -4px; right: -4px; font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
+        badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
       }
 
       let shortName = '';
@@ -4780,7 +4780,7 @@
           else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
         }
         if (isZurdo) {
-          badgesHTML += `<div style="position: absolute; bottom: -4px; right: -4px; font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
+          badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
         }
 
         return `
@@ -7211,34 +7211,18 @@
             </div>
 
             <div class="player-section-title mb-2 mt-4">
-              <i data-lucide="activity"></i> ESTADÍSTICAS INDIVIDUALES ACUMULADAS
+              <i data-lucide="file-text"></i> INFORMES DE PARTIDO
             </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;" class="mb-4">
-              ${[
-        { label: 'Goles', key: 'goles', icon: '⚽️' },
-        { label: 'Asistencias', key: 'asistencias', icon: '👟' },
-        { label: 'Tiros Pta', key: 'tirosPuerta', icon: '🎯' },
-        { label: 'Tiros Fuera', key: 'tirosFuera', icon: '❌' },
-        { label: 'Pases OK', key: 'pasesBuenos', icon: '✅' },
-        { label: 'Pases Mal', key: 'pasesMalos', icon: '⚠️' },
-        { label: 'Regates OK', key: 'regatesExito', icon: '✨' },
-        { label: 'Regates Mal', key: 'regatesFallidos', icon: '📉' },
-        { label: 'Recuper.', key: 'recuperaciones', icon: '🛡️' },
-        { label: 'Pérdidas', key: 'perdidas', icon: '🗑️' },
-        { label: 'Duelos Gan.', key: 'duelosGanados', icon: '⚔️' },
-        { label: 'Duelos Per.', key: 'duelosPerdidos', icon: '📉' },
-        { label: 'Aéreo Gan.', key: 'aereoGanado', icon: '✈️' },
-        { label: 'Amarillas', key: 'amarillas', icon: '🟨' },
-        { label: 'Rojas', key: 'rojas', icon: '🟥' }
-      ].map(s => `
-                <div style="background: var(--bg-body); border-radius: 6px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-light); gap: 4px; overflow: hidden;">
-                  <span style="font-size: 9px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;" title="${s.label}">
-                    <span style="font-size: 11px;">${s.icon}</span> 
-                    <span style="font-weight: 700; text-transform: uppercase;">${s.label}</span>
-                  </span>
-                  <strong style="font-size: 13px; color: var(--text-primary); flex-shrink: 0;">${stats[s.key] || 0}</strong>
+            <div style="display: flex; flex-direction: column; gap: 8px;" class="mb-4">
+              ${(player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => `
+                <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'}</div>
+                  </div>
+                  <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
                 </div>
-              `).join('')}
+              `).join('') : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin informes registrados</div>`}
             </div>
 
 
@@ -7490,6 +7474,18 @@
         if (tabBtn) tabBtn.click();
       }, 50);
     }
+
+    // Open Match Report link logic
+    document.querySelectorAll('.match-report-link').forEach(link => {
+      link.addEventListener('click', () => {
+        const repId = link.dataset.repid;
+        if (repId) {
+          if (typeof hideSecondaryModal === 'function') hideSecondaryModal();
+          if (typeof hideModal === 'function') hideModal();
+          openMatchReportEditor(repId);
+        }
+      });
+    });
 
     // Status pill toggle logic
     document.querySelectorAll('#pfEstadoGroup .status-pill-btn').forEach(btn => {
@@ -9222,11 +9218,18 @@
 
       let playersHTML = '';
       if (matchingPlayers.length > 0) {
-        playersHTML = matchingPlayers.map(p => `
-          <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-            ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+        playersHTML = matchingPlayers.map(p => {
+          let isZurdo = false;
+          if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+          const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+          return `
+          <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
+              ${zBadge}
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+            </div>
           </div>
-        `).join('');
+        `}).join('');
       } else {
         playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
       }
@@ -10887,11 +10890,18 @@
 
         let playersHTML = '';
         if (matchingPlayers.length > 0) {
-          playersHTML = matchingPlayers.map(p => `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-              ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+          playersHTML = matchingPlayers.map(p => {
+            let isZurdo = false;
+            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+            return `
+            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
+                ${zBadge}
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+              </div>
             </div>
-          `).join('');
+          `}).join('');
         } else {
           playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
         }
@@ -11615,11 +11625,18 @@
 
       let playersHTML = '';
       if (matchingPlayers.length > 0) {
-        playersHTML = matchingPlayers.map(p => `
-          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-            ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+        playersHTML = matchingPlayers.map(p => {
+          let isZurdo = false;
+          if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+          const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+          return `
+          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
+              ${zBadge}
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+            </div>
           </div>
-        `).join('');
+        `}).join('');
       } else {
         playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
       }
@@ -13330,11 +13347,18 @@
 
         let playersHTML = '';
         if (matchingPlayers.length > 0) {
-          playersHTML = matchingPlayers.map(p => `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-              ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+          playersHTML = matchingPlayers.map(p => {
+            let isZurdo = false;
+            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+            return `
+            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
+                ${zBadge}
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+              </div>
             </div>
-          `).join('');
+          `}).join('');
         } else {
           playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
         }
@@ -14563,11 +14587,18 @@
 
         let playersHTML = '';
         if (matchingPlayers.length > 0) {
-          playersHTML = matchingPlayers.map(p => `
-            <div class="campograma-player-link" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
-              ${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}
+          playersHTML = matchingPlayers.map(p => {
+            let isZurdo = false;
+            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+            return `
+            <div class="campograma-player-link" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
+                ${zBadge}
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+              </div>
             </div>
-          `).join('');
+          `}).join('');
         } else {
           playersHTML = `<div style="background: rgba(15, 23, 42, 0.55); color: #cbd5e1; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; margin-top: 2px; border: 1px dashed rgba(255,255,255,0.2);">Sin asignar</div>`;
         }
@@ -16399,10 +16430,10 @@
 
     if (lower.includes('española') || lower.includes('rfef') || lower.includes('españa')) return 'RFEF';
     if (lower.includes('navarra') || lower.includes('fnf')) return 'FNF';
+    if (lower.includes('andaluza') || lower.includes('andalucía') || lower.includes('rfaf') || lower.includes('fand')) return 'RFAF';
     if (lower.includes('aragonesa') || lower.includes('aragon') || lower.includes('farag') || lower.includes('faf')) return 'FAF';
     if (lower.includes('madrid') || lower.includes('rffm')) return 'RFFM';
     if (lower.includes('valenciana') || lower.includes('comunitat valenciana') || lower.includes('ffcv')) return 'FFCV';
-    if (lower.includes('andaluza') || lower.includes('andalucía') || lower.includes('rfaf') || lower.includes('fand')) return 'RFAF';
     if (lower.includes('galicia') || lower.includes('gallega') || lower.includes('futgal') || lower.includes('fgf')) return 'FGF';
     if (lower.includes('asturias') || lower.includes('asturiana') || lower.includes('rffpa')) return 'RFFPA';
     if (lower.includes('riojana') || lower.includes('rioja') || lower.includes('frf')) return 'FRF';
@@ -16684,13 +16715,13 @@
 
     if (nameLower.includes('rfef') || nameLower.includes('española') || nameLower.includes('españa')) return 'España';
     if (nameLower.includes('navarr') || nameLower.includes('fnf')) return 'Navarra';
+    if (nameLower.includes('andaluz') || nameLower.includes('andalucía') || nameLower.includes('rfaf') || nameLower.includes('fand')) return 'Andalucía';
     if (nameLower.includes('aragon') || nameLower.includes('aragón') || nameLower.includes('farag') || nameLower.includes('faf')) return 'Aragón';
     if (nameLower.includes('rioja') || nameLower.includes('frf')) return 'La Rioja';
     if (nameLower.includes('vasca') || nameLower.includes('euskadi') || nameLower.includes('pais vasco') || nameLower.includes('país vasco') || nameLower.includes('eff')) return 'País Vasco';
     if (nameLower.includes('madrid') || nameLower.includes('rffm')) return 'Madrid';
     if (nameLower.includes('catalana') || nameLower.includes('cataluña') || nameLower.includes('catalunya') || nameLower.includes('fcaf') || nameLower.includes('fcf')) return 'Cataluña';
     if (nameLower.includes('valencian') || nameLower.includes('comunitat valenciana') || nameLower.includes('ffcv')) return 'C. Valenciana';
-    if (nameLower.includes('andaluz') || nameLower.includes('andalucía') || nameLower.includes('rfaf') || nameLower.includes('fand')) return 'Andalucía';
     if (nameLower.includes('galleg') || nameLower.includes('galicia') || nameLower.includes('fgf')) return 'Galicia';
     if (nameLower.includes('asturia') || nameLower.includes('rffpa')) return 'Asturias';
     if (nameLower.includes('canta') || nameLower.includes('cántab') || nameLower.includes('cantab') || nameLower.includes('rfcf')) return 'Cantabria';
@@ -21550,6 +21581,7 @@
   let selectedCarteleraInteres = 'all';
   let selectedCarteleraEquipo = 'all';
   let selectedCarteleraGrupo = 'all';
+  let selectedCarteleraTecnico = 'all';
   let selectedCarteleraSubview = 'destacados';
   let currentCarteleraFilteredMatches = []; // 'destacados' | 'jornadas'
 
@@ -22781,6 +22813,7 @@
       const jorSet = new Set();
       const fechaSet = new Set();
       const equipoSet = new Set();
+      const tecnicoSet = new Set(["Miguel", "Victor", "Dani", "Xabi", "Luki", "Tomas"]);
 
       calendarios.forEach(cal => {
         (cal.partidos || []).forEach(m => {
@@ -22807,6 +22840,7 @@
           
           if (loc) equipoSet.add(loc);
           if (vis) equipoSet.add(vis);
+          if (m.tecnico && m.tecnico.trim()) tecnicoSet.add(m.tecnico.trim());
         });
       });
 
@@ -22896,6 +22930,7 @@
       populateSelect('carteleraFilterGrupo', grupoSet, selectedCarteleraGrupo, 'Todos');
       populateSelect('carteleraFilterJornada', jorSet, selectedCarteleraJornada, 'Todas');
       populateSelect('carteleraFilterFecha', fechaSet, selectedCarteleraFecha, 'Todas');
+      populateSelect('carteleraFilterTecnico', tecnicoSet, selectedCarteleraTecnico, 'Todos');
       // Custom autocomplete para Equipo
       const eqInput = document.getElementById('carteleraFilterEquipo');
       const eqDropdown = document.getElementById('carteleraFilterEquipoDropdown');
@@ -22977,10 +23012,36 @@
           const visLower = String(m.visitante || '').toLowerCase();
           const comp = String(m.competicion || cal.nombre || 'General');
 
+          const normalizeTeamName = (name) => {
+            if (!name) return '';
+            let n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const patternsToRemove = [
+              /\b(ca|cd|sd|ud|cf|fc|rc|ad|cp|at|udc|ucd|atletico|atlético|club atletico|club deportivo|sociedad deportiva|union deportiva|club de futbol|futbol club|club)\b/g,
+              /\b(lni|ln|dh|división de honor|division de honor|nacional|juvenil|cadete|infantil)\b/g,
+              /\b\d{2}\/\d{2}\b/g, // e.g. 26/27
+              /\s+/g
+            ];
+            patternsToRemove.forEach(p => {
+              n = n.replace(p, ' ');
+            });
+            return n.trim().replace(/\s+/g, ' ');
+          };
+
           const isTeamInList = (teamLower, matchComp, list) => list.some(pt => {
             const parts = pt.split('|||');
             const ptTeam = parts.length > 1 ? parts[1] : pt;
-            return ptTeam === teamLower || ptTeam.includes(teamLower) || teamLower.includes(ptTeam);
+            
+            // Try exact match first
+            if (ptTeam === teamLower || ptTeam.includes(teamLower) || teamLower.includes(ptTeam)) return true;
+            
+            // Try normalized match
+            const normPt = normalizeTeamName(ptTeam);
+            const normTeam = normalizeTeamName(teamLower);
+            
+            if (normPt && normTeam) {
+              return normPt === normTeam || normTeam.includes(normPt) || normPt.includes(normTeam);
+            }
+            return false;
           });
 
           const isPriorityLocal = isTeamInList(locLower, comp, priorityTeamsLower);
@@ -23030,6 +23091,10 @@
       // Apply Equipo filter
       if (selectedCarteleraEquipo !== 'all') {
         allMatches = allMatches.filter(m => m.local === selectedCarteleraEquipo || m.visitante === selectedCarteleraEquipo);
+      }
+      // Apply Tecnico filter
+      if (selectedCarteleraTecnico !== 'all') {
+        allMatches = allMatches.filter(m => (m.tecnico || '').trim() === selectedCarteleraTecnico);
       }
       // Apply Buscador Rápido search filter
       if (searchVal) {
@@ -23113,8 +23178,11 @@
           selectedCarteleraFedTab = 'all';
           selectedCarteleraCompTab = 'all';
           selectedCarteleraGrupo = 'all';
+          selectedCarteleraTecnico = 'all';
           const intSel = document.getElementById('carteleraInterestFilter');
           if (intSel) intSel.value = 'all';
+          const tecSel = document.getElementById('carteleraFilterTecnico');
+          if (tecSel) tecSel.value = 'all';
           const searchInp = document.getElementById('carteleraSearchInput');
           if (searchInp) searchInp.value = '';
           renderCartelera();
@@ -23125,18 +23193,37 @@
         return;
       }
 
+      const defaultTecnicos = ["Miguel", "Victor", "Dani", "Xabi", "Luki", "Tomas"];
+      const currentTecnicos = new Set(defaultTecnicos);
+      allMatches.forEach(m => {
+        if (m.tecnico && m.tecnico.trim()) currentTecnicos.add(m.tecnico.trim());
+      });
+
+      const getTecnicoSelect = (matchId, selectedValue) => {
+        let selHtml = `<select class="form-control form-control-sm cartelera-match-tecnico" data-matchid="${matchId}" style="font-size: 11px; height: 26px; padding: 2px 4px; width: 100px;">`;
+        selHtml += `<option value="">Técnico...</option>`;
+        currentTecnicos.forEach(t => {
+          const sel = (t === selectedValue) ? 'selected' : '';
+          selHtml += `<option value="${escapeHtml(t)}" ${sel}>${escapeHtml(t)}</option>`;
+        });
+        selHtml += `<option value="NUEVO_TECNICO">+ Nuevo...</option>`;
+        selHtml += `</select>`;
+        return selHtml;
+      };
+
       let html = `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
         <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
           <thead>
             <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
               <th style="padding: 10px 12px; width: 6%;">JORNADA</th>
-              <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
-              <th style="padding: 10px 12px; width: 16%;">LOCAL</th>
-              <th style="padding: 10px 12px; width: 16%;">VISITANTE</th>
-              <th style="padding: 10px 12px; width: 10%;">FECHA ORIG.</th>
-              <th style="padding: 10px 12px; width: 14%;">FECHA ASIGN.</th>
-              <th style="padding: 10px 12px; width: 10%;">HORA</th>
+              <th style="padding: 10px 12px; width: 12%;">COMPETICIÓN</th>
+              <th style="padding: 10px 12px; width: 14%;">LOCAL</th>
+              <th style="padding: 10px 12px; width: 14%;">VISITANTE</th>
+              <th style="padding: 10px 12px; width: 9%;">FECHA ORIG.</th>
+              <th style="padding: 10px 12px; width: 11%;">FECHA ASIGN.</th>
+              <th style="padding: 10px 12px; width: 8%;">HORA</th>
+              <th style="padding: 10px 12px; width: 12%;">TÉCNICO</th>
               <th style="padding: 10px 12px; text-align: right; width: 14%;">ACCIONES</th>
             </tr>
           </thead>
@@ -23194,6 +23281,9 @@
           <td style="padding: 8px 12px;">
             <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
           </td>
+          <td style="padding: 8px 12px;">
+            ${getTecnicoSelect(m.id, m.tecnico)}
+          </td>
           <td style="padding: 8px 12px; text-align: right;">
             <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
               <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
@@ -23203,6 +23293,8 @@
       `;
       }).join('');
 
+      html += `</tbody></table></div>`;
+      
       html += `</tbody></table></div>`;
       container.innerHTML = html;
 
@@ -23269,12 +23361,13 @@
             <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
               <thead>
                 <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
-                  <th style="padding: 10px 12px; width: 14%;">COMPETICIÓN</th>
-                  <th style="padding: 10px 12px; width: 18%;">LOCAL</th>
-                  <th style="padding: 10px 12px; width: 18%;">VISITANTE</th>
-                  <th style="padding: 10px 12px; width: 11%;">FECHA ORIG.</th>
-                  <th style="padding: 10px 12px; width: 14%;">FECHA ASIGN.</th>
-                  <th style="padding: 10px 12px; width: 10%;">HORA</th>
+                  <th style="padding: 10px 12px; width: 12%;">COMPETICIÓN</th>
+                  <th style="padding: 10px 12px; width: 15%;">LOCAL</th>
+                  <th style="padding: 10px 12px; width: 15%;">VISITANTE</th>
+                  <th style="padding: 10px 12px; width: 10%;">FECHA ORIG.</th>
+                  <th style="padding: 10px 12px; width: 11%;">FECHA ASIGN.</th>
+                  <th style="padding: 10px 12px; width: 8%;">HORA</th>
+                  <th style="padding: 10px 12px; width: 14%;">TÉCNICO</th>
                   <th style="padding: 10px 12px; text-align: right; width: 15%;">ACCIONES</th>
                 </tr>
               </thead>
@@ -23335,6 +23428,9 @@
                       </td>
                       <td style="padding: 8px 12px;">
                         <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                      </td>
+                      <td style="padding: 8px 12px;">
+                        ${getTecnicoSelect(m.id, m.tecnico)}
                       </td>
                       <td style="padding: 8px 12px; text-align: right;">
                         <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
@@ -23462,6 +23558,32 @@
           }
         });
         saveState();
+      };
+    });
+
+    container.querySelectorAll('.cartelera-match-tecnico').forEach(select => {
+      select.onchange = (e) => {
+        const matchId = select.dataset.matchid;
+        let newVal = e.target.value;
+        if (newVal === 'NUEVO_TECNICO') {
+          const custom = prompt("Introduce el nombre del nuevo técnico:");
+          if (custom && custom.trim()) {
+            newVal = custom.trim();
+          } else {
+            newVal = '';
+            select.value = '';
+          }
+        }
+        
+        (state.cartelera.calendarios || []).forEach(cal => {
+          const target = (cal.partidos || []).find(p => p.id === matchId);
+          if (target) {
+            target.tecnico = newVal;
+            saveToFirebase('cartelera_calendarios', cal);
+          }
+        });
+        saveState();
+        renderCartelera(); // Re-render for the dropdown to update and new filter
       };
     });
 
@@ -24069,10 +24191,11 @@
         selectedCarteleraJornada = 'all';
         selectedCarteleraFecha = 'all';
         selectedCarteleraEquipo = 'all';
+        selectedCarteleraTecnico = 'all';
         selectedCarteleraInteres = 'priority_teams';
         window.filterCarteleraThisWeekend = true;
 
-        const ids = ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterJornada', 'carteleraFilterFecha', 'carteleraFilterEquipo'];
+        const ids = ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterJornada', 'carteleraFilterFecha', 'carteleraFilterEquipo', 'carteleraFilterTecnico'];
         ids.forEach(id => {
            const el = document.getElementById(id);
            if (el) el.value = (id === 'carteleraFilterEquipo' ? '' : 'all');
@@ -24137,6 +24260,7 @@
       renderCarteleraFilters();
     });
     bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
+    bindSelect('carteleraFilterTecnico', val => selectedCarteleraTecnico = val);
     bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
 
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
@@ -27976,99 +28100,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (window.lucide) window.lucide.createIcons();
   });
 
-  setTimeout(() => {
-    if (!localStorage.getItem('dhj_players_imported_2009_v1')) {
-      const playersData = [
-        ["Darlington Eloghosa Chichoro", "Athletic Club"],
-        ["Diego Piqueras Gómez", "Club Atlético de Madrid"],
-        ["Guillermo Ponce Román", "Real Madrid CF"],
-        ["Arnau Cases Ramos", "RCD Espanyol"],
-        ["Raúl Expósito Rodríguez", "FC Barcelona"],
-        ["Mario Díaz Muñoz", "Sevilla FC"],
-        ["Juan Manuel Borrero Martínez", "CD Roda"],
-        ["Sergi Mayans Mas", "FC Barcelona"],
-        ["Iker Herrera Ramos", "Valencia CF"],
-        ["Jordi Pesquer Gómez", "FC Barcelona"],
-        ["Mikel Urrestarazu García", "CD Basconia"],
-        ["Óscar Parejo Palomino", "Club Atlético de Madrid"],
-        ["Mateo Sobral Rey", "RC Celta de Vigo"],
-        ["Cherif Fofana", "Real Madrid CF"],
-        ["Serigne Fallou Ndiaye", "Villarreal CF"],
-        ["Ian Mencía Romero", "Club Atlético de Madrid"],
-        ["Mauro Valeiro Ramos", "RC Deportivo"],
-        ["Marco David Company Peláez", "Real Madrid CF"],
-        ["Ebrima Tunkara", "FC Barcelona"],
-        ["Marc Martínez Soriano", "Valencia CF"],
-        ["Bryan Bugarín Hermida", "Real Madrid CF"],
-        ["Abdou Kemo Cissé", "Club Atlético de Madrid"],
-        ["Adrián Vivó González", "Villarreal CF"],
-        ["Christian Imga", "CD Basconia"],
-        ["Santiago del Pino Morote", "Real Madrid CF"],
-        ["Enzo Alves Vieira", "Real Madrid CF"],
-        ["Yeremaiah Ramos Santana", "Real Madrid CF"],
-        ["Roberto Tomás Pérez", "FC Barcelona"]
-      ];
 
-      playersData.forEach(([playerName, clubName], index) => {
-        setTimeout(() => {
-          const teamName = clubName + ' DHJ 26/27';
-
-          let clubId = String(Date.now() + Math.floor(Math.random() * 10000));
-          const existingClub = (state.directory.clubes || []).find(c => c.nombre === clubName || c.equipo === clubName);
-          if (existingClub) {
-            clubId = existingClub.id || existingClub.codigo;
-          } else {
-            const newClub = { id: clubId, codigo: clubId, nombre: clubName, equipo: clubName };
-            if (typeof saveToFirebase === 'function') saveToFirebase('clubes', newClub);
-            if (!state.directory.clubes) state.directory.clubes = [];
-            state.directory.clubes.push(newClub);
-          }
-
-          let equipoId = String(Date.now() + Math.floor(Math.random() * 10000));
-          const existingTeam = (state.directory.equipos || []).find(e => e.nombre === teamName || e.equipo === teamName);
-          if (existingTeam) {
-            equipoId = existingTeam.id || existingTeam.codigo;
-          } else {
-            const newTeam = {
-              id: equipoId,
-              codigo: equipoId,
-              nombre: teamName,
-              equipo: teamName,
-              clubId: clubId,
-              club: clubName,
-              categoria: 'Juvenil',
-              competicion: 'DHJ'
-            };
-            if (typeof saveToFirebase === 'function') saveToFirebase('equipos', newTeam);
-            if (!state.directory.equipos) state.directory.equipos = [];
-            state.directory.equipos.push(newTeam);
-          }
-
-          const existingPlayer = (state.directory.jugadores || []).find(p => p.nombre === playerName || p.jugador === playerName);
-          if (!existingPlayer) {
-            let pId = String(Date.now() + Math.floor(Math.random() * 10000));
-            const newPlayer = {
-              id: pId,
-              codigo: pId,
-              nombre: playerName,
-              jugador: playerName,
-              equipoId: equipoId,
-              equipo: teamName,
-              clubId: clubId,
-              club: clubName,
-              año: '2009',
-              nacimiento: '2009'
-            };
-            if (typeof saveToFirebase === 'function') saveToFirebase('jugadores', newPlayer);
-            if (!state.directory.jugadores) state.directory.jugadores = [];
-            state.directory.jugadores.push(newPlayer);
-          }
-        }, index * 50); // slight delay to avoid overwhelming firebase
-      });
-
-      localStorage.setItem('dhj_players_imported_2009_v1', '1');
-      console.log("Imported 2009 DHJ players successfully!");
-    }
-  }, 4000);
 
 })();
