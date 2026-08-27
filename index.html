@@ -195,7 +195,7 @@
         <!-- CENTER COLUMN -->
         <div class="dashboard-center-col" style="display: flex; flex-direction: column; height: 100%;">
           <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding: 32px; flex-grow: 1;">
-            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-size: 28px; font-weight: 900; margin-top: -20px; margin-bottom: 100px; padding: 16px; border-radius: 16px; text-align: center; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 12px rgba(0,0,0,0.15); box-sizing: border-box;"></div>
+            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-family: var(--font-heading); font-size: 34px; font-weight: 900; margin-top: -20px; margin-bottom: 100px; padding: 20px; border-radius: var(--radius-lg); text-align: center; text-transform: uppercase; letter-spacing: 2px; box-shadow: var(--shadow-lg); box-sizing: border-box;"></div>
             <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; max-width: 95%; max-height: 310px; object-fit: contain;">
           </div>
         </div>
@@ -474,9 +474,7 @@
         <div class="notas-main-content hidden" id="notasEditorArea">
           <div class="notas-category-header">
             <h2 id="notasCategoryTitle">Categoría</h2>
-            <button type="button" class="btn btn-primary compact" id="btnNewNotaFicha">
-              <i data-lucide="plus-square"></i> Nueva Ficha
-            </button>
+
           </div>
           
           <div class="notas-cards-grid" id="notasCardsGrid">
@@ -1707,12 +1705,13 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
                 <button type="button" class="btn-toolbar" data-command="italic" title="Cursiva"><i data-lucide="italic"></i></button>
                 <button type="button" class="btn-toolbar" data-command="underline" title="Subrayado"><i data-lucide="underline"></i></button>
                 <div class="toolbar-divider"></div>
-                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="H2" title="Título"><i data-lucide="heading-2"></i></button>
-                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="H3" title="Subtítulo"><i data-lucide="heading-3"></i></button>
-                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="P" title="Párrafo normal"><i data-lucide="type"></i></button>
+                <button type="button" class="btn-toolbar" id="btnChecklistNota" title="Checklist"><i data-lucide="check-square"></i></button>
                 <div class="toolbar-divider"></div>
                 <button type="button" class="btn-toolbar" data-command="insertUnorderedList" title="Lista con viñetas"><i data-lucide="list"></i></button>
                 <button type="button" class="btn-toolbar" data-command="insertOrderedList" title="Lista numerada"><i data-lucide="list-ordered"></i></button>
+                <div class="toolbar-divider"></div>
+                <button type="button" class="btn-toolbar" data-command="outdent" title="Reducir sangría (subir nivel)"><i data-lucide="outdent"></i></button>
+                <button type="button" class="btn-toolbar" data-command="indent" title="Aumentar sangría (sub-punto)"><i data-lucide="indent"></i></button>
                 <div class="toolbar-divider"></div>
                 <button type="button" class="btn-toolbar" id="btnAttachFileNota" title="Adjuntar imagen o archivo"><i data-lucide="paperclip"></i></button>
               </div>

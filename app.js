@@ -449,6 +449,7 @@
     const configToSave = Object.assign({}, state.settings || {}, {
       mapPreferences: state.mapPreferences || {},
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
+      favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
       customTabOrder: state.customTabOrder || [],
       dirTabOrder: state.dirTabOrder || [],
       customClubTypes: state.customClubTypes || [],
@@ -546,6 +547,7 @@
 
       const configToSave = Object.assign({}, state.settings || {}, {
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
+        favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
         customTabOrder: state.customTabOrder || [],
         dirTabOrder: state.dirTabOrder || [],
         agendaCategories: state.agendaCategories || [],
@@ -703,7 +705,9 @@
             } catch (e) { }
             updateAppNameUI(configData.appName);
           }
-          if (configData.favColumns) {
+          if (configData.favColumnsStr) {
+            try { state.favColumns = JSON.parse(configData.favColumnsStr); } catch (e) { }
+          } else if (configData.favColumns) {
             state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
           }
           if (configData.customTabOrder) {
@@ -787,7 +791,9 @@
             try { localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName); } catch (e) { }
             updateAppNameUI(configData.appName);
           }
-          if (configData.favColumns) {
+          if (configData.favColumnsStr) {
+            try { state.favColumns = JSON.parse(configData.favColumnsStr); } catch (e) { }
+          } else if (configData.favColumns) {
             state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
           }
           if (configData.customTabOrder) {
@@ -1124,7 +1130,7 @@
     const todayStrForKpis = nowForKpis.toISOString().split('T')[0];
     const totalVistos = reports.filter(r => r.completado).length;
     const scheduledMatches = reports.filter(r => !r.completado && r.date >= todayStrForKpis).length;
-    const directMatches = reports.filter(r => !r.completado && r.date < todayStrForKpis).length;
+    const directMatches = reports.filter(r => !r.completado).length;
     const pendingTasks = agenda.filter(a => !a.completada && !a.archivada);
     const highPriorityTasks = pendingTasks.filter(a => a.prioridad === 'Alta').length;
 
@@ -1156,14 +1162,14 @@
         msg = '¡ESPABILA MIGUEL!';
         color = '#f97316';
       } else if (directMatches > 10) {
-        msg = 'NO VAS MAL';
+        msg = 'NO TE RELAJES';
         color = '#fde047'; // bright yellow
         textColor = '#854d0e'; // dark yellow/brown text for contrast
       } else if (directMatches > 0) {
         msg = 'TE QUEDA POCO ¡ANIMO!';
         color = '#3b82f6';
       } else {
-        msg = 'AL DIA, ERES EL MEJOR';
+        msg = 'AL DIA (POR FIN)';
         color = '#10b981';
       }
       elMotivational.textContent = msg;
@@ -2870,13 +2876,19 @@ if (elPriorityMatches) {
         reports: grouped[k].reports
       })).sort((a, b) => b.sortKey - a.sortKey);
 
+      const collapsedGroups = JSON.parse(localStorage.getItem('rs_scouting_collapsed_groups') || '[]');
+
       container.innerHTML = sortedGroups.map((g, idx) => {
-        const groupId = 'week-group-' + g.sortKey + '-' + idx;
+        const encodedLabel = encodeURIComponent(g.label).replace(/%/g, '');
+        const groupId = 'week-group-' + encodedLabel;
+        const isWeekCollapsed = collapsedGroups.includes(groupId);
+        const wIconTrans = isWeekCollapsed ? 'transform: rotate(180deg);' : '';
+
         const headerHTML = `
           <div class="week-group-header" data-group-id="${groupId}" style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px; cursor: pointer; user-select: none;">
             <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
               <span>${g.label}</span>
-              <i data-lucide="chevron-up" class="week-group-icon" style="width: 18px; color: var(--text-muted); transition: transform 0.2s;"></i>
+              <i data-lucide="chevron-up" class="week-group-icon" style="width: 18px; color: var(--text-muted); transition: transform 0.2s; ${wIconTrans}"></i>
             </h3>
           </div>
         `;
@@ -2896,7 +2908,12 @@ if (elPriorityMatches) {
         let daysHTML = '';
         sortedDates.forEach((dateStr, dayIdx) => {
           const dayReports = daysGrouped[dateStr];
-          const dayGroupId = groupId + '-day-' + dayIdx;
+          const encodedDate = encodeURIComponent(dateStr).replace(/%/g, '');
+          const dayGroupId = groupId + '-day-' + encodedDate;
+
+          const isDayCollapsed = collapsedGroups.includes(dayGroupId);
+          const dDisp = isWeekCollapsed ? 'display: none;' : 'display: flex;';
+          const dIconTrans = isDayCollapsed ? 'transform: rotate(180deg);' : '';
 
           let formattedDate = dateStr;
           if (dateStr !== 'Sin Fecha') {
@@ -2910,12 +2927,12 @@ if (elPriorityMatches) {
           }
 
           const dayHeaderHTML = `
-            <div class="day-group-header" data-day-group-id="${dayGroupId}" data-parent-group="${groupId}" style="grid-column: 1 / -1; margin-top: 12px; margin-bottom: 8px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-light); padding-bottom: 4px;">
+            <div class="day-group-header" data-day-group-id="${dayGroupId}" data-parent-group="${groupId}" style="grid-column: 1 / -1; margin-top: 12px; margin-bottom: 8px; cursor: pointer; user-select: none; ${dDisp} align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-light); padding-bottom: 4px;">
               <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                 <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
                 <span>${formattedDate}</span>
               </h4>
-              <i data-lucide="chevron-up" class="day-group-icon" style="width: 16px; color: var(--text-muted); transition: transform 0.2s;"></i>
+              <i data-lucide="chevron-up" class="day-group-icon" style="width: 16px; color: var(--text-muted); transition: transform 0.2s; ${dIconTrans}"></i>
             </div>
           `;
 
@@ -2964,8 +2981,10 @@ if (elPriorityMatches) {
             lLogo = getLogo(r.localTeam);
             vLogo = getLogo(r.visitanteTeam);
 
+            const cardDisp = (isWeekCollapsed || isDayCollapsed) ? 'display: none;' : 'display: flex;';
+
             return `
-            <div class="match-card" data-group-id="${groupId}" data-day-group-id="${dayGroupId}" style="display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s;">
+            <div class="match-card" data-group-id="${groupId}" data-day-group-id="${dayGroupId}" style="${cardDisp} flex-direction: column; gap: 8px; transition: opacity 0.2s;">
               <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
@@ -3027,24 +3046,38 @@ if (elPriorityMatches) {
           const dayHeaders = container.querySelectorAll(`.day-group-header[data-parent-group="${groupId}"]`);
           const icon = header.querySelector('.week-group-icon');
 
+          const collapsedGroups = JSON.parse(localStorage.getItem('rs_scouting_collapsed_groups') || '[]');
+
           if (!cards.length && !dayHeaders.length) return;
 
           const isHidden = (cards.length > 0 && cards[0].style.display === 'none') ||
             (dayHeaders.length > 0 && dayHeaders[0].style.display === 'none');
 
           if (isHidden) {
-            cards.forEach(c => c.style.display = 'flex');
+            const idx = collapsedGroups.indexOf(groupId);
+            if (idx > -1) collapsedGroups.splice(idx, 1);
+
             dayHeaders.forEach(dh => dh.style.display = 'flex');
             dayHeaders.forEach(dh => {
               const dIcon = dh.querySelector('.day-group-icon');
-              if (dIcon) dIcon.style.transform = 'rotate(0deg)';
+              const dId = dh.dataset.dayGroupId;
+              if (collapsedGroups.includes(dId)) {
+                if (dIcon) dIcon.style.transform = 'rotate(180deg)';
+              } else {
+                if (dIcon) dIcon.style.transform = 'rotate(0deg)';
+                const dCards = container.querySelectorAll(`.match-card[data-day-group-id="${dId}"]`);
+                dCards.forEach(c => c.style.display = 'flex');
+              }
             });
             if (icon) icon.style.transform = 'rotate(0deg)';
           } else {
+            if (!collapsedGroups.includes(groupId)) collapsedGroups.push(groupId);
+
             cards.forEach(c => c.style.display = 'none');
             dayHeaders.forEach(dh => dh.style.display = 'none');
             if (icon) icon.style.transform = 'rotate(180deg)';
           }
+          localStorage.setItem('rs_scouting_collapsed_groups', JSON.stringify(collapsedGroups));
         });
       });
 
@@ -3055,16 +3088,24 @@ if (elPriorityMatches) {
           const cards = container.querySelectorAll(`.match-card[data-day-group-id="${dayGroupId}"]`);
           const icon = header.querySelector('.day-group-icon');
 
+          const collapsedGroups = JSON.parse(localStorage.getItem('rs_scouting_collapsed_groups') || '[]');
+
           if (!cards.length) return;
           const isHidden = cards[0].style.display === 'none';
 
           if (isHidden) {
+            const idx = collapsedGroups.indexOf(dayGroupId);
+            if (idx > -1) collapsedGroups.splice(idx, 1);
+
             cards.forEach(c => c.style.display = 'flex');
             if (icon) icon.style.transform = 'rotate(0deg)';
           } else {
+            if (!collapsedGroups.includes(dayGroupId)) collapsedGroups.push(dayGroupId);
+
             cards.forEach(c => c.style.display = 'none');
             if (icon) icon.style.transform = 'rotate(180deg)';
           }
+          localStorage.setItem('rs_scouting_collapsed_groups', JSON.stringify(collapsedGroups));
         });
       });
 
@@ -3228,7 +3269,12 @@ if (elPriorityMatches) {
 
     const estadiosListOptions = document.getElementById('reportEstadiosDatalistOptions');
     if (estadiosListOptions) {
-      estadiosListOptions.innerHTML = (state.directory.estadios || []).map(est => `<option value="${escapeHtml(est.nombre || est.estadio)}"></option>`).join('');
+      const allStadiums = new Set();
+      (state.directory.estadios || []).forEach(e => { if (e.nombre) allStadiums.add(e.nombre); if (e.estadio) allStadiums.add(e.estadio); });
+      (state.directory.clubes || []).forEach(c => { if (c.estadio) allStadiums.add(c.estadio); if (c.estadioVinculado) allStadiums.add(c.estadioVinculado); });
+      (state.directory.equipos || []).forEach(eq => { if (eq.estadio) allStadiums.add(eq.estadio); if (eq.estadioVinculado) allStadiums.add(eq.estadioVinculado); });
+      
+      estadiosListOptions.innerHTML = Array.from(allStadiums).filter(Boolean).map(est => `<option value="${escapeHtml(est)}"></option>`).join('');
     }
 
     const competicionesListOptions = document.getElementById('reportCompeticionesDatalistOptions');
@@ -3731,7 +3777,12 @@ if (elPriorityMatches) {
         const compVal = teamObj.liga || teamObj.competicion || '';
         const catVal = teamObj.categoria || '';
         const fedVal = teamObj.federacion || '';
-        const estVal = teamObj.estadio || teamObj.estadioVinculado || '';
+        
+        let estVal = teamObj.estadio || teamObj.estadioVinculado || '';
+        if (!estVal && teamObj.club) {
+          const clubObj = (state.directory.clubes || []).find(c => (c.nombre || c.club || '').toLowerCase() === teamObj.club.toLowerCase());
+          if (clubObj) estVal = clubObj.estadio || clubObj.estadioVinculado || '';
+        }
 
         const compInput = document.getElementById('reportCompeticion');
         const catInput = document.getElementById('reportCategoria');
@@ -9579,16 +9630,6 @@ let currentPlanificacionTab = 'calendario';
           let pBg = 'rgba(15, 23, 42, 0.92)';
           let pColor = '#ffffff';
           let pBorder = 'rgba(255,255,255,0.3)';
-          const est = (p.estado || '').trim().toUpperCase();
-          if (est === 'ALTA') {
-            pBg = '#2563eb';
-          } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
-            pBg = '#000000';
-          } else if (est === 'SUBE DE EQUIPO INFERIOR') {
-            pBg = '#eab308';
-            pColor = '#000000';
-            pBorder = 'rgba(0,0,0,0.3)';
-          }
 
           return `
           <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
@@ -12021,16 +12062,6 @@ let currentPlanificacionTab = 'calendario';
           let pBg = 'rgba(15, 23, 42, 0.92)';
           let pColor = '#ffffff';
           let pBorder = 'rgba(255,255,255,0.3)';
-          const est = (p.estado || '').trim().toUpperCase();
-          if (est === 'ALTA') {
-            pBg = '#2563eb';
-          } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
-            pBg = '#000000';
-          } else if (est === 'SUBE DE EQUIPO INFERIOR') {
-            pBg = '#eab308';
-            pColor = '#000000';
-            pBorder = 'rgba(0,0,0,0.3)';
-          }
           
           return `
           <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
@@ -13763,16 +13794,6 @@ let currentPlanificacionTab = 'calendario';
             let pBg = 'rgba(15, 23, 42, 0.92)';
             let pColor = '#ffffff';
             let pBorder = 'rgba(255,255,255,0.3)';
-            const est = (p.estado || '').trim().toUpperCase();
-            if (est === 'ALTA') {
-              pBg = '#2563eb';
-            } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
-              pBg = '#000000';
-            } else if (est === 'SUBE DE EQUIPO INFERIOR') {
-              pBg = '#eab308';
-              pColor = '#000000';
-              pBorder = 'rgba(0,0,0,0.3)';
-            }
             
             return `
             <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
@@ -14752,9 +14773,12 @@ let currentPlanificacionTab = 'calendario';
       const tbody = document.getElementById('cnJugadoresTableBody');
       if (!tbody || !thead) return;
 
+      const hasMatch = localPartidosList.length > 0;
+
       thead.innerHTML = `
         <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
           <th style="padding: 8px 12px;">JUGADOR</th>
+          ${hasMatch ? `<th style="padding: 8px 12px; width: 60px;">DORSAL</th>` : ''}
           <th style="padding: 8px 12px; width: 80px;">POSICIÓN 1</th>
           <th style="padding: 8px 12px; width: 80px;">POSICIÓN 2</th>
           <th style="padding: 8px 12px; width: 60px; text-align: center;">BAJA</th>
@@ -14776,6 +14800,10 @@ let currentPlanificacionTab = 'calendario';
 
           const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
+          
+          if (!j.pos1 && foundP && foundP.pos1) j.pos1 = foundP.pos1;
+          if (!j.pos2 && foundP && foundP.pos2) j.pos2 = foundP.pos2;
+          
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
 
           const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
@@ -14789,9 +14817,12 @@ let currentPlanificacionTab = 'calendario';
             if (foundP.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
             else if (foundP.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
           }
+          const dorsalHTML = hasMatch ? `<td style="padding: 8px 12px;"><input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" value="${escapeHtml(j.dorsal || '')}" placeholder="Dorsal" style="font-size: 11px; padding: 4px 8px; height: 26px;"></td>` : '';
+
           return `
             <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
+              ${dorsalHTML}
               <td style="padding: 8px 12px;">${pos1HTML}</td>
               <td style="padding: 8px 12px;">${pos2HTML}</td>
               <td style="padding: 8px 12px; text-align: center;">
@@ -14816,6 +14847,13 @@ let currentPlanificacionTab = 'calendario';
             if (pId) {
               openPlayerModal(pId);
             }
+          });
+        });
+
+        tbody.querySelectorAll('.cn-jugador-dorsal').forEach(inp => {
+          inp.addEventListener('input', (e) => {
+            const index = parseInt(inp.dataset.idx, 10);
+            localJugadoresList[index].dorsal = e.target.value;
           });
         });
 
@@ -17165,6 +17203,7 @@ let currentPlanificacionTab = 'calendario';
     if (nameLower.includes('melilla') || nameLower.includes('melillense') || nameLower.includes('rfmf')) return 'Melilla';
     if (nameLower.includes('arabia') || nameLower.includes('saff')) return 'Arabia Saudita';
     if (nameLower.includes('uzbeki') || nameLower.includes('ufa')) return 'Uzbekistán';
+    if (nameLower.includes('uruguay') || nameLower.includes('auf')) return 'Uruguay';
 
     return fedName.replace(/^(real\s+|federación\s+(de\s+fútbol\s+de\s+la\s+|de\s+fútbol\s+de\s+|de\s+|del\s+)?|federació\s+)/i, '').trim();
   }
@@ -19251,17 +19290,21 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
         });
       }
 
+      const activeComs = new Set();
       rawItems.forEach(item => {
         const fName = (item.federacion || item.federacionVinculada || '').trim();
         if (fName) {
           const comName = getFederationSelectionBaseName(fName);
-          if (comName && comName !== 'TODAS' && !comToFedMap.has(comName)) {
-            comToFedMap.set(comName, fName);
+          if (comName && comName !== 'TODAS') {
+            activeComs.add(comName);
+            if (!comToFedMap.has(comName)) {
+              comToFedMap.set(comName, fName);
+            }
           }
         }
       });
 
-      let comList = Array.from(comToFedMap.keys());
+      let comList = Array.from(activeComs);
 
       if (!state.directoryFederationsOrder) state.directoryFederationsOrder = [];
 
@@ -19565,7 +19608,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Estadio:</strong> ${escapeHtml(c.estadio || 'N/A')}</div>
                   <div><strong>Federación:</strong> ${escapeHtml(c.federacion || 'N/A')}</div>
-                  ${c.web ? `<div><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600;">${escapeHtml(c.web)}</a></div>` : ''}
+                  ${c.web ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeHtml(c.web)}">${escapeHtml(c.web)}</a></div>` : ''}
                 </div>
 
                 ${(() => {
@@ -19828,7 +19871,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Email:</strong> ${escapeHtml(f.email || f.correo || 'N/A')}</div>
                   <div><strong>Teléfono:</strong> ${escapeHtml(f.telefono || 'N/A')}</div>
-                  ${f.web || f.paginaWeb ? `<div><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600;">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
+                  ${f.web || f.paginaWeb ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeHtml(f.web || f.paginaWeb)}">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
                 </div>
 
                 <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id || f.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${fedColorPrimary}40;">
@@ -28199,8 +28242,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
         const div = document.createElement('div');
         div.className = 'nota-tag-item' + (cat.id === currentCategoryId ? ' active' : '');
-        div.innerHTML = `<i data-lucide="tag" style="color: ${cat.color};"></i> <span style="flex:1">${escapeHtml(cat.name)}</span>
-                         <button class="btn-ficha-action text-danger" style="width:20px; height:20px; padding:0" onclick="deleteCategory(event, '${cat.id}')">
+        div.innerHTML = `<label style="cursor: pointer; margin: 0; padding: 0; display: flex; align-items: center;" title="Cambiar color" onclick="event.stopPropagation()">
+                           <input type="color" value="${cat.color}" onchange="updateCategoryColor(event, '${cat.id}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
+                           <i data-lucide="tag" style="color: ${cat.color};"></i>
+                         </label>
+                         <span style="flex:1; margin-left: 8px;">${escapeHtml(cat.name)}</span>
+                         <button class="btn-ficha-action text-danger" style="width:20px; height:20px; padding:0" onclick="deleteCategory(event, '${cat.id}')" title="Eliminar Etiqueta">
                            <i data-lucide="x" style="width:12px; height:12px"></i>
                          </button>`;
         div.onclick = () => selectCategoryFn(cat.id);
@@ -28208,6 +28255,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
       lucide.createIcons();
     }
+
+    window.updateCategoryColor = function(e, catId) {
+      e.stopPropagation();
+      const newColor = e.target.value;
+      const cat = state.notasCategorias.find(c => c.id === catId);
+      if (cat) {
+        cat.color = newColor;
+        saveState();
+        saveToFirebase('notas_categorias', cat);
+        renderTags();
+        if (currentCategoryId === catId || currentCategoryId === 'todas') renderCards();
+      }
+    };
 
     window.deleteCategory = function (e, catId) {
       e.stopPropagation();
@@ -28286,23 +28346,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
 
           <!-- LÍNEA 2: TÍTULO -->
-          <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-            <h3 class="entity-card-title club-name-link cursor-pointer" title="${escapeHtml(ficha.title || 'Sin título')}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
-              ${escapeHtml(ficha.title || 'Sin título')} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
+          <div style="width: 100%; overflow: hidden; margin-top: 8px; margin-bottom: 4px;">
+            <h3 class="entity-card-title club-name-link cursor-pointer" title="${escapeHtml(ficha.title || 'Sin título')}" style="margin: 0; font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+              ${escapeHtml(ficha.title || 'Sin título')}
             </h3>
           </div>
 
           <!-- LÍNEA 3: FECHA -->
-          <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
-            <i data-lucide="calendar" style="width:12px; height:12px; margin-right:4px; vertical-align:text-bottom;"></i>
+          <div style="font-size: 13px; color: var(--text-muted); font-weight: 700; margin-bottom: 8px;">
+            <i data-lucide="calendar" style="width:14px; height:14px; margin-right:4px; vertical-align:text-bottom;"></i>
             ${dateStr}
-          </div>
-
-          <!-- LÍNEA 4: CONTENIDO -->
-          <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
-            <div style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; line-height: 1.4; max-height: 50px;">
-              ${snippetHtml}
-            </div>
           </div>
 
           <!-- LÍNEA 5: BOTÓN -->
@@ -28343,12 +28396,31 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (modalEdicion && !modalEdicion.dataset.initialized) {
       modalEdicion.dataset.initialized = 'true';
       modalEdicion.querySelectorAll('.btn-toolbar').forEach(btn => {
-        if (btn.id === 'btnAttachFileNota') return;
+        if (btn.id === 'btnAttachFileNota' || btn.id === 'btnChecklistNota') return;
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault(); // Evita perder el foco del editor
+        });
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           document.execCommand(btn.dataset.command, false, btn.dataset.value || null);
-          editorAreaField.focus();
         });
+      });
+
+      const btnChecklist = document.getElementById('btnChecklistNota');
+      if (btnChecklist) {
+        btnChecklist.addEventListener('mousedown', (e) => e.preventDefault());
+        btnChecklist.addEventListener('click', (e) => {
+          e.preventDefault();
+          const checkboxHtml = `<input type="checkbox" style="margin-right: 6px; cursor: pointer; transform: scale(1.1); vertical-align: middle;">&nbsp;`;
+          document.execCommand('insertHTML', false, checkboxHtml);
+        });
+      }
+
+      // Manejar el pegado para que sea solo texto plano y con el formato de la nota
+      editorAreaField.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
       });
 
       if (btnAttach && fileInput) {
@@ -28472,7 +28544,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
 
     // Global "Nueva Nota" button and inner "+ Nueva Ficha" button
-    btnNewFicha.addEventListener('click', () => openNotaModal());
+    if (btnNewFicha) btnNewFicha.addEventListener('click', () => openNotaModal());
     const btnGlobalNewNota = document.getElementById('btnGlobalNewNota');
     if (btnGlobalNewNota) btnGlobalNewNota.addEventListener('click', () => openNotaModal());
 
@@ -29017,9 +29089,26 @@ window.openFederationBreakdown = function(type) {
     } else {
       fedArray.forEach(f => {
         let iconHtml = '<i data-lucide="map-pin" style="width: 18px; height: 18px;"></i>';
-        const fedObj = (state.directory?.federaciones || []).find(fd => fd.nombre === f.name);
-        if (fedObj && fedObj.logo) {
-          iconHtml = `<img src="${escapeHtml(fedObj.logo)}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 50%;">`;
+        let fedObj = (state.directory?.federaciones || []).find(fd => fd.nombre === f.name);
+        if (!fedObj) {
+          fedObj = (state.directory?.federaciones || []).find(fd => 
+            fd.nombre && (fd.nombre.includes(f.name) || f.name.includes(fd.nombre))
+          );
+        }
+        
+        let logoToUse = fedObj?.logo;
+        const nameLower = f.name.toLowerCase();
+        
+        if (!logoToUse) {
+          if (nameLower.includes('arabia') || nameLower.includes('saudi')) {
+            logoToUse = 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Flag_of_Saudi_Arabia.svg';
+          } else if (nameLower.includes('uzbeki') || nameLower.includes('ufa')) {
+            logoToUse = 'https://upload.wikimedia.org/wikipedia/commons/8/84/Flag_of_Uzbekistan.svg';
+          }
+        }
+
+        if (logoToUse) {
+          iconHtml = `<img src="${escapeHtml(logoToUse)}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 50%;">`;
         }
 
         html += `

@@ -4847,6 +4847,29 @@ body.dark-theme .notif-item.unread {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.nota-ficha-editor-area h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.nota-ficha-editor-area h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.nota-ficha-editor-area ul, .nota-ficha-editor-area ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+.nota-ficha-editor-area p {
+  margin-bottom: 0.5em;
+}
+
 .nota-ficha-editor-area:focus {
   border-color: var(--primary-blue);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
