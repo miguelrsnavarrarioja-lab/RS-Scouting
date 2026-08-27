@@ -1942,7 +1942,7 @@ if (elPriorityMatches) {
   // --------------------------------------------------------------------------
   // 4. SECTION 1: CALENDARIO & MATCH COUNTER
   // --------------------------------------------------------------------------
-  let calendarViewMode = 'month'; // Default Month view ('month' | 'list' | 'week')
+  let calendarViewMode = 'week'; // Default Month view ('month' | 'list' | 'week')
   let calendarCurrentDate = new Date(2026, 7, 1); // Default August 2026
   let calendarActiveCategory = 'all';
   let calendarDaysCount = 10;
@@ -2027,6 +2027,8 @@ if (elPriorityMatches) {
       calendarCurrentDate = new Date();
       renderCalendario();
     });
+
+    setActiveMode(calendarViewMode);
   }
 
   function renderCalendario() {
@@ -21902,7 +21904,8 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     const index = (state.agendaCategories || []).findIndex(c => c.id === catId);
     if (index >= 0 && state.agendaCategories[index].color) {
       const hex = state.agendaCategories[index].color;
-      return { bg: hex + '20', text: hex, border: hex + '40', accent: hex };
+      let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+      return { bg: `rgba(${r}, ${g}, ${b}, 0.15)`, text: hex, border: `rgba(${r}, ${g}, ${b}, 0.4)`, accent: hex };
     }
     let safeIdx = 0;
     if (index >= 0) {
@@ -25567,11 +25570,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     container.querySelectorAll('.btn-delete-task').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        deleteFromFirebase('agenda', btn.dataset.id);
-        state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
-        saveState();
-        renderAgenda();
-        renderCalendario();
+        showCustomConfirmModal('Eliminar de Agenda', '¿Estás seguro de que deseas eliminar este elemento de la agenda?', () => {
+          deleteFromFirebase('agenda', btn.dataset.id);
+          state.agenda = state.agenda.filter(i => i.id !== btn.dataset.id);
+          saveState();
+          renderAgenda();
+          renderCalendario();
+        });
       });
     });
   }
@@ -25789,14 +25794,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
           <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
                 <input type="date" id="agDateEdit" class="form-control" value="${task.fecha || ''}">
               </div>
               <div class="form-group mb-0">
-                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora</label>
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Inicio</label>
                 <input type="time" id="agTimeEdit" class="form-control" value="${task.hora || '12:00'}">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Fin</label>
+                <input type="time" id="agTimeEndEdit" class="form-control" value="${task.horaFin || ''}">
               </div>
             </div>
           </div>
@@ -25990,14 +25999,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
           <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
                 <input type="date" id="agDate" class="form-control" value="${initialDate}">
               </div>
               <div class="form-group mb-0">
-                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora</label>
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora Inicio</label>
                 <input type="time" id="agTime" class="form-control" value="12:00">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora Fin</label>
+                <input type="time" id="agTimeEnd" class="form-control" value="">
               </div>
             </div>
           </div>
@@ -26088,6 +26101,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
       }
 
+      const mainPill = pillsContainer ? pillsContainer.querySelector('.tag-pill.main') : null;
       const estadoVal = document.getElementById('agEstado').value;
       const newTask = {
         id: 'ag_' + Date.now(),
@@ -26096,8 +26110,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         descripcion: document.getElementById('agDesc')?.value || '',
         fecha: document.getElementById('agDate').value,
         hora: document.getElementById('agTime').value,
+        horaFin: document.getElementById('agTimeEnd').value,
         categorias: catValues,
-        categoria: catValues[0], // for backwards compatibility
+        categoria: mainPill ? mainPill.dataset.val : (catValues[0] || null),
         prioridad: document.getElementById('agPrio').value,
         estado: estadoVal,
         completada: (estadoVal === 'done')
@@ -26107,10 +26122,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       saveState();
       saveToFirebase('agenda', newTask);
-      if (catValue) {
-        const catObj = (state.agendaCategories || []).find(c => c.id === catValue);
-        if (catObj) saveToFirebase('agendaCategories', catObj);
-      }
 
       hideModal();
       renderAgenda();
