@@ -45,42 +45,27 @@
       <!-- Main Navigation Menu Tabs -->
       <nav class="main-nav">
 
-        <button class="nav-tab" data-tab="calendario">
-          <i data-lucide="calendar"></i>
-          <span>Calendario</span>
+        <button class="nav-tab" data-tab="planificacion">
+          <i data-lucide="calendar-check"></i>
+          <span>Planificación</span>
         </button>
         <button class="nav-tab" data-tab="partidos">
           <i data-lucide="trophy"></i>
           <span>Partidos</span>
         </button>
-        <button class="nav-tab" data-tab="directorio">
-          <i data-lucide="folder-open"></i>
-          <span>Directorio</span>
-        </button>
-        <button class="nav-tab" data-tab="comparativa">
-          <i data-lucide="bar-chart-2"></i>
-          <span>Comparador</span>
-        </button>
-        <button class="nav-tab" data-tab="mapas">
-          <i data-lucide="layout-dashboard"></i>
-          <span>Mapas</span>
-        </button>
         <button class="nav-tab" data-tab="cartelera">
           <i data-lucide="film"></i>
           <span>Cartelera</span>
         </button>
-        <button class="nav-tab" data-tab="agenda">
-          <i data-lucide="check-square"></i>
-          <span>Agenda</span>
+        <button class="nav-tab" data-tab="directorio">
+          <i data-lucide="folder-open"></i>
+          <span>Directorio</span>
         </button>
-        <button class="nav-tab" data-tab="enlaces">
-          <i data-lucide="link"></i>
-          <span>Enlaces</span>
+        <button class="nav-tab" data-tab="laboratorio">
+          <i data-lucide="flask-conical"></i>
+          <span>Laboratorio</span>
         </button>
-        <button class="nav-tab" data-tab="importador">
-          <i data-lucide="wand-2"></i>
-          <span>Importador</span>
-        </button>
+        
         <button class="nav-tab" data-tab="configuracion">
           <i data-lucide="settings"></i>
           <span>Configuración</span>
@@ -167,25 +152,58 @@
           <div class="widget-card" style="padding: 16px; margin: 0; flex-grow: 1;">
             <div class="widget-header" style="margin-bottom: 12px;">
               <div class="widget-title">
-                <i data-lucide="bar-chart-2"></i>
+                <i data-lucide="bar-chart-3"></i>
                 <h3 style="font-size: 13px; margin: 0;">Jugadores por Año</h3>
               </div>
             </div>
-            <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; align-items: start;">
+            <div class="widget-body" id="dashboardPlayersByYear" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start;">
               <!-- Rendered dynamically -->
+            </div>
+          </div>
+          
+          <!-- Accesos directos: Mapa, Comparador, Importador -->
+          <div class="widget-card" style="padding: 16px; margin: 0; margin-top: 16px;">
+            <div class="widget-header" style="margin-bottom: 12px;">
+              <div class="widget-title">
+                <i data-lucide="zap"></i>
+                <h3 style="font-size: 13px; margin: 0;">Herramientas Rápidas</h3>
+              </div>
+            </div>
+            <div class="widget-body" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+              <div class="kpi-card" data-shortcut="mapas" style="cursor: pointer;">
+                <div class="kpi-icon blue"><i data-lucide="map"></i></div>
+                <div class="kpi-info">
+                  <span class="kpi-value" style="font-size: 15px; text-transform: none;">Mapas</span>
+                </div>
+              </div>
+              <div class="kpi-card" data-shortcut="comparador" style="cursor: pointer;">
+                <div class="kpi-icon teal"><i data-lucide="bar-chart-2"></i></div>
+                <div class="kpi-info">
+                  <span class="kpi-value" style="font-size: 15px; text-transform: none;">Comparador</span>
+                </div>
+              </div>
+              <div class="kpi-card" data-shortcut="importador" style="cursor: pointer;">
+                <div class="kpi-icon indigo"><i data-lucide="upload-cloud"></i></div>
+                <div class="kpi-info">
+                  <span class="kpi-value" style="font-size: 15px; text-transform: none;">Importador</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- MIDDLE: LOGO HERO CARD -->
-        <div class="dashboard-logo-card">
-          <img src="Logo MS 2.png" alt="MS Fútbol Scout Logo" class="dashboard-hero-logo">
+        <!-- CENTER COLUMN -->
+        <div class="dashboard-center-col" style="display: flex; flex-direction: column; height: 100%;">
+          <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding: 32px; flex-grow: 1;">
+            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-size: 28px; font-weight: 900; margin-top: -20px; margin-bottom: 100px; padding: 16px; border-radius: 16px; text-align: center; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 12px rgba(0,0,0,0.15); box-sizing: border-box;"></div>
+            <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; max-width: 95%; max-height: 310px; object-fit: contain;">
+          </div>
         </div>
 
         <!-- RIGHT COLUMN -->
         <div class="dashboard-side-col">
           <div class="kpi-grid-2x2">
-            <div class="kpi-card" data-shortcut="directorio">
+            <div class="kpi-card" data-shortcut="jugadores">
               <div class="kpi-icon purple"><i data-lucide="users"></i></div>
               <div class="kpi-info">
                 <span class="kpi-label">Jugadores</span>
@@ -193,33 +211,33 @@
                 <span class="kpi-subtext">En directorio activo</span>
               </div>
             </div>
-            <div class="kpi-card" data-shortcut="agenda">
-              <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
+            <div class="kpi-card" data-shortcut="clubes">
+              <div class="kpi-icon info"><i data-lucide="shield"></i></div>
               <div class="kpi-info">
-                <span class="kpi-label">Tareas Pendientes</span>
-                <span class="kpi-value" id="kpiPendingTasks">0</span>
-                <span class="kpi-subtext" id="kpiHighPriorityTasks">0 prioridad alta</span>
+                <span class="kpi-label">Clubes</span>
+                <span class="kpi-value" id="kpiTotalClubes">0</span>
+                <span class="kpi-subtext">Registrados</span>
               </div>
             </div>
-            <div class="kpi-card" data-shortcut="agenda">
-              <div class="kpi-icon info"><i data-lucide="clock"></i></div>
+            <div class="kpi-card" data-shortcut="equipos">
+              <div class="kpi-icon success"><i data-lucide="users-2"></i></div>
               <div class="kpi-info">
-                <span class="kpi-label">Eventos Pendientes</span>
-                <span class="kpi-value" id="kpiPendingEvents">0</span>
-                <span class="kpi-subtext">Próximos eventos</span>
+                <span class="kpi-label">Equipos</span>
+                <span class="kpi-value" id="kpiTotalEquipos">0</span>
+                <span class="kpi-subtext">Por categoría</span>
               </div>
             </div>
-            <div class="kpi-card" data-shortcut="cartelera">
-              <div class="kpi-icon orange"><i data-lucide="star"></i></div>
+            <div class="kpi-card" data-shortcut="selecciones">
+              <div class="kpi-icon orange"><i data-lucide="globe"></i></div>
               <div class="kpi-info">
-                <span class="kpi-label">Cartelera (Semana)</span>
-                <span class="kpi-value" id="kpiPriorityMatchesThisWeek">0</span>
-                <span class="kpi-subtext">Partidos prioritarios</span>
+                <span class="kpi-label">Selecciones</span>
+                <span class="kpi-value" id="kpiTotalSelecciones">0</span>
+                <span class="kpi-subtext">Internacionales/Autonómicas</span>
               </div>
             </div>
           </div>
-          
-          <div class="widget-card" style="padding: 16px; margin: 0; flex-grow: 1;">
+
+          <div class="widget-card" style="padding: 16px; margin: 16px 0 0 0; flex-grow: 1;">
             <div class="widget-header" style="margin-bottom: 12px;">
               <div class="widget-title">
                 <i data-lucide="pie-chart"></i>
@@ -230,25 +248,67 @@
               <!-- Rendered dynamically -->
             </div>
           </div>
+
+          <!-- SEGUNDO BLOQUE DE 4 (Planificación) -->
+          <div class="kpi-grid-2x2" style="margin-top: 16px;">
+            <div class="kpi-card" data-shortcut="cartelera">
+              <div class="kpi-icon orange"><i data-lucide="star"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Cartelera</span>
+                <span class="kpi-value" id="kpiTotalCartelera">0</span>
+                <span class="kpi-subtext">Partidos esta semana</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="tareas">
+              <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Tareas</span>
+                <span class="kpi-value" id="kpiPendingTasks">0</span>
+                <span class="kpi-subtext" id="kpiHighPriorityTasks">0 pendientes</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="eventos">
+              <div class="kpi-icon info"><i data-lucide="clock"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Eventos</span>
+                <span class="kpi-value" id="kpiPendingEvents">0</span>
+                <span class="kpi-subtext">Próximos eventos</span>
+              </div>
+            </div>
+            <div class="kpi-card" data-shortcut="notas">
+              <div class="kpi-icon purple"><i data-lucide="sticky-note"></i></div>
+              <div class="kpi-info">
+                <span class="kpi-label">Notas Rápidas</span>
+                <span class="kpi-value" id="kpiTotalNotas">0</span>
+                <span class="kpi-subtext">Crear nueva nota</span>
+              </div>
+            </div>
+          </div>
         </div>
-        
+
       </div> <!-- End of dashboard-main-hero-grid -->
 
     </section>
 
     <!-- ==================== 1. CALENDARIO VIEW ==================== -->
-    <section class="tab-view" id="view-calendario">
+
+    <!-- ==================== 2. PARTIDOS VIEW (INFORME TÉCNICO DE PARTIDO) ==================== -->
+    
+    <!-- ==================== PLANIFICACION VIEW ==================== -->
+    <section class="tab-view tab-view-flex" id="view-planificacion" style="flex-direction: column; height: calc(100vh - 120px); overflow: hidden;">
+      <div class="directory-subtabs-bar planificacion-subtabs-bar" style="margin-bottom: 0; border-bottom: 1px solid var(--border-light); background: var(--bg-card); padding: 0 16px; flex-shrink: 0; min-height: 48px;">
+        <button class="planificacion-tab active" data-sub="calendario"><i data-lucide="calendar" style="width: 14px; margin-right: 4px;"></i> Calendario</button>
+        <button class="planificacion-tab" data-sub="tareas"><i data-lucide="check-square" style="width: 14px; margin-right: 4px;"></i> Tareas</button>
+        <button class="planificacion-tab" data-sub="eventos"><i data-lucide="clock" style="width: 14px; margin-right: 4px;"></i> Eventos</button>
+        <button class="planificacion-tab" data-sub="notas"><i data-lucide="sticky-note" style="width: 14px; margin-right: 4px;"></i> Notas</button>
+        <button class="planificacion-tab" data-sub="enlaces"><i data-lucide="link" style="width: 14px; margin-right: 4px;"></i> Enlaces</button>
+      </div>
+      <div class="planificacion-content-wrapper" style="flex: 1; overflow-y: auto; position: relative; padding-top: 24px;">
+
+    <div class="planificacion-subview" id="subview-calendario">
       <div class="view-header">
         <div class="view-title-group">
           <h1>📅 Calendario</h1>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-primary" id="btnNewCalendarTask">
-            <i data-lucide="check-square"></i> Crear Nueva Tarea
-          </button>
-          <button class="btn btn-secondary" id="btnNewCalendarEvent">
-            <i data-lucide="calendar"></i> Crear Evento
-          </button>
         </div>
       </div>
 
@@ -288,10 +348,7 @@
             <button type="button" class="btn btn-secondary compact" id="btnTodayMonth">Hoy</button>
           </div>
 
-          <div class="month-badge-stat">
-            <i data-lucide="trophy"></i>
-            <span>Partidos este mes: <strong id="monthMatchCountDisplay">0</strong></span>
-          </div>
+
         </div>
 
         <!-- 7 Days Weekday Headers -->
@@ -310,10 +367,136 @@
           <!-- Rendered dynamically -->
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- ==================== 2. PARTIDOS VIEW (INFORME TÉCNICO DE PARTIDO) ==================== -->
-    <section class="tab-view" id="view-partidos">
+    <div class="planificacion-subview hidden" id="subview-agenda">
+      <div class="view-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+        <div class="view-title-group" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <h1 id="agendaDynamicTitle" style="margin: 0;">📝 Tareas</h1>
+          <!-- Agenda Subtabs Bar: Tareas vs Eventos (en la misma línea) -->
+          <div class="directory-subtabs-bar" id="agendaSubtabsBar" style="display: none !important;">
+            <button class="directory-tab active" data-agendatab="tareas">
+              <i data-lucide="check-square" style="width: 14px; vertical-align: middle;"></i> Tareas
+            </button>
+            <button class="directory-tab" data-agendatab="eventos">
+              <i data-lucide="calendar" style="width: 14px; vertical-align: middle;"></i> Eventos
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas">
+            <i data-lucide="archive"></i> Archivo
+          </button>
+          <button class="btn btn-primary" id="btnNewAgendaTask">
+            <i data-lucide="plus"></i> Nueva Tarea / Evento
+          </button>
+        </div>
+      </div>
+
+      <div class="agenda-layout">
+        <!-- Sidebar Filter / Quick Stats -->
+        <div class="agenda-sidebar">
+          <div class="agenda-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <h3 style="margin: 0;">Categorías</h3>
+              <button class="btn btn-sm btn-secondary" id="btnAddNewAgendaCat" title="Añadir nueva categoría">
+                <i data-lucide="plus" style="width: 14px;"></i> Nueva
+              </button>
+            </div>
+            <ul class="category-list" id="agendaCategoryFilters">
+              <!-- Dynamic Categories rendered by JS -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- Task List Grid -->
+        <div class="agenda-main">
+          <div class="agenda-task-list" id="agendaTasksContainer">
+            <!-- Dynamic task items -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="planificacion-subview hidden" id="subview-enlaces">
+      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="link"></i> Enlaces de Interés
+        </h1>
+        <button class="btn btn-primary" id="btnAddNewFavCol">
+          <i data-lucide="plus"></i> Nueva Columna Favoritos
+        </button>
+      </div>
+
+      <div class="toolbar" style="margin-bottom: 24px;">
+        <div class="toolbar-search">
+          <i data-lucide="search"></i>
+          <input type="text" id="linkSearchInput" placeholder="Buscar enlaces por título o URL...">
+        </div>
+      </div>
+
+      <div id="linksCategoryTabs" style="display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 8px;">
+        <!-- Filled by JS -->
+      </div>
+
+      <div id="linksBoardContainer" class="board-wrapper" style="overflow-x: auto; display: flex; gap: 24px; padding-bottom: 16px;">
+        <!-- Filled by JS for columns view -->
+      </div>
+
+      <div id="federationLinksContainer" class="links-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+        <!-- Filled by JS for standard grid view -->
+      </div>
+    </div>
+
+    <div class="planificacion-subview hidden" id="subview-notas">
+      <div class="view-header" style="margin-bottom: 0;">
+        <div class="view-title-group">
+          <h1>📝 Notas</h1>
+        </div>
+        <div class="view-actions">
+          <button type="button" class="btn btn-primary" id="btnGlobalNewNota">
+            <i data-lucide="plus"></i> Nueva Nota
+          </button>
+        </div>
+      </div>
+      <div class="notas-layout">
+        <!-- Sidebar for Tabs/Tags -->
+        <div class="notas-sidebar">
+          <div class="notas-sidebar-header">
+            <h3>Etiquetas</h3>
+          </div>
+          <div class="notas-tags-list" id="notasTagsList">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+        
+        <!-- Editor / Cards Area -->
+        <div class="notas-main-content hidden" id="notasEditorArea">
+          <div class="notas-category-header">
+            <h2 id="notasCategoryTitle">Categoría</h2>
+            <button type="button" class="btn btn-primary compact" id="btnNewNotaFicha">
+              <i data-lucide="plus-square"></i> Nueva Ficha
+            </button>
+          </div>
+          
+          <div class="notas-cards-grid" id="notasCardsGrid">
+            <!-- Cards rendered dynamically -->
+          </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div class="notas-empty-state" id="notasEmptyState">
+          <i data-lucide="sticky-note" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+          <h2>Ninguna etiqueta seleccionada</h2>
+          <p>Selecciona una etiqueta del panel lateral o crea una nueva para empezar a escribir.</p>
+        </div>
+      </div>
+      
+
+    </div>
+      </div>
+    </section>
+<section class="tab-view" id="view-partidos">
       <!-- Partidos List view state -->
       <div id="partidosListState" class="partidos-list-container">
         <div class="view-header">
@@ -958,37 +1141,184 @@
     </section>
 
     <!-- ==================== 4. IMPORTADOR DE PLANTILLAS FEDERATIVAS VIEW ==================== -->
-    <section class="tab-view" id="view-importador">
-      <div class="importador-card" style="max-width: 100%; width: 100%; margin: 0 auto; padding: 24px;">
-        <!-- Header -->
-        <div class="importador-header" style="margin-bottom: 20px;">
-          <div class="importador-title" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <i data-lucide="wand-2" class="title-icon" style="color: var(--primary-blue, #2563eb); width: 28px; height: 28px;"></i>
-              <h2 style="font-size: 22px; font-weight: 800; margin: 0; color: var(--text-dark, #1e293b);">Importador de Jugadores, Staff y Clubes</h2>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <span class="badge" style="background: var(--primary-blue-light, #eff6ff); color: var(--primary-blue, #2563eb); border: 1px solid var(--primary-blue, #2563eb); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800;">
-                🏃 Jugadores + 👔 Staff + 🛡️ Clubes
-              </span>
-            </div>
+    
+
+    
+    <!-- ==================== LABORATORIO VIEW ==================== -->
+    <section class="tab-view" id="view-laboratorio">
+      <!-- Sub-navegación -->
+      <div class="directory-subtabs-bar planificacion-subtabs-bar" style="margin-bottom: 24px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); padding: 0 16px; flex-shrink: 0; min-height: 48px;">
+        <button class="planificacion-tab sub-nav-btn active" data-subtab="comparativa">
+          <i data-lucide="bar-chart-2" style="width: 14px; margin-right: 4px;"></i> Comparador
+        </button>
+        <button class="planificacion-tab sub-nav-btn" data-subtab="mapas">
+          <i data-lucide="layout-dashboard" style="width: 14px; margin-right: 4px;"></i> Mapas
+        </button>
+        <button class="planificacion-tab sub-nav-btn" data-subtab="importador">
+          <i data-lucide="upload-cloud" style="width: 14px; margin-right: 4px;"></i> Importador
+        </button>
+      </div>
+
+      <!-- Sub-vista Comparativa -->
+      <div class="laboratorio-subview" id="subview-comparativa">
+
+      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1 class="page-title" id="comparativaTitle">
+          <i data-lucide="bar-chart-2"></i> Comparador
+        </h1>
+        <button class="btn btn-secondary" id="btnExportComparativaPDF" title="Exportar vista actual a PDF">
+          <i data-lucide="printer"></i> Exportar PDF
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
+        <button class="btn btn-secondary comp-mode-tab active" data-mode="individual" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
+          <i data-lucide="user"></i> Análisis Individual
+        </button>
+        <button class="btn btn-secondary comp-mode-tab" data-mode="multiple" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
+          <i data-lucide="users"></i> Comparador Jugadores
+        </button>
+      </div>
+
+      <div id="comparativaContent">
+        <!-- Rendered by app.js -->
+      </div>
+    
+      </div>
+
+      <!-- Sub-vista Mapas -->
+      <div class="laboratorio-subview hidden" id="subview-mapas">
+
+      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="layout-dashboard"></i> Mapas y Seguimiento
+        </h1>
+        <button class="btn btn-secondary" id="btnExportMapasPDF" title="Exportar vista actual a PDF">
+          <i data-lucide="printer"></i> Exportar PDF
+        </button>
+      </div>
+      
+      <div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-end; justify-content: flex-start; flex-wrap: wrap;">
+        <div class="directory-subtabs-bar" style="margin-bottom: 0; flex-wrap: wrap; overflow: visible;" id="mapas-toggle-group">
+          <button class="directory-tab mapas-toggle-btn active" data-tag="MAPA RS">Mapa RS</button>
+          <button class="directory-tab mapas-toggle-btn" data-tag="11 IDEAL">11 Ideal</button>
+          <button class="directory-tab mapas-toggle-btn" data-tag="JULEN">Julen</button>
+          <button class="directory-tab mapas-toggle-btn" data-tag="LERINES">Lerines</button>
+          <button class="directory-tab mapas-toggle-btn" data-tag="ERF">ERF</button>
+          <button class="directory-tab mapas-toggle-btn" data-tag="DESTACADO EQUIPO">Destacado Equipo</button>
+        </div>
+
+        <div id="filterMapasEquipo" style="width: 250px; display: none;">
+          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Equipo</label>
+          <input type="text" id="selMapasEquipo" list="dl_selMapasEquipo" class="form-control" style="font-weight: 600;" placeholder="-- Todos los equipos --">
+          <datalist id="dl_selMapasEquipo"></datalist>
+        </div>
+        <div id="filterMapasSistema" style="display: flex; align-items: flex-end; gap: 8px;">
+          <div style="width: 200px;">
+            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
+            <select id="selMapasSistema" class="form-control" style="font-weight: 600;">
+            <optgroup label="Fútbol 11">
+              <option value="1-4-3-3">1-4-3-3</option>
+              <option value="1-4-4-2">1-4-4-2 (Línea)</option>
+              <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
+              <option value="1-4-2-3-1">1-4-2-3-1</option>
+              <option value="1-4-1-4-1">1-4-1-4-1</option>
+              <option value="1-4-3-2-1">1-4-3-2-1</option>
+              <option value="1-4-3-1-2">1-4-3-1-2</option>
+              <option value="1-4-5-1">1-4-5-1</option>
+              <option value="1-3-5-2">1-3-5-2</option>
+              <option value="1-3-4-3">1-3-4-3</option>
+              <option value="1-3-4-2-1">1-3-4-2-1</option>
+              <option value="1-3-4-1-2">1-3-4-1-2</option>
+              <option value="1-3-3-3-1">1-3-3-3-1</option>
+              <option value="1-5-3-2">1-5-3-2</option>
+              <option value="1-5-4-1">1-5-4-1</option>
+              <option value="1-5-2-3">1-5-2-3</option>
+            </optgroup>
+            <optgroup label="Fútbol 7">
+              <option value="1-3-2-1 (F7)">1-3-2-1 (Fútbol 7)</option>
+              <option value="1-3-1-2 (F7)">1-3-1-2 (Fútbol 7)</option>
+              <option value="1-2-3-1 (F7)">1-2-3-1 (Fútbol 7)</option>
+              <option value="1-2-2-2 (F7)">1-2-2-2 (Fútbol 7)</option>
+              <option value="1-2-1-3 (F7)">1-2-1-3 (Fútbol 7)</option>
+              <option value="1-3-3 (F7)">1-3-3 (Fútbol 7)</option>
+              <option value="1-4-2 (F7)">1-4-2 (Fútbol 7)</option>
+              <option value="1-1-4-1 (F7)">1-1-4-1 (Fútbol 7)</option>
+            </optgroup>
+          </select>
           </div>
-          <p class="importador-subtitle" style="margin-top: 6px; font-size: 13px; color: var(--text-muted, #64748b);">
-            Pega directamente el listado copiado de las webs federativas. El sistema procesará los nombres y generará una <strong>hoja de cálculo tipo Excel interactiva</strong> donde podrás editar, arrastrar y rellenar columnas libremente antes de importar a la app y Firebase.
+          <button id="btnSaveMapasSistema" class="btn btn-primary" style="height: 38px; padding: 0 12px;" title="Guardar sistema para esta etiqueta"><i data-lucide="save"></i></button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start;" id="mapasExportContainer">
+        
+        <div style="grid-column: span 1; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
+           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+             <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 0;">Jugadores en el 11 Ideal</h3>
+             <button id="btnMapasToComparador" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; display: none;" onclick="goToComparadorFromMapas()">Ir al Comparador <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i></button>
+           </div>
+           <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+             <thead>
+               <tr style="border-bottom: 2px solid var(--border-light); color: var(--text-muted); font-size: 12px;">
+                 <th style="padding: 12px 8px; width: 30px;"></th>
+                 <th style="padding: 12px 8px;">NOMBRE COMPLETO</th>
+                 <th style="padding: 12px 8px;">AÑO</th>
+                 <th style="padding: 12px 8px;">EQUIPO</th>
+                 <th style="padding: 12px 8px;">POS.</th>
+                 <th style="padding: 12px 8px;">POS. SEC.</th>
+                 <th style="padding: 12px 8px;">PIE</th>
+                 <th style="padding: 12px 8px;">NIVEL RS</th>
+               </tr>
+             </thead>
+             <tbody id="mapasPlayersTbody">
+               <!-- Rellenado por app.js -->
+             </tbody>
+           </table>
+        </div>
+
+        <div style="grid-column: span 2;">
+          <div class="campograma-pitch-bg-h" style="position: relative; width: 90%; aspect-ratio: 105 / 68; border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
+
+
+
+        <!-- Pins container -->
+        <div id="mapasCampogramaPins" style="position: absolute; inset: 0;"></div>
+        </div>
+        </div>
+      </div>
+    
+      </div>
+    
+<!-- Sub-vista Importador -->
+      <div class="laboratorio-subview hidden" id="subview-importador">
+        <div class="importador-card" style="max-width: 1000px; width: 100%; margin: 40px auto; padding: 40px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid var(--border-light, #e2e8f0);">
+        <!-- Header -->
+        <div class="importador-header" style="margin-bottom: 32px; text-align: center;">
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: var(--primary-blue-light, #eff6ff); border-radius: 50%; margin-bottom: 16px;">
+            <i data-lucide="wand-2" style="color: var(--primary-blue, #2563eb); width: 32px; height: 32px;"></i>
+          </div>
+          <h2 style="font-size: 26px; font-weight: 900; margin: 0 0 12px 0; color: var(--text-dark, #1e293b);">Importador Inteligente</h2>
+
+          <p class="importador-subtitle" style="font-size: 15px; color: var(--text-muted, #64748b); max-width: 700px; margin: 0 auto; line-height: 1.5;">
+            Pega el listado copiado de las webs federativas. El sistema procesará los nombres y generará una <strong>hoja de cálculo interactiva</strong> que podrás revisar y editar antes de importar a Firebase.
           </p>
         </div>
 
         <!-- PASO 1: PEGAR DATOS Y VALORES POR DEFECTO -->
         <div id="importerStep1Container">
           <form id="importerForm" onsubmit="return false;">
-            <!-- Tipo de Importación -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; margin-bottom: 24px;">
+              <!-- Columna Izquierda: Ajustes -->
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Tipo de Importación -->
             <div class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
               <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
                 🔄 TIPO DE IMPORTACIÓN
               </label>
               <div style="display: flex; gap: 16px; margin-top: 8px;">
                 <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer;">
-                  <input type="radio" name="importerType" value="plantillas" checked onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de la federación. Ejemplo:\\nAlbisu Muñoz, Unai\\n...'; document.getElementById('importerEquipoDestinoContainer').style.display = 'block'; document.getElementById('importerFederacionDestinoContainer').style.display = 'none'; document.getElementById('importerEquiposMetaContainer').style.display = 'none'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'table\'></i> Procesar y Abrir Hoja de Cálculo Interactiva'; if(window.lucide) window.lucide.createIcons();"> Plantillas (Jugadores y Staff)
+                  <input type="radio" name="importerType" value="plantillas" checked onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de la federación. Ejemplo:\nAlbisu Muñoz, Unai\n...'; document.getElementById('importerEquipoDestinoContainer').style.display = 'block'; document.getElementById('importerFederacionDestinoContainer').style.display = 'none'; document.getElementById('importerEquiposMetaContainer').style.display = 'none'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'table\'></i> Procesar y Abrir Hoja de Cálculo Interactiva'; if(window.lucide) window.lucide.createIcons();"> Plantillas (Jugadores y Staff)
                 </label>
               </div>
             </div>
@@ -1031,11 +1361,12 @@
               </div>
             </div>
 
-            <!-- Textarea -->
-            
-
-            <div class="form-group mb-4">
-              <label class="form-label font-bold text-uppercase text-xs">LISTADO COPIADO DE LA WEB DE LA FEDERACIÓN (JUGADORES Y STAFF)</label>
+              </div> <!-- End Columna Izquierda -->
+              
+              <!-- Columna Derecha: Textarea -->
+              <div style="display: flex; flex-direction: column; height: 100%;">
+                <div class="form-group mb-0" style="flex-grow: 1; display: flex; flex-direction: column; height: 100%;">
+                  <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue); font-weight: 800;">📄 LISTADO COPIADO DE LA FEDERACIÓN</label>
               <textarea id="importerRawText" class="form-control importer-textarea" rows="10" placeholder="Pega aquí la lista de la federación. Ejemplo:
 Albisu Muñoz, Unai
 Astrain Perez, Ander
@@ -1043,13 +1374,18 @@ Fuentes Bacáicoa, Martín Javier
 Galvete Vilar, Alvaro
 
    Delegados (1)
-ECHARTE ESPINAL, MIGUEL"></textarea>
-            </div>
+ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); padding: 16px; font-family: monospace; font-size: 13px;"></textarea>
+                </div>
+
+              </div> <!-- End Columna Derecha -->
+            </div> <!-- End Grid -->
 
             <!-- Action Button -->
-            <button type="button" class="btn btn-primary btn-lg" id="btnProcessImporterText" style="font-weight: 800; padding: 14px 28px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; border-radius: 10px;">
-              <i data-lucide="table"></i> Procesar y Abrir Hoja de Cálculo Interactiva
-            </button>
+            <div style="display: flex; justify-content: center; border-top: 1px solid var(--border-light, #e2e8f0); padding-top: 32px; margin-top: 8px;">
+              <button type="button" class="btn btn-primary btn-lg" id="btnProcessImporterText" style="font-weight: 800; padding: 16px 48px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-size: 16px; border-radius: 12px; box-shadow: 0 4px 14px rgba(37,99,235,0.3); transition: all 0.2s;">
+                <i data-lucide="table" style="width: 20px; height: 20px;"></i> Procesar y Crear Hoja Interactiva
+              </button>
+            </div>
           </form>
         </div>
 
@@ -1115,7 +1451,10 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
           </div>
         </div>
       </div>
-    </section>
+      </div>
+
+    
+</section>
 
     <!-- ==================== 4.5 CARTELERA DE SCOUTING VIEW ==================== -->
     <section class="tab-view" id="view-cartelera">
@@ -1234,222 +1573,18 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
         <option value="Luki">Luki</option>
         <option value="Tomas">Tomas</option>
       </datalist>
-    </section>
+      </section>
 
     <!-- ==================== COMPARATIVA VIEW ==================== -->
-    <section class="tab-view" id="view-comparativa">
-      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 class="page-title" id="comparativaTitle">
-          <i data-lucide="bar-chart-2"></i> Comparador
-        </h1>
-        <button class="btn btn-secondary" id="btnExportComparativaPDF" title="Exportar vista actual a PDF">
-          <i data-lucide="printer"></i> Exportar PDF
-        </button>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
-        <button class="btn btn-secondary comp-mode-tab active" data-mode="individual" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
-          <i data-lucide="user"></i> Análisis Individual
-        </button>
-        <button class="btn btn-secondary comp-mode-tab" data-mode="multiple" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
-          <i data-lucide="users"></i> Comparador Jugadores
-        </button>
-      </div>
-
-      <div id="comparativaContent">
-        <!-- Rendered by app.js -->
-      </div>
-    </section>
+    
 
     <!-- ==================== MAPAS VIEW ==================== -->
-    <section class="tab-view" id="view-mapas">
-      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="layout-dashboard"></i> Mapas y Seguimiento
-        </h1>
-        <button class="btn btn-secondary" id="btnExportMapasPDF" title="Exportar vista actual a PDF">
-          <i data-lucide="printer"></i> Exportar PDF
-        </button>
-      </div>
-      
-      <div class="directory-subtabs-bar" style="margin-bottom: 24px; flex-wrap: wrap;" id="mapas-toggle-group">
-        <button class="directory-tab mapas-toggle-btn active" data-tag="MAPA RS">Mapa RS</button>
-        <button class="directory-tab mapas-toggle-btn" data-tag="11 IDEAL">11 Ideal</button>
-        <button class="directory-tab mapas-toggle-btn" data-tag="JULEN">Julen</button>
-        <button class="directory-tab mapas-toggle-btn" data-tag="LERINES">Lerines</button>
-        <button class="directory-tab mapas-toggle-btn" data-tag="ERF">ERF</button>
-        <button class="directory-tab mapas-toggle-btn" data-tag="DESTACADO EQUIPO">Destacado Equipo</button>
-      </div>
-
-      <div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-end; justify-content: flex-start;">
-        <div id="filterMapasEquipo" style="width: 250px; display: none;">
-          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Equipo</label>
-          <input type="text" id="selMapasEquipo" list="dl_selMapasEquipo" class="form-control" style="font-weight: 600;" placeholder="-- Todos los equipos --">
-          <datalist id="dl_selMapasEquipo"></datalist>
-        </div>
-        <div id="filterMapasSistema" style="display: flex; align-items: flex-end; gap: 8px;">
-          <div style="width: 200px;">
-            <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
-            <select id="selMapasSistema" class="form-control" style="font-weight: 600;">
-            <optgroup label="Fútbol 11">
-              <option value="1-4-3-3">1-4-3-3</option>
-              <option value="1-4-4-2">1-4-4-2 (Línea)</option>
-              <option value="1-4-4-2 (Rombo)">1-4-4-2 (Rombo)</option>
-              <option value="1-4-2-3-1">1-4-2-3-1</option>
-              <option value="1-4-1-4-1">1-4-1-4-1</option>
-              <option value="1-4-3-2-1">1-4-3-2-1</option>
-              <option value="1-4-3-1-2">1-4-3-1-2</option>
-              <option value="1-4-5-1">1-4-5-1</option>
-              <option value="1-3-5-2">1-3-5-2</option>
-              <option value="1-3-4-3">1-3-4-3</option>
-              <option value="1-3-4-2-1">1-3-4-2-1</option>
-              <option value="1-3-4-1-2">1-3-4-1-2</option>
-              <option value="1-3-3-3-1">1-3-3-3-1</option>
-              <option value="1-5-3-2">1-5-3-2</option>
-              <option value="1-5-4-1">1-5-4-1</option>
-              <option value="1-5-2-3">1-5-2-3</option>
-            </optgroup>
-            <optgroup label="Fútbol 7">
-              <option value="1-3-2-1 (F7)">1-3-2-1 (Fútbol 7)</option>
-              <option value="1-3-1-2 (F7)">1-3-1-2 (Fútbol 7)</option>
-              <option value="1-2-3-1 (F7)">1-2-3-1 (Fútbol 7)</option>
-              <option value="1-2-2-2 (F7)">1-2-2-2 (Fútbol 7)</option>
-              <option value="1-2-1-3 (F7)">1-2-1-3 (Fútbol 7)</option>
-              <option value="1-3-3 (F7)">1-3-3 (Fútbol 7)</option>
-              <option value="1-4-2 (F7)">1-4-2 (Fútbol 7)</option>
-              <option value="1-1-4-1 (F7)">1-1-4-1 (Fútbol 7)</option>
-            </optgroup>
-          </select>
-          </div>
-          <button id="btnSaveMapasSistema" class="btn btn-primary" style="height: 38px; padding: 0 12px;" title="Guardar sistema para esta etiqueta"><i data-lucide="save"></i></button>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start;" id="mapasExportContainer">
-        
-        <div style="grid-column: span 1; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
-           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-             <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 0;">Jugadores en el 11 Ideal</h3>
-             <button id="btnMapasToComparador" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; display: none;" onclick="goToComparadorFromMapas()">Ir al Comparador <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i></button>
-           </div>
-           <table class="data-table" style="width: 100%; text-align: left; border-collapse: collapse;">
-             <thead>
-               <tr style="border-bottom: 2px solid var(--border-light); color: var(--text-muted); font-size: 12px;">
-                 <th style="padding: 12px 8px; width: 30px;"></th>
-                 <th style="padding: 12px 8px;">NOMBRE COMPLETO</th>
-                 <th style="padding: 12px 8px;">AÑO</th>
-                 <th style="padding: 12px 8px;">EQUIPO</th>
-                 <th style="padding: 12px 8px;">POS.</th>
-                 <th style="padding: 12px 8px;">POS. SEC.</th>
-                 <th style="padding: 12px 8px;">PIE</th>
-                 <th style="padding: 12px 8px;">NIVEL RS</th>
-               </tr>
-             </thead>
-             <tbody id="mapasPlayersTbody">
-               <!-- Rellenado por app.js -->
-             </tbody>
-           </table>
-        </div>
-
-        <div style="grid-column: span 2;">
-          <div class="campograma-pitch-bg-h" style="position: relative; width: 90%; aspect-ratio: 105 / 68; border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
-
-
-
-        <!-- Pins container -->
-        <div id="mapasCampogramaPins" style="position: absolute; inset: 0;"></div>
-        </div>
-        </div>
-      </div>
-    </section>
+    
 
     <!-- ==================== 5. AGENDA VIEW ==================== -->
-    <section class="tab-view" id="view-agenda">
-      <div class="view-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
-        <div class="view-title-group" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-          <h1 style="margin: 0;">📝 Agenda</h1>
-          <!-- Agenda Subtabs Bar: Tareas vs Eventos (en la misma línea) -->
-          <div class="directory-subtabs-bar" id="agendaSubtabsBar" style="margin: 0; padding: 0;">
-            <button class="directory-tab active" data-agendatab="tareas">
-              <i data-lucide="check-square" style="width: 14px; vertical-align: middle;"></i> Tareas
-            </button>
-            <button class="directory-tab" data-agendatab="eventos">
-              <i data-lucide="calendar" style="width: 14px; vertical-align: middle;"></i> Eventos
-            </button>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas">
-            <i data-lucide="archive"></i> Archivo
-          </button>
-          <button class="btn btn-primary" id="btnNewAgendaTask">
-            <i data-lucide="plus"></i> Nueva Tarea / Evento
-          </button>
-        </div>
-      </div>
-
-      <div class="agenda-layout">
-        <!-- Sidebar Filter / Quick Stats -->
-        <div class="agenda-sidebar">
-          <div class="agenda-card">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-              <h3 style="margin: 0;">Categorías</h3>
-              <button class="btn btn-sm btn-secondary" id="btnAddNewAgendaCat" title="Añadir nueva categoría">
-                <i data-lucide="plus" style="width: 14px;"></i> Nueva
-              </button>
-            </div>
-            <ul class="category-list" id="agendaCategoryFilters">
-              <!-- Dynamic Categories rendered by JS -->
-            </ul>
-          </div>
-        </div>
-
-        <!-- Task List Grid -->
-        <div class="agenda-main">
-          <div class="agenda-task-list" id="agendaTasksContainer">
-            <!-- Dynamic task items -->
-          </div>
-        </div>
-      </div>
-    </section>
 
     <!-- ==================== 6. ENLACES FEDERATIVOS VIEW ==================== -->
-    <section class="tab-view" id="view-enlaces">
-      <div class="view-header">
-        <div class="view-title-group">
-          <h1>🔗 Enlaces Útiles y Federaciones</h1>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary hidden" id="btnAddNewFavCol">
-            <i data-lucide="folder-plus" style="width: 15px;"></i> Nueva Columna Favoritos
-          </button>
-          <button class="btn btn-primary" id="btnAddNewLink">
-            <i data-lucide="plus"></i> Añadir Nuevo Enlace
-          </button>
-        </div>
-      </div>
-
-      <!-- Controls: Search & Category Tabs -->
-      <div class="links-controls-wrapper mb-4">
-        <div class="links-search-box">
-          <i data-lucide="search" class="search-icon"></i>
-          <input type="text" id="linkSearchInput" placeholder="Buscar enlace por título o etiqueta..." class="form-control">
-        </div>
-        <div class="links-category-tabs" id="linksCategoryTabs">
-          <!-- Dynamic Category Tabs generated by JS -->
-        </div>
-      </div>
-
-      <!-- Container for Favoritos Columns view -->
-      <div class="links-board-wrapper hidden" id="linksBoardContainer">
-        <!-- Dynamic Favoritos Columns generated by JS -->
-      </div>
-
-      <!-- Container for Regular Grid view -->
-      <div class="links-grid" id="federationLinksContainer">
-        <!-- Dynamic Federation Link Cards -->
-      </div>
-    </section>
+    
 
     <!-- ==================== 7. CONFIGURACIÓN VIEW ==================== -->
     <section class="tab-view" id="view-configuracion">
@@ -1532,7 +1667,62 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
       </div>
     </section>
 
+    
+
+    <!-- ==================== 10. NOTAS VIEW ==================== -->
+
   </main>
+
+      <!-- Modal for Editing/Creating Notes -->
+      <div class="modal-overlay hidden" id="modalEdicionNota" style="z-index: 30000;">
+        <div class="modal-card xlarge" style="max-width: 800px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+          <div class="modal-header banner-blue">
+            <h3 id="modalEdicionNotaTitle"><i data-lucide="edit-3"></i> Editar Nota</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('modalEdicionNota').classList.add('hidden')">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          
+          <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px; padding: 24px;">
+            <!-- Category Selection (if creating globally) -->
+            <div class="form-group" id="modalEdicionNotaCategoryWrapper">
+              <label class="form-label">Etiqueta / Categoría</label>
+              <input type="text" id="modalEdicionNotaCategory" list="notasCategoriasDatalist" class="form-control" placeholder="Escribe o selecciona una etiqueta...">
+              <datalist id="notasCategoriasDatalist"></datalist>
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Título de la Nota</label>
+              <input type="text" id="modalEdicionNotaTitleInput" class="form-control" placeholder="Ej. Reunión de Scouting...">
+            </div>
+            
+            <div class="form-group" style="flex: 1; display: flex; flex-direction: column;">
+              <label class="form-label">Contenido</label>
+              <div class="nota-editor-toolbar">
+                <button type="button" class="btn-toolbar" data-command="bold" title="Negrita"><i data-lucide="bold"></i></button>
+                <button type="button" class="btn-toolbar" data-command="italic" title="Cursiva"><i data-lucide="italic"></i></button>
+                <button type="button" class="btn-toolbar" data-command="underline" title="Subrayado"><i data-lucide="underline"></i></button>
+                <div class="toolbar-divider"></div>
+                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="H2" title="Título"><i data-lucide="heading-2"></i></button>
+                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="H3" title="Subtítulo"><i data-lucide="heading-3"></i></button>
+                <button type="button" class="btn-toolbar" data-command="formatBlock" data-value="P" title="Párrafo normal"><i data-lucide="type"></i></button>
+                <div class="toolbar-divider"></div>
+                <button type="button" class="btn-toolbar" data-command="insertUnorderedList" title="Lista con viñetas"><i data-lucide="list"></i></button>
+                <button type="button" class="btn-toolbar" data-command="insertOrderedList" title="Lista numerada"><i data-lucide="list-ordered"></i></button>
+                <div class="toolbar-divider"></div>
+                <button type="button" class="btn-toolbar" id="btnAttachFileNota" title="Adjuntar imagen o archivo"><i data-lucide="paperclip"></i></button>
+              </div>
+              <div class="nota-ficha-editor-area" id="modalEdicionNotaEditor" contenteditable="true" spellcheck="false" placeholder="Escribe aquí..."></div>
+              <input type="file" id="modalEdicionNotaFileInput" style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+            </div>
+          </div>
+          
+          <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border-light); background-color: var(--bg-subtle);">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalEdicionNota').classList.add('hidden')">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSaveNotaFicha">Guardar Nota</button>
+          </div>
+        </div>
+      </div>
 
   <!-- GENERAL MODAL CONTAINER FOR ENTITY CREATION / EDITING -->
   <!-- NEW READ-ONLY FICHA MODAL -->
@@ -1621,7 +1811,10 @@ ECHARTE ESPINAL, MIGUEL"></textarea>
   <!-- PDF.js for reading PDFs client-side -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   
-  <script src="app.js?v=20260821038" defer></script>
+  <script src="app.js?v=20260827101" defer></script>
   <script src="importer.js" defer></script>
+
+
 </body>
 </html>
+
