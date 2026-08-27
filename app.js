@@ -56,6 +56,34 @@
     }
   };
 
+  window.showOnlyDestacadosPlayers = false;
+  window.toggleDestacadosFilter = function () {
+    window.showOnlyDestacadosPlayers = !window.showOnlyDestacadosPlayers;
+    const btn = document.getElementById('dirDestacadosContainer');
+    if (btn) {
+      if (window.showOnlyDestacadosPlayers) {
+        btn.style.background = 'var(--primary-blue)';
+        btn.style.borderColor = 'var(--primary-blue)';
+        const icon = btn.querySelector('i, svg');
+        if (icon) icon.style.color = 'white';
+        const span = btn.querySelector('span');
+        if (span) span.style.color = 'white';
+      } else {
+        btn.style.background = 'white';
+        btn.style.borderColor = 'var(--border-medium)';
+        const icon = btn.querySelector('i, svg');
+        if (icon) icon.style.color = 'var(--text-muted)';
+        const span = btn.querySelector('span');
+        if (span) span.style.color = '#334155';
+      }
+    }
+    if (typeof window.renderDirectorio === 'function') {
+      window.renderDirectorio();
+    } else if (typeof renderDirectorio === 'function') {
+      renderDirectorio();
+    }
+  };
+
   window.levenshteinDistance = function (a, b) {
     const matrix = [];
     for (let i = 0; i <= b.length; i++) matrix[i] = [i];
@@ -683,6 +711,7 @@
           }
           if (Array.isArray(configData.dirTabOrder)) {
             state.dirTabOrder = configData.dirTabOrder;
+            if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
           if (configData.mapPreferences && typeof configData.mapPreferences === 'object') {
             state.mapPreferences = configData.mapPreferences;
@@ -756,7 +785,10 @@
           }
           if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) state.favColumns = configData.favColumns;
           if (Array.isArray(configData.customTabOrder)) state.customTabOrder = configData.customTabOrder;
-          if (Array.isArray(configData.dirTabOrder)) state.dirTabOrder = configData.dirTabOrder;
+          if (Array.isArray(configData.dirTabOrder)) {
+            state.dirTabOrder = configData.dirTabOrder;
+            if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
+          }
           if (configData.mapPreferences && typeof configData.mapPreferences === 'object') state.mapPreferences = configData.mapPreferences;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
@@ -3842,13 +3874,25 @@ if (elPriorityMatches) {
     document.getElementById('matchTimerDisplay').textContent = '00:00';
   });
 
-  // Coach Rating Buttons Handler
+  // Difficulty Buttons Handler (Team and Coach)
   ['local', 'visitante'].forEach(team => {
-    const group = document.getElementById(`${team}CoachDifficultyButtons`);
-    if (group) {
-      group.querySelectorAll('.btn-rating').forEach(btn => {
+    // Coach Difficulty
+    const coachGroup = document.getElementById(`${team}CoachDifficultyButtons`);
+    if (coachGroup) {
+      coachGroup.querySelectorAll('.btn-rating').forEach(btn => {
         btn.addEventListener('click', () => {
-          group.querySelectorAll('.btn-rating').forEach(b => b.classList.remove('active'));
+          coachGroup.querySelectorAll('.btn-rating').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    }
+
+    // Team Difficulty
+    const teamGroup = document.getElementById(`${team}DifficultyButtons`);
+    if (teamGroup) {
+      teamGroup.querySelectorAll('.btn-rating').forEach(btn => {
+        btn.addEventListener('click', () => {
+          teamGroup.querySelectorAll('.btn-rating').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
       });
@@ -5154,6 +5198,7 @@ if (elPriorityMatches) {
         minutos: evalData.minutos || 0,
         rendimiento: evalData.rendimiento || 'C',
         rendimientoRS: evalData.rendimientoRS || 'C',
+        dificultadPartido: evalData.dificultadPartido || '-',
         potencial: evalData.potencial || '3',
         descFisica: evalData.descFisica || '',
         descTecnica: evalData.descTecnica || '',
@@ -5495,16 +5540,36 @@ if (elPriorityMatches) {
           <!-- Stepper Counters Grid -->
           <div class="stats-grid-counters">
             ${STAT_FIELDS.map(f => `
-              <div class="stat-counter-card">
-                <div class="stat-counter-info">
-                  <span class="stat-counter-icon">${f.icon}</span>
-                  <span class="stat-counter-label">${escapeHtml(f.label)}</span>
+              <div class="stat-counter-card" style="flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 10px 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                  <div class="stat-counter-info">
+                    <span class="stat-counter-icon">${f.icon}</span>
+                    <span class="stat-counter-label">${escapeHtml(f.label)}</span>
+                  </div>
+                  <div class="stat-counter-controls">
+                    <button type="button" class="btn-counter-stepper minus" data-stat="${f.key}" data-action="minus">-</button>
+                    <span class="stat-counter-num" data-stat="${f.key}">${pStats[f.key] || 0}</span>
+                    <button type="button" class="btn-counter-stepper plus" data-stat="${f.key}" data-action="plus">+</button>
+                  </div>
                 </div>
-                <div class="stat-counter-controls">
-                  <button type="button" class="btn-counter-stepper minus" data-stat="${f.key}" data-action="minus">-</button>
-                  <span class="stat-counter-num" data-stat="${f.key}">${pStats[f.key] || 0}</span>
-                  <button type="button" class="btn-counter-stepper plus" data-stat="${f.key}" data-action="plus">+</button>
-                </div>
+                ${['goles', 'asistencias', 'amarillas', 'rojas'].includes(f.key) ? `
+                  <div class="stat-counter-details" id="details-container-${f.key}" style="display: ${pStats[f.key] > 0 ? 'block' : 'none'}; margin-top: 8px;">
+                    ${(() => {
+                      let html = '';
+                      const count = Math.max(0, parseInt(pStats[f.key]) || 0);
+                      const savedDetails = pStats['detalles_' + f.key];
+                      let savedArr = [];
+                      if (Array.isArray(savedDetails)) savedArr = savedDetails;
+                      else if (typeof savedDetails === 'string') savedArr = [savedDetails];
+
+                      for (let i = 0; i < count; i++) {
+                        const val = savedArr[i] || '';
+                        html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + f.key + '" data-index="' + i + '" placeholder="Detalle ' + (i+1) + '..." value="' + escapeHtml(val) + '">';
+                      }
+                      return html;
+                    })()}
+                  </div>
+                ` : ''}
               </div>
             `).join('')}
           </div>
@@ -5698,6 +5763,18 @@ if (elPriorityMatches) {
         const numSpan = modalContent.querySelector(`.stat-counter-num[data-stat="${statKey}"]`);
         if (numSpan) numSpan.textContent = currentVal;
 
+        const detailsContainer = modalContent.querySelector(`#details-container-${statKey}`);
+        if (detailsContainer) {
+          const currentInputs = Array.from(detailsContainer.querySelectorAll('.stat-detail-input')).map(inp => inp.value);
+          let html = '';
+          for (let i = 0; i < currentVal; i++) {
+            const val = currentInputs[i] || '';
+            html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + statKey + '" data-index="' + i + '" placeholder="Detalle ' + (i+1) + '..." value="' + escapeHtml(val) + '">';
+          }
+          detailsContainer.innerHTML = html;
+          detailsContainer.style.display = currentVal > 0 ? 'block' : 'none';
+        }
+
         updateStatsSummaryBanner();
       });
     });
@@ -5715,11 +5792,20 @@ if (elPriorityMatches) {
       const isEntra = btnEntra?.classList.contains('active') || false;
       const isSalir = btnSalir?.classList.contains('active') || false;
 
+      ['goles', 'asistencias', 'amarillas', 'rojas'].forEach(k => {
+        const detailsContainer = modalContent.querySelector(`#details-container-${k}`);
+        if (detailsContainer) {
+          const inputs = Array.from(detailsContainer.querySelectorAll('.stat-detail-input'));
+          pStats['detalles_' + k] = inputs.map(inp => inp.value.trim());
+        }
+      });
+
       const evalObj = {
         name: pName,
         rendimiento: modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C',
         potencial: modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active')?.dataset.val || '3',
         rendimientoRS: activeRSBtn ? activeRSBtn.dataset.val : 'C',
+        dificultadPartido: getDifficultyRating(team) || '-',
         tags: activeTags,
         entra: isEntra,
         minutoEntrada: isEntra ? minutoEntrada : 0,
@@ -5966,6 +6052,7 @@ if (elPriorityMatches) {
           const pName = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
           const evalKey = `${repId}_${t}_${pNum}`;
           if (state.matchPlayerEvaluations[evalKey]) {
+            state.matchPlayerEvaluations[evalKey].dificultadPartido = getDifficultyRating(t) || '-';
             if (r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
               if (!state.matchPlayerEvaluations[evalKey].minutos) {
                 state.matchPlayerEvaluations[evalKey].minutos = 90;
@@ -6388,11 +6475,9 @@ let currentPlanificacionTab = 'calendario';
     });
   }
 
-  function initDirectorioSubtabs() {
+  window.applyDirTabOrder = function() {
     const bar = document.querySelector('#view-directorio .directory-subtabs-bar');
     if (!bar) return;
-
-    // 1. Reorder based on saved state
     if (state.dirTabOrder && Array.isArray(state.dirTabOrder) && state.dirTabOrder.length > 0) {
       const tabsMap = {};
       const subtabs = bar.querySelectorAll('.directory-tab');
@@ -6404,6 +6489,14 @@ let currentPlanificacionTab = 'calendario';
         }
       });
     }
+  };
+
+  function initDirectorioSubtabs() {
+    const bar = document.querySelector('#view-directorio .directory-subtabs-bar');
+    if (!bar) return;
+
+    // 1. Reorder based on saved state
+    window.applyDirTabOrder();
 
     // 2. Initialize SortableJS
     if (window.Sortable) {
@@ -7437,7 +7530,7 @@ let currentPlanificacionTab = 'calendario';
                 <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')}</div>
-                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
                   </div>
                   <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
                 </div>
@@ -7558,6 +7651,20 @@ let currentPlanificacionTab = 'calendario';
     const isGeneralOpen = overlayEl && !overlayEl.classList.contains('hidden');
 
     const modalSubmitHandler = () => {
+      const pNombreTemp = document.getElementById('pfNombre')?.value.trim();
+      const pAnoNacTemp = document.getElementById('pfAnoNac')?.value.trim();
+      
+      if (!isEdit && pNombreTemp && pAnoNacTemp) {
+        const exists = state.directory.jugadores.find(j => 
+          j.nombre && j.nombre.toLowerCase().trim() === pNombreTemp.toLowerCase() &&
+          (String(j.anoNac || j.ano || '').trim() === pAnoNacTemp)
+        );
+        if (exists) {
+          alert(`Ya existe un jugador con el nombre "${pNombreTemp}" y año de nacimiento "${pAnoNacTemp}". No se puede crear un duplicado.`);
+          return;
+        }
+      }
+
       const p = isEdit ? player : { id: 'jug_' + Date.now() };
 
       p.nombre = document.getElementById('pfNombre')?.value.trim() || p.nombre || '';
@@ -9390,9 +9497,13 @@ let currentPlanificacionTab = 'calendario';
     }
     staffHTML += `</tbody></table>`;
 
+    const squadPlayers = localPlantillaList.map(item => {
+      const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+      return allPlayersList.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+    }).filter(Boolean);
+
     // Jugadores Destacados
-    const destacados = allPlayersList.filter(p => {
-      if (!p.equipo || String(p.equipo).trim().toLowerCase() !== String(team.nombre).trim().toLowerCase()) return false;
+    const destacados = squadPlayers.filter(p => {
       return (p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
     });
 
@@ -9423,11 +9534,6 @@ let currentPlanificacionTab = 'calendario';
     const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
     const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
 
-    const squadPlayers = localPlantillaList.map(item => {
-      const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-      return allPlayersList.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
-    }).filter(Boolean);
-
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
     const curTextColor = getContrastColor(themeColor);
 
@@ -9441,8 +9547,23 @@ let currentPlanificacionTab = 'calendario';
           let isZurdo = false;
           if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+          
+          let pBg = 'rgba(15, 23, 42, 0.92)';
+          let pColor = '#ffffff';
+          let pBorder = 'rgba(255,255,255,0.3)';
+          const est = (p.estado || '').trim().toUpperCase();
+          if (est === 'ALTA') {
+            pBg = '#2563eb';
+          } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
+            pBg = '#000000';
+          } else if (est === 'SUBE DE EQUIPO INFERIOR') {
+            pBg = '#eab308';
+            pColor = '#000000';
+            pBorder = 'rgba(0,0,0,0.3)';
+          }
+
           return `
-          <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+          <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -10962,8 +11083,13 @@ let currentPlanificacionTab = 'calendario';
             estadoHTML = `<select class="form-control inline-edit-select" data-field="estado" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateEstadoOptions(estado)}</select>`;
           }
 
+          let rowBgStyle = '';
+          if (foundPlayer) {
+            if (foundPlayer.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+            else if (foundPlayer.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
           return `
-            <tr style="border-bottom: 1px solid var(--border-light);">
+            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
               <td style="padding: 6px 12px;">${nameHTML}</td>
               <td style="padding: 6px 4px;">${dorsalHTML}</td>
               <td style="padding: 6px 4px;">${anoHTML}</td>
@@ -11113,8 +11239,23 @@ let currentPlanificacionTab = 'calendario';
             let isZurdo = false;
             if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+            
+            let pBg = 'rgba(15, 23, 42, 0.92)';
+            let pColor = '#ffffff';
+            let pBorder = 'rgba(255,255,255,0.3)';
+            const est = (p.estado || '').trim().toUpperCase();
+            if (est === 'ALTA') {
+              pBg = '#2563eb';
+            } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
+              pBg = '#000000';
+            } else if (est === 'SUBE DE EQUIPO INFERIOR') {
+              pBg = '#eab308';
+              pColor = '#000000';
+              pBorder = 'rgba(0,0,0,0.3)';
+            }
+            
             return `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -11848,8 +11989,23 @@ let currentPlanificacionTab = 'calendario';
           let isZurdo = false;
           if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+          
+          let pBg = 'rgba(15, 23, 42, 0.92)';
+          let pColor = '#ffffff';
+          let pBorder = 'rgba(255,255,255,0.3)';
+          const est = (p.estado || '').trim().toUpperCase();
+          if (est === 'ALTA') {
+            pBg = '#2563eb';
+          } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
+            pBg = '#000000';
+          } else if (est === 'SUBE DE EQUIPO INFERIOR') {
+            pBg = '#eab308';
+            pColor = '#000000';
+            pBorder = 'rgba(0,0,0,0.3)';
+          }
+          
           return `
-          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -13301,8 +13457,13 @@ let currentPlanificacionTab = 'calendario';
           const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${idx}" value="${escapeHtml(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
 
+          let rowBgStyle = '';
+          if (foundP) {
+            if (foundP.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+            else if (foundP.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
           return `
-            <tr style="border-bottom: 1px solid var(--border-light);">
+            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px;">${pos1HTML}</td>
               <td style="padding: 8px 12px;">${pos2HTML}</td>
@@ -13570,8 +13731,23 @@ let currentPlanificacionTab = 'calendario';
             let isZurdo = false;
             if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
+            
+            let pBg = 'rgba(15, 23, 42, 0.92)';
+            let pColor = '#ffffff';
+            let pBorder = 'rgba(255,255,255,0.3)';
+            const est = (p.estado || '').trim().toUpperCase();
+            if (est === 'ALTA') {
+              pBg = '#2563eb';
+            } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
+              pBg = '#000000';
+            } else if (est === 'SUBE DE EQUIPO INFERIOR') {
+              pBg = '#eab308';
+              pColor = '#000000';
+              pBorder = 'rgba(0,0,0,0.3)';
+            }
+            
             return `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -14578,8 +14754,15 @@ let currentPlanificacionTab = 'calendario';
           const pos1HTML = `<select class="form-control cn-jugador-pos1" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos1 === p || (!j.pos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const pos2HTML = `<select class="form-control cn-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos2 === p || (!j.pos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
 
+          let rowBgStyle = '';
+          if (j.baja) {
+            rowBgStyle = 'opacity: 0.7; background-color: #fef2f2;';
+          } else if (foundP) {
+            if (foundP.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+            else if (foundP.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
           return `
-            <tr style="border-bottom: 1px solid var(--border-light); ${j.baja ? 'opacity: 0.7; background-color: #fef2f2;' : ''}">
+            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px;">${pos1HTML}</td>
               <td style="padding: 8px 12px;">${pos2HTML}</td>
@@ -18735,6 +18918,26 @@ let currentPlanificacionTab = 'calendario';
 function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
+
+    if (!window._hasRunRendimientoCleanupV3) {
+      window._hasRunRendimientoCleanupV3 = true;
+      if (state.directory && state.directory.jugadores) {
+        let count = 0;
+        state.directory.jugadores.forEach(j => {
+          if (j.rendimientoRS) {
+            if (!j.historialEvaluaciones || j.historialEvaluaciones.length === 0) {
+              j.rendimientoRS = "";
+              if (typeof saveToFirebase === 'function') {
+                saveToFirebase('jugadores', j);
+                count++;
+              }
+            }
+          }
+        });
+        console.log("Cleared Rendimiento RS for " + count + " players without reports.");
+      }
+    }
+
     if (tabOverride) {
       if (currentDirectoryTab !== tabOverride) {
         currentDirectoryTab = tabOverride;
@@ -18773,10 +18976,12 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     const teamContainer = document.getElementById('dirTeamFilterContainer');
     const cargoContainer = document.getElementById('dirCargoFilterContainer');
     const duplicatesContainer = document.getElementById('dirDuplicatesContainer');
+    const destacadosContainer = document.getElementById('dirDestacadosContainer');
 
     if (currentDirectoryTab === 'jugadores') {
       if (yearContainer) yearContainer.style.display = 'flex';
       if (duplicatesContainer) duplicatesContainer.style.display = 'flex';
+      if (destacadosContainer) destacadosContainer.style.display = 'flex';
       if (teamContainer) {
         teamContainer.style.display = 'flex';
         // Populate options
@@ -18794,6 +18999,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
         if (yInput) yInput.value = '';
       }
       if (duplicatesContainer) duplicatesContainer.style.display = 'none';
+      if (destacadosContainer) destacadosContainer.style.display = 'none';
       if (teamContainer) {
         teamContainer.style.display = 'none';
         const tInput = document.getElementById('dirTeamFilterInput');
@@ -18807,6 +19013,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
         if (yInput) yInput.value = '';
       }
       if (duplicatesContainer) duplicatesContainer.style.display = 'none';
+      if (destacadosContainer) destacadosContainer.style.display = 'none';
       if (teamContainer) {
         teamContainer.style.display = 'none';
         const tInput = document.getElementById('dirTeamFilterInput');
@@ -18896,6 +19103,9 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
         if (duplicatesSet) {
           const n = (item.nombre || item.jugador || item.name || '').toLowerCase().trim();
           if (!duplicatesSet.has(n)) return false;
+        }
+        if (window.showOnlyDestacadosPlayers) {
+          if (item.rendimientoRS !== 'A' && item.rendimientoRS !== 'B') return false;
         }
         if (filterYear) {
           const itemYear = String(item.anoNac || item.ano || item.anyo || '').trim();
@@ -19204,8 +19414,12 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                 </tr>
               </thead>
               <tbody>
-                ${pageItems.map(j => `
-                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
+                ${pageItems.map(j => {
+                  let rowBgStyle = '';
+                  if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+                  else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+                  return `
+                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${rowBgStyle}" class="dir-table-row">
                     <td style="padding: 10px 8px; text-align: center; display: ${isBulkSelectActive ? 'table-cell' : 'none'};">
                       <input type="checkbox" class="dir-item-checkbox" data-id="${j.id}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
                     </td>
@@ -19224,8 +19438,8 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
-                  </tr>
-                `).join('')}
+                  </tr>`;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -25196,6 +25410,21 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         </div>
 
+        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 20px;">
+          <h3 style="font-size: 14px; font-weight: 800; margin-bottom: 12px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="check-square" style="width: 16px; height: 16px; color: var(--primary-blue);"></i> Subtareas
+          </h3>
+          <div id="agSubtasksList" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Rendered subtasks go here -->
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="agNewSubtaskInput" class="form-control" placeholder="Añadir nueva subtarea..." style="font-size: 13px;">
+            <button id="btnAddNewSubtask" class="btn btn-primary" style="padding: 0 12px;" type="button">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
+        </div>
+
         <div class="form-group mb-4" style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 2px dashed var(--primary-blue); box-shadow: var(--shadow-sm);">
           <label class="form-label" style="font-weight: 800; margin-bottom: 8px; display: block; color: var(--primary-blue); font-size: 13px;">
             🔄 Cambiar Estado de la Tarea / Evento
@@ -25217,6 +25446,73 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
       </div>
     `, () => { hideModal(); });
+
+    const renderSubtasks = () => {
+      const container = document.getElementById('agSubtasksList');
+      if (!container) return;
+      if (!task.subtasks) task.subtasks = [];
+      if (task.subtasks.length === 0) {
+        container.innerHTML = '<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">No hay subtareas.</span>';
+      } else {
+        container.innerHTML = task.subtasks.map((st, idx) => `
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px; border-radius: 4px; background: ${st.completed ? 'var(--bg-subtle)' : 'var(--bg-card)'}; border: 1px solid var(--border-light);">
+            <input type="checkbox" class="subtask-checkbox" data-idx="${idx}" ${st.completed ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+            <span style="flex: 1; ${st.completed ? 'text-decoration: line-through; color: var(--text-muted);' : 'color: var(--text-main);'}">${escapeHtml(st.text)}</span>
+            <button class="btn-action-icon danger btn-delete-subtask" data-idx="${idx}" style="padding: 2px;">
+              <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+            </button>
+          </div>
+        `).join('');
+      }
+      
+      container.querySelectorAll('.subtask-checkbox').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          task.subtasks[idx].completed = e.target.checked;
+          saveState();
+          saveToFirebase('agenda', task);
+          renderSubtasks();
+          renderAgenda();
+        });
+      });
+
+      container.querySelectorAll('.btn-delete-subtask').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.currentTarget.dataset.idx);
+          task.subtasks.splice(idx, 1);
+          saveState();
+          saveToFirebase('agenda', task);
+          renderSubtasks();
+          renderAgenda();
+        });
+      });
+      if (window.lucide) window.lucide.createIcons();
+    };
+
+    renderSubtasks();
+
+    const btnAddSubtask = document.getElementById('btnAddNewSubtask');
+    const inputSubtask = document.getElementById('agNewSubtaskInput');
+    if (btnAddSubtask && inputSubtask) {
+      const addSub = () => {
+        const text = inputSubtask.value.trim();
+        if (!text) return;
+        if (!task.subtasks) task.subtasks = [];
+        task.subtasks.push({ id: 'st_' + Date.now(), text: text, completed: false });
+        inputSubtask.value = '';
+        saveState();
+        saveToFirebase('agenda', task);
+        renderSubtasks();
+        renderAgenda();
+      };
+      btnAddSubtask.addEventListener('click', addSub);
+      inputSubtask.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addSub();
+        }
+      });
+    }
 
     const statusSel = document.getElementById('agDetailStatusSelect');
     if (statusSel) {
