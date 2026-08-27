@@ -703,14 +703,14 @@
             } catch (e) { }
             updateAppNameUI(configData.appName);
           }
-          if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) {
-            state.favColumns = configData.favColumns;
+          if (configData.favColumns) {
+            state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
           }
-          if (Array.isArray(configData.customTabOrder)) {
-            state.customTabOrder = configData.customTabOrder;
+          if (configData.customTabOrder) {
+            state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
           }
-          if (Array.isArray(configData.dirTabOrder)) {
-            state.dirTabOrder = configData.dirTabOrder;
+          if (configData.dirTabOrder) {
+            state.dirTabOrder = Array.isArray(configData.dirTabOrder) ? configData.dirTabOrder : Object.values(configData.dirTabOrder);
             if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
           if (configData.mapPreferences && typeof configData.mapPreferences === 'object') {
@@ -724,8 +724,12 @@
           if (configData.clubesAragonSeeded) state.directory.clubesAragonSeeded = true;
           if (configData.equiposAragonSeeded) state.directory.equiposAragonSeeded = true;
           if (configData.federacionesSeleccionesSeeded) state.directory.federacionesSeleccionesSeeded = true;
-          if (Array.isArray(configData.directoryFederationsOrder)) state.directoryFederationsOrder = configData.directoryFederationsOrder;
-          if (Array.isArray(configData.directoryCategoriesOrder)) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          if (configData.directoryFederationsOrder) {
+            state.directoryFederationsOrder = Array.isArray(configData.directoryFederationsOrder) ? configData.directoryFederationsOrder : Object.values(configData.directoryFederationsOrder);
+          }
+          if (configData.directoryCategoriesOrder) {
+            state.directoryCategoriesOrder = Array.isArray(configData.directoryCategoriesOrder) ? configData.directoryCategoriesOrder : Object.values(configData.directoryCategoriesOrder);
+          }
           if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') state.deletedTombstones = configData.deletedTombstones;
           if (configData.federacionesClubsMigrated) state.directory.federacionesClubsMigrated = true;
           if (configData.aragonWiped) state.directory.aragonWiped = true;
@@ -783,10 +787,14 @@
             try { localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName); } catch (e) { }
             updateAppNameUI(configData.appName);
           }
-          if (Array.isArray(configData.favColumns) && configData.favColumns.length > 0) state.favColumns = configData.favColumns;
-          if (Array.isArray(configData.customTabOrder)) state.customTabOrder = configData.customTabOrder;
-          if (Array.isArray(configData.dirTabOrder)) {
-            state.dirTabOrder = configData.dirTabOrder;
+          if (configData.favColumns) {
+            state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
+          }
+          if (configData.customTabOrder) {
+            state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
+          }
+          if (configData.dirTabOrder) {
+            state.dirTabOrder = Array.isArray(configData.dirTabOrder) ? configData.dirTabOrder : Object.values(configData.dirTabOrder);
             if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
           if (configData.mapPreferences && typeof configData.mapPreferences === 'object') state.mapPreferences = configData.mapPreferences;
@@ -798,8 +806,12 @@
           if (configData.clubesAragonSeeded) state.directory.clubesAragonSeeded = true;
           if (configData.equiposAragonSeeded) state.directory.equiposAragonSeeded = true;
           if (configData.federacionesSeleccionesSeeded) state.directory.federacionesSeleccionesSeeded = true;
-          if (Array.isArray(configData.directoryFederationsOrder)) state.directoryFederationsOrder = configData.directoryFederationsOrder;
-          if (Array.isArray(configData.directoryCategoriesOrder)) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          if (configData.directoryFederationsOrder) {
+            state.directoryFederationsOrder = Array.isArray(configData.directoryFederationsOrder) ? configData.directoryFederationsOrder : Object.values(configData.directoryFederationsOrder);
+          }
+          if (configData.directoryCategoriesOrder) {
+            state.directoryCategoriesOrder = Array.isArray(configData.directoryCategoriesOrder) ? configData.directoryCategoriesOrder : Object.values(configData.directoryCategoriesOrder);
+          }
           if (configData.deletedTombstones && typeof configData.deletedTombstones === 'object') state.deletedTombstones = configData.deletedTombstones;
 
           if (configData.cartelera) {
