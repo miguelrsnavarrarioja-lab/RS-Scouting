@@ -8980,6 +8980,7 @@ let currentPlanificacionTab = 'calendario';
         if (!targetFed.clubes) targetFed.clubes = [];
         const exists = targetFed.clubes.some(c => (typeof c === 'string' ? c : c.nombre) === nameVal);
         if (!exists) targetFed.clubes.push({ id: updatedClub.id, nombre: nameVal });
+        saveToFirebase('federaciones', targetFed);
       }
 
       // 2. Sync to Estadio
@@ -9000,6 +9001,7 @@ let currentPlanificacionTab = 'calendario';
         if (!targetEst.clubes) targetEst.clubes = [];
         const exists = targetEst.clubes.some(c => (typeof c === 'string' ? c : c.nombre) === nameVal);
         if (!exists) targetEst.clubes.push({ id: updatedClub.id, nombre: nameVal });
+        saveToFirebase('estadios', targetEst);
       }
 
       // 3. Sync to target Club for Convenios & Patrocinios
@@ -9026,6 +9028,7 @@ let currentPlanificacionTab = 'calendario';
           if (!window.flexibleMatch(nameVal, targetC[targetField])) {
             targetC[targetField] = targetC[targetField] ? `${targetC[targetField]}, ${nameVal}` : nameVal;
           }
+          saveToFirebase('clubes', targetC);
         });
       };
 
@@ -9059,6 +9062,7 @@ let currentPlanificacionTab = 'calendario';
             targetStaff.club = nameVal;
             targetStaff.equipo = nameVal;
           }
+          saveToFirebase('staff', targetStaff);
         });
       }
 
@@ -9087,6 +9091,7 @@ let currentPlanificacionTab = 'calendario';
             targetTeam.clubVinculado = nameVal;
             targetTeam.club = nameVal;
           }
+          saveToFirebase('equipos', targetTeam);
         });
       }
 
@@ -10625,6 +10630,7 @@ let currentPlanificacionTab = 'calendario';
         if (!parentFed.equipos) parentFed.equipos = [];
         const exists = parentFed.equipos.some(eq => (typeof eq === 'string' ? eq : eq.nombre) === nameVal);
         if (!exists) parentFed.equipos.push({ id: updatedTeam.id, nombre: nameVal });
+        saveToFirebase('federaciones', parentFed);
       }
 
       // Bidirectional sync for Cuerpo Técnico (Staff)
@@ -10652,6 +10658,7 @@ let currentPlanificacionTab = 'calendario';
             targetStaff.equipo = nameVal;
             if (updatedTeam.clubVinculado) targetStaff.club = updatedTeam.clubVinculado;
           }
+          saveToFirebase('staff', targetStaff);
         });
       }
 
@@ -10673,6 +10680,7 @@ let currentPlanificacionTab = 'calendario';
           if (targetPlayer) {
             targetPlayer.equipoPrincipal = nameVal;
             targetPlayer.equipo = nameVal;
+            saveToFirebase('jugadores', targetPlayer);
           }
         });
       }
@@ -17264,11 +17272,11 @@ let currentPlanificacionTab = 'calendario';
     if (nameLower.includes('rioja') || nameLower.includes('frf')) return 'La Rioja';
     if (nameLower.includes('vasca') || nameLower.includes('euskadi') || nameLower.includes('pais vasco') || nameLower.includes('país vasco') || nameLower.includes('eff')) return 'País Vasco';
     if (nameLower.includes('madrid') || nameLower.includes('rffm')) return 'Madrid';
-    if (nameLower.includes('catalana') || nameLower.includes('cataluña') || nameLower.includes('catalunya') || nameLower.includes('fcaf') || nameLower.includes('fcf')) return 'Cataluña';
+    if (nameLower.includes('canta') || nameLower.includes('cántab') || nameLower.includes('cantab') || nameLower.includes('rfcf')) return 'Cantabria';
+    if (nameLower.includes('catalana') || nameLower.includes('cataluña') || nameLower.includes('catalunya') || nameLower.includes('fcaf') || (nameLower.includes('fcf') && !nameLower.includes('cántab') && !nameLower.includes('canta'))) return 'Cataluña';
     if (nameLower.includes('valencian') || nameLower.includes('comunitat valenciana') || nameLower.includes('ffcv')) return 'C. Valenciana';
     if (nameLower.includes('galleg') || nameLower.includes('galicia') || nameLower.includes('fgf')) return 'Galicia';
     if (nameLower.includes('asturia') || nameLower.includes('rffpa')) return 'Asturias';
-    if (nameLower.includes('canta') || nameLower.includes('cántab') || nameLower.includes('cantab') || nameLower.includes('rfcf')) return 'Cantabria';
     if (nameLower.includes('castilla y león') || nameLower.includes('castellano-leonesa') || nameLower.includes('castilla leon') || nameLower.includes('fcylf')) return 'Castilla y León';
     if (nameLower.includes('castilla-la mancha') || nameLower.includes('castilla la mancha') || nameLower.includes('ffcm')) return 'Castilla-La Mancha';
     if (nameLower.includes('extremad') || nameLower.includes('fexf')) return 'Extremadura';
@@ -17394,88 +17402,9 @@ let currentPlanificacionTab = 'calendario';
   }
 
   function wipeAragonData() {
-    if (!state.directory) return;
-    if (state.directory.aragonWiped) return; // run only once
-
-    console.log("🧹 Wiping Aragon data from Firebase...");
-    let wipeCount = 0;
-
-    // Wipe clubs
-    if (Array.isArray(state.directory.clubes)) {
-      state.directory.clubes.forEach(c => {
-        if (!c) return;
-        const com = (c.comunidad || '').toLowerCase().trim();
-        const fed = (c.federacion || '').toLowerCase().trim();
-        if (com === 'aragón' || com === 'aragon' || fed.includes('aragon') || fed.includes('fargf') || (c.id && c.id.startsWith('c_fa_'))) {
-          if (c.id && db) db.collection('clubes').doc(String(c.id)).delete().catch(() => { });
-          wipeCount++;
-        }
-      });
-      // also filter locally to not show them
-      state.directory.clubes = state.directory.clubes.filter(c => {
-        if (!c) return true;
-        const com = (c.comunidad || '').toLowerCase().trim();
-        const fed = (c.federacion || '').toLowerCase().trim();
-        return !(com === 'aragón' || com === 'aragon' || fed.includes('aragon') || fed.includes('fargf') || (c.id && c.id.startsWith('c_fa_')));
-      });
-    }
-
-    // Wipe teams
-    if (Array.isArray(state.directory.equipos)) {
-      state.directory.equipos.forEach(eq => {
-        if (!eq) return;
-        const fed = (eq.federacion || '').toLowerCase().trim();
-        if (fed.includes('aragon') || fed.includes('fargf')) {
-          if (eq.id && db) db.collection('equipos').doc(String(eq.id)).delete().catch(() => { });
-          wipeCount++;
-        }
-      });
-      state.directory.equipos = state.directory.equipos.filter(eq => {
-        if (!eq) return true;
-        const fed = (eq.federacion || '').toLowerCase().trim();
-        return !(fed.includes('aragon') || fed.includes('fargf'));
-      });
-    }
-
-    // Wipe selecciones
-    if (Array.isArray(state.directory.selecciones)) {
-      state.directory.selecciones.forEach(s => {
-        if (!s) return;
-        const fed = (s.federacion || '').toLowerCase().trim();
-        if (fed.includes('aragon') || fed.includes('fargf')) {
-          if (s.id && db) db.collection('selecciones').doc(String(s.id)).delete().catch(() => { });
-          wipeCount++;
-        }
-      });
-      state.directory.selecciones = state.directory.selecciones.filter(s => {
-        if (!s) return true;
-        const fed = (s.federacion || '').toLowerCase().trim();
-        return !(fed.includes('aragon') || fed.includes('fargf'));
-      });
-    }
-
-    // Wipe federaciones
-    if (Array.isArray(state.directory.federaciones)) {
-      state.directory.federaciones.forEach(f => {
-        if (!f) return;
-        const fn = (f.nombre || '').toLowerCase();
-        if (fn.includes('aragon') || fn.includes('fargf')) {
-          if (f.id && db) db.collection('federaciones').doc(String(f.id)).delete().catch(() => { });
-          wipeCount++;
-        }
-      });
-      state.directory.federaciones = state.directory.federaciones.filter(f => {
-        if (!f) return true;
-        const fn = (f.nombre || '').toLowerCase();
-        return !(fn.includes('aragon') || fn.includes('fargf'));
-      });
-    }
-
-    state.directory.aragonWiped = true;
-    if (wipeCount > 0) {
-      console.log(`✅ ${wipeCount} items de Aragón eliminados de Firebase.`);
-      saveState();
-    }
+    // DISABLING THIS FUNCTION: User explicitly requested to keep and save Aragon data in Firebase.
+    if (state.directory) state.directory.aragonWiped = true;
+    return;
   }
 
   function getOrCreateClub(clubName, comunidad = 'Nacional', federacion = 'RFEF') {

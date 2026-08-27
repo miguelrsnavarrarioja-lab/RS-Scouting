@@ -1366,6 +1366,9 @@
                 <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer;">
                   <input type="radio" name="importerType" value="plantillas" checked onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de la federación. Ejemplo:\nAlbisu Muñoz, Unai\n...'; document.getElementById('importerEquipoDestinoContainer').style.display = 'block'; document.getElementById('importerFederacionDestinoContainer').style.display = 'none'; document.getElementById('importerEquiposMetaContainer').style.display = 'none'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'table\'></i> Procesar y Abrir Hoja de Cálculo Interactiva'; if(window.lucide) window.lucide.createIcons();"> Plantillas (Jugadores y Staff)
                 </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: 700; cursor: pointer;">
+                  <input type="radio" name="importerType" value="equipos" onchange="document.getElementById('importerRawText').placeholder = 'Pega aquí la lista de equipos.\nEjemplo:\n1\nAMISTAD-U.D.\n0\n...'; document.getElementById('importerEquipoDestinoContainer').style.display = 'none'; document.getElementById('importerFederacionDestinoContainer').style.display = 'none'; document.getElementById('importerEquiposMetaContainer').style.display = 'block'; document.getElementById('btnProcessImporterText').innerHTML = '<i data-lucide=\'table\'></i> Procesar Equipos'; if(window.lucide) window.lucide.createIcons();"> Equipos (Directorio)
+                </label>
               </div>
             </div>
 
@@ -1866,7 +1869,7 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   
   <script src="app.js?v=20260827107" defer></script>
-  <script src="importer.js" defer></script>
+  <script src="importer_v2.js?v=202608272234" defer></script>
 
 
 </body>
