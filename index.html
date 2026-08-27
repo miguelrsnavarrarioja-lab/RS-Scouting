@@ -262,7 +262,7 @@
             <div class="kpi-card" data-shortcut="tareas">
               <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
               <div class="kpi-info">
-                <span class="kpi-label">Tareas</span>
+                <span class="kpi-label">Agenda</span>
                 <span class="kpi-value" id="kpiPendingTasks">0</span>
                 <span class="kpi-subtext" id="kpiHighPriorityTasks">0 pendientes</span>
               </div>
@@ -298,8 +298,7 @@
     <section class="tab-view tab-view-flex" id="view-planificacion" style="flex-direction: column; height: calc(100vh - 120px); overflow: hidden;">
       <div class="directory-subtabs-bar planificacion-subtabs-bar" style="margin-bottom: 0; border-bottom: 1px solid var(--border-light); background: var(--bg-card); padding: 0 16px; flex-shrink: 0; min-height: 48px;">
         <button class="planificacion-tab active" data-sub="calendario"><i data-lucide="calendar" style="width: 14px; margin-right: 4px;"></i> Calendario</button>
-        <button class="planificacion-tab" data-sub="tareas"><i data-lucide="check-square" style="width: 14px; margin-right: 4px;"></i> Tareas</button>
-        <button class="planificacion-tab" data-sub="eventos"><i data-lucide="clock" style="width: 14px; margin-right: 4px;"></i> Eventos</button>
+        <button class="planificacion-tab" data-sub="agenda"><i data-lucide="book-open" style="width: 14px; margin-right: 4px;"></i> Agenda</button>
         <button class="planificacion-tab" data-sub="notas"><i data-lucide="sticky-note" style="width: 14px; margin-right: 4px;"></i> Notas</button>
         <button class="planificacion-tab" data-sub="enlaces"><i data-lucide="link" style="width: 14px; margin-right: 4px;"></i> Enlaces</button>
       </div>
@@ -312,24 +311,56 @@
         </div>
       </div>
 
-      <!-- Filters, Search & View Switcher Toolbar -->
-      <div class="toolbar">
-        <div class="toolbar-search">
-          <i data-lucide="search"></i>
-          <input type="text" id="calendarSearchInput" placeholder="Buscar por partido, equipo, categoría o competición...">
+      <!-- Consolidated Calendar Header -->
+      <div class="calendar-main-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; background: white; padding: 12px 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);">
+        <div class="month-nav-controls" style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-month-nav" id="btnPrevMonth" title="Anterior"><i data-lucide="chevron-left"></i></button>
+          <h2 class="month-title-display" id="monthTitleDisplay" style="margin: 0; font-size: 18px; min-width: 140px; text-align: center;">Agosto 2026</h2>
+          <button type="button" class="btn-month-nav" id="btnNextMonth" title="Siguiente"><i data-lucide="chevron-right"></i></button>
+          <button type="button" class="btn btn-secondary compact" id="btnTodayMonth" style="margin-left: 8px;">Hoy</button>
         </div>
 
-        <div class="toolbar-filters">
-          <!-- Toggle View Mode: List vs Month Grid -->
+        <div class="toolbar-search" style="margin: 0; flex: 1; max-width: 400px;">
+          <i data-lucide="search"></i>
+          <input type="text" id="calendarSearchInput" placeholder="Buscar partido, equipo, evento...">
+        </div>
+
+        <div class="toolbar-filters" style="margin: 0;">
           <div class="view-mode-buttons">
+            <select id="calendarDaysCountSelector" class="btn-mode-toggle hidden" style="appearance: none; padding-right: 24px; background: url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%2364748b\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">
+              <option value="3">3 Días</option>
+              <option value="4">4 Días</option>
+              <option value="5">5 Días</option>
+              <option value="6">6 Días</option>
+              <option value="7">7 Días</option>
+              <option value="8">8 Días</option>
+              <option value="9">9 Días</option>
+              <option value="10" selected>10 Días</option>
+              <option value="11">11 Días</option>
+              <option value="12">12 Días</option>
+              <option value="13">13 Días</option>
+              <option value="14">14 Días</option>
+              <option value="15">15 Días</option>
+            </select>
+            <button type="button" class="btn-mode-toggle active" id="btnViewModeMonth" title="Vista Mes">
+              <i data-lucide="calendar"></i> Mes
+            </button>
+            <button type="button" class="btn-mode-toggle" id="btnViewModeWeek" title="Vista Semana">
+              <i data-lucide="columns-4"></i> Semana
+            </button>
+            <button type="button" class="btn-mode-toggle" id="btnViewModeDays" title="Vista Días">
+              <i data-lucide="calendar-range"></i> Días
+            </button>
             <button type="button" class="btn-mode-toggle" id="btnViewModeList" title="Vista Lista">
               <i data-lucide="list"></i> Lista
             </button>
-            <button type="button" class="btn-mode-toggle active" id="btnViewModeMonth" title="Vista Calendario Mensual">
-              <i data-lucide="calendar"></i> Mes
-            </button>
           </div>
         </div>
+      </div>
+      
+      <!-- Category Tabs -->
+      <div class="calendar-category-tabs hidden" id="calendarCategoryTabs" style="display: flex; gap: 8px; padding: 0 0 16px 0; overflow-x: auto; scrollbar-width: none;">
+        <!-- Rendered dynamically -->
       </div>
 
       <!-- View State 1: Match List Grid -->
@@ -339,17 +370,6 @@
 
       <!-- View State 2: Interactive Monthly Calendar Grid -->
       <div class="calendar-month-wrapper" id="calendarMonthWrapper">
-        <!-- Month Header Navigation -->
-        <div class="month-header-bar">
-          <div class="month-nav-controls">
-            <button type="button" class="btn-month-nav" id="btnPrevMonth" title="Mes Anterior"><i data-lucide="chevron-left"></i></button>
-            <h2 class="month-title-display" id="monthTitleDisplay">Agosto 2026</h2>
-            <button type="button" class="btn-month-nav" id="btnNextMonth" title="Mes Siguiente"><i data-lucide="chevron-right"></i></button>
-            <button type="button" class="btn btn-secondary compact" id="btnTodayMonth">Hoy</button>
-          </div>
-
-
-        </div>
 
         <!-- 7 Days Weekday Headers -->
         <div class="month-weekdays-grid">
@@ -365,6 +385,30 @@
         <!-- 35/42 Days Monthly Grid -->
         <div class="month-days-grid" id="monthDaysGrid">
           <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- View State 3: Interactive Weekly Calendar Grid -->
+      <div class="calendar-week-wrapper hidden" id="calendarWeekWrapper">
+        <div class="week-header-row" id="weekHeaderRow">
+          <!-- Rendered dynamically -->
+        </div>
+        <div class="week-scroll-area">
+          <div class="week-grid-container" id="weekGridContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- View State 4: Interactive 10 Days Calendar Grid -->
+      <div class="calendar-days-wrapper hidden" id="calendarDaysWrapper">
+        <div class="days-header-row" id="daysHeaderRow">
+          <!-- Rendered dynamically -->
+        </div>
+        <div class="days-scroll-area">
+          <div class="days-grid-container" id="daysGridContainer">
+            <!-- Rendered dynamically -->
+          </div>
         </div>
       </div>
     </div>
@@ -770,11 +814,11 @@
               <div class="eval-row">
                 <label class="eval-label">DIFICULTAD</label>
                 <div class="rating-buttons" id="localDifficultyButtons">
-                  <button type="button" class="btn-rating" data-val="1">1</button>
-                  <button type="button" class="btn-rating" data-val="2">2</button>
-                  <button type="button" class="btn-rating active" data-val="3">3</button>
-                  <button type="button" class="btn-rating" data-val="4">4</button>
-                  <button type="button" class="btn-rating" data-val="5">5</button>
+                  <button type="button" class="btn-rating" data-val="1">1 - Muy difícil</button>
+                  <button type="button" class="btn-rating" data-val="2">2 - Difícil</button>
+                  <button type="button" class="btn-rating active" data-val="3">3 - Normal</button>
+                  <button type="button" class="btn-rating" data-val="4">4 - Fácil</button>
+                  <button type="button" class="btn-rating" data-val="5">5 - Muy fácil</button>
                 </div>
               </div>
 
@@ -955,11 +999,11 @@
               <div class="eval-row">
                 <label class="eval-label">DIFICULTAD</label>
                 <div class="rating-buttons" id="visitanteDifficultyButtons">
-                  <button type="button" class="btn-rating" data-val="1">1</button>
-                  <button type="button" class="btn-rating" data-val="2">2</button>
-                  <button type="button" class="btn-rating active" data-val="3">3</button>
-                  <button type="button" class="btn-rating" data-val="4">4</button>
-                  <button type="button" class="btn-rating" data-val="5">5</button>
+                  <button type="button" class="btn-rating" data-val="1">1 - Muy difícil</button>
+                  <button type="button" class="btn-rating" data-val="2">2 - Difícil</button>
+                  <button type="button" class="btn-rating active" data-val="3">3 - Normal</button>
+                  <button type="button" class="btn-rating" data-val="4">4 - Fácil</button>
+                  <button type="button" class="btn-rating" data-val="5">5 - Muy fácil</button>
                 </div>
               </div>
 
@@ -1689,8 +1733,15 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
             <!-- Category Selection (if creating globally) -->
             <div class="form-group" id="modalEdicionNotaCategoryWrapper">
               <label class="form-label">Etiqueta / Categoría</label>
-              <input type="text" id="modalEdicionNotaCategory" list="notasCategoriasDatalist" class="form-control" placeholder="Escribe o selecciona una etiqueta...">
-              <datalist id="notasCategoriasDatalist"></datalist>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div id="notasCatPills" class="tag-pill-container">
+                  <!-- Rendered dynamically -->
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                  <input type="text" id="modalEdicionNotaCategoryCustom" class="form-control" placeholder="Nombre de nueva etiqueta..." style="flex: 1; font-size: 13px; height: 32px;">
+                  <button type="button" class="btn btn-secondary compact" id="btnNotasCatInlineSave" style="height: 32px; font-size: 12px; font-weight: 700; white-space: nowrap;">Añadir</button>
+                </div>
+              </div>
             </div>
             
             <div class="form-group">

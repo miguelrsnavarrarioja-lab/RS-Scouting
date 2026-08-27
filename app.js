@@ -1942,38 +1942,84 @@ if (elPriorityMatches) {
   // --------------------------------------------------------------------------
   // 4. SECTION 1: CALENDARIO & MATCH COUNTER
   // --------------------------------------------------------------------------
-  let calendarViewMode = 'month'; // Default Month view ('month' | 'list')
+  let calendarViewMode = 'month'; // Default Month view ('month' | 'list' | 'week')
   let calendarCurrentDate = new Date(2026, 7, 1); // Default August 2026
+  let calendarActiveCategory = 'all';
+  let calendarDaysCount = 10;
+
+  window.setCalendarCategory = function(cat) {
+    calendarActiveCategory = cat;
+    renderCalendario();
+  };
+
+  window.updateAgendaCategoryColor = function(e, catId) {
+    const newColor = e.target.value;
+    const cat = (state.agendaCategories || []).find(c => c.id === catId);
+    if (cat) {
+      cat.color = newColor;
+      saveState();
+      saveToFirebase('agendaCategories', cat);
+      renderAgenda(); // Re-render the sidebar
+      renderCalendario(); // Re-render the calendar
+    }
+  };
 
   function initCalendarViewSwitcher() {
     const btnList = document.getElementById('btnViewModeList');
+    const btnWeek = document.getElementById('btnViewModeWeek');
     const btnMonth = document.getElementById('btnViewModeMonth');
 
-    btnList?.addEventListener('click', () => {
-      calendarViewMode = 'list';
-      btnList.classList.add('active');
-      btnMonth.classList.remove('active');
-      document.getElementById('calendarMatchesContainer').classList.remove('hidden');
-      document.getElementById('calendarMonthWrapper').classList.add('hidden');
+    function setActiveMode(mode) {
+      calendarViewMode = mode;
+      btnList?.classList.toggle('active', mode === 'list');
+      btnWeek?.classList.toggle('active', mode === 'week');
+      btnMonth?.classList.toggle('active', mode === 'month');
+      btnDays?.classList.toggle('active', mode === 'days');
+      document.getElementById('calendarDaysCountSelector')?.classList.toggle('hidden', mode !== 'days');
+      document.getElementById('calendarCategoryTabs')?.classList.toggle('hidden', mode !== 'list');
+      
+      document.getElementById('calendarMatchesContainer')?.classList.toggle('hidden', mode !== 'list');
+      document.getElementById('calendarDaysWrapper')?.classList.toggle('hidden', mode !== 'days');
+      document.getElementById('calendarWeekWrapper')?.classList.toggle('hidden', mode !== 'week');
+      document.getElementById('calendarMonthWrapper')?.classList.toggle('hidden', mode !== 'month');
+      
+      if (mode === 'week' || mode === 'days') {
+        calendarCurrentDate = new Date();
+      }
+      
       renderCalendario();
-    });
+    }
 
-    btnMonth?.addEventListener('click', () => {
-      calendarViewMode = 'month';
-      btnMonth.classList.add('active');
-      btnList.classList.remove('active');
-      document.getElementById('calendarMatchesContainer').classList.add('hidden');
-      document.getElementById('calendarMonthWrapper').classList.remove('hidden');
+    const btnDays = document.getElementById('btnViewModeDays');
+    document.getElementById('calendarDaysCountSelector')?.addEventListener('change', (e) => {
+      calendarDaysCount = parseInt(e.target.value, 10);
       renderCalendario();
     });
+    
+    btnList?.addEventListener('click', () => setActiveMode('list'));
+    btnWeek?.addEventListener('click', () => setActiveMode('week'));
+    btnDays?.addEventListener('click', () => setActiveMode('days'));
+    btnMonth?.addEventListener('click', () => setActiveMode('month'));
 
     document.getElementById('btnPrevMonth')?.addEventListener('click', () => {
-      calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() - 1);
+      if (calendarViewMode === 'week') {
+        calendarCurrentDate.setDate(calendarCurrentDate.getDate() - 7);
+      } else if (calendarViewMode === 'days') {
+        calendarCurrentDate.setDate(calendarCurrentDate.getDate() - calendarDaysCount);
+      } else {
+        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() - 1);
+      }
       renderCalendario();
     });
 
     document.getElementById('btnNextMonth')?.addEventListener('click', () => {
-      calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + 1);
+      if (calendarViewMode === 'week') {
+        calendarCurrentDate.setDate(calendarCurrentDate.getDate() + 7);
+      } else if (calendarViewMode === 'days') {
+        calendarCurrentDate.setDate(calendarCurrentDate.getDate() + calendarDaysCount);
+      } else {
+        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + 1);
+      }
       renderCalendario();
     });
 
@@ -2003,7 +2049,33 @@ if (elPriorityMatches) {
     // Filter matches
     const searchVal = (document.getElementById('calendarSearchInput')?.value || '').toLowerCase();
     const statusVal = document.getElementById('calendarFilterStatus')?.value || 'all';
-    const catVal = document.getElementById('calendarFilterCategory')?.value || 'all';
+    const catVal = calendarActiveCategory;
+
+    const uniqueTags = new Set();
+    state.matches.forEach(m => { if (m.categoria) uniqueTags.add(m.categoria); });
+    (state.agenda || []).forEach(a => { 
+      const cats = a.categorias || (a.categoria ? [a.categoria] : []);
+      cats.forEach(c => uniqueTags.add(c));
+    });
+    (state.reports || []).forEach(r => { 
+      const cats = r.categorias || (r.categoria ? [r.categoria] : []);
+      cats.forEach(c => uniqueTags.add(c));
+    });
+    const tagsArray = Array.from(uniqueTags).sort((a, b) => {
+      const nameA = typeof getCategoryName === 'function' ? getCategoryName(a) : a;
+      const nameB = typeof getCategoryName === 'function' ? getCategoryName(b) : b;
+      return nameA.localeCompare(nameB);
+    });
+
+    const tabsContainer = document.getElementById('calendarCategoryTabs');
+    if (tabsContainer) {
+      let tabsHTML = `<button class="btn btn-secondary ${calendarActiveCategory === 'all' ? 'active' : ''} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('all')">Todo</button>`;
+      tagsArray.forEach(tag => {
+        const displayName = typeof getCategoryName === 'function' ? getCategoryName(tag) : tag;
+        tabsHTML += `<button class="btn btn-secondary ${calendarActiveCategory === tag ? 'active' : ''} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('${escapeHtml(tag)}')">${escapeHtml(displayName)}</button>`;
+      });
+      tabsContainer.innerHTML = tabsHTML;
+    }
 
     const filtered = state.matches.filter(m => {
       const matchText = `${m.local} ${m.visitante} ${m.categoria} ${m.competicion} ${m.estadio}`.toLowerCase();
@@ -2014,16 +2086,16 @@ if (elPriorityMatches) {
     });
 
     if (calendarViewMode === 'list') {
-      document.getElementById('calendarMatchesContainer')?.classList.remove('hidden');
-      document.getElementById('calendarMonthWrapper')?.classList.add('hidden');
-      document.getElementById('btnViewModeList')?.classList.add('active');
-      document.getElementById('btnViewModeMonth')?.classList.remove('active');
       renderCalendarListView(filtered);
+    } else if (calendarViewMode === 'days') {
+      if (typeof renderCalendarDaysView === 'function') {
+        renderCalendarDaysView(filtered);
+      }
+    } else if (calendarViewMode === 'week') {
+      if (typeof renderCalendarWeekView === 'function') {
+        renderCalendarWeekView(filtered);
+      }
     } else {
-      document.getElementById('calendarMatchesContainer')?.classList.add('hidden');
-      document.getElementById('calendarMonthWrapper')?.classList.remove('hidden');
-      document.getElementById('btnViewModeMonth')?.classList.add('active');
-      document.getElementById('btnViewModeList')?.classList.remove('active');
       renderCalendarMonthView(filtered);
     }
 
@@ -2032,8 +2104,8 @@ if (elPriorityMatches) {
 
   function renderCalendarListView(filtered) {
     const container = document.getElementById('calendarMatchesContainer');
-    const agendaEvents = (state.agenda || []).filter(t => t.fecha);
-    const reportsEvents = (state.reports || []).filter(r => r.date || r.fecha);
+    const agendaEvents = (state.agenda || []).filter(t => t.fecha && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
+    const reportsEvents = (state.reports || []).filter(r => (r.date || r.fecha) && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
 
     const combined = [
       ...filtered.map(m => ({ ...m, _type: 'match' })),
@@ -2208,8 +2280,8 @@ if (elPriorityMatches) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
-      const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
-      const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr);
+      const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
+      const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
 
       const allEventsHTML = [
         ...dayMatches.map(m => `
@@ -2364,9 +2436,9 @@ if (elPriorityMatches) {
   }
 
   function openDayEventsModal(dateStr) {
-    const dayMatches = state.matches.filter(m => m.fecha === dateStr);
-    const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr);
-    const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr);
+    const dayMatches = state.matches.filter(m => m.fecha === dateStr && (calendarActiveCategory === 'all' || m.categoria === calendarActiveCategory));
+    const dayAgendaTasks = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
+    const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
 
     const overlay = ensureSubModalOverlay();
     const card = document.getElementById('subModalCard');
@@ -3456,11 +3528,13 @@ if (elPriorityMatches) {
     document.getElementById('visitanteComentario').value = repData.visitanteComentario || '';
     document.getElementById('reportGeneralAnalysis').value = repData.generalAnalysis || '';
 
-    // Coach fields & Kirol Sport buttons
+    // Coach fields & Kirol Sport buttons & Difficulty
     document.getElementById('localEntrenador').value = repData.localEntrenador || '';
     document.getElementById('visitanteEntrenador').value = repData.visitanteEntrenador || '';
     setCoachRating('local', repData.localCoachRating || 3);
     setCoachRating('visitante', repData.visitanteCoachRating || 3);
+    setDifficultyRating('local', repData.localDifficulty || 3);
+    setDifficultyRating('visitante', repData.visitanteDifficulty || 3);
     document.getElementById('localComentarioEntrenador').value = repData.localComentarioEntrenador || '';
     document.getElementById('visitanteComentarioEntrenador').value = repData.visitanteComentarioEntrenador || '';
 
@@ -18959,10 +19033,7 @@ let currentPlanificacionTab = 'calendario';
     });
 
     let targetViewId = 'subview-' + currentPlanificacionTab;
-    if (currentPlanificacionTab === 'tareas' || currentPlanificacionTab === 'eventos') {
-      targetViewId = 'subview-agenda';
-    }
-
+    
     const activeView = document.getElementById(targetViewId);
     if (activeView) {
       activeView.classList.remove('hidden');
@@ -18970,11 +19041,10 @@ let currentPlanificacionTab = 'calendario';
 
     if (currentPlanificacionTab === 'calendario') {
       if (typeof renderCalendario === 'function') renderCalendario();
-    } else if (currentPlanificacionTab === 'tareas' || currentPlanificacionTab === 'eventos') {
-      currentAgendaSubtab = currentPlanificacionTab;
+    } else if (currentPlanificacionTab === 'agenda') {
       const title = document.getElementById('agendaDynamicTitle');
       if (title) {
-         title.innerHTML = currentPlanificacionTab === 'tareas' ? '📝 Tareas' : '📅 Eventos';
+         title.innerHTML = '📝 Agenda';
       }
       if (typeof renderAgenda === 'function') renderAgenda();
     } else if (currentPlanificacionTab === 'enlaces') {
@@ -21819,10 +21889,21 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     { bg: '#fef9c3', text: '#854d0e', border: '#fef08a', accent: '#eab308' }  // Soft Yellow
   ];
 
+  function getCategoryName(catId) {
+    if (!catId) return '';
+    normalizeAgendaCategories();
+    const cat = (state.agendaCategories || []).find(c => c.id === catId);
+    return cat ? (cat.label || cat.name || catId) : catId;
+  }
+
   function getCategoryColor(catId) {
     if (!catId) return CATEGORY_COLORS[0];
     normalizeAgendaCategories();
     const index = (state.agendaCategories || []).findIndex(c => c.id === catId);
+    if (index >= 0 && state.agendaCategories[index].color) {
+      const hex = state.agendaCategories[index].color;
+      return { bg: hex + '20', text: hex, border: hex + '40', accent: hex };
+    }
     let safeIdx = 0;
     if (index >= 0) {
       safeIdx = index % CATEGORY_COLORS.length;
@@ -21852,19 +21933,46 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (!Array.isArray(state.agenda)) return;
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
+    let changed = false;
 
     state.agenda.forEach(t => {
+      let shouldArchive = false;
+      const wasArchived = !!t.archivada;
+
+      // 1. Archivar si lleva completada más de 7 días
       if (t.estado === 'done') {
         if (!t.completedAt) {
           t.completedAt = now;
-        } else if (!t.archivada && (now - t.completedAt >= SEVEN_DAYS_MS)) {
-          t.archivada = true;
+        } else if (now - t.completedAt >= SEVEN_DAYS_MS) {
+          shouldArchive = true;
         }
       } else {
         t.completedAt = null;
-        t.archivada = false;
+      }
+
+      // 2. Archivar automáticamente si la fecha es de hace más de 7 días
+      if (t.fecha) {
+        const taskDateMs = new Date(t.fecha).getTime();
+        if (!isNaN(taskDateMs) && (now - taskDateMs >= SEVEN_DAYS_MS)) {
+          shouldArchive = true;
+          // Si se archiva por fecha antigua, la damos por completada para no dejarla abierta
+          if (t.estado !== 'done') {
+            t.estado = 'done';
+            t.completada = true;
+            t.completedAt = taskDateMs;
+          }
+        }
+      }
+
+      if (shouldArchive !== wasArchived) {
+        t.archivada = shouldArchive;
+        changed = true;
       }
     });
+
+    if (changed) {
+      saveState();
+    }
   }
 
   function normalizeNotifications() {
@@ -24322,7 +24430,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
       teamsList = teamsList.filter(t1 => {
         const hasLonger = teamsList.some(t2 => {
           if (t1.category !== t2.category || t1.team === t2.team) return false;
-          const escapedT1 = t1.team.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedT1 = t1.team.replace(/[.*+?^${}()|[\]\\]/g, '\$&');
           const regex = new RegExp('^' + escapedT1 + '\\s+(?:\\d{2}/\\d{2}|\\(.*?\\))$', 'i');
           return regex.test(t2.team);
         });
@@ -25197,29 +25305,23 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     initAgendaArchiveControl();
     initNotificationsSystem();
     checkAgendaTaskReminders();
-    initAgendaSubtabs();
+    // initAgendaSubtabs(); // Removed since subtabs are gone
 
-    // 1. Render sidebar categories (filtering active non-archived tasks by current subtab: Tareas vs Eventos)
+    // 1. Render sidebar categories (all active non-archived tasks)
     const activeTasksList = state.agenda.filter(t => !t.archivada);
-    const subtabFilteredTasks = activeTasksList.filter(t => {
-      if (currentAgendaSubtab === 'eventos') {
-        return t.tipo === 'evento';
-      } else {
-        return t.tipo !== 'evento';
-      }
-    });
+    const subtabFilteredTasks = activeTasksList; // All agenda items
 
     const filterContainer = document.getElementById('agendaCategoryFilters');
     if (filterContainer) {
       const counts = { all: subtabFilteredTasks.length };
       subtabFilteredTasks.forEach(t => {
-        const cat = t.categoria || 'general';
-        counts[cat] = (counts[cat] || 0) + 1;
+        const cats = t.categorias || (t.categoria ? [t.categoria] : ['general']);
+        cats.forEach(c => counts[c] = (counts[c] || 0) + 1);
       });
 
       let filtersHtml = `
         <li class="${currentAgendaCat === 'all' ? 'active' : ''}" data-cat="all">
-          <i data-lucide="layers"></i> Todas las ${currentAgendaSubtab === 'eventos' ? 'eventos' : 'tareas'}
+          <i data-lucide="layers"></i> Todos
           <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts.all}</span>
         </li>
       `;
@@ -25228,7 +25330,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const colorObj = getCategoryColor(cat.id);
         filtersHtml += `
           <li class="${currentAgendaCat === cat.id ? 'active' : ''}" data-cat="${cat.id}">
-            <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${colorObj.accent}; flex-shrink: 0; display: inline-block;"></span>
+            <label style="cursor: pointer; margin: 0; padding: 0; display: flex; align-items: center;" title="Cambiar color" onclick="event.stopPropagation()">
+              <input type="color" value="${colorObj.accent}" onchange="updateAgendaCategoryColor(event, '${cat.id}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${colorObj.accent}; flex-shrink: 0; display: inline-block;"></span>
+            </label>
             <i data-lucide="${cat.icon || 'bookmark'}"></i> ${escapeHtml(cat.label)}
             <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts[cat.id] || 0}</span>
             <button class="btn-action-icon danger btn-delete-agenda-cat" data-id="${cat.id}" title="Eliminar categoría" style="margin-left: 6px; padding: 2px;">
@@ -25287,48 +25392,71 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const container = document.getElementById('agendaTasksContainer');
     if (!container) return;
 
-    const filtered = subtabFilteredTasks.filter(t => currentAgendaCat === 'all' || t.categoria === currentAgendaCat);
+    const filtered = subtabFilteredTasks.filter(t => {
+      const cats = t.categorias || (t.categoria ? [t.categoria] : []);
+      return currentAgendaCat === 'all' || cats.includes(currentAgendaCat);
+    });
     const todoTasks = filtered.filter(t => (t.estado || 'todo') === 'todo');
     const inProgressTasks = filtered.filter(t => t.estado === 'in_progress');
     const doneTasks = filtered.filter(t => t.estado === 'done');
-    const itemTypeName = currentAgendaSubtab === 'eventos' ? 'eventos' : 'tareas';
+    const itemTypeName = 'elementos';
 
     const renderTaskCard = (t) => {
-      const catObj = (state.agendaCategories || []).find(c => c.id === t.categoria);
-      const catName = catObj ? catObj.label : (t.categoria || 'General');
       const isDone = t.estado === 'done';
-      const colorObj = getCategoryColor(t.categoria);
       const isEvento = t.tipo === 'evento';
+      const hasDesc = !!t.descripcion;
+      const subtasks = t.subtareas || [];
+      const completedSubtasks = subtasks.filter(s => s.done).length;
+      
+      let prioBg = '#fef9c3'; let prioColor = '#854d0e';
+      if (t.prioridad === 'Alta') { prioBg = '#fee2e2'; prioColor = '#991b1b'; }
+      else if (t.prioridad === 'Baja') { prioBg = '#dcfce7'; prioColor = '#166534'; }
+
+      const primaryCat = t.categoria || (t.categorias ? t.categorias[0] : null);
+      const mainColor = getCategoryColor(primaryCat).accent;
 
       return `
-        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id || t.codigo}" draggable="true" style="border-left: 4px solid ${colorObj.accent};">
-          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted);" title="Mantener y arrastrar entre estados">
-                <i data-lucide="grip-vertical" style="width: 15px; height: 15px;"></i>
+        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id || t.codigo}" draggable="true" style="border-left: 4px solid ${mainColor}; border-radius: var(--radius-md); padding: 12px; background: var(--bg-card); box-shadow: var(--shadow-sm); margin-bottom: 12px; transition: all 0.2s ease;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: flex-start; gap: 6px;">
+              <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted); margin-top: 2px;" title="Mantener y arrastrar entre estados">
+                <i data-lucide="grip-vertical" style="width: 14px; height: 14px;"></i>
               </div>
-              <h4 style="font-size: 14px; font-weight: 700; margin: 0; color: var(--text-main); ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
+              <div>
+                <h4 style="font-size: 13px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main); line-height: 1.3; ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 10px; color: var(--text-muted);">
+                  <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-light);">
+                    <i data-lucide="${isEvento ? 'calendar' : 'clipboard-list'}" style="width: 10px; height: 10px;"></i>
+                    <span>${escapeHtml(t.fecha || 'Sin fecha')}</span>
+                  </div>
+                  ${(t.categorias || (t.categoria ? [t.categoria] : [])).map(catId => {
+                    const catObj = (state.agendaCategories || []).find(c => c.id === catId);
+                    const label = catObj ? catObj.label : catId;
+                    const cColor = getCategoryColor(catId);
+                    return `<div style="background: ${cColor.bg}; color: ${cColor.text}; border: 1px solid ${cColor.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bookmark" style="width: 10px; height: 10px;"></i> ${escapeHtml(label)}</div>`;
+                  }).join('')}
+                  ${hasDesc ? `<div style="display:flex; align-items:center; gap:2px; color: var(--primary-blue);" title="Tiene descripción"><i data-lucide="align-left" style="width:12px; height:12px;"></i></div>` : ''}
+                  ${subtasks.length > 0 ? `<div style="display:flex; align-items:center; gap:4px; font-weight: 600;"><i data-lucide="check-square" style="width:10px;height:10px;"></i> ${completedSubtasks}/${subtasks.length}</div>` : ''}
+                </div>
+              </div>
             </div>
-            <div style="display: flex; gap: 4px; flex-shrink: 0;">
-              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id || t.codigo}" title="Editar">
-                <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+            <div style="display: flex; flex-direction: row; gap: 4px; flex-shrink: 0;">
+              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id || t.codigo}" title="Editar" style="padding: 4px;">
+                <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
               </button>
-              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id || t.codigo}" title="Eliminar">
-                <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id || t.codigo}" title="Eliminar" style="padding: 4px;">
+                <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
               </button>
             </div>
           </div>
-          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            <span>${isEvento ? '📅' : '📋'} ${escapeHtml(t.fecha || 'Sin fecha')} ${escapeHtml(t.hora || '')}</span>
-            <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border-light);">
-            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id || t.codigo}" style="font-size: 11px; font-weight: 700; padding: 2px 6px; height: 26px;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--border-light); margin-left: 20px;">
+            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id || t.codigo}" style="font-size: 11px; font-weight: 700; padding: 2px 24px 2px 8px; height: 24px; border-radius: 4px; background-color: var(--bg-subtle); border-color: var(--border-light); width: 130px; cursor: pointer;">
               <option value="todo" ${t.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
               <option value="in_progress" ${t.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
               <option value="done" ${t.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
             </select>
-            <span class="match-category-tag" style="font-size: 10px; padding: 2px 6px;">${escapeHtml(t.prioridad)}</span>
+            <span style="font-size: 10px; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: ${prioBg}; color: ${prioColor}; border: 1px solid ${prioColor}40;">${escapeHtml(t.prioridad)}</span>
           </div>
         </div>
       `;
@@ -25460,6 +25588,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const statusBadgeClass = task.estado === 'done' ? 'visto' : task.estado === 'in_progress' ? 'directo' : 'programado';
     const statusLabel = task.estado === 'done' ? '🟢 Completada' : task.estado === 'in_progress' ? '🟡 En proceso' : '🔴 Sin hacer';
 
+    const card = document.getElementById('generalModalCard');
+    if (card) card.className = 'modal-card xlarge';
+
     showModal('Ficha de Tarea / Evento de Agenda', `
       <div class="agenda-detail-card" style="padding: 4px 0;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
@@ -25471,7 +25602,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
 
         <div style="background: var(--bg-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 20px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px; margin-bottom: ${task.descripcion ? '14px' : '0'};">
             <div>
               <strong style="color: var(--text-muted); display: block; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">📅 FECHA Y HORA</strong>
               <span style="font-weight: 700; color: var(--text-main);">${escapeHtml(task.fecha || 'Sin fecha')} | ${escapeHtml(task.hora || '12:00')} hs</span>
@@ -25481,6 +25612,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               <span style="font-weight: 700; color: var(--text-main);">${escapeHtml(task.prioridad || 'Media')}</span>
             </div>
           </div>
+          ${task.descripcion ? `
+          <div style="border-top: 1px dashed var(--border-light); padding-top: 14px;">
+            <strong style="color: var(--text-muted); display: block; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">📝 DESCRIPCIÓN</strong>
+            <div style="font-size: 13px; color: var(--text-main); white-space: pre-wrap; line-height: 1.5;">${escapeHtml(task.descripcion)}</div>
+          </div>
+          ` : ''}
         </div>
 
         <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 20px;">
@@ -25622,78 +25759,112 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const task = state.agenda.find(t => t.id === taskId);
     if (!task) return;
     normalizeAgendaCategories();
-    const catOptions = (state.agendaCategories || []).map(c => `<option value="${c.id}" ${c.id === task.categoria ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
+    const taskCats = task.categorias || (task.categoria ? [task.categoria] : []);
+    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill ${taskCats.includes(c.id) ? 'active' : ''} ${task.categoria === c.id ? 'main' : ''}" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
+    
+    const card = document.getElementById('generalModalCard');
+    if (card) card.className = 'modal-card xlarge';
+
     showModal('Editar Tarea / Evento de Agenda', `
-      <form id="editAgendaForm" onsubmit="return false;">
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
-          <div class="form-group">
-            <label class="form-label">Título de la Tarea / Evento</label>
-            <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+      <form id="editAgendaForm" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--bg-subtle, #f8fafc); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 16px;">
+            <div class="form-group mb-0">
+              <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="edit-3" style="width: 14px; color: var(--primary-blue);"></i> Título</label>
+              <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="tag" style="width: 14px; color: var(--primary-blue);"></i> Tipo</label>
+              <select id="agTipoEdit" class="form-control">
+                <option value="tarea" ${task.tipo !== 'evento' ? 'selected' : ''}>📋 Tarea</option>
+                <option value="evento" ${task.tipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Tipo</label>
-            <select id="agTipoEdit" class="form-control">
-              <option value="tarea" ${task.tipo !== 'evento' ? 'selected' : ''}>📋 Tarea</option>
-              <option value="evento" ${task.tipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
-            </select>
-          </div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-          <div class="form-group">
-            <label class="form-label">Fecha</label>
-            <input type="date" id="agDateEdit" class="form-control" value="${task.fecha || ''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Hora</label>
-            <input type="time" id="agTimeEdit" class="form-control" value="${task.hora || '12:00'}">
+          <div class="form-group mt-3 mb-0">
+            <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="align-left" style="width: 14px; color: var(--primary-blue);"></i> Descripción (Opcional)</label>
+            <textarea id="agDescEdit" class="form-control" rows="2" placeholder="Detalles de la tarea o evento...">${escapeHtml(task.descripcion || '')}</textarea>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">Categoría</label>
-            <select id="agCatEdit" class="form-control mb-2">
-              ${catOptions}
-              <option value="__custom__">+ Crear Nueva Categoría...</option>
-            </select>
-            <input type="text" id="agCatEditCustom" class="form-control hidden" placeholder="Escribe la nueva categoría">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
+                <input type="date" id="agDateEdit" class="form-control" value="${task.fecha || ''}">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora</label>
+                <input type="time" id="agTimeEdit" class="form-control" value="${task.hora || '12:00'}">
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Estado</label>
-            <select id="agEstadoEdit" class="form-control">
-              <option value="todo" ${task.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
-              <option value="in_progress" ${task.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
-              <option value="done" ${task.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
-            </select>
+
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
+                <select id="agEstadoEdit" class="form-control">
+                  <option value="todo" ${task.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
+                  <option value="in_progress" ${task.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
+                  <option value="done" ${task.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
+                </select>
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="alert-circle" style="width: 14px; color: var(--primary-blue);"></i> Prioridad</label>
+                <select id="agPrioEdit" class="form-control">
+                  <option value="Alta" ${task.prioridad === 'Alta' ? 'selected' : ''}>Alta 🔴</option>
+                  <option value="Media" ${task.prioridad === 'Media' ? 'selected' : ''}>Media 🟡</option>
+                  <option value="Baja" ${task.prioridad === 'Baja' ? 'selected' : ''}>Baja 🟢</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Prioridad</label>
-            <select id="agPrioEdit" class="form-control">
-              <option value="Alta" ${task.prioridad === 'Alta' ? 'selected' : ''}>Alta 🔴</option>
-              <option value="Media" ${task.prioridad === 'Media' ? 'selected' : ''}>Media 🟡</option>
-              <option value="Baja" ${task.prioridad === 'Baja' ? 'selected' : ''}>Baja 🟢</option>
-            </select>
+        </div>
+
+        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div class="form-group mb-0">
+            <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div id="agCatEditPills" class="tag-pill-container">
+                ${catOptions}
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                <input type="text" id="agCatEditCustom" class="form-control" placeholder="Nombre de nueva etiqueta..." style="flex: 1; font-size: 13px; height: 32px;">
+                <button type="button" class="btn btn-secondary compact" id="btnAgCatEditInlineSave" style="height: 32px; font-size: 12px; font-weight: 700; white-space: nowrap;">Añadir</button>
+              </div>
+            </div>
           </div>
         </div>
       </form>
     `, () => {
       const title = document.getElementById('agTitleEdit').value.trim();
       if (!title) return alert('Por favor ingresa un título');
-      let catValue = document.getElementById('agCatEdit')?.value;
+      let catValues = [];
+      const pillsContainer = document.getElementById('agCatEditPills');
+      if (pillsContainer) {
+        pillsContainer.querySelectorAll('.tag-pill.active').forEach(p => {
+          catValues.push(p.dataset.val);
+        });
+      }
       const customValue = document.getElementById('agCatEditCustom')?.value.trim() || '';
 
-      if (catValue === '__custom__' || customValue) {
-        if (!customValue) {
-          alert('Por favor escribe el nombre para la nueva categoría.');
-          document.getElementById('agCatEditCustom')?.focus();
-          return false;
-        }
+      if (customValue) {
         const existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === customValue.toLowerCase());
         if (existing) {
-          catValue = existing.id;
+          if (!catValues.includes(existing.id)) catValues.push(existing.id);
         } else {
           const newId = 'cat_' + Date.now();
           state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
-          catValue = newId;
+          catValues.push(newId);
+        }
+      }
+      
+      if (catValues.length === 0) {
+        const defaultCat = (state.agendaCategories || [])[0];
+        if (defaultCat) {
+          catValues.push(defaultCat.id);
         }
       }
 
@@ -25702,31 +25873,86 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       task.tipo = document.getElementById('agTipoEdit')?.value || 'tarea';
       task.fecha = document.getElementById('agDateEdit').value;
       task.hora = document.getElementById('agTimeEdit').value;
-      task.categoria = catValue;
+      const mainPill = pillsContainer ? pillsContainer.querySelector('.tag-pill.main') : null;
+      task.categorias = catValues;
+      task.categoria = mainPill ? mainPill.dataset.val : (catValues[0] || null);
       task.estado = estadoVal;
       task.completada = (estadoVal === 'done');
       task.prioridad = document.getElementById('agPrioEdit').value;
       saveState();
       saveToFirebase('agenda', task);
-      if (catValue) {
-        const catObj = (state.agendaCategories || []).find(c => c.id === catValue);
-        if (catObj) saveToFirebase('agendaCategories', catObj);
-      }
       hideModal();
       renderAgenda();
       renderCalendario();
     });
 
-    const agCatEditSel = document.getElementById('agCatEdit');
-    const agCatEditCust = document.getElementById('agCatEditCustom');
-    if (agCatEditSel && agCatEditCust) {
-      agCatEditSel.addEventListener('change', () => {
-        if (agCatEditSel.value === '__custom__') {
-          agCatEditCust.classList.remove('hidden');
-          agCatEditCust.focus();
+    const agCatPills = document.getElementById('agCatEditPills');
+    if (agCatPills) {
+      agCatPills.querySelectorAll('.tag-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+        if (!pill.classList.contains('active')) {
+          pill.classList.add('active');
+          if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
+        } else if (!pill.classList.contains('main')) {
+          pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
+          pill.classList.add('main');
         } else {
-          agCatEditCust.classList.add('hidden');
+          pill.classList.remove('active', 'main');
+          const nextActive = pill.parentElement.querySelector('.tag-pill.active');
+          if (nextActive) nextActive.classList.add('main');
         }
+      });
+      });
+    }
+
+    const btnInlineSave = document.getElementById('btnAgCatEditInlineSave');
+    if (btnInlineSave) {
+      btnInlineSave.addEventListener('click', () => {
+        const agCatCust = document.getElementById('agCatEditCustom');
+        const catName = agCatCust?.value.trim();
+        if (!catName) return;
+        
+        let existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === catName.toLowerCase());
+        let catId = existing ? existing.id : null;
+        if (!existing) {
+          catId = 'cat_' + Date.now();
+          const newCatObj = { id: catId, label: catName, icon: 'bookmark' };
+          state.agendaCategories.push(newCatObj);
+          saveState();
+          saveToFirebase('agendaCategories', newCatObj);
+        }
+
+        if (agCatPills) {
+          let pillExists = Array.from(agCatPills.querySelectorAll('.tag-pill')).find(p => p.dataset.val === catId);
+          if (!pillExists) {
+            const newPill = document.createElement('div');
+            newPill.className = 'tag-pill active';
+            newPill.dataset.val = catId;
+            newPill.textContent = catName;
+            newPill.addEventListener('click', () => {
+        if (!newPill.classList.contains('active')) {
+          newPill.classList.add('active');
+          if (!newPill.parentElement.querySelector('.tag-newPill.main')) newPill.classList.add('main');
+        } else if (!newPill.classList.contains('main')) {
+          newPill.parentElement.querySelectorAll('.tag-newPill.main').forEach(p => p.classList.remove('main'));
+          newPill.classList.add('main');
+        } else {
+          newPill.classList.remove('active', 'main');
+          const nextActive = newPill.parentElement.querySelector('.tag-newPill.active');
+          if (nextActive) nextActive.classList.add('main');
+        }
+      });
+            if (!agCatPills.querySelector('.tag-pill.main')) newPill.classList.add('main');
+            agCatPills.appendChild(newPill);
+          } else {
+            if (!pillExists.classList.contains('active')) {
+               pillExists.classList.add('active');
+               if (!agCatPills.querySelector('.tag-pill.main')) pillExists.classList.add('main');
+            }
+          }
+        }
+        
+        if (agCatCust) agCatCust.value = '';
       });
     }
   }
@@ -25734,67 +25960,89 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   function openNewAgendaTaskModal(defaultDate = null, defaultType = null) {
     normalizeAgendaCategories();
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
-    const catOptions = (state.agendaCategories || []).map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
+    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
     const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
+    
+    const card = document.getElementById('generalModalCard');
+    if (card) card.className = 'modal-card xlarge';
+
     showModal('Añadir Tarea / Evento a la Agenda', `
-      <form id="newAgendaForm" onsubmit="return false;">
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;" class="mb-4">
-          <div class="form-group">
-            <label class="form-label">Título de la Tarea / Evento</label>
-            <input type="text" id="agTitle" class="form-control" placeholder="Ej: Viaje a Alcalá para ver al Juvenil B" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Tipo</label>
-            <select id="agTipo" class="form-control">
-              <option value="tarea" ${selectedTipo === 'tareas' || selectedTipo === 'tarea' ? 'selected' : ''}>📋 Tarea</option>
-              <option value="evento" ${selectedTipo === 'eventos' || selectedTipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
-            </select>
-          </div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
-          <div class="form-group">
-            <label class="form-label">Fecha</label>
-            <input type="date" id="agDate" class="form-control" value="${initialDate}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Hora</label>
-            <input type="time" id="agTime" class="form-control" value="12:00">
-          </div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label" style="font-weight: 700;">Categoría</label>
-            <div style="display: flex; gap: 6px;">
-              <select id="agCat" class="form-control" style="flex: 1;">
-                ${catOptions}
-                <option value="__custom__">+ Crear Nueva Categoría...</option>
+      <form id="newAgendaForm" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--bg-subtle, #f8fafc); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 16px;">
+            <div class="form-group mb-0">
+              <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="edit-3" style="width: 14px; color: var(--primary-blue);"></i> Título</label>
+              <input type="text" id="agTitle" class="form-control" placeholder="Ej: Viaje a Alcalá para ver al Juvenil B" required>
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="tag" style="width: 14px; color: var(--primary-blue);"></i> Tipo</label>
+              <select id="agTipo" class="form-control">
+                <option value="tarea" ${selectedTipo === 'tareas' || selectedTipo === 'tarea' ? 'selected' : ''}>📋 Tarea</option>
+                <option value="evento" ${selectedTipo === 'eventos' || selectedTipo === 'evento' ? 'selected' : ''}>📅 Evento</option>
               </select>
-              <button type="button" class="btn btn-secondary btn-sm" id="btnAgCatInlineNew" title="Crear nueva categoría" style="padding: 0 10px; font-weight: 800; font-size: 11px; white-space: nowrap; background: var(--bg-subtle, #f1f5f9);">
-                + Nueva
-              </button>
-            </div>
-            <div id="agCatInlineBox" class="mt-2 hidden" style="display: flex; gap: 6px;">
-              <input type="text" id="agCatCustom" class="form-control" placeholder="Nombre de categoría..." style="font-size: 12px; height: 34px;">
-              <button type="button" class="btn btn-primary btn-sm" id="btnAgCatInlineSave" style="padding: 0 12px; font-weight: 800; font-size: 11px; white-space: nowrap; background: var(--primary-blue, #2563eb); color: white; height: 34px;">
-                Crear
-              </button>
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Estado</label>
-            <select id="agEstado" class="form-control">
-              <option value="todo" selected>🔴 Sin hacer</option>
-              <option value="in_progress">🟡 En proceso</option>
-              <option value="done">🟢 Completada</option>
-            </select>
+          <div class="form-group mt-3 mb-0">
+            <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="align-left" style="width: 14px; color: var(--primary-blue);"></i> Descripción (Opcional)</label>
+            <textarea id="agDesc" class="form-control" rows="2" placeholder="Detalles de la tarea o evento..."></textarea>
           </div>
-          <div class="form-group">
-            <label class="form-label">Prioridad</label>
-            <select id="agPrio" class="form-control">
-              <option value="Alta">Alta 🔴</option>
-              <option value="Media" selected>Media 🟡</option>
-              <option value="Baja">Baja 🟢</option>
-            </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
+                <input type="date" id="agDate" class="form-control" value="${initialDate}">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora</label>
+                <input type="time" id="agTime" class="form-control" value="12:00">
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
+                <select id="agEstado" class="form-control">
+                  <option value="todo" selected>🔴 Sin hacer</option>
+                  <option value="in_progress">🟡 En proceso</option>
+                  <option value="done">🟢 Completada</option>
+                </select>
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="alert-circle" style="width: 14px; color: var(--primary-blue);"></i> Prioridad</label>
+                <select id="agPrio" class="form-control">
+                  <option value="Alta">Alta 🔴</option>
+                  <option value="Media" selected>Media 🟡</option>
+                  <option value="Baja">Baja 🟢</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div class="form-group mb-0">
+            <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div id="agCatPills" class="tag-pill-container">
+                ${catOptions}
+              </div>
+              <div>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnAgCatInlineNew" title="Crear nueva categoría" style="padding: 4px 12px; font-weight: 800; font-size: 12px; white-space: nowrap; background: var(--bg-subtle, #f1f5f9);">
+                  + Crear Nueva
+                </button>
+              </div>
+            </div>
+            <div id="agCatInlineBox" class="mt-3 hidden" style="display: flex; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--border-light);">
+              <input type="text" id="agCatCustom" class="form-control" placeholder="Nombre de la nueva categoría..." style="font-size: 13px;">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAgCatInlineSave" style="padding: 0 16px; font-weight: 800; font-size: 12px; white-space: nowrap; color: white;">
+                Crear Categoría
+              </button>
+            </div>
           </div>
         </div>
       </form>
@@ -25805,39 +26053,38 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         document.getElementById('agTitle')?.focus();
         return false;
       }
-      let catValue = document.getElementById('agCat')?.value;
+      let catValues = [];
+      const pillsContainer = document.getElementById('agCatPills');
+      if (pillsContainer) {
+        pillsContainer.querySelectorAll('.tag-pill.active').forEach(p => {
+          catValues.push(p.dataset.val);
+        });
+      }
       const customValue = document.getElementById('agCatCustom')?.value.trim() || '';
 
-      if (catValue === '__custom__' || customValue) {
-        if (!customValue) {
-          alert('Por favor escribe el nombre para la nueva categoría.');
-          const inlineBox = document.getElementById('agCatInlineBox');
-          const custInput = document.getElementById('agCatCustom');
-          if (inlineBox) inlineBox.classList.remove('hidden');
-          if (custInput) custInput.focus();
-          return false;
-        }
-
+      if (customValue) {
         const existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === customValue.toLowerCase());
         if (existing) {
-          catValue = existing.id;
+          if (!catValues.includes(existing.id)) catValues.push(existing.id);
         } else {
           const newId = 'cat_' + Date.now();
           const newCatObj = { id: newId, label: customValue, icon: 'bookmark' };
           state.agendaCategories.push(newCatObj);
           saveToFirebase('agendaCategories', newCatObj);
-          catValue = newId;
+          catValues.push(newId);
         }
-      } else if (!catValue) {
+      } 
+      
+      if (catValues.length === 0) {
         const defaultCat = (state.agendaCategories || [])[0];
         if (defaultCat) {
-          catValue = defaultCat.id;
+          catValues.push(defaultCat.id);
         } else {
           const defaultId = 'cat_' + Date.now();
           const defaultCatObj = { id: defaultId, label: 'General', icon: 'bookmark' };
           state.agendaCategories.push(defaultCatObj);
           saveToFirebase('agendaCategories', defaultCatObj);
-          catValue = defaultId;
+          catValues.push(defaultId);
         }
       }
 
@@ -25846,9 +26093,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         id: 'ag_' + Date.now(),
         titulo: title,
         tipo: document.getElementById('agTipo')?.value || 'tarea',
+        descripcion: document.getElementById('agDesc')?.value || '',
         fecha: document.getElementById('agDate').value,
         hora: document.getElementById('agTime').value,
-        categoria: catValue,
+        categorias: catValues,
+        categoria: catValues[0], // for backwards compatibility
         prioridad: document.getElementById('agPrio').value,
         estado: estadoVal,
         completada: (estadoVal === 'done')
@@ -25900,16 +26149,20 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         saveToFirebase('agendaCategories', newCatObj);
       }
 
-      // Update dropdown options
-      if (agCatSel) {
-        let optExists = Array.from(agCatSel.options).find(o => o.value === catId);
-        if (!optExists) {
-          const opt = document.createElement('option');
-          opt.value = catId;
-          opt.textContent = catName;
-          agCatSel.insertBefore(opt, agCatSel.querySelector('option[value="__custom__"]'));
+      // Update pills
+      const agCatPills = document.getElementById('agCatPills');
+      if (agCatPills) {
+        let pillExists = Array.from(agCatPills.querySelectorAll('.tag-pill')).find(p => p.dataset.val === catId);
+        if (!pillExists) {
+          const newPill = document.createElement('div');
+          newPill.className = 'tag-pill active';
+          newPill.dataset.val = catId;
+          newPill.textContent = catName;
+          newPill.addEventListener('click', () => newPill.classList.toggle('active'));
+          agCatPills.appendChild(newPill);
+        } else {
+          pillExists.classList.add('active');
         }
-        agCatSel.value = catId;
       }
 
       if (inlineBox) inlineBox.classList.add('hidden');
@@ -25917,6 +26170,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         showToast(`🏷️ Categoría "${catName}" creada y asignada`);
       }
     };
+
+    // Add click listeners to initial pills
+    document.querySelectorAll('#agCatPills .tag-pill').forEach(pill => {
+      pill.addEventListener('click', () => pill.classList.toggle('active'));
+    });
 
     if (btnInlineSave) {
       btnInlineSave.onclick = doCreateInlineCategory;
@@ -28459,28 +28717,41 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         currentEditingFicha.title = inputTitle.value.trim();
         currentEditingFicha.content = editorAreaField.innerHTML;
         
-        const categoryName = selectCategorySelect.value.trim();
-        if (!categoryName) {
-           alert("Por favor indica una etiqueta.");
-           return;
+        let targetCategoryIds = [];
+        const notasCatPills = document.getElementById('notasCatPills');
+        if (notasCatPills) {
+          notasCatPills.querySelectorAll('.tag-pill.active').forEach(p => {
+            targetCategoryIds.push(p.dataset.val);
+          });
         }
         
-        let targetCategoryId = null;
-        const existingCat = state.notasCategorias.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
-        if (existingCat) {
-          targetCategoryId = existingCat.id;
-        } else {
-          const defaultColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
-          const newColor = defaultColors[state.notasCategorias.length % defaultColors.length];
-          const newCatId = 'cat_' + Date.now();
-          const newCat = { id: newCatId, name: categoryName, color: newColor };
-          state.notasCategorias.push(newCat);
-          saveState();
-          saveToFirebase('notas_categorias', newCat);
-          targetCategoryId = newCatId;
+        // Also check custom input just in case they typed without clicking Añadir
+        const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
+        const customValue = customInput?.value.trim();
+        if (customValue) {
+           let existing = state.notasCategorias.find(c => c.name.toLowerCase() === customValue.toLowerCase());
+           if (existing) {
+             if (!targetCategoryIds.includes(existing.id)) targetCategoryIds.push(existing.id);
+           } else {
+              const defaultColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+              const newColor = defaultColors[state.notasCategorias.length % defaultColors.length];
+              const newCatId = 'cat_' + Date.now();
+              const newCat = { id: newCatId, name: customValue, color: newColor };
+              state.notasCategorias.push(newCat);
+              saveState();
+              saveToFirebase('notas_categorias', newCat);
+              renderTags();
+              targetCategoryIds.push(newCatId);
+           }
+        }
+        
+        if (targetCategoryIds.length === 0) {
+           alert("Por favor selecciona al menos una etiqueta.");
+           return;
         }
 
-        currentEditingFicha.categoryId = targetCategoryId;
+        currentEditingFicha.categoryIds = targetCategoryIds;
+        currentEditingFicha.categoryId = targetCategoryIds[0]; // backward compat
         currentEditingFicha.date = new Date().toISOString();
 
         // If it's a new ficha, push it
@@ -28492,8 +28763,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         saveToFirebase('notas_fichas', currentEditingFicha);
         modalEdicion.classList.add('hidden');
 
-        // Switch to the category we just saved to
-        selectCategoryFn(targetCategoryId);
+        // Switch to the first category we just saved to if not "todas"
+        if (currentCategoryId !== 'todas' && !targetCategoryIds.includes(currentCategoryId)) {
+           selectCategoryFn(targetCategoryIds[0]);
+        } else {
+           selectCategoryFn(currentCategoryId);
+        }
       });
     }
 
@@ -28508,39 +28783,104 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (!currentCategoryId) selectCategoryFn(newCat.id);
       }
 
-      // Populate datalist
-      const datalist = document.getElementById('notasCategoriasDatalist');
-      if (datalist) {
-        datalist.innerHTML = '';
-        state.notasCategorias.forEach(cat => {
-          const option = document.createElement('option');
-          option.value = cat.name;
-          datalist.appendChild(option);
-        });
-      }
-
+      const notasCatPills = document.getElementById('notasCatPills');
+      
+      let initialCatIds = [];
       if (ficha) {
         currentEditingFicha = ficha;
         inputTitle.value = ficha.title || '';
         editorAreaField.innerHTML = ficha.content || '';
-        const cat = state.notasCategorias.find(c => c.id === ficha.categoryId);
-        selectCategorySelect.value = cat ? cat.name : '';
+        initialCatIds = ficha.categoryIds || (ficha.categoryId ? [ficha.categoryId] : []);
       } else {
         currentEditingFicha = {
           id: 'ficha_' + Date.now(),
           categoryId: currentCategoryId,
+          categoryIds: currentCategoryId && currentCategoryId !== 'todas' ? [currentCategoryId] : [],
           content: '',
           title: '',
           date: new Date().toISOString()
         };
         inputTitle.value = '';
         editorAreaField.innerHTML = '';
-        const cat = state.notasCategorias.find(c => c.id === currentCategoryId);
-        selectCategorySelect.value = cat ? cat.name : (state.notasCategorias[0] ? state.notasCategorias[0].name : '');
+        initialCatIds = currentEditingFicha.categoryIds;
       }
+      
+      if (notasCatPills) {
+        notasCatPills.innerHTML = (state.notasCategorias || []).map(cat => {
+          const isActive = initialCatIds.includes(cat.id);
+          return `<div class="tag-pill ${isActive ? 'active' : ''}" data-val="${cat.id}">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${cat.color || '#3b82f6'};"></span>
+            ${escapeHtml(cat.name)}
+          </div>`;
+        }).join('');
+        
+        notasCatPills.querySelectorAll('.tag-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+        if (!pill.classList.contains('active')) {
+          pill.classList.add('active');
+          if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
+        } else if (!pill.classList.contains('main')) {
+          pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
+          pill.classList.add('main');
+        } else {
+          pill.classList.remove('active', 'main');
+          const nextActive = pill.parentElement.querySelector('.tag-pill.active');
+          if (nextActive) nextActive.classList.add('main');
+        }
+      });
+        });
+      }
+      
+      const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
+      if (customInput) customInput.value = '';
 
       modalEdicion.classList.remove('hidden');
       setTimeout(() => inputTitle.focus(), 100);
+    }
+    
+    // Add logic for the inline "Añadir" button
+    const btnNotasCatInlineSave = document.getElementById('btnNotasCatInlineSave');
+    if (btnNotasCatInlineSave) {
+      btnNotasCatInlineSave.addEventListener('click', () => {
+        const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
+        const customValue = customInput?.value.trim();
+        if (!customValue) return;
+        
+        let targetId = null;
+        let existing = state.notasCategorias.find(c => c.name.toLowerCase() === customValue.toLowerCase());
+        if (existing) {
+          targetId = existing.id;
+        } else {
+          const defaultColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+          const newColor = defaultColors[state.notasCategorias.length % defaultColors.length];
+          const newCatId = 'cat_' + Date.now();
+          const newCat = { id: newCatId, name: customValue, color: newColor };
+          state.notasCategorias.push(newCat);
+          saveState();
+          saveToFirebase('notas_categorias', newCat);
+          renderTags();
+          targetId = newCatId;
+          
+          // Add pill to current modal
+          const notasCatPills = document.getElementById('notasCatPills');
+          if (notasCatPills) {
+             const pillHTML = `<div class="tag-pill active" data-val="${newCatId}">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${newColor};"></span>
+                ${escapeHtml(customValue)}
+              </div>`;
+             notasCatPills.insertAdjacentHTML('beforeend', pillHTML);
+             const newPill = notasCatPills.lastElementChild;
+             newPill.addEventListener('click', () => newPill.classList.toggle('active'));
+          }
+        }
+        
+        if (targetId && existing) {
+           const existingPill = document.querySelector(`#notasCatPills .tag-pill[data-val="${targetId}"]`);
+           if (existingPill) existingPill.classList.add('active');
+        }
+        
+        if (customInput) customInput.value = '';
+      });
     }
 
     // Global "Nueva Nota" button and inner "+ Nueva Ficha" button
@@ -29138,7 +29478,436 @@ window.openFederationBreakdown = function(type) {
     if (window.lucide) window.lucide.createIcons();
   };
 
+
+
+
+    function renderCalendarWeekView(filteredMatches) {
+    const year = calendarCurrentDate.getFullYear();
+    const month = calendarCurrentDate.getMonth();
+    const date = calendarCurrentDate.getDate();
+    
+    const currentDayOfWeek = calendarCurrentDate.getDay();
+    const distanceToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+    const startOfWeek = new Date(year, month, date - distanceToMonday);
+    
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    let titleStr = '';
+    if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+      titleStr = `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getFullYear()}`;
+    } else {
+      titleStr = `${startOfWeek.getDate()} ${monthNames[startOfWeek.getMonth()]} - ${endOfWeek.getDate()} ${monthNames[endOfWeek.getMonth()]} ${startOfWeek.getFullYear()}`;
+    }
+    document.getElementById('monthTitleDisplay').textContent = titleStr;
+
+    const headerRow = document.getElementById('weekHeaderRow');
+    let headerHTML = `<div class="week-header-cell" style="justify-content:flex-end; color:var(--text-muted); font-size:10px; padding-bottom:8px;">GMT+2</div>`;
+    
+    function getLocalDateStr(dateObj) {
+      return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    }
+    
+    const weekDates = [];
+    const todayStr = getLocalDateStr(new Date());
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      weekDates.push(d);
+      
+      const dayNames = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+      const dateStr = getLocalDateStr(d);
+      const isToday = dateStr === todayStr;
+      
+      headerHTML += `
+        <div class="week-header-cell">
+          <span class="week-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayNames[i]}</span>
+          <span class="week-header-date ${isToday ? 'today' : ''}">${d.getDate()}</span>
+        </div>
+      `;
+    }
+    headerRow.innerHTML = headerHTML;
+
+    const gridContainer = document.getElementById('weekGridContainer');
+    let gridHTML = '';
+    
+    let timeColHTML = `<div class="week-time-col">`;
+    for (let h = 6; h <= 23; h++) {
+      timeColHTML += `<div class="week-time-slot">${h}:00</div>`;
+    }
+    timeColHTML += `</div>`;
+    gridHTML += timeColHTML;
+    
+    for (let i = 0; i < 7; i++) {
+      let dayColHTML = `<div class="week-day-col">`;
+      for (let h = 6; h <= 23; h++) {
+        dayColHTML += `<div class="week-day-slot"></div>`;
+      }
+      dayColHTML += `</div>`;
+      gridHTML += dayColHTML;
+    }
+    
+    let allDayHTML = `<div class="week-all-day-row">
+                        <div class="week-all-day-label">Todo el día</div>`;
+    
+    let allDayCells = Array(7).fill('');
+    let dayEvents = Array(7).fill().map(() => []);
+
+    for (let i = 0; i < 7; i++) {
+      const dateStr = getLocalDateStr(weekDates[i]);
+      
+      const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
+      const dayAgenda = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
+      const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
+      
+      dayMatches.forEach(m => {
+        const item = { type: 'match', data: m, isAllDay: !m.hora, hora: m.hora, title: `⚽ ${m.local.split(' ')[0]} v ${m.visitante.split(' ')[0]}` };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+      dayAgenda.forEach(t => {
+        const item = { type: 'agenda', data: t, isAllDay: !t.hora, hora: t.hora, title: `📝 ${t.titulo}` };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+      dayReports.forEach(r => {
+        const title = `📊 ${r.localTeam ? r.localTeam + '-' + r.visitanteTeam : (r.titulo || 'Informe')}`;
+        let rHora = r.time || r.hora;
+        if (!rHora) {
+          const m = state.matches.find(match => match.id === r.matchId || match.reportId === r.id);
+          if (m && m.hora) rHora = m.hora;
+        }
+        const item = { type: 'report', data: r, isAllDay: !rHora, hora: rHora, title: title };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+    }
+
+    for (let i=0; i<7; i++) {
+      allDayHTML += `<div class="week-all-day-cell">${allDayCells[i]}</div>`;
+    }
+    allDayHTML += `</div>`;
+    
+    gridContainer.innerHTML = gridHTML;
+    
+    for (let i = 0; i < 7; i++) {
+      dayEvents[i].forEach(ev => {
+        const cardHTML = generateTimedEventCard(ev, i);
+        gridContainer.insertAdjacentHTML('beforeend', cardHTML);
+      });
+    }
+    
+    let existingAllDay = document.getElementById('weekAllDayRow');
+    if (existingAllDay) existingAllDay.remove();
+    
+    const wrapper = document.getElementById('calendarWeekWrapper');
+    const scrollArea = document.querySelector('.week-scroll-area');
+    const newAllDay = document.createElement('div');
+    newAllDay.id = 'weekAllDayRow';
+    newAllDay.innerHTML = allDayHTML;
+    wrapper.insertBefore(newAllDay, scrollArea);
+  }
+
+  function generateAllDayPill(ev) {
+    if (ev.type === 'match') {
+      return `<div class="day-match-pill ${ev.data.estado}" style="margin:0;" data-type="match" data-mid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+    } else if (ev.type === 'agenda') {
+      const colorObj = getCategoryColor(ev.data.categoria);
+      return `<div class="day-match-pill" style="margin:0; background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight:700;" data-type="agenda" data-agid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+    } else {
+      return `<div class="day-match-pill" style="margin:0; background: rgba(43,108,176,0.1); color: var(--primary); border: 1px solid var(--primary); font-weight:700;" data-repid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+    }
+  }
+
+  function generateTimedEventCard(ev, dayIndex) {
+    const parts = ev.hora.split(':').map(Number);
+    const hh = parts[0] || 0;
+    const mm = parts[1] || 0;
+    let startHour = 6;
+    let hoursOffset = (hh - startHour) + (mm / 60);
+    if (hoursOffset < 0) hoursOffset = 0; 
+    
+    const topPx = hoursOffset * 50;
+    const heightPx = 1.5 * 50;
+    
+    let bg, border, color, idAttr;
+    if (ev.type === 'match') {
+      if (ev.data.estado === 'programado') {
+        bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
+      } else if (ev.data.estado === 'directo') {
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
+      } else {
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
+      }
+      idAttr = `data-type="match" data-mid="${ev.data.id}"`;
+    } else if (ev.type === 'agenda') {
+      const colorObj = getCategoryColor(ev.data.categoria);
+      bg = colorObj.bg;
+      border = colorObj.border;
+      color = colorObj.text;
+      idAttr = `data-type="agenda" data-agid="${ev.data.id}"`;
+    } else if (ev.type === 'report') {
+      bg = 'rgba(43,108,176,0.1)';
+      border = 'var(--primary)';
+      color = 'var(--primary)';
+      idAttr = `data-repid="${ev.data.id}"`;
+    }
+
+    return `
+      <div class="week-event-card" ${idAttr} style="
+        top: ${topPx}px;
+        height: ${heightPx}px;
+        left: calc(60px + (${dayIndex} * ((100% - 60px) / 7)) + 2px);
+        width: calc(((100% - 60px) / 7) - 4px);
+        background-color: ${bg};
+        border-left: 3px solid ${border};
+        color: ${color};
+      ">
+        <div class="week-event-title">${escapeHtml(ev.title)}</div>
+        <div class="week-event-time">⏱ ${ev.hora}</div>
+      </div>
+    `;
+  }
+
+document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) => {
+  const agendaCard = e.target.closest('[data-type="agenda"]');
+  if (agendaCard) {
+    e.stopPropagation();
+    openAgendaTaskDetailModal(agendaCard.dataset.agid);
+    return;
+  }
+
+  const reportCard = e.target.closest('[data-repid]');
+  if (reportCard) {
+    e.stopPropagation();
+    openMatchReportEditor(reportCard.dataset.repid);
+    return;
+  }
+
+  const matchCard = e.target.closest('[data-type="match"]');
+  if (matchCard) {
+    e.stopPropagation();
+    const matchId = matchCard.dataset.mid;
+    const match = state.matches.find(m => m.id === matchId);
+    if (match && match.reportId) {
+      openMatchReportEditor(match.reportId, match);
+    } else if (match) {
+      createReportFromMatch(matchId);
+    }
+    return;
+  }
+});
+
+  function renderCalendarDaysView(filteredMatches) {
+    const year = calendarCurrentDate.getFullYear();
+    const month = calendarCurrentDate.getMonth();
+    const date = calendarCurrentDate.getDate();
+    
+    const startOfDays = new Date(year, month, date);
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    const endOfDays = new Date(startOfDays);
+    endOfDays.setDate(startOfDays.getDate() + (calendarDaysCount - 1));
+    
+    let titleStr = '';
+    if (startOfDays.getMonth() === endOfDays.getMonth()) {
+      titleStr = `${startOfDays.getDate()} - ${endOfDays.getDate()} ${monthNames[startOfDays.getMonth()]} ${startOfDays.getFullYear()}`;
+    } else {
+      titleStr = `${startOfDays.getDate()} ${monthNames[startOfDays.getMonth()]} - ${endOfDays.getDate()} ${monthNames[endOfDays.getMonth()]} ${startOfDays.getFullYear()}`;
+    }
+    document.getElementById('monthTitleDisplay').textContent = titleStr;
+
+    const headerRow = document.getElementById('daysHeaderRow');
+    headerRow.style.gridTemplateColumns = `60px repeat(${calendarDaysCount}, 1fr)`;
+    let headerHTML = `<div class="days-header-cell" style="justify-content:flex-end; color:var(--text-muted); font-size:10px; padding-bottom:8px;">GMT+2</div>`;
+    
+    function getLocalDateStr(dateObj) {
+      return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+    }
+    
+    const daysDates = [];
+    const todayStr = getLocalDateStr(new Date());
+    
+    for (let i = 0; i < calendarDaysCount; i++) {
+      const d = new Date(startOfDays);
+      d.setDate(startOfDays.getDate() + i);
+      daysDates.push(d);
+      
+      const dayNames = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+      const dayName = dayNames[d.getDay()];
+      const dateStr = getLocalDateStr(d);
+      const isToday = dateStr === todayStr;
+      
+      headerHTML += `
+        <div class="days-header-cell">
+          <span class="days-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayName}</span>
+          <span class="days-header-date ${isToday ? 'today' : ''}">${d.getDate()}</span>
+        </div>
+      `;
+    }
+    headerRow.innerHTML = headerHTML;
+
+    const gridContainer = document.getElementById('daysGridContainer');
+    gridContainer.style.gridTemplateColumns = `60px repeat(${calendarDaysCount}, 1fr)`;
+    let gridHTML = '';
+    
+    let timeColHTML = `<div class="days-time-col">`;
+    for (let h = 6; h <= 23; h++) {
+      timeColHTML += `<div class="days-time-slot">${h}:00</div>`;
+    }
+    timeColHTML += `</div>`;
+    gridHTML += timeColHTML;
+    
+    for (let i = 0; i < calendarDaysCount; i++) {
+      let dayColHTML = `<div class="days-day-col">`;
+      for (let h = 6; h <= 23; h++) {
+        dayColHTML += `<div class="days-day-slot"></div>`;
+      }
+      dayColHTML += `</div>`;
+      gridHTML += dayColHTML;
+    }
+    
+    let allDayHTML = `<div class="days-all-day-row" style="grid-template-columns: 60px repeat(${calendarDaysCount}, 1fr);">
+                        <div class="days-all-day-label">Todo el día</div>`;
+    
+    let allDayCells = Array(calendarDaysCount).fill('');
+    let dayEvents = Array(calendarDaysCount).fill().map(() => []);
+
+    for (let i = 0; i < calendarDaysCount; i++) {
+      const dateStr = getLocalDateStr(daysDates[i]);
+      
+      const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
+      const dayAgenda = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
+      const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
+      
+      dayMatches.forEach(m => {
+        const item = { type: 'match', data: m, isAllDay: !m.hora, hora: m.hora, title: `⚽ ${m.local.split(' ')[0]} v ${m.visitante.split(' ')[0]}` };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+      dayAgenda.forEach(t => {
+        const item = { type: 'agenda', data: t, isAllDay: !t.hora, hora: t.hora, title: `📝 ${t.titulo}` };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+      dayReports.forEach(r => {
+        const title = `📊 ${r.localTeam ? r.localTeam + '-' + r.visitanteTeam : (r.titulo || 'Informe')}`;
+        let rHora = r.time || r.hora;
+        if (!rHora) {
+          const m = state.matches.find(match => match.id === r.matchId || match.reportId === r.id);
+          if (m && m.hora) rHora = m.hora;
+        }
+        const item = { type: 'report', data: r, isAllDay: !rHora, hora: rHora, title: title };
+        if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
+        else dayEvents[i].push(item);
+      });
+    }
+
+    for (let i=0; i<calendarDaysCount; i++) {
+      allDayHTML += `<div class="days-all-day-cell">${allDayCells[i]}</div>`;
+    }
+    allDayHTML += `</div>`;
+    
+    gridContainer.innerHTML = gridHTML;
+    
+    for (let i = 0; i < calendarDaysCount; i++) {
+      dayEvents[i].forEach(ev => {
+        const cardHTML = generateTimedEventCardDays(ev, i);
+        gridContainer.insertAdjacentHTML('beforeend', cardHTML);
+      });
+    }
+    
+    let existingAllDay = document.getElementById('daysAllDayRow');
+    if (existingAllDay) existingAllDay.remove();
+    
+    const wrapper = document.getElementById('calendarDaysWrapper');
+    const scrollArea = document.querySelector('.days-scroll-area');
+    const newAllDay = document.createElement('div');
+    newAllDay.id = 'daysAllDayRow';
+    newAllDay.innerHTML = allDayHTML;
+    wrapper.insertBefore(newAllDay, scrollArea);
+  }
+
+  function generateTimedEventCardDays(ev, dayIndex) {
+    const parts = ev.hora.split(':').map(Number);
+    const hh = parts[0] || 0;
+    const mm = parts[1] || 0;
+    let startHour = 6;
+    let hoursOffset = (hh - startHour) + (mm / 60);
+    if (hoursOffset < 0) hoursOffset = 0; 
+    
+    const topPx = hoursOffset * 50;
+    const heightPx = 1.5 * 50;
+    
+    let bg, border, color, idAttr;
+    if (ev.type === 'match') {
+      if (ev.data.estado === 'programado') {
+        bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
+      } else if (ev.data.estado === 'directo') {
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
+      } else {
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
+      }
+      idAttr = `data-type="match" data-mid="${ev.data.id}"`;
+    } else if (ev.type === 'agenda') {
+      const colorObj = getCategoryColor(ev.data.categoria);
+      bg = colorObj.bg;
+      border = colorObj.border;
+      color = colorObj.text;
+      idAttr = `data-type="agenda" data-agid="${ev.data.id}"`;
+    } else if (ev.type === 'report') {
+      bg = 'rgba(43,108,176,0.1)';
+      border = 'var(--primary)';
+      color = 'var(--primary)';
+      idAttr = `data-repid="${ev.data.id}"`;
+    }
+
+    return `
+      <div class="days-event-card" ${idAttr} style="
+        top: ${topPx}px;
+        height: ${heightPx}px;
+        left: calc(60px + (${dayIndex} * ((100% - 60px) / ${calendarDaysCount})) + 2px);
+        width: calc(((100% - 60px) / ${calendarDaysCount}) - 4px);
+        background-color: ${bg};
+        border-left: 3px solid ${border};
+        color: ${color};
+      ">
+        <div class="days-event-title">${escapeHtml(ev.title)}</div>
+        <div class="days-event-time">⏱ ${ev.hora}</div>
+      </div>
+    `;
+  }
+
+
+document.getElementById('calendarDaysWrapper')?.addEventListener('click', (e) => {
+  const agendaCard = e.target.closest('[data-type="agenda"]');
+  if (agendaCard) {
+    e.stopPropagation();
+    openAgendaTaskDetailModal(agendaCard.dataset.agid);
+    return;
+  }
+
+  const reportCard = e.target.closest('[data-repid]');
+  if (reportCard) {
+    e.stopPropagation();
+    openMatchReportEditor(reportCard.dataset.repid);
+    return;
+  }
+
+  const matchCard = e.target.closest('[data-type="match"]');
+  if (matchCard) {
+    e.stopPropagation();
+    const matchId = matchCard.dataset.mid;
+    const match = state.matches.find(m => m.id === matchId);
+    if (match && match.reportId) {
+      openMatchReportEditor(match.reportId, match);
+    } else if (match) {
+      createReportFromMatch(matchId);
+    }
+    return;
+  }
+});
 })();
-
-
-  
