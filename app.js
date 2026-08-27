@@ -1705,6 +1705,14 @@ if (elPriorityMatches) {
         const fallbackClub = (state.directory?.clubes || []).find(c => c.nombre && name.toLowerCase().includes(c.nombre.toLowerCase()));
         if (fallbackClub && (fallbackClub.logo || fallbackClub.escudo)) return fallbackClub.logo || fallbackClub.escudo;
 
+        const fallbackFed = (state.directory?.federaciones || []).find(f => f.nombre && name.toLowerCase().includes(f.nombre.toLowerCase()));
+        if (fallbackFed && (fallbackFed.logo || fallbackFed.escudo)) return fallbackFed.logo || fallbackFed.escudo;
+
+        const fallbackSel = (state.directory?.selecciones || []).find(s => s.nombre && name.toLowerCase().includes(s.nombre.toLowerCase()));
+        if (fallbackSel && (fallbackSel.logo || fallbackSel.escudo)) return fallbackSel.logo || fallbackSel.escudo;
+
+        if (name.toLowerCase().includes('arabia') || name.toLowerCase().includes('saudi')) return 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Flag_of_Saudi_Arabia.svg';
+
         return '';
       };
 
@@ -2941,6 +2949,14 @@ if (elPriorityMatches) {
 
               const fallbackClub = (state.directory.clubes || []).find(c => c.nombre && teamName.toLowerCase().includes(c.nombre.toLowerCase()));
               if (fallbackClub && (fallbackClub.logo || fallbackClub.escudo)) return fallbackClub.logo || fallbackClub.escudo;
+
+              const fallbackFed = (state.directory.federaciones || []).find(f => f.nombre && teamName.toLowerCase().includes(f.nombre.toLowerCase()));
+              if (fallbackFed && (fallbackFed.logo || fallbackFed.escudo)) return fallbackFed.logo || fallbackFed.escudo;
+
+              const fallbackSel = (state.directory.selecciones || []).find(s => s.nombre && teamName.toLowerCase().includes(s.nombre.toLowerCase()));
+              if (fallbackSel && (fallbackSel.logo || fallbackSel.escudo)) return fallbackSel.logo || fallbackSel.escudo;
+
+              if (teamName.toLowerCase().includes('arabia') || teamName.toLowerCase().includes('saudi')) return 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Flag_of_Saudi_Arabia.svg';
 
               return '';
             };
@@ -17147,6 +17163,8 @@ let currentPlanificacionTab = 'calendario';
     if (nameLower.includes('canaria') || nameLower.includes('canarias') || nameLower.includes('fcan')) return 'Canarias';
     if (nameLower.includes('ceuta') || nameLower.includes('ceutí') || nameLower.includes('ffce')) return 'Ceuta';
     if (nameLower.includes('melilla') || nameLower.includes('melillense') || nameLower.includes('rfmf')) return 'Melilla';
+    if (nameLower.includes('arabia') || nameLower.includes('saff')) return 'Arabia Saudita';
+    if (nameLower.includes('uzbeki') || nameLower.includes('ufa')) return 'Uzbekistán';
 
     return fedName.replace(/^(real\s+|federación\s+(de\s+fútbol\s+de\s+la\s+|de\s+fútbol\s+de\s+|de\s+|del\s+)?|federació\s+)/i, '').trim();
   }
