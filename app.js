@@ -432,6 +432,7 @@
   let _saveStateDebounceTimer = null;
 
   window.saveState = saveState;
+  window.state = state;
   function saveState() {
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -24056,7 +24057,6 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
   function mapCarteleraTeamToDirectoryName(rawName, competicion) {
     if (!rawName) return '';
 
-    // Corregir nombres antes del mapeo para que conserven la categoría (ej: "Real Zaragoza SAD DHJ 26/27")
     if (rawName.toLowerCase().includes('zaragoza-racing club')) {
       rawName = rawName.replace(/zaragoza-racing club/gi, 'Racing Club Zaragoza');
     }
@@ -24064,39 +24064,50 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
       rawName = rawName.replace(/real zaragoza/gi, 'Real Zaragoza SAD');
     }
 
-    let coreName = rawName.toLowerCase();
-
-    const prefixes = ['c.d.', 'f.c.', 'a.d.', 'u.d.', 's.d.', 'c.f.', 'c.a.', 'cd', 'fc', 'ad', 'ud', 'sd', 'cf', 'ca', 'at.', 'atletico', 'atlético', 'real', 'sporting', 'racing', 'club'];
-
-    let tokens = coreName.split(/\s+/);
-    tokens = tokens.filter(t => !prefixes.includes(t));
-
-    coreName = tokens.join(' ').trim();
-    if (coreName.length < 3 && tokens.length > 0) {
-      coreName = tokens[0]; // fallback
+    const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    
+    let normRaw = normalize(rawName);
+    
+    // 1. Direct exact match
+    for (let eq of (state.directory?.equipos || [])) {
+        let n = eq.nombreOficial || eq.nombre;
+        if (!n) continue;
+        if (normalize(n) === normRaw) return n;
+    }
+    
+    // 2. Sorted words match
+    let sortedRaw = normRaw.split(' ').sort().join(' ');
+    for (let eq of (state.directory?.equipos || [])) {
+        let n = eq.nombreOficial || eq.nombre;
+        if (!n) continue;
+        if (normalize(n).split(' ').sort().join(' ') === sortedRaw) return n;
     }
 
-    const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    coreName = normalize(coreName);
+    // 3. Fallback partial/heuristic match
+    const prefixes = ['cd', 'fc', 'ad', 'ud', 'sd', 'cf', 'ca', 'at', 'atletico', 'real', 'sporting', 'racing', 'club'];
+    let tokens = normRaw.split(/\s+/).filter(t => !prefixes.includes(t));
 
     let bestMatch = null;
     let bestScore = -1;
 
-    for (let team of (state.teams || [])) {
-      const tName = normalize(team.name.toLowerCase());
+    for (let eq of (state.directory?.equipos || [])) {
+      const originalName = eq.nombreOficial || eq.nombre;
+      if (!originalName) continue;
+      
+      const tName = normalize(originalName);
 
       let hasCore = true;
       for (let t of tokens) {
-        if (!tName.includes(normalize(t))) {
+        if (!tName.includes(t)) {
           hasCore = false;
           break;
         }
       }
 
-      if (hasCore || tName.includes(coreName)) {
+      if (hasCore || (tokens.length > 0 && tName.includes(tokens.join(' ')))) {
         let score = 1;
         if (competicion) {
-          const compCore = normalize(competicion.toLowerCase()).replace('tercera', '3').replace('primera', '1').replace('segunda', '2');
+          const compCore = normalize(competicion).replace('tercera', '3').replace('primera', '1').replace('segunda', '2');
           const compParts = compCore.split(/\s+/).filter(p => p.length > 2 || !isNaN(p));
           for (let cp of compParts) {
             if (tName.includes(cp)) score++;
@@ -24107,7 +24118,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
 
         if (score > bestScore) {
           bestScore = score;
-          bestMatch = team.name;
+          bestMatch = originalName;
         }
       }
     }

@@ -216,11 +216,7 @@ function processEquiposImport(text) {
         let titleCase = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
         titleCase = titleCase.replace(/\b(Ud|Cf|Cd|Sd|Fc|Fb|Efb|Ad|Ce|Ue|Rc|Rd|Ipc|Sad|Rcd)\b/ig, match => match.toUpperCase());
         
-        // Optional debug tag (can be removed later)
-        const d = window.state?.directory || {};
-        const cLen = d.clubes?.length || 0;
-        const eLen = d.equipos?.length || 0;
-        return titleCase + ` [C:${cLen}, E:${eLen}]`;
+        return titleCase;
     };
     
     let i = 0;
