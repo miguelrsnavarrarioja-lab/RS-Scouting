@@ -1301,8 +1301,8 @@ if (elPriorityMatches) {
             lineup.forEach(p => {
               const n = p.name || p.nombre;
               if (n) {
-                // Ignore if marked as 'NO JUEGA' in lineup JSON
-                if (p.tags && Array.isArray(p.tags) && p.tags.includes('NO JUEGA')) {
+                // Ignore if marked as 'NO JUEGA' or 'NO VISTO' in lineup JSON
+                if (p.tags && Array.isArray(p.tags) && (p.tags.includes('NO JUEGA') || p.tags.includes('NO VISTO'))) {
                   return;
                 }
                 const key = n.toLowerCase().trim();
@@ -1311,7 +1311,7 @@ if (elPriorityMatches) {
                 const pDir = players.find(pd => (pd.nombre || pd.jugador || pd.name || '').toLowerCase().trim() === key);
                 if (pDir && pDir.historialEvaluaciones) {
                   const evalRecord = pDir.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
-                  if (evalRecord && evalRecord.tags && evalRecord.tags.includes('NO JUEGA')) {
+                  if (evalRecord && evalRecord.tags && (evalRecord.tags.includes('NO JUEGA') || evalRecord.tags.includes('NO VISTO'))) {
                     return; // Ignore this appearance
                   }
                 }
@@ -4086,6 +4086,11 @@ if (elPriorityMatches) {
     if (!teamInput || !badgeLabel) return;
 
     const teamName = teamInput.value.trim();
+    
+    const lastTeamName = teamInput.dataset.lastTeam || '';
+    const teamChanged = (teamName !== lastTeamName);
+    teamInput.dataset.lastTeam = teamName;
+
     const teamObj = findTeamInDirectory(teamName);
 
     // Auto-fill or clear Coach
@@ -4130,16 +4135,11 @@ if (elPriorityMatches) {
         const fedInput = document.getElementById('reportFederacion');
         const estInput = document.getElementById('reportEstadio');
 
-        if (!isInit) {
+        if (!isInit && teamChanged) {
           if (compVal && compInput) compInput.value = compVal;
           if (catVal && catInput) catInput.value = catVal;
           if (fedVal && fedInput) fedInput.value = fedVal;
           if (estVal && estInput) estInput.value = estVal;
-        } else {
-          if (compVal && compInput && !compInput.value) compInput.value = compVal;
-          if (catVal && catInput && !catInput.value) catInput.value = catVal;
-          if (fedVal && fedInput && !fedInput.value) fedInput.value = fedVal;
-          if (estVal && estInput && !estInput.value) estInput.value = estVal;
         }
       }
     }
@@ -5631,7 +5631,7 @@ if (elPriorityMatches) {
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
       if (evalData.tags && evalData.tags.length > 0) {
-        const trackingTags = evalData.tags.filter(t => t !== 'NO JUEGA');
+        const trackingTags = evalData.tags.filter(t => t !== 'NO JUEGA' && t !== 'NO VISTO');
         const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...trackingTags]);
         playerInDir.controlSeguimiento = Array.from(newTags);
       }
@@ -5732,26 +5732,43 @@ if (elPriorityMatches) {
     }
   }
 
-  function openPlayerMatchReportModal(team, type, idx) {
-    const containerId = type === 'titular' ? `${team}TitularesRows` : `${team}SuplentesRows`;
-    const rows = document.querySelectorAll(`#${containerId} .lineup-row`);
-    const row = rows[idx];
-    if (!row) return;
+  function openPlayerMatchReportModal(teamOrConfig, type, idx) {
+    let pNum, pName, pPos, pPos2, teamName, team, targetRepId, standaloneMode;
 
-    const pNum = row.querySelector('input.num')?.value || (type === 'titular' ? idx + 1 : 12 + idx);
-    const rawPName = row.querySelector('input.name')?.value.trim() || '';
-    const pName = rawPName.replace(/\s*\[.*?\]$/, '');
-    const pPos = row.querySelector('select.pos')?.value || 'MC';
-    const pPos2 = row.querySelector('select.pos2')?.value || '';
-    const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
+    if (typeof teamOrConfig === 'object' && teamOrConfig !== null) {
+      const config = teamOrConfig;
+      pNum = config.pNum;
+      pName = config.pName;
+      pPos = config.pPos;
+      pPos2 = config.pPos2 || '';
+      teamName = config.teamName;
+      team = config.team;
+      targetRepId = config.repId;
+      standaloneMode = config.standaloneMode || false;
+    } else {
+      team = teamOrConfig;
+      const containerId = type === 'titular' ? `${team}TitularesRows` : `${team}SuplentesRows`;
+      const rows = document.querySelectorAll(`#${containerId} .lineup-row`);
+      const row = rows[idx];
+      if (!row) return;
+
+      pNum = row.querySelector('input.num')?.value || (type === 'titular' ? idx + 1 : 12 + idx);
+      const rawPName = row.querySelector('input.name')?.value.trim() || '';
+      pName = rawPName.replace(/\s*\[.*?\]$/, '');
+      pPos = row.querySelector('select.pos')?.value || 'MC';
+      pPos2 = row.querySelector('select.pos2')?.value || '';
+      teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
+      targetRepId = currentEditingReportId || 'temp';
+      standaloneMode = false;
+    }
 
     const localOptionsDescTecnica = getOptionsDescTecnica(pPos);
 
     if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
-    const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
+    const evalKey = `${targetRepId}_${team}_${pNum}`;
 
     const currentMinsFromTimer = getCurrentMatchMinute();
-    const defaultMins = type === 'titular' ? 90 : (currentMinsFromTimer > 0 ? (90 - currentMinsFromTimer) : 0);
+    const defaultMins = (standaloneMode || type === 'titular') ? 90 : (currentMinsFromTimer > 0 ? (90 - currentMinsFromTimer) : 0);
 
     // Auto-load directory player traits if player exists in directory and match evaluation hasn't been created yet
     const playerInDir = (state.directory && state.directory.jugadores && pName) ? state.directory.jugadores.find(p => {
@@ -5910,9 +5927,12 @@ if (elPriorityMatches) {
               <label class="form-label" style="font-size: 10px; font-weight: 800; display: block; text-align: center;">MINUTOS JUGADOS</label>
               <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
-            <div style="padding-top: 18px;">
-              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%;">
+            <div style="padding-top: 18px; display: flex; gap: 4px;">
+              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
                 NO JUEGA
+              </button>
+              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO VISTO') ? 'active' : ''}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
+                NO VISTO
               </button>
             </div>
             <div style="padding-top: 18px;">
@@ -6050,23 +6070,27 @@ if (elPriorityMatches) {
     // Pill Button Handlers
     modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        if (!isActive) btn.classList.add('active');
       });
     });
 
     modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(btn => {
       btn.addEventListener('click', () => {
+        const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
           b.classList.remove('active');
           b.style.background = '#fff';
           b.style.color = '#ec4899';
           b.style.borderColor = 'rgba(236,72,153,0.3)';
         });
-        btn.classList.add('active');
-        btn.style.background = '#ec4899';
-        btn.style.color = '#fff';
-        btn.style.borderColor = '#ec4899';
+        if (!isActive) {
+          btn.classList.add('active');
+          btn.style.background = '#ec4899';
+          btn.style.color = '#fff';
+          btn.style.borderColor = '#ec4899';
+        }
       });
     });
 
@@ -6084,8 +6108,9 @@ if (elPriorityMatches) {
     // Rendimiento RS Pills
     modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        if (!isActive) btn.classList.add('active');
       });
     });
 
@@ -6094,10 +6119,15 @@ if (elPriorityMatches) {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
         
-        // If "NO JUEGA" is activated, clear the rating buttons
-        if (btn.dataset.tag === 'NO JUEGA' && btn.classList.contains('active')) {
+        // If "NO JUEGA" or "NO VISTO" is activated, clear the rating buttons
+        if ((btn.dataset.tag === 'NO JUEGA' || btn.dataset.tag === 'NO VISTO') && btn.classList.contains('active')) {
           modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-          modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => b.classList.remove('active'));
+          modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = '#fff';
+            b.style.color = '#ec4899';
+            b.style.borderColor = 'rgba(236,72,153,0.3)';
+          });
           modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
         }
       });
@@ -6269,7 +6299,7 @@ if (elPriorityMatches) {
         }
       });
 
-      const isNoJuega = activeTags.includes('NO JUEGA');
+      const isNoJuega = activeTags.includes('NO JUEGA') || activeTags.includes('NO VISTO');
       
       const evalObj = {
         name: pName,
@@ -6324,59 +6354,64 @@ if (elPriorityMatches) {
       saveToFirebase('directorio', state.directory); // Ensure persistence immediately
 
       // Persist the evaluation to the current Match Report in Firebase immediately
-      if (currentEditingReportId) {
-        const idx = state.reports.findIndex(r => r.id === currentEditingReportId);
+      if (targetRepId && targetRepId !== 'temp') {
+        const idx = state.reports.findIndex(r => r.id === targetRepId);
         if (idx !== -1) {
           if (!state.reports[idx].playerEvaluations) state.reports[idx].playerEvaluations = {};
           state.reports[idx].playerEvaluations[evalKey] = evalObj;
           saveToFirebase('informes', state.reports[idx]);
-        }
-      }
-
-      // Recalculate team goals automatically
-      let totalGoals = 0;
-      const prefix = `${currentEditingReportId || 'temp'}_${team}_`;
-      Object.keys(state.matchPlayerEvaluations).forEach(key => {
-        if (key.startsWith(prefix)) {
-          const ev = state.matchPlayerEvaluations[key];
-          if (ev.stats && ev.stats.goles) {
-            totalGoals += parseInt(ev.stats.goles, 10) || 0;
+          if (standaloneMode && typeof window.showCustomAlertModal === 'function') {
+            window.showCustomAlertModal('Guardado', 'La evaluación del partido se ha guardado correctamente.');
           }
         }
-      });
-      const scoreInput = document.getElementById(team === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
-      if (scoreInput) {
-        scoreInput.value = totalGoals;
       }
 
-      // Update pitch visually to reflect any new stat badges (like goals)
-      if (typeof renderPitchPins === 'function') {
-        renderPitchPins('local');
-        renderPitchPins('visitante');
-      }
-
-      // Dynamically update lineup list colors (A/B highlights)
-      ['local', 'visitante'].forEach(t => {
-        const containers = [
-          document.getElementById(`${t}TitularesRows`),
-          document.getElementById(`${t}SuplentesRows`)
-        ];
-        containers.forEach(container => {
-          if (!container) return;
-          container.querySelectorAll('.lineup-row').forEach(row => {
-            const nameInput = row.querySelector('input.name');
-            if (nameInput && nameInput.value.trim().toLowerCase() === pName.trim().toLowerCase()) {
-              let inputBgStyle = '';
-              if (evalObj.rendimientoRS === 'A') inputBgStyle = 'rgba(34, 197, 94, 0.25)';
-              else if (evalObj.rendimientoRS === 'B') inputBgStyle = 'rgba(234, 179, 8, 0.25)';
-              
-              row.querySelectorAll('input, select').forEach(el => {
-                el.style.backgroundColor = inputBgStyle;
-              });
+      if (!standaloneMode) {
+        // Recalculate team goals automatically
+        let totalGoals = 0;
+        const prefix = `${targetRepId}_${team}_`;
+        Object.keys(state.matchPlayerEvaluations).forEach(key => {
+          if (key.startsWith(prefix)) {
+            const ev = state.matchPlayerEvaluations[key];
+            if (ev.stats && ev.stats.goles) {
+              totalGoals += parseInt(ev.stats.goles, 10) || 0;
             }
+          }
+        });
+        const scoreInput = document.getElementById(team === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
+        if (scoreInput) {
+          scoreInput.value = totalGoals;
+        }
+
+        // Update pitch visually to reflect any new stat badges (like goals)
+        if (typeof renderPitchPins === 'function') {
+          renderPitchPins('local');
+          renderPitchPins('visitante');
+        }
+
+        // Dynamically update lineup list colors (A/B highlights)
+        ['local', 'visitante'].forEach(t => {
+          const containers = [
+            document.getElementById(`${t}TitularesRows`),
+            document.getElementById(`${t}SuplentesRows`)
+          ];
+          containers.forEach(container => {
+            if (!container) return;
+            container.querySelectorAll('.lineup-row').forEach(row => {
+              const nameInput = row.querySelector('input.name');
+              if (nameInput && nameInput.value.trim().toLowerCase() === pName.trim().toLowerCase()) {
+                let inputBgStyle = '';
+                if (evalObj.rendimientoRS === 'A') inputBgStyle = 'rgba(34, 197, 94, 0.25)';
+                else if (evalObj.rendimientoRS === 'B') inputBgStyle = 'rgba(234, 179, 8, 0.25)';
+                
+                row.querySelectorAll('input, select').forEach(el => {
+                  el.style.backgroundColor = inputBgStyle;
+                });
+              }
+            });
           });
         });
-      });
+      }
 
       hideModal();
       if (modalFooter) modalFooter.style.display = '';
@@ -6537,26 +6572,42 @@ if (elPriorityMatches) {
       saveCurrentTacticalRoleState('visitante');
 
       const repId = currentEditingReportId || ('rep_' + Date.now());
+      currentEditingReportId = repId; // Update so subsequent saves overwrite the same report
       if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
 
       ['local', 'visitante'].forEach(t => {
-        const rows = document.querySelectorAll(`#${t}TitularesRows .lineup-row, #${t}SuplentesRows .lineup-row`);
-        rows.forEach((r) => {
-          const pNum = r.querySelector('input.num')?.value || r.querySelector('.num')?.value || '';
-          const pNameRaw = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
-          const pName = pNameRaw.replace(/\s*\[.*?\]$/, '');
-          const evalKey = `${repId}_${t}_${pNum}`;
-          if (state.matchPlayerEvaluations[evalKey]) {
-            state.matchPlayerEvaluations[evalKey].dificultadPartido = getDifficultyRating(t) || '-';
-            if (r.parentElement && r.parentElement.id && r.parentElement.id.includes('Titulares') && !state.matchPlayerEvaluations[evalKey].sustituido) {
-              if (!state.matchPlayerEvaluations[evalKey].minutos) {
-                state.matchPlayerEvaluations[evalKey].minutos = 90;
+        ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+          const system = matchTacticalSystems[t]?.[sysKey] || {};
+          
+          const processPlayers = (playersArr, isTitular) => {
+            (playersArr || []).forEach(p => {
+              if (!p.num) return;
+              const pNum = String(p.num).trim();
+              const pName = (p.name || '').replace(/\s*\[.*?\]$/, '').trim();
+              const evalKey = `${repId}_${t}_${pNum}`;
+              
+              if (!state.matchPlayerEvaluations[evalKey]) {
+                state.matchPlayerEvaluations[evalKey] = {
+                  rendimiento: '', potencial: '', rendimientoRS: '', tags: [], minutos: 0,
+                  sustituido: false, comentarioGeneral: '', descFisica: '', descTecnica: '',
+                  descEmocional: '', perfilRS: '', stats: {}
+                };
               }
-            }
-            if (pName) {
-              syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
-            }
-          }
+              
+              state.matchPlayerEvaluations[evalKey].dificultadPartido = getDifficultyRating(t) || '-';
+              if (isTitular && !state.matchPlayerEvaluations[evalKey].sustituido) {
+                if (!state.matchPlayerEvaluations[evalKey].minutos) {
+                  state.matchPlayerEvaluations[evalKey].minutos = 90;
+                }
+              }
+              if (pName) {
+                syncPlayerMatchReportToDirectory(pName, pNum, t === 'local' ? localTeam : visitanteTeam, state.matchPlayerEvaluations[evalKey]);
+              }
+            });
+          };
+
+          processPlayers(system.titulares, true);
+          processPlayers(system.suplentes, false);
         });
       });
 
@@ -7224,10 +7275,10 @@ let currentPlanificacionTab = 'calendario';
           const name = (pObj.name || '');
           if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
             
-            let isNoJuega = pObj.tags && Array.isArray(pObj.tags) && pObj.tags.includes('NO JUEGA');
+            let isNoJuega = pObj.tags && Array.isArray(pObj.tags) && (pObj.tags.includes('NO JUEGA') || pObj.tags.includes('NO VISTO'));
             if (!isNoJuega && player.historialEvaluaciones) {
               const evalRecord = player.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
-              if (evalRecord && evalRecord.tags && evalRecord.tags.includes('NO JUEGA')) {
+              if (evalRecord && evalRecord.tags && (evalRecord.tags.includes('NO JUEGA') || evalRecord.tags.includes('NO VISTO'))) {
                 isNoJuega = true;
               }
             }
@@ -7466,11 +7517,12 @@ let currentPlanificacionTab = 'calendario';
               <div class="ficha-stat-label">LATERALIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(player.pierna || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="padding: 16px; position: relative;">
-              <div class="ficha-stat-label">PARTIDOS VISTOS</div>
+            <div class="ficha-stat-box" id="btnVerInformesEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; border: 2px solid var(--primary-blue); background: var(--bg-subtle);" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
+              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">PARTIDOS VISTOS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 ${partidosVistosCount}
                 ${partidosNoJuegaCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 4px;">(+${partidosNoJuegaCount} no juega)</span>` : ''}
+                <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER INFORMES <i data-lucide="file-text" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
             </div>
             <div class="ficha-stat-box" style="padding: 16px;">
@@ -7511,6 +7563,104 @@ let currentPlanificacionTab = 'calendario';
       btnAtributosCard.onclick = () => {
         document.getElementById('modalJugadorFicha').classList.add('hidden');
         openPlayerEditModal(player.id, 'atributos');
+      };
+    }
+
+    const btnVerInformesEmergente = document.getElementById('btnVerInformesEmergente');
+    if (btnVerInformesEmergente) {
+      btnVerInformesEmergente.onclick = () => {
+        const informesHtml = (player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => {
+          const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
+          const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>` : '';
+          return `
+          <div class="match-report-link-emergente" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${noJuegaBadge}</div>
+              <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
+            </div>
+            <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+          </div>
+        `}).join('') : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin informes registrados</div>`;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.zIndex = '20040';
+        overlay.innerHTML = `
+          <div class="modal-card" style="max-width: 500px; padding: 24px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="file-text" style="color: var(--primary-blue);"></i> Informes de ${escapeHtml(player.nombre || player.jugador || 'Jugador')}
+              </h3>
+              <button class="btn btn-secondary compact" id="btnCloseInformesEmergente" style="padding: 6px;"><i data-lucide="x"></i></button>
+            </div>
+            <div style="overflow-y: auto; padding-right: 4px; flex-grow: 1;">
+              ${informesHtml}
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        if (window.lucide) window.lucide.createIcons();
+
+        document.getElementById('btnCloseInformesEmergente').onclick = () => overlay.remove();
+
+        overlay.querySelectorAll('.match-report-link-emergente').forEach(link => {
+          link.addEventListener('click', () => {
+            const repId = link.dataset.repid;
+            if (repId) {
+              overlay.remove();
+              // Don't close the ficha modal, let it stay in background
+              const targetReport = state.reports.find(r => r.id === repId);
+              if (targetReport) {
+                let pNum, pPos, teamName, teamId;
+                const pName = player.nombre || player.jugador;
+                
+                let foundPlayer = null;
+                const searchGroups = [
+                  { team: 'local', group: 'Titulares', name: targetReport.localTeam },
+                  { team: 'local', group: 'Suplentes', name: targetReport.localTeam },
+                  { team: 'visitante', group: 'Titulares', name: targetReport.visitanteTeam },
+                  { team: 'visitante', group: 'Suplentes', name: targetReport.visitanteTeam }
+                ];
+                
+                for (const g of searchGroups) {
+                  const players = targetReport[`${g.team}${g.group}`] || [];
+                  const matched = players.find(p => p.name && p.name.trim().toLowerCase() === pName.trim().toLowerCase());
+                  if (matched) {
+                    foundPlayer = matched;
+                    pNum = matched.num;
+                    pPos = matched.pos || 'MC';
+                    teamName = g.name;
+                    teamId = g.team;
+                    break;
+                  }
+                }
+                
+                if (foundPlayer) {
+                  if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
+                  if (targetReport.playerEvaluations) {
+                    Object.assign(state.matchPlayerEvaluations, targetReport.playerEvaluations);
+                  }
+                  
+                  openPlayerMatchReportModal({
+                    pNum: pNum,
+                    pName: pName,
+                    pPos: pPos,
+                    teamName: teamName,
+                    team: teamId,
+                    repId: repId,
+                    standaloneMode: true
+                  }, null, null);
+                } else {
+                  if (typeof showCustomAlertModal === 'function') {
+                    showCustomAlertModal('Aviso', 'No se encontró el dorsal/posición del jugador en el informe.');
+                  } else {
+                    alert('No se encontró el jugador en el informe.');
+                  }
+                }
+              }
+            }
+          });
+        });
       };
     }
 
@@ -8055,15 +8205,7 @@ let currentPlanificacionTab = 'calendario';
               </div>
               <div class="form-group">
                 <label class="form-label">RENDIMIENTO RS ${rendimientoRSNum}</label>
-                <select id="pfRendRS" class="form-control">
-                  <option value="">Seleccionar...</option>
-                  <option value="A+" ${rendimientoRS === 'A+' ? 'selected' : ''}>A+</option>
-                  <option value="A" ${rendimientoRS === 'A' ? 'selected' : ''}>A</option>
-                  <option value="B" ${rendimientoRS === 'B' ? 'selected' : ''}>B</option>
-                  <option value="C" ${rendimientoRS === 'C' ? 'selected' : ''}>C</option>
-                  <option value="D" ${rendimientoRS === 'D' ? 'selected' : ''}>D</option>
-                  ${rendimientoRS && !['A+', 'A', 'B', 'C', 'D'].includes(rendimientoRS) ? `<option value="${escapeHtml(rendimientoRS)}" selected>${escapeHtml(rendimientoRS)}</option>` : ''}
-                </select>
+                <input type="text" id="pfRendRS" class="form-control" value="${escapeHtml(rendimientoRS)}" readonly style="background: var(--bg-body);">
               </div>
             </div>
 
@@ -8097,8 +8239,8 @@ let currentPlanificacionTab = 'calendario';
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;" class="mb-4">
               ${(player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => {
-                const isNoJuega = h.tags && h.tags.includes('NO JUEGA');
-                const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA</span>` : '';
+                const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
+                const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>` : '';
                 return `
                 <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -8288,7 +8430,7 @@ let currentPlanificacionTab = 'calendario';
       p.rendimientoAcumulado = document.getElementById('pfRendimientoAcumulado')?.value.trim() || '';
       p.potencial = document.getElementById('pfPotencial')?.value || '3';
       p.minutos = document.getElementById('pfMinutos')?.value.trim() || '';
-      p.rendimientoRS = document.getElementById('pfRendRS')?.value || 'A';
+      p.rendimientoRS = document.getElementById('pfRendRS')?.value || '';
       p.descFisica = document.getElementById('pfDescFisica')?.value.trim() || '';
       p.descTecnica = document.getElementById('pfDescTecnica')?.value.trim() || '';
       p.descEmocional = document.getElementById('pfDescEmocional')?.value.trim() || '';
@@ -8381,7 +8523,56 @@ let currentPlanificacionTab = 'calendario';
         if (repId) {
           if (typeof hideSecondaryModal === 'function') hideSecondaryModal();
           if (typeof hideModal === 'function') hideModal();
-          openMatchReportEditor(repId);
+          
+          const targetReport = state.reports.find(r => r.id === repId);
+          if (targetReport) {
+            let pNum, pPos, teamName, teamId;
+            const pName = player.nombre || player.jugador;
+            
+            let foundPlayer = null;
+            const searchGroups = [
+              { team: 'local', group: 'Titulares', name: targetReport.localTeam },
+              { team: 'local', group: 'Suplentes', name: targetReport.localTeam },
+              { team: 'visitante', group: 'Titulares', name: targetReport.visitanteTeam },
+              { team: 'visitante', group: 'Suplentes', name: targetReport.visitanteTeam }
+            ];
+            
+            for (const g of searchGroups) {
+              const players = targetReport[`${g.team}${g.group}`] || [];
+              const matched = players.find(p => p.name && p.name.trim().toLowerCase() === pName.trim().toLowerCase());
+              if (matched) {
+                foundPlayer = matched;
+                pNum = matched.num;
+                pPos = matched.pos || 'MC';
+                teamName = g.name;
+                teamId = g.team;
+                break;
+              }
+            }
+            
+            if (foundPlayer) {
+              if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
+              if (targetReport.playerEvaluations) {
+                Object.assign(state.matchPlayerEvaluations, targetReport.playerEvaluations);
+              }
+              
+              openPlayerMatchReportModal({
+                pNum: pNum,
+                pName: pName,
+                pPos: pPos,
+                teamName: teamName,
+                team: teamId,
+                repId: repId,
+                standaloneMode: true
+              }, null, null);
+            } else {
+              if (typeof showCustomAlertModal === 'function') {
+                showCustomAlertModal('Aviso', 'No se encontró el dorsal/posición del jugador en el informe.');
+              } else {
+                alert('No se encontró el dorsal/posición del jugador en el informe.');
+              }
+            }
+          }
         }
       });
     });
