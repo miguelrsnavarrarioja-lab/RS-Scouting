@@ -4669,10 +4669,25 @@ if (elPriorityMatches) {
 
       let matchesTeam = false;
       if (pTeams.length > 0) {
+        const normalizeStrictTeam = (name) => {
+          if (!name) return '';
+          let n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '');
+          const prefixes = /\b(ca|cd|sd|ud|cf|fc|rc|ad|cp|at|udc|ucd|atletico|atlético|club atletico|club deportivo|sociedad deportiva|union deportiva|club de futbol|futbol club|club)\b/g;
+          n = n.replace(prefixes, ' ');
+          // Extraer año tipo 26/27 o 2026/2027 si lo hubiera, para que no fastidie la comparación
+          n = n.replace(/\b\d{2,4}\/\d{2,4}\b/g, ' ');
+          return n.trim().replace(/\s+/g, ' ');
+        };
+
         matchesTeam = pTeams.some(t => {
-          const normT = t.replace(/[\.,]/g, '');
-          const normTeam = teamNameLower.replace(/[\.,]/g, '');
-          return normT === normTeam || (normT.length > 2 && (normT.includes(normTeam) || normTeam.includes(normT)));
+          const normTExact = t.toLowerCase().replace(/[\.,]/g, '').trim();
+          const normTeamExact = teamNameLower.replace(/[\.,]/g, '').trim();
+          if (normTExact === normTeamExact) return true;
+          
+          const normT = normalizeStrictTeam(t);
+          const normTeam = normalizeStrictTeam(teamNameLower);
+          
+          return normT === normTeam && normT.length > 0;
         });
       }
 
@@ -6660,16 +6675,19 @@ if (elPriorityMatches) {
       });
 
       let isCompletado = false;
+      let existingIncidencia = '';
       if (currentEditingReportId && state.reports) {
         const existingRep = state.reports.find(r => r.id === currentEditingReportId);
-        if (existingRep && existingRep.completado) {
-          isCompletado = true;
+        if (existingRep) {
+          if (existingRep.completado) isCompletado = true;
+          if (existingRep.incidencia) existingIncidencia = existingRep.incidencia;
         }
       }
 
       const reportObj = {
         id: repId,
         completado: isCompletado,
+        incidencia: existingIncidencia,
         localTeam: localTeam,
         visitanteTeam: visitanteTeam,
         localScore: parseInt(document.getElementById('reportLocalScore')?.value) || 0,
