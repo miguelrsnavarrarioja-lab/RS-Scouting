@@ -5015,6 +5015,7 @@ if (elPriorityMatches) {
           <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
         </div>
         <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 4px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
+        <input type="text" id="filialSelectorPlayerSearch" autocomplete="off" class="form-control" placeholder="Buscar jugador..." style="font-size: 13px; padding: 8px; margin-bottom: 8px; display: none;">
         <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
           <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
         </div>
@@ -5081,7 +5082,10 @@ if (elPriorityMatches) {
 
     function triggerTeamSelection(val) {
       const selectedTeamName = val.trim().toLowerCase();
+      const playerSearchInput = document.getElementById('filialSelectorPlayerSearch');
+
       if (!selectedTeamName) {
+        if (playerSearchInput) playerSearchInput.style.display = 'none';
         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>';
         return;
       }
@@ -5089,6 +5093,7 @@ if (elPriorityMatches) {
       const teamObj = allEquipos.find(eq => eq.nombre && eq.nombre.toLowerCase() === selectedTeamName);
 
       if (!teamObj) {
+        if (playerSearchInput) playerSearchInput.style.display = 'none';
         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Equipo no encontrado.</p>';
         return;
       }
@@ -5131,11 +5136,29 @@ if (elPriorityMatches) {
       }
 
       if (!teamJugadoresHTML) {
+        if (playerSearchInput) playerSearchInput.style.display = 'none';
         playersList.innerHTML = '<p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">El equipo no tiene jugadores registrados en la base de datos.</p>';
         return;
       }
 
       playersList.innerHTML = teamJugadoresHTML;
+
+      if (playerSearchInput) {
+        playerSearchInput.style.display = 'block';
+        playerSearchInput.value = '';
+        playerSearchInput.focus();
+        playerSearchInput.oninput = (e) => {
+          const q = e.target.value.toLowerCase().trim();
+          playersList.querySelectorAll('button').forEach(btn => {
+            const pName = btn.getAttribute('data-name').toLowerCase();
+            if (pName.includes(q)) {
+              btn.style.display = 'flex';
+            } else {
+              btn.style.display = 'none';
+            }
+          });
+        };
+      }
 
       playersList.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -5256,8 +5279,11 @@ if (elPriorityMatches) {
       const nameVal = nameInput ? nameInput.value.trim() : '';
 
       const pNum = numVal || (isTitular ? (idx + 1) : (12 + idx));
-      const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
-      const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+      let evalObj = null;
+      if (numVal) {
+        const evalKey = `${currentEditingReportId || 'temp'}_${team}_${numVal}`;
+        evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+      }
 
       let badgesHTML = '';
       let isZurdo = false;
@@ -5375,8 +5401,11 @@ if (elPriorityMatches) {
         const displayText = numVal ? numVal : ('S' + (idx + 1));
 
         const pNum = numVal || (12 + idx);
-        const evalKey = `${currentEditingReportId || 'temp'}_${team}_${pNum}`;
-        const evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+        let evalObj = null;
+        if (numVal) {
+          const evalKey = `${currentEditingReportId || 'temp'}_${team}_${numVal}`;
+          evalObj = state.matchPlayerEvaluations && state.matchPlayerEvaluations[evalKey] ? state.matchPlayerEvaluations[evalKey] : null;
+        }
 
         let badgesHTML = '';
         let isZurdo = false;
@@ -5611,9 +5640,10 @@ if (elPriorityMatches) {
 
     // Find matching player in directory by name or dorsal+team
     const playerInDir = state.directory.jugadores.find(p => {
-      const nameMatch = p.nombre && p.nombre.toLowerCase().trim() === pName.toLowerCase().trim();
+      const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+      const nameMatch = p.nombre && pName && (normalize(p.nombre) === normalize(pName));
       const numMatch = String(p.dorsal || p.numero || '').trim() === String(pNum).trim();
-      const teamMatch = p.equipo && teamName && window.flexibleMatch(teamName, p.equipo);
+      const teamMatch = p.equipo && teamName && (window.flexibleMatch(teamName, p.equipo) || window.flexibleMatch(p.equipo, teamName));
       return nameMatch || (numMatch && teamMatch);
     });
 
@@ -6611,8 +6641,17 @@ if (elPriorityMatches) {
         });
       });
 
+      let isCompletado = false;
+      if (currentEditingReportId && state.reports) {
+        const existingRep = state.reports.find(r => r.id === currentEditingReportId);
+        if (existingRep && existingRep.completado) {
+          isCompletado = true;
+        }
+      }
+
       const reportObj = {
         id: repId,
+        completado: isCompletado,
         localTeam: localTeam,
         visitanteTeam: visitanteTeam,
         localScore: parseInt(document.getElementById('reportLocalScore')?.value) || 0,
@@ -7265,8 +7304,6 @@ let currentPlanificacionTab = 'calendario';
 
     if (pNameLower) {
       (state.reports || []).forEach(rep => {
-        if (!rep.completado) return;
-
         let foundAsPlayed = false;
         let foundAsNoJuega = false;
         
