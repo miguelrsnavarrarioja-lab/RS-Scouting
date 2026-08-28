@@ -25,6 +25,7 @@
   // Expose specific modal functions to global scope so inline onclick attributes work
   window.openJugadorFichaReadOnly = function (id) { return openJugadorFichaReadOnly(id); };
   window.openPlayerModal = function (id) { return openPlayerModal(id); };
+  window.openTeamModal = function (id) { return openTeamModal(id); };
   window.openImportTextCalendarModal = function () { return openImportTextCalendarModal(); };
   window.openConvocatoriaFichaReadOnly = function (id) { return openConvocatoriaFichaReadOnly(id); };
 
@@ -1290,41 +1291,68 @@ if (elPriorityMatches) {
     const players = state.directory?.jugadores || [];
 
     const completedReports = (state.reports || []).filter(r => r.completado);
-    const seenPlayerNames = new Set();
+    const seenPlayerCounts = new Map();
     completedReports.forEach(r => {
-      const processLineup = (lineupData) => {
+      const processLineup = (lineupData, repId) => {
         if (!lineupData) return;
         try {
           const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
           if (Array.isArray(lineup)) {
             lineup.forEach(p => {
               const n = p.name || p.nombre;
-              if (n) seenPlayerNames.add(n.toLowerCase().trim());
+              if (n) {
+                // Ignore if marked as 'NO JUEGA' in lineup JSON
+                if (p.tags && Array.isArray(p.tags) && p.tags.includes('NO JUEGA')) {
+                  return;
+                }
+                const key = n.toLowerCase().trim();
+                
+                // Also check if 'NO JUEGA' is set in the player's individual historical evaluations for this report
+                const pDir = players.find(pd => (pd.nombre || pd.jugador || pd.name || '').toLowerCase().trim() === key);
+                if (pDir && pDir.historialEvaluaciones) {
+                  const evalRecord = pDir.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
+                  if (evalRecord && evalRecord.tags && evalRecord.tags.includes('NO JUEGA')) {
+                    return; // Ignore this appearance
+                  }
+                }
+
+                seenPlayerCounts.set(key, (seenPlayerCounts.get(key) || 0) + 1);
+              }
             });
           }
         } catch (e) { }
       };
-      processLineup(r.titularesLocal || r.localTitulares);
-      processLineup(r.suplentesLocal || r.localSuplentes);
-      processLineup(r.titularesVisitante || r.visitanteTitulares);
-      processLineup(r.suplentesVisitante || r.visitanteSuplentes);
+      processLineup(r.titularesLocal || r.localTitulares, r.id);
+      processLineup(r.suplentesLocal || r.localSuplentes, r.id);
+      processLineup(r.titularesVisitante || r.visitanteTitulares, r.id);
+      processLineup(r.suplentesVisitante || r.visitanteSuplentes, r.id);
     });
 
     const groups = {
-      'Sin Año': { total: 0, vistos: 0 }
+      'Sin Año': { total: 0, vistos: 0, jugadoresVistos: [] }
     };
 
     players.forEach(p => {
-      const isVisto = p.nombre && seenPlayerNames.has(p.nombre.toLowerCase().trim());
+      const pNameLower = p.nombre ? p.nombre.toLowerCase().trim() : '';
+      const vistasCount = seenPlayerCounts.get(pNameLower) || 0;
+      const isVisto = vistasCount > 0;
       let year = parseInt(String(p.anoNac || p.ano || p.anyo || '').trim(), 10);
       if (!year || isNaN(year)) {
         groups['Sin Año'].total++;
-        if (isVisto) groups['Sin Año'].vistos++;
+        if (isVisto) {
+          groups['Sin Año'].vistos++;
+          const pData = { ...p, vistos: vistasCount };
+          groups['Sin Año'].jugadoresVistos.push(pData);
+        }
       } else {
         const key = String(year);
-        if (!groups[key]) groups[key] = { total: 0, vistos: 0 };
+        if (!groups[key]) groups[key] = { total: 0, vistos: 0, jugadoresVistos: [] };
         groups[key].total++;
-        if (isVisto) groups[key].vistos++;
+        if (isVisto) {
+          groups[key].vistos++;
+          const pData = { ...p, vistos: vistasCount };
+          groups[key].jugadoresVistos.push(pData);
+        }
       }
     });
 
@@ -1356,7 +1384,7 @@ if (elPriorityMatches) {
       if (!ageGroupStats[groupName]) ageGroupStats[groupName] = { total: 0, vistos: 0, years: [] };
       ageGroupStats[groupName].total += groups[year].total;
       ageGroupStats[groupName].vistos += groups[year].vistos;
-      ageGroupStats[groupName].years.push({ year, total: groups[year].total, vistos: groups[year].vistos, subAge });
+      ageGroupStats[groupName].years.push({ year, total: groups[year].total, vistos: groups[year].vistos, subAge, jugadoresVistos: groups[year].jugadoresVistos });
     });
 
     let html = '';
@@ -1374,7 +1402,7 @@ if (elPriorityMatches) {
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
           <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stats.vistos >= stats.total && stats.total > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${stats.vistos}/${stats.total}</span>
-          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(groupName)}</span>
         </div>
       </div>`;
     });
@@ -1392,19 +1420,27 @@ if (elPriorityMatches) {
 
     const teams = state.directory?.equipos || [];
     const completedReports = (state.reports || []).filter(r => r.completado);
-    const vistosSet = new Set();
+    const vistosMap = new Map();
     completedReports.forEach(r => {
       const loc = r.localTeam || r.local || r.equipoLocal;
       const vis = r.visitanteTeam || r.visitante || r.equipoVisitante;
-      if (loc) vistosSet.add(loc.toLowerCase().trim());
-      if (vis) vistosSet.add(vis.toLowerCase().trim());
+      if (loc) {
+        const k = loc.toLowerCase().trim();
+        vistosMap.set(k, (vistosMap.get(k) || 0) + 1);
+      }
+      if (vis) {
+        const k = vis.toLowerCase().trim();
+        vistosMap.set(k, (vistosMap.get(k) || 0) + 1);
+      }
     });
 
     const categoryStats = {};
 
     teams.forEach(t => {
       let cat = String(t.categoria || 'Sin Categoría').trim();
-      const isVisto = t.nombre && vistosSet.has(t.nombre.toLowerCase().trim());
+      const teamKey = t.nombre ? t.nombre.toLowerCase().trim() : '';
+      const numVistos = vistosMap.get(teamKey) || 0;
+      const isVisto = numVistos > 0;
 
       if (!categoryStats[cat]) {
         categoryStats[cat] = { total: 0, vistos: 0, groups: {} };
@@ -1419,7 +1455,7 @@ if (elPriorityMatches) {
         categoryStats[cat].groups[grupo] = { total: 0, vistos: 0, equipos: [] };
       }
       categoryStats[cat].groups[grupo].total++;
-      categoryStats[cat].groups[grupo].equipos.push({ nombre: t.nombre || 'Sin nombre', visto: isVisto });
+      categoryStats[cat].groups[grupo].equipos.push({ nombre: t.nombre || 'Sin nombre', visto: isVisto, vistoCount: numVistos, id: t.id });
       if (isVisto) {
         categoryStats[cat].groups[grupo].vistos++;
       }
@@ -1475,7 +1511,7 @@ if (elPriorityMatches) {
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
           <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${vistosGroup >= totalGroup && totalGroup > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${vistosGroup}/${totalGroup}</span>
-          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(groupName)}</span>
+          <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(groupName)}</span>
         </div>
       </div>`;
     });
@@ -1510,8 +1546,14 @@ if (elPriorityMatches) {
       let subLabel = '';
       if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
 
+      const isSub23 = groupName === 'Senior' && y.subAge > 0 && y.subAge <= 23;
+      const defaultBg = isSub23 ? 'rgba(34, 197, 94, 0.10)' : 'white';
+      const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : '#f8fafc';
+
+      const playersJson = encodeURIComponent(JSON.stringify(y.jugadoresVistos || []));
+      
       html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px;">
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid ${isSub23 ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-color)'}; background: ${defaultBg}; gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='${hoverBg}';" onmouseout="this.style.background='${defaultBg}';" onclick="openPlayersSubcategoryModal('${escapeHtml(groupName)}', '${escapeHtml(y.year)}', '${playersJson}')">
           <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
             <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(y.year)}</span>
@@ -1533,6 +1575,130 @@ if (elPriorityMatches) {
     if (window.lucide) window.lucide.createIcons();
   };
 
+  window.openPlayersSubcategoryModal = function (groupName, year, playersJson) {
+    const players = JSON.parse(decodeURIComponent(playersJson));
+    players.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
+    
+    // Legend for times seen
+    html += `
+      <div style="display: flex; gap: 16px; font-size: 11px; font-weight: 600; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; justify-content: center;">
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(234, 179, 8, 1);"></div>1 vez</div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(59, 130, 246, 1);"></div>2 veces</div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(34, 197, 94, 1);"></div>+2 veces</div>
+      </div>
+    `;
+
+    if (players.length === 0) {
+      html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay jugadores vistos en este año.</div>`;
+    } else {
+      let tbodyHtml = '';
+      players.forEach(p => {
+        let rowBgStyle = '';
+        if (p.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+        else if (p.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+        
+        const playerIdStr = p.id ? `'${escapeHtml(p.id)}'` : 'null';
+        
+        const vistos = p.vistos || 1;
+        let badgeColor = 'rgba(234, 179, 8, 1)'; // Yellow
+        if (vistos === 2) badgeColor = 'rgba(59, 130, 246, 1)'; // Blue
+        if (vistos > 2) badgeColor = 'rgba(34, 197, 94, 1)'; // Green
+        const vistosBadge = `<span style="background: ${badgeColor}; color: white; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;" title="${vistos} veces visto">${vistos}</span>`;
+
+        
+        tbodyHtml += `
+          <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
+            <td style="padding: 12px 16px; font-weight: 600; color: var(--text-dark);">${escapeHtml(p.nombre || 'Sin nombre')}</td>
+            <td style="padding: 12px 16px; color: var(--text-muted);">${escapeHtml(p.equipo || '-')}</td>
+            <td style="padding: 12px 16px; text-align: center;">
+              <span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(p.rendimientoRS || '-')}</span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+              ${vistosBadge}
+            </td>
+            <td style="padding: 12px 16px; text-align: right;">
+              <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openPlayerModal(${playerIdStr}), 300)">Ficha</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: white;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <thead>
+              <tr style="background: var(--bg-subtle); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 10px 16px; font-weight: 800; color: var(--text-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Jugador</th>
+                <th style="padding: 10px 16px; font-weight: 800; color: var(--text-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Equipo</th>
+                <th style="padding: 10px 16px; font-weight: 800; color: var(--text-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: center;">RS</th>
+                <th style="padding: 10px 16px; font-weight: 800; color: var(--text-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: center;">Vistos</th>
+                <th style="padding: 10px 16px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tbodyHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    html += '</div>';
+
+    const card = document.getElementById('generalModalCard');
+    if (card) card.className = 'modal-card large';
+    showModal(`Jugadores Año ${year}`, html, null);
+
+    const btnSubmit = document.getElementById('btnSubmitModal');
+    if (btnSubmit) btnSubmit.style.display = 'none';
+
+    // Add back button
+    setTimeout(() => {
+      const btnClose = document.getElementById('btnCloseModal');
+      if (btnClose && !document.getElementById('btnBackToAgeGroup')) {
+        const header = btnClose.parentNode;
+        
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.gap = '16px';
+        btnContainer.style.alignItems = 'center';
+        
+        const backBtn = document.createElement('button');
+        backBtn.id = 'btnBackToAgeGroup';
+        backBtn.type = 'button';
+        backBtn.className = 'modal-close';
+        backBtn.innerHTML = '<i data-lucide="arrow-left"></i>';
+        backBtn.title = 'Atrás';
+        backBtn.onclick = () => {
+          if (btnClose) btnClose.click();
+          setTimeout(() => {
+            const categoryObj = document.querySelector(`.kpi-card[onclick*="openPlayersAgeGroupModal('${escapeHtml(groupName)}'"]`);
+            if (categoryObj) categoryObj.click();
+          }, 300);
+        };
+        
+        header.insertBefore(btnContainer, btnClose);
+        btnContainer.appendChild(backBtn);
+        btnContainer.appendChild(btnClose); // Moves btnClose into the container
+        
+        const cleanup = () => {
+          if (btnContainer.parentNode) {
+             // Move btnClose back to header when closing so it's not destroyed
+             btnContainer.parentNode.insertBefore(btnClose, btnContainer);
+             btnContainer.parentNode.removeChild(btnContainer);
+          }
+          if (btnClose) btnClose.removeEventListener('click', cleanup);
+        };
+        if (btnClose) btnClose.addEventListener('click', cleanup);
+        
+        if (window.lucide) window.lucide.createIcons();
+      }
+    }, 100);
+
+    if (window.lucide) window.lucide.createIcons();
+  };
+
   window.openTeamsCategoryModal = function (groupName, statsJson) {
     const stats = JSON.parse(decodeURIComponent(statsJson));
     const orderRef = state.directoryCategoriesOrder || [];
@@ -1542,6 +1708,15 @@ if (elPriorityMatches) {
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
+
+      // Custom rule: CV before CH
+      if (a.cat === 'CV' && b.cat === 'CH') return -1;
+      if (a.cat === 'CH' && b.cat === 'CV') return 1;
+
+      // Custom rule: LNJ before JAU
+      if (a.cat === 'LNJ' && b.cat === 'JAU') return -1;
+      if (a.cat === 'JAU' && b.cat === 'LNJ') return 1;
+
       return a.cat.localeCompare(b.cat);
     });
 
@@ -1554,7 +1729,6 @@ if (elPriorityMatches) {
         <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeHtml(stat.cat)}', '${escapeHtml(groupName)}', '${groupsJson}')">
           <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
-            <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">${escapeHtml(groupName)}</span>
             <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
             <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(stat.cat)}</span>
           </div>
@@ -1583,6 +1757,15 @@ if (elPriorityMatches) {
     });
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
+    
+    // Legend for times seen
+    html += `
+      <div style="display: flex; gap: 16px; font-size: 11px; font-weight: 600; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; justify-content: center;">
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(234, 179, 8, 0.4);"></div>1 vez</div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(59, 130, 246, 0.4);"></div>2 veces</div>
+        <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(34, 197, 94, 0.4);"></div>+2 veces</div>
+      </div>
+    `;
 
     if (groupNames.length === 0) {
       html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay equipos registrados en esta categoría.</div>`;
@@ -1594,12 +1777,22 @@ if (elPriorityMatches) {
 
       let teamsHtml = '';
       gStats.equipos.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(t => {
-        const teamColor = t.visto ? 'var(--accent-green)' : 'var(--text-muted)';
-        const teamIcon = t.visto ? 'check-circle-2' : 'circle';
+        let rowBgStyle = '';
+        if (t.vistoCount > 2) {
+          rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+        } else if (t.vistoCount === 2) {
+          rowBgStyle = 'background-color: rgba(59, 130, 246, 0.15);';
+        } else if (t.vistoCount === 1) {
+          rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+        }
+
+        const teamIdStr = t.id ? `'${escapeHtml(t.id)}'` : 'null';
+        const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
+
         teamsHtml += `
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 4px 0; border-bottom: 1px dashed var(--border-light);">
-                <i data-lucide="${teamIcon}" style="width: 14px; height: 14px; color: ${teamColor}; flex-shrink: 0;"></i>
-                <span style="color: ${t.visto ? 'var(--text-dark)' : 'var(--text-muted)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${rowBgStyle}">
+                <span style="color: ${teamColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+                <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
             </div>`;
       });
 
@@ -1627,37 +1820,48 @@ if (elPriorityMatches) {
     if (btnSubmit) btnSubmit.style.display = 'none';
 
     // Custom back button to return to previous modal
-    const footer = document.getElementById('modalFooter');
-    if (footer) {
-      const backBtn = document.createElement('button');
-      backBtn.type = 'button';
-      backBtn.className = 'btn btn-secondary';
-      backBtn.innerHTML = '<i data-lucide="arrow-left"></i> Volver a ' + escapeHtml(parentCatName);
-      backBtn.onclick = () => {
-        const btnClose = document.getElementById('btnCloseModal');
-        if (btnClose) btnClose.click();
-        // We use setTimeout to let the current modal close animation finish
-        setTimeout(() => {
-          const categoryObj = document.querySelector(`.kpi-card[onclick*="openTeamsCategoryModal('${escapeHtml(parentCatName)}'"]`);
-          if (categoryObj) categoryObj.click();
-        }, 300);
-      };
-      // Insert before the cancel button
-      const cancelBtn = document.getElementById('btnCancelModal');
-      if (cancelBtn) {
-        footer.insertBefore(backBtn, cancelBtn);
-        // Clean up the back button when modal closes
-        const cleanup = () => {
-          if (backBtn.parentNode) backBtn.parentNode.removeChild(backBtn);
-          const closeBtn = document.getElementById('btnCloseModal');
-          if (closeBtn) closeBtn.removeEventListener('click', cleanup);
-          if (cancelBtn) cancelBtn.removeEventListener('click', cleanup);
+    setTimeout(() => {
+      const btnClose = document.getElementById('btnCloseModal');
+      if (btnClose && !document.getElementById('btnBackToTeamGroup')) {
+        const header = btnClose.parentNode;
+        
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.gap = '16px';
+        btnContainer.style.alignItems = 'center';
+        
+        const backBtn = document.createElement('button');
+        backBtn.id = 'btnBackToTeamGroup';
+        backBtn.type = 'button';
+        backBtn.className = 'modal-close';
+        backBtn.innerHTML = '<i data-lucide="arrow-left"></i>';
+        backBtn.title = 'Atrás';
+        backBtn.onclick = () => {
+          if (btnClose) btnClose.click();
+          // We use setTimeout to let the current modal close animation finish
+          setTimeout(() => {
+            const categoryObj = document.querySelector(`.kpi-card[onclick*="openTeamsCategoryModal('${escapeHtml(parentCatName)}'"]`);
+            if (categoryObj) categoryObj.click();
+          }, 300);
         };
-        const closeBtn = document.getElementById('btnCloseModal');
-        if (closeBtn) closeBtn.addEventListener('click', cleanup);
-        cancelBtn.addEventListener('click', cleanup);
+        
+        header.insertBefore(btnContainer, btnClose);
+        btnContainer.appendChild(backBtn);
+        btnContainer.appendChild(btnClose); // Moves btnClose into the container
+        
+        const cleanup = () => {
+          if (btnContainer.parentNode) {
+             // Move btnClose back to header when closing so it's not destroyed
+             btnContainer.parentNode.insertBefore(btnClose, btnContainer);
+             btnContainer.parentNode.removeChild(btnContainer);
+          }
+          if (btnClose) btnClose.removeEventListener('click', cleanup);
+        };
+        if (btnClose) btnClose.addEventListener('click', cleanup);
+        
+        if (window.lucide) window.lucide.createIcons();
       }
-    }
+    }, 100);
 
     if (window.lucide) window.lucide.createIcons();
   };
@@ -1911,6 +2115,9 @@ if (elPriorityMatches) {
           } else {
              console.error('window.openNotaModal is not a function!', window.openNotaModal);
           }
+        } else if (target === 'enlaces') {
+          currentPlanificacionTab = 'enlaces';
+          navigateToTab('planificacion');
         } else {
           navigateToTab(target);
         }
@@ -2615,6 +2822,7 @@ if (elPriorityMatches) {
   let currentPartidosDayTab = 'all';
   let currentPartidosStatusTab = 'all';
   let currentPartidosVisionadoTab = 'all';
+  let currentPartidosIncidenciaTab = 'all';
 
   function renderMatchCategorySubtabs() {
     const container = document.getElementById('matchCategorySubtabsBar');
@@ -2628,6 +2836,14 @@ if (elPriorityMatches) {
     const dayMap = {};
     const daySortMap = {};
     const visionadoMap = { 'DIRECTO': 0, 'VÍDEO': 0 };
+    const incidenciaMap = { 
+      '': 0,
+      'Falta acta en Federación': 0,
+      'Equipo no creado en app': 0,
+      'Falta vídeo del partido': 0,
+      'Suspendido / Aplazado': 0,
+      'Otra incidencia': 0
+    };
 
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     const fullMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -2641,6 +2857,9 @@ if (elPriorityMatches) {
 
       const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
       visionadoMap[vis] = (visionadoMap[vis] || 0) + 1;
+      
+      const val = r.incidencia || '';
+      incidenciaMap[val] = (incidenciaMap[val] || 0) + 1;
 
       const dateStr = r.date || r.fecha;
       if (dateStr) {
@@ -2704,8 +2923,6 @@ if (elPriorityMatches) {
     });
 
     let html = `
-      <div class="dir-subfilter-container mb-3" style="display: flex; flex-direction: column; gap: 12px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-        
         <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
@@ -2782,8 +2999,22 @@ if (elPriorityMatches) {
               <option value="VÍDEO" ${currentPartidosVisionadoTab === 'VÍDEO' ? 'selected' : ''}>VÍDEO (${visionadoMap['VÍDEO']})</option>
             </select>
           </div>
+          
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="alert-triangle" style="width: 14px;"></i> Incidencias:
+            </span>
+            <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+              <option value="all" ${currentPartidosIncidenciaTab === 'all' ? 'selected' : ''}>TODAS</option>
+              <option value="" ${currentPartidosIncidenciaTab === '' ? 'selected' : ''}>Sin Incidencias (${incidenciaMap[''] || 0})</option>
+              <option value="Falta acta en Federación" ${currentPartidosIncidenciaTab === 'Falta acta en Federación' ? 'selected' : ''}>Falta acta en Fed. (${incidenciaMap['Falta acta en Federación'] || 0})</option>
+              <option value="Equipo no creado en app" ${currentPartidosIncidenciaTab === 'Equipo no creado en app' ? 'selected' : ''}>Equipo no creado (${incidenciaMap['Equipo no creado en app'] || 0})</option>
+              <option value="Falta vídeo del partido" ${currentPartidosIncidenciaTab === 'Falta vídeo del partido' ? 'selected' : ''}>Falta vídeo (${incidenciaMap['Falta vídeo del partido'] || 0})</option>
+              <option value="Suspendido / Aplazado" ${currentPartidosIncidenciaTab === 'Suspendido / Aplazado' ? 'selected' : ''}>Suspendido / Aplazado (${incidenciaMap['Suspendido / Aplazado'] || 0})</option>
+              <option value="Otra incidencia" ${currentPartidosIncidenciaTab === 'Otra incidencia' ? 'selected' : ''}>Otra incidencia (${incidenciaMap['Otra incidencia'] || 0})</option>
+            </select>
+          </div>
         </div>
-      </div>
     `;
 
     container.innerHTML = html;
@@ -2815,6 +3046,11 @@ if (elPriorityMatches) {
 
     document.getElementById('partidosVisionadoSelect')?.addEventListener('change', (e) => {
       currentPartidosVisionadoTab = e.target.value;
+      renderPartidosList();
+    });
+    
+    document.getElementById('partidosIncidenciaSelect')?.addEventListener('change', (e) => {
+      currentPartidosIncidenciaTab = e.target.value;
       renderPartidosList();
     });
 
@@ -2890,8 +3126,14 @@ if (elPriorityMatches) {
         const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
         matchesVisionado = (vis === currentPartidosVisionadoTab);
       }
+      
+      let matchesIncidencia = true;
+      if (currentPartidosIncidenciaTab !== 'all') {
+        const val = r.incidencia || '';
+        matchesIncidencia = (val === currentPartidosIncidenciaTab);
+      }
 
-      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus && matchesVisionado;
+      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus && matchesVisionado && matchesIncidencia;
     });
 
     // Ordenar los informes según estado (Incompletos primero, luego Completados) y luego por fecha más reciente
@@ -3104,6 +3346,16 @@ if (elPriorityMatches) {
                   <i data-lucide="trash-2"></i>
                 </button>
               </div>
+              <div style="margin-top: 8px;">
+                <select class="form-control select-incidencia" data-repid="${r.id}" style="font-size: 11px; padding: 4px; height: 26px; border-radius: 6px; border: 1px solid ${r.incidencia && r.incidencia !== '' ? '#ef4444' : 'var(--border-medium)'}; background: ${r.incidencia && r.incidencia !== '' ? '#fef2f2' : 'transparent'}; color: ${r.incidencia && r.incidencia !== '' ? '#dc2626' : 'var(--text-muted)'}; font-weight: 700; width: 100%; transition: all 0.2s; cursor: pointer;">
+                  <option value="">✅ Sin incidencias (Informe realizable)</option>
+                  <option value="Falta acta en Federación" ${r.incidencia === 'Falta acta en Federación' ? 'selected' : ''}>⚠️ Falta acta en Federación</option>
+                  <option value="Equipo no creado en app" ${r.incidencia === 'Equipo no creado en app' ? 'selected' : ''}>⚠️ Equipo no creado en app de la RS</option>
+                  <option value="Falta vídeo del partido" ${r.incidencia === 'Falta vídeo del partido' ? 'selected' : ''}>⚠️ Falta vídeo del partido</option>
+                  <option value="Suspendido / Aplazado" ${r.incidencia === 'Suspendido / Aplazado' ? 'selected' : ''}>⚠️ Partido Suspendido / Aplazado</option>
+                  <option value="Otra incidencia" ${r.incidencia === 'Otra incidencia' ? 'selected' : ''}>⚠️ Otra incidencia (Revisar)</option>
+                </select>
+              </div>
             </div>
             `;
           }).join('');
@@ -3198,6 +3450,18 @@ if (elPriorityMatches) {
             renderPartidosList();
             renderDashboard(); // Actualizar KPIs
             if (typeof showNotification === 'function') showNotification('Informe completado', 'success');
+          }
+        });
+      });
+      container.querySelectorAll('.select-incidencia').forEach(select => {
+        select.addEventListener('change', (e) => {
+          const repId = e.target.dataset.repid;
+          const report = state.reports.find(r => r.id === repId);
+          if (report) {
+            report.incidencia = e.target.value;
+            saveToFirebase('informes', report);
+            saveState();
+            renderPartidosList();
           }
         });
       });
@@ -4405,7 +4669,11 @@ if (elPriorityMatches) {
 
       let matchesTeam = false;
       if (pTeams.length > 0) {
-        matchesTeam = pTeams.some(t => t === teamNameLower || (t.length > 2 && (t.includes(teamNameLower) || teamNameLower.includes(t))) || window.flexibleMatch(teamNameLower, t) || window.flexibleMatch(t, teamNameLower));
+        matchesTeam = pTeams.some(t => {
+          const normT = t.replace(/[\.,]/g, '');
+          const normTeam = teamNameLower.replace(/[\.,]/g, '');
+          return normT === normTeam || (normT.length > 2 && (normT.includes(normTeam) || normTeam.includes(normT)));
+        });
       }
 
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
@@ -4486,7 +4754,11 @@ if (elPriorityMatches) {
 
         let matchesTeam = false;
         if (pTeams.length > 0) {
-          matchesTeam = pTeams.some(t => t === teamName || (t.length > 2 && (t.includes(teamName) || teamName.includes(t))) || window.flexibleMatch(teamName, t) || window.flexibleMatch(t, teamName));
+          matchesTeam = pTeams.some(t => {
+            const normT = t.replace(/[\.,]/g, '');
+            const normTeam = teamName.replace(/[\.,]/g, '');
+            return normT === normTeam || (normT.length > 2 && (normT.includes(normTeam) || normTeam.includes(normT)));
+          });
         }
 
         const pName = (p.nombre || p.jugador || p.name || '');
@@ -5359,7 +5631,8 @@ if (elPriorityMatches) {
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
       if (evalData.tags && evalData.tags.length > 0) {
-        const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...evalData.tags]);
+        const trackingTags = evalData.tags.filter(t => t !== 'NO JUEGA');
+        const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...trackingTags]);
         playerInDir.controlSeguimiento = Array.from(newTags);
       }
 
@@ -5382,7 +5655,8 @@ if (elPriorityMatches) {
         descTecnica: evalData.descTecnica || '',
         descEmocional: evalData.descEmocional || '',
         perfilRS: evalData.perfilRS || '',
-        stats: evalData.stats || {}
+        stats: evalData.stats || {},
+        tags: evalData.tags || []
       };
 
       if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
@@ -5818,6 +6092,13 @@ if (elPriorityMatches) {
     modalContent.querySelectorAll('.tag-control-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
+        
+        // If "NO JUEGA" is activated, clear the rating buttons
+        if (btn.dataset.tag === 'NO JUEGA' && btn.classList.contains('active')) {
+          modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
+          modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => b.classList.remove('active'));
+          modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
+        }
       });
     });
 
@@ -5987,11 +6268,13 @@ if (elPriorityMatches) {
         }
       });
 
+      const isNoJuega = activeTags.includes('NO JUEGA');
+      
       const evalObj = {
         name: pName,
-        rendimiento: modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C',
-        potencial: modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active')?.dataset.val || '3',
-        rendimientoRS: activeRSBtn ? activeRSBtn.dataset.val : 'C',
+        rendimiento: isNoJuega ? '' : (modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C'),
+        potencial: isNoJuega ? '' : (modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active')?.dataset.val || '3'),
+        rendimientoRS: isNoJuega ? '' : (activeRSBtn ? activeRSBtn.dataset.val : 'C'),
         dificultadPartido: getDifficultyRating(team) || '-',
         tags: activeTags,
         entra: isEntra,
@@ -6895,12 +7178,13 @@ let currentPlanificacionTab = 'calendario';
 
     // Check Mapas RS
     let inMapas = 'No';
-    if (player.controlSeguimiento && player.controlSeguimiento.length > 0) {
+    if (player.controlSeguimiento && Array.isArray(player.controlSeguimiento) && player.controlSeguimiento.includes('MAPA RS')) {
       inMapas = 'Sí';
     }
 
     // Count Partidos Vistos and Auto-fill Posiciones
     let partidosVistosCount = 0;
+    let partidosNoJuegaCount = 0;
     let posicionesVistas = new Set();
     const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
 
@@ -6908,38 +7192,54 @@ let currentPlanificacionTab = 'calendario';
       (state.reports || []).forEach(rep => {
         if (!rep.completado) return;
 
-        let foundInThisReport = false;
-        const checkPlayer = (pObj, teamName) => {
+        let foundAsPlayed = false;
+        let foundAsNoJuega = false;
+        
+        const checkPlayer = (pObj, teamName, repId) => {
           if (!pObj) return;
           const name = (pObj.name || '');
           if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
-            foundInThisReport = true;
-            if (pObj.pos && pObj.pos !== '-') {
-              posicionesVistas.add(pObj.pos);
+            
+            let isNoJuega = pObj.tags && Array.isArray(pObj.tags) && pObj.tags.includes('NO JUEGA');
+            if (!isNoJuega && player.historialEvaluaciones) {
+              const evalRecord = player.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
+              if (evalRecord && evalRecord.tags && evalRecord.tags.includes('NO JUEGA')) {
+                isNoJuega = true;
+              }
+            }
+
+            if (isNoJuega) {
+              foundAsNoJuega = true;
+            } else {
+              foundAsPlayed = true;
+              if (pObj.pos && pObj.pos !== '-') {
+                posicionesVistas.add(pObj.pos);
+              }
             }
           }
         };
 
-        (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-        (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-        (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-        (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+        (rep.localTitulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local, rep.id));
+        (rep.localSuplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local, rep.id));
+        (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
+        (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
 
-        if (foundInThisReport) partidosVistosCount++;
+        if (foundAsPlayed) partidosVistosCount++;
+        else if (foundAsNoJuega) partidosNoJuegaCount++;
 
         if (rep.localSystems) {
           ['principal', 'secundario', 'ocasional'].forEach(role => {
             if (rep.localSystems[role]) {
-              (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
-              (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local));
+              (rep.localSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local, rep.id));
+              (rep.localSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.localTeam || rep.local, rep.id));
             }
           });
         }
         if (rep.visitanteSystems) {
           ['principal', 'secundario', 'ocasional'].forEach(role => {
             if (rep.visitanteSystems[role]) {
-              (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
-              (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante));
+              (rep.visitanteSystems[role].titulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
+              (rep.visitanteSystems[role].suplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
             }
           });
         }
@@ -7033,6 +7333,57 @@ let currentPlanificacionTab = 'calendario';
       }
     }
 
+    // Generate mini chart for Attributes
+    const pStatsObj = calculatePlayerStats(player.id || player.codigo) || {};
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 100;
+    tempCanvas.height = 100;
+    tempCanvas.style.display = 'none';
+    document.body.appendChild(tempCanvas);
+
+    const valEmo = pStatsObj.atrEmocional || 3;
+    const valFis = pStatsObj.atrFisico || 3;
+    const valDef = pStatsObj.atrDefensa || 3;
+    const valAta = pStatsObj.atrAtaque || 3;
+    const valPue = pStatsObj.atrPuesto || 3;
+
+    const tempChart = new Chart(tempCanvas.getContext('2d'), {
+      type: 'radar',
+      data: {
+        labels: ['Emo', 'Fís', 'Def', 'Ata', 'Pue'],
+        datasets: [{
+          data: [valEmo, valFis, valDef, valAta, valPue],
+          backgroundColor: 'rgba(37, 99, 235, 0.2)',
+          borderColor: 'rgba(37, 99, 235, 1)',
+          pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+          pointBorderColor: '#fff',
+          pointRadius: 1,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: false,
+        scales: {
+          r: {
+            angleLines: { display: true },
+            suggestedMin: 0,
+            suggestedMax: 10,
+            ticks: { display: false, stepSize: 2 },
+            pointLabels: { display: false } // Hide text labels for mini chart
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        }
+      }
+    });
+
+    const miniChartImgSrc = tempCanvas.toDataURL('image/png');
+    tempChart.destroy();
+    document.body.removeChild(tempCanvas);
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         
@@ -7068,10 +7419,11 @@ let currentPlanificacionTab = 'calendario';
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" id="btnAtributosCard" class="ficha-stat-box" style="background: var(--bg-subtle); border: 2px solid var(--primary-blue); padding: 16px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
-              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">ATRIBUTOS</div>
-              <div class="ficha-stat-value" style="color: var(--primary-blue); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px;">
-                Ver / Editar <i data-lucide="edit-3"></i>
+            <div class="ficha-stat-box" id="btnAtributosCard" class="ficha-stat-box" style="background: var(--bg-subtle); border: 2px solid var(--primary-blue); padding: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
+              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900; margin-bottom: 4px;">ATRIBUTOS</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <img src="${miniChartImgSrc}" style="width: 50px; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800;">VER / EDITAR <i data-lucide="edit-3" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
             </div>
             <div class="ficha-stat-box" style="padding: 16px;">
@@ -7090,9 +7442,12 @@ let currentPlanificacionTab = 'calendario';
               <div class="ficha-stat-label">LATERALIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(player.pierna || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="padding: 16px;">
+            <div class="ficha-stat-box" style="padding: 16px; position: relative;">
               <div class="ficha-stat-label">PARTIDOS VISTOS</div>
-              <div class="ficha-stat-value">${partidosVistosCount}</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                ${partidosVistosCount}
+                ${partidosNoJuegaCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 4px;">(+${partidosNoJuegaCount} no juega)</span>` : ''}
+              </div>
             </div>
             <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">EN MAPAS RS</div>
@@ -7717,15 +8072,18 @@ let currentPlanificacionTab = 'calendario';
               <i data-lucide="file-text"></i> INFORMES DE PARTIDO
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;" class="mb-4">
-              ${(player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => `
+              ${(player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => {
+                const isNoJuega = h.tags && h.tags.includes('NO JUEGA');
+                const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA</span>` : '';
+                return `
                 <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')}</div>
+                    <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${noJuegaBadge}</div>
                     <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
                   </div>
                   <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
                 </div>
-              `).join('') : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin informes registrados</div>`}
+              `}).join('') : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin informes registrados</div>`}
             </div>
 
 

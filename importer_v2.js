@@ -293,8 +293,6 @@ function processPlantillasImport(text) {
             rol: 'Jugador',
             ano: '',
             equipo: defaultEquipo,
-            posicionPrincipal: '',
-            posicionSecundaria: '',
             comunidad: '',
             poblacion: '',
             lateralidad: '',
@@ -418,14 +416,6 @@ function renderExcelTable() {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
                                 <input list="competicionesList" type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
                              </td>`;
-            } else if (k === 'posicionPrincipal' || k === 'posicionSecundaria') {
-                const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
-                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
-                posOptions.forEach(p => {
-                    selectHtml += `<option value="${p}" ${(row[k] || '').toUpperCase() === p ? 'selected' : ''}>${p}</option>`;
-                });
-                selectHtml += `</select>`;
-                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
             } else if (k === 'lateralidad') {
                 const latOptions = ['', 'Derecha', 'Izquierda', 'Ambidiestro'];
                 let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
@@ -522,11 +512,7 @@ window.selectClubSuggestion = function(rowIndex, clubName) {
 
 window.updateRowField = function(index, field, value) {
     if (typeof value === 'string' && field !== 'id') {
-        if (field === 'posicionPrincipal' || field === 'posicionSecundaria') {
-            value = value.toUpperCase().trim();
-        } else {
-            value = value.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
-        }
+        value = value.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
     }
     stagedExcelRows[index][field] = value;
     if (['clubVinculado', 'categoria', 'temporada'].includes(field)) {
@@ -656,9 +642,9 @@ function saveExcelToDirectory() {
                 equipoPrincipal: r.equipo || '',
                 club: r.equipo ? (r.equipo.split(' ')[0] || r.equipo) : '',
                 ano: r.ano || '',
+                anoNac: r.ano || '',
                 anoNacimiento: r.ano || '',
-                posicion: !isStaff ? (r.posicionPrincipal || '') : '',
-                posicionSecundaria: !isStaff ? (r.posicionSecundaria || '') : '',
+                anyo: r.ano || '',
                 comunidad: r.comunidad || '',
                 poblacion: r.poblacion || '',
                 lateralidad: !isStaff ? (r.lateralidad || '') : '',
@@ -674,9 +660,27 @@ function saveExcelToDirectory() {
                     window.saveToFirebase('staff', newObj);
                 }
             } else {
-                window.state.directory.jugadores.push(newObj);
-                if (typeof window.saveToFirebase === 'function') {
-                    window.saveToFirebase('jugadores', newObj);
+                const normalizeStr = (str) => {
+                    return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').toLowerCase().trim() : '';
+                };
+                const existingIdx = window.state.directory.jugadores.findIndex(j => normalizeStr(j.nombre || j.jugador) === normalizeStr(r.nombre));
+                
+                if (existingIdx !== -1) {
+                    // Update existing
+                    const existing = window.state.directory.jugadores[existingIdx];
+                    Object.keys(newObj).forEach(k => {
+                        if (newObj[k] && newObj[k] !== '' && k !== 'id') {
+                            existing[k] = newObj[k];
+                        }
+                    });
+                    if (typeof window.saveToFirebase === 'function') {
+                        window.saveToFirebase('jugadores', existing);
+                    }
+                } else {
+                    window.state.directory.jugadores.push(newObj);
+                    if (typeof window.saveToFirebase === 'function') {
+                        window.saveToFirebase('jugadores', newObj);
+                    }
                 }
             }
             added++;
