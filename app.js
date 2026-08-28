@@ -5374,10 +5374,10 @@ if (elPriorityMatches) {
         equipo: teamName,
         dorsal: pNum,
         minutos: evalData.minutos || 0,
-        rendimiento: evalData.rendimiento || 'C',
-        rendimientoRS: evalData.rendimientoRS || 'C',
+        rendimiento: evalData.rendimiento || '',
+        rendimientoRS: evalData.rendimientoRS || '',
         dificultadPartido: evalData.dificultadPartido || '-',
-        potencial: evalData.potencial || '3',
+        potencial: evalData.potencial || '',
         descFisica: evalData.descFisica || '',
         descTecnica: evalData.descTecnica || '',
         descEmocional: evalData.descEmocional || '',
@@ -5488,9 +5488,9 @@ if (elPriorityMatches) {
 
     if (playerInDir && !state.matchPlayerEvaluations[evalKey]) {
       state.matchPlayerEvaluations[evalKey] = {
-        rendimiento: playerInDir.rendimientoRS || 'C',
-        potencial: playerInDir.potencial || '3',
-        rendimientoRS: playerInDir.rendimientoRS || 'C',
+        rendimiento: playerInDir.rendimientoRS || '',
+        potencial: playerInDir.potencial || '',
+        rendimientoRS: playerInDir.rendimientoRS || '',
         tags: playerInDir.tags || [],
         minutos: defaultMins,
         sustituido: false,
@@ -5508,9 +5508,9 @@ if (elPriorityMatches) {
     }
 
     const pEval = state.matchPlayerEvaluations[evalKey] || {
-      rendimiento: 'C',
-      potencial: '3',
-      rendimientoRS: 'C',
+      rendimiento: '',
+      potencial: '',
+      rendimientoRS: '',
       tags: [],
       minutos: defaultMins,
       sustituido: false,
