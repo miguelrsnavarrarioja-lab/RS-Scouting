@@ -4757,7 +4757,7 @@ if (elPriorityMatches) {
           matchesTeam = pTeams.some(t => {
             const normT = t.replace(/[\.,]/g, '');
             const normTeam = teamName.replace(/[\.,]/g, '');
-            return normT === normTeam || (normT.length > 2 && (normT.includes(normTeam) || normTeam.includes(normT)));
+            return normT === normTeam;
           });
         }
 
@@ -6353,6 +6353,29 @@ if (elPriorityMatches) {
         renderPitchPins('local');
         renderPitchPins('visitante');
       }
+
+      // Dynamically update lineup list colors (A/B highlights)
+      ['local', 'visitante'].forEach(t => {
+        const containers = [
+          document.getElementById(`${t}TitularesRows`),
+          document.getElementById(`${t}SuplentesRows`)
+        ];
+        containers.forEach(container => {
+          if (!container) return;
+          container.querySelectorAll('.lineup-row').forEach(row => {
+            const nameInput = row.querySelector('input.name');
+            if (nameInput && nameInput.value.trim().toLowerCase() === pName.trim().toLowerCase()) {
+              let inputBgStyle = '';
+              if (evalObj.rendimientoRS === 'A') inputBgStyle = 'rgba(34, 197, 94, 0.25)';
+              else if (evalObj.rendimientoRS === 'B') inputBgStyle = 'rgba(234, 179, 8, 0.25)';
+              
+              row.querySelectorAll('input, select').forEach(el => {
+                el.style.backgroundColor = inputBgStyle;
+              });
+            }
+          });
+        });
+      });
 
       hideModal();
       if (modalFooter) modalFooter.style.display = '';
