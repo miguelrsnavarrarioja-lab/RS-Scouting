@@ -6405,9 +6405,10 @@ if (elPriorityMatches) {
       // Do not close the editor so the user can continue working
       // closeReportEditor();
       
-      if (typeof renderPartidosList === 'function') {
-        renderPartidosList(); // Update the list in the background
-      }
+      // Do not re-render the list here as it switches the view
+      // if (typeof renderPartidosList === 'function') {
+      //   renderPartidosList(); 
+      // }
     } catch (err) {
       console.error('Error al guardar el informe técnico de partido:', err);
       alert('Error al guardar el informe: ' + err.message);
