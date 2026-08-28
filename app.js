@@ -1419,27 +1419,68 @@ if (elPriorityMatches) {
     if (!container) return;
 
     const teams = state.directory?.equipos || [];
-    const completedReports = (state.reports || []).filter(r => r.completado);
-    const vistosMap = new Map();
-    completedReports.forEach(r => {
-      const loc = r.localTeam || r.local || r.equipoLocal;
-      const vis = r.visitanteTeam || r.visitante || r.equipoVisitante;
-      if (loc) {
-        const k = loc.toLowerCase().trim();
-        vistosMap.set(k, (vistosMap.get(k) || 0) + 1);
+    const allReportsToCount = state.reports || [];
+    
+    const normalizeNameForStats = (name) => {
+      if (!name) return '';
+      let n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const patternsToRemove = [
+        /\b(ca|cd|sd|ud|cf|fc|rc|ad|cp|at|udc|ucd|atletico|atlético|club atletico|club deportivo|sociedad deportiva|union deportiva|club de futbol|futbol club|club)\b/g,
+        /\b(lni|ln|lnj|dh|dhj|división de honor|division de honor|nacional|juvenil|cadete|infantil)\b/g,
+        /\b\d{2}\/\d{2}\b/g, // e.g. 26/27
+        /\s+/g
+      ];
+      patternsToRemove.forEach(p => {
+        n = n.replace(p, ' ');
+      });
+      return n.trim().replace(/\s+/g, ' ');
+    };
+
+    const normalizeCatForStats = (cat) => {
+      if (!cat) return '';
+      return cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+    };
+
+    const isMatchInStats = (t1, cat1, t2, cat2) => {
+      if (!t1 || !t2) return false;
+      const lt1 = t1.toLowerCase().trim();
+      const lt2 = t2.toLowerCase().trim();
+      
+      const c1 = normalizeCatForStats(cat1);
+      const c2 = normalizeCatForStats(cat2);
+      
+      if (c1 && c2 && c1 !== c2 && !c1.includes(c2) && !c2.includes(c1)) {
+        if (lt1 === lt2) return true;
+        return false;
       }
-      if (vis) {
-        const k = vis.toLowerCase().trim();
-        vistosMap.set(k, (vistosMap.get(k) || 0) + 1);
+
+      if (lt1 === lt2 || lt1.includes(lt2) || lt2.includes(lt1)) return true;
+      const n1 = normalizeNameForStats(lt1);
+      const n2 = normalizeNameForStats(lt2);
+      if (n1 && n2) {
+        if (n1 === n2 || n1.includes(n2) || n2.includes(n1)) return true;
+        if (window.flexibleMatch && (window.flexibleMatch(n1, n2) || window.flexibleMatch(n2, n1))) return true;
       }
-    });
+      return false;
+    };
 
     const categoryStats = {};
 
     teams.forEach(t => {
       let cat = String(t.categoria || 'Sin Categoría').trim();
-      const teamKey = t.nombre ? t.nombre.toLowerCase().trim() : '';
-      const numVistos = vistosMap.get(teamKey) || 0;
+      const teamKey = t.nombre ? t.nombre.trim() : '';
+      
+      let numVistos = 0;
+      if (teamKey) {
+        allReportsToCount.forEach(r => {
+          const loc = r.localTeam || r.local || r.equipoLocal;
+          const vis = r.visitanteTeam || r.visitante || r.equipoVisitante;
+          const reportCat = r.competicion || r.categoria || '';
+          if (isMatchInStats(teamKey, cat, loc, reportCat) || isMatchInStats(teamKey, cat, vis, reportCat)) {
+            numVistos++;
+          }
+        });
+      }
       const isVisto = numVistos > 0;
 
       if (!categoryStats[cat]) {
@@ -1588,6 +1629,9 @@ if (elPriorityMatches) {
         <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(59, 130, 246, 1);"></div>2 veces</div>
         <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(34, 197, 94, 1);"></div>+2 veces</div>
       </div>
+      <div style="margin-top: -8px;">
+        <input type="text" id="modalSearchFilterPlayers" placeholder="Buscar jugador o equipo..." class="form-control" style="width: 100%; font-size: 13px; padding: 10px 14px; border-radius: 8px;">
+      </div>
     `;
 
     if (players.length === 0) {
@@ -1655,6 +1699,16 @@ if (elPriorityMatches) {
 
     // Add back button
     setTimeout(() => {
+      const searchInput = document.getElementById('modalSearchFilterPlayers');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const q = e.target.value.toLowerCase().trim();
+          document.querySelectorAll('#generalModalBody tbody tr').forEach(el => {
+            el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+          });
+        });
+      }
+
       const btnClose = document.getElementById('btnCloseModal');
       if (btnClose && !document.getElementById('btnBackToAgeGroup')) {
         const header = btnClose.parentNode;
@@ -1765,6 +1819,9 @@ if (elPriorityMatches) {
         <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(59, 130, 246, 0.4);"></div>2 veces</div>
         <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 3px; background: rgba(34, 197, 94, 0.4);"></div>+2 veces</div>
       </div>
+      <div style="margin-top: -8px;">
+        <input type="text" id="modalSearchFilterTeams" placeholder="Buscar equipo..." class="form-control" style="width: 100%; font-size: 13px; padding: 10px 14px; border-radius: 8px;">
+      </div>
     `;
 
     if (groupNames.length === 0) {
@@ -1821,6 +1878,18 @@ if (elPriorityMatches) {
 
     // Custom back button to return to previous modal
     setTimeout(() => {
+      const searchInput = document.getElementById('modalSearchFilterTeams');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const q = e.target.value.toLowerCase().trim();
+          document.querySelectorAll('#generalModalBody > div > div > div > div').forEach(el => {
+            if (el.querySelector('button')) {
+               el.style.display = el.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+            }
+          });
+        });
+      }
+
       const btnClose = document.getElementById('btnCloseModal');
       if (btnClose && !document.getElementById('btnBackToTeamGroup')) {
         const header = btnClose.parentNode;
