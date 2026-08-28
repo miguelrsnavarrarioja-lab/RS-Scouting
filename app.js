@@ -1290,9 +1290,9 @@ if (elPriorityMatches) {
 
     const players = state.directory?.jugadores || [];
 
-    const completedReports = (state.reports || []).filter(r => r.completado);
+    const allReportsList = state.reports || [];
     const seenPlayerCounts = new Map();
-    completedReports.forEach(r => {
+    allReportsList.forEach(r => {
       const processLineup = (lineupData, repId) => {
         if (!lineupData) return;
         try {
@@ -1618,7 +1618,12 @@ if (elPriorityMatches) {
 
   window.openPlayersSubcategoryModal = function (groupName, year, playersJson) {
     const players = JSON.parse(decodeURIComponent(playersJson));
-    players.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    players.sort((a, b) => {
+      const vA = a.vistos || 1;
+      const vB = b.vistos || 1;
+      if (vA !== vB) return vB - vA;
+      return (a.nombre || '').localeCompare(b.nombre || '');
+    });
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
     
@@ -1833,7 +1838,12 @@ if (elPriorityMatches) {
       const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
 
       let teamsHtml = '';
-      gStats.equipos.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(t => {
+      gStats.equipos.sort((a, b) => {
+        const vA = a.vistoCount || 0;
+        const vB = b.vistoCount || 0;
+        if (vA !== vB) return vB - vA;
+        return a.nombre.localeCompare(b.nombre);
+      }).forEach(t => {
         let rowBgStyle = '';
         if (t.vistoCount > 2) {
           rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
