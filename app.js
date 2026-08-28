@@ -5641,7 +5641,10 @@ if (elPriorityMatches) {
     // Find matching player in directory by name or dorsal+team
     const playerInDir = state.directory.jugadores.find(p => {
       const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
-      const nameMatch = p.nombre && pName && (normalize(p.nombre) === normalize(pName));
+      const pNorm = normalize(p.nombre);
+      const nameNorm = normalize(pName);
+      
+      const nameMatch = p.nombre && pName && (pNorm === nameNorm || window.flexibleMatch(nameNorm, p.nombre) || window.flexibleMatch(pNorm, pName));
       const numMatch = String(p.dorsal || p.numero || '').trim() === String(pNum).trim();
       const teamMatch = p.equipo && teamName && (window.flexibleMatch(teamName, p.equipo) || window.flexibleMatch(p.equipo, teamName));
       return nameMatch || (numMatch && teamMatch);
@@ -5689,8 +5692,23 @@ if (elPriorityMatches) {
         tags: evalData.tags || []
       };
 
-      if (existingIdx >= 0) playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
-      else playerInDir.historialEvaluaciones.push(evalRecord);
+      if (existingIdx >= 0) {
+        const existing = playerInDir.historialEvaluaciones[existingIdx];
+        const existingIsNoJuega = existing.tags && (existing.tags.includes('NO JUEGA') || existing.tags.includes('NO VISTO'));
+        const newIsNoJuega = evalRecord.tags && (evalRecord.tags.includes('NO JUEGA') || evalRecord.tags.includes('NO VISTO'));
+        
+        const existingHasData = existing.minutos > 0 || existing.rendimiento !== '' || (existing.stats && Object.keys(existing.stats).length > 0);
+        const newIsEmpty = evalRecord.minutos === 0 && evalRecord.rendimiento === '' && (!evalRecord.stats || Object.keys(evalRecord.stats).length === 0);
+
+        // Only overwrite if the new record is not "NO JUEGA" (or if both are), or if the existing record had 0 minutes and new has > 0
+        if ((!existingIsNoJuega && newIsNoJuega) || (existingHasData && newIsEmpty)) {
+          // Skip overwriting. The player likely has a valid evaluation from another tactical system in this same match.
+        } else {
+          playerInDir.historialEvaluaciones[existingIdx] = evalRecord;
+        }
+      } else {
+        playerInDir.historialEvaluaciones.push(evalRecord);
+      }
 
       recalculatePlayerAggregates(playerInDir);
 
@@ -7296,6 +7314,14 @@ let currentPlanificacionTab = 'calendario';
       inMapas = 'Sí';
     }
 
+    // Prepare full dynamic match history including unsaved reports
+    let allMatchHistoryMap = new Map();
+    if (player.historialEvaluaciones && Array.isArray(player.historialEvaluaciones)) {
+      player.historialEvaluaciones.forEach(h => {
+        allMatchHistoryMap.set(String(h.reportId), h);
+      });
+    }
+
     // Count Partidos Vistos and Auto-fill Posiciones
     let partidosVistosCount = 0;
     let partidosNoJuegaCount = 0;
@@ -7306,6 +7332,8 @@ let currentPlanificacionTab = 'calendario';
       (state.reports || []).forEach(rep => {
         let foundAsPlayed = false;
         let foundAsNoJuega = false;
+        let foundDorsal = '-';
+        let foundTeam = '';
         
         const checkPlayer = (pObj, teamName, repId) => {
           if (!pObj) return;
@@ -7328,6 +7356,9 @@ let currentPlanificacionTab = 'calendario';
                 posicionesVistas.add(pObj.pos);
               }
             }
+            
+            if (pObj.num) foundDorsal = pObj.num;
+            foundTeam = teamName;
           }
         };
 
@@ -7355,8 +7386,32 @@ let currentPlanificacionTab = 'calendario';
             }
           });
         }
+        
+        if (foundAsPlayed || foundAsNoJuega) {
+          const repIdStr = String(rep.id);
+          if (!allMatchHistoryMap.has(repIdStr)) {
+            allMatchHistoryMap.set(repIdStr, {
+              reportId: rep.id,
+              fecha: rep.date,
+              competicion: rep.competicion || rep.competition || 'Sin Especificar',
+              equipo: foundTeam || 'Sin Equipo',
+              dorsal: foundDorsal,
+              minutos: 0,
+              rendimiento: '-',
+              dificultadPartido: '-',
+              tags: foundAsNoJuega ? ['NO JUEGA'] : ['SIN EVALUAR']
+            });
+          }
+        }
       });
     }
+
+    const allMatchHistory = Array.from(allMatchHistoryMap.values());
+    allMatchHistory.sort((a, b) => {
+      if (!a.fecha) return 1;
+      if (!b.fecha) return -1;
+      return new Date(b.fecha) - new Date(a.fecha);
+    });
 
     let displayPosPri = player.posicionPrincipal || player.posicion || '';
     let displayPosSec = player.posicionSecundaria || '';
@@ -7606,13 +7661,17 @@ let currentPlanificacionTab = 'calendario';
     const btnVerInformesEmergente = document.getElementById('btnVerInformesEmergente');
     if (btnVerInformesEmergente) {
       btnVerInformesEmergente.onclick = () => {
-        const informesHtml = (player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => {
+        const informesHtml = allMatchHistory.length > 0 ? allMatchHistory.map(h => {
           const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
-          const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>` : '';
+          const isSinEval = h.tags && h.tags.includes('SIN EVALUAR');
+          let badges = '';
+          if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
+          if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
+          
           return `
           <div class="match-report-link-emergente" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
             <div style="display: flex; flex-direction: column; gap: 2px;">
-              <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${noJuegaBadge}</div>
+              <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${badges}</div>
               <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
             </div>
             <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
@@ -8275,13 +8334,17 @@ let currentPlanificacionTab = 'calendario';
               <i data-lucide="file-text"></i> INFORMES DE PARTIDO
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;" class="mb-4">
-              ${(player.historialEvaluaciones || []).length > 0 ? (player.historialEvaluaciones).map(h => {
+              ${allMatchHistory.length > 0 ? allMatchHistory.map(h => {
                 const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
-                const noJuegaBadge = isNoJuega ? `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>` : '';
+                const isSinEval = h.tags && h.tags.includes('SIN EVALUAR');
+                let badges = '';
+                if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
+                if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
+                
                 return `
                 <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${noJuegaBadge}</div>
+                    <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${badges}</div>
                     <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
                   </div>
                   <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
