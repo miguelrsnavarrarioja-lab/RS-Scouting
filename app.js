@@ -4141,9 +4141,11 @@ if (elPriorityMatches) {
         const posEl = r.querySelector('.pos') || r.querySelector('select.pos');
         const pos2El = r.querySelector('.pos2') || r.querySelector('select.pos2');
         const parsedNum = numEl && numEl.value.trim() !== '' && !isNaN(numEl.value) ? parseInt(numEl.value, 10) : '';
+        const rawName = nameEl ? nameEl.value.trim() : '';
+        const cleanName = rawName.replace(/\s*\[.*?\]$/, '');
         list.push({
           num: (parsedNum !== 0 && parsedNum !== '0') ? parsedNum : '',
-          name: nameEl ? (nameEl.value || '').trim() : '',
+          name: cleanName,
           pos: posEl ? (posEl.value || '') : '',
           pos2: pos2El ? (pos2El.value || '') : ''
         });
@@ -5463,7 +5465,8 @@ if (elPriorityMatches) {
     if (!row) return;
 
     const pNum = row.querySelector('input.num')?.value || (type === 'titular' ? idx + 1 : 12 + idx);
-    const pName = row.querySelector('input.name')?.value.trim() || '';
+    const rawPName = row.querySelector('input.name')?.value.trim() || '';
+    const pName = rawPName.replace(/\s*\[.*?\]$/, '');
     const pPos = row.querySelector('select.pos')?.value || 'MC';
     const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
 
@@ -5517,6 +5520,14 @@ if (elPriorityMatches) {
       descEmocional: '',
       perfilRS: ''
     };
+
+    // Merge tags from the match evaluation with global tags from the directory
+    let combinedTags = new Set(pEval.tags || []);
+    if (playerInDir) {
+      (playerInDir.tags || []).forEach(t => combinedTags.add(t));
+      (playerInDir.controlSeguimiento || []).forEach(t => combinedTags.add(t));
+    }
+    const mergedTagsArray = Array.from(combinedTags);
 
     const pStats = Object.assign({
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
@@ -5612,7 +5623,7 @@ if (elPriorityMatches) {
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
           <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
             ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
+              <button type="button" class="tag-control-btn ${mergedTagsArray.includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -5625,7 +5636,7 @@ if (elPriorityMatches) {
               <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px;">
-              <button type="button" class="tag-control-btn ${(pEval.tags || []).includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%;">
+              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; width: 100%;">
                 NO JUEGA
               </button>
             </div>
@@ -6225,7 +6236,8 @@ if (elPriorityMatches) {
         const rows = document.querySelectorAll(`#${t}TitularesRows .lineup-row, #${t}SuplentesRows .lineup-row`);
         rows.forEach((r) => {
           const pNum = r.querySelector('input.num')?.value || r.querySelector('.num')?.value || '';
-          const pName = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
+          const pNameRaw = r.querySelector('input.name')?.value.trim() || r.querySelector('.name')?.value.trim() || '';
+          const pName = pNameRaw.replace(/\s*\[.*?\]$/, '');
           const evalKey = `${repId}_${t}_${pNum}`;
           if (state.matchPlayerEvaluations[evalKey]) {
             state.matchPlayerEvaluations[evalKey].dificultadPartido = getDifficultyRating(t) || '-';
