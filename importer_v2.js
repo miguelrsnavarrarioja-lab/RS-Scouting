@@ -265,13 +265,43 @@ function processClubesImport(text) {
 
 function processPlantillasImport(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    
+    const capitalize = (str) => {
+        if (!str) return '';
+        return str.toString().toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
+    };
+
+    const selectVal = document.getElementById('importerDefaultEquipoSelect')?.value;
+    const inputVal = document.getElementById('importerDefaultEquipo')?.value.trim();
+    const defaultEquipo = capitalize(selectVal || inputVal || '');
+
+    const normalize = (name) => name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.,]/g, '').trim() : '';
+
     lines.forEach(line => {
+        let nombreJugador = line;
         if (line.includes(',')) {
             let parts = line.split(',');
-            stagedExcelRows.push({ _checked: true, nombre: `${parts[1] || ''} ${parts[0]}`.trim(), rol: 'Jugador' });
-        } else {
-            stagedExcelRows.push({ _checked: true, nombre: line, rol: 'Jugador' });
+            nombreJugador = `${parts[1] || ''} ${parts[0]}`.trim();
         }
+        nombreJugador = capitalize(nombreJugador);
+
+        const isDuplicate = window.state?.directory?.jugadores?.some(j => normalize(j.nombre || j.jugador) === normalize(nombreJugador));
+
+        const baseObj = { 
+            _checked: !isDuplicate, 
+            nombre: nombreJugador, 
+            rol: 'Jugador',
+            ano: '',
+            equipo: defaultEquipo,
+            posicionPrincipal: '',
+            posicionSecundaria: '',
+            comunidad: '',
+            poblacion: '',
+            lateralidad: '',
+            dorsal: ''
+        };
+
+        stagedExcelRows.push(baseObj);
     });
 }
 
@@ -297,7 +327,8 @@ function renderExcelTable() {
         bulkColSelect.innerHTML = '<option value="">-- Columna --</option>';
         keys.forEach(k => {
             if (k !== 'nombreOficial') {
-                bulkColSelect.innerHTML += `<option value="${k}">${k.toUpperCase()}</option>`;
+                let displayK = k === 'ano' ? 'Año' : k;
+                bulkColSelect.innerHTML += `<option value="${k}">${displayK.toUpperCase()}</option>`;
             }
         });
     }
@@ -305,7 +336,8 @@ function renderExcelTable() {
     let headHtml = '<tr>';
     headHtml += '<th style="padding: 10px; border: 1px solid var(--border-medium); background: var(--bg-subtle); width: 40px; text-align: center;">Sel</th>';
     keys.forEach(k => {
-        headHtml += `<th style="padding: 10px; border: 1px solid var(--border-medium); background: var(--bg-subtle); text-transform: capitalize;">${k}</th>`;
+        let displayK = k === 'ano' ? 'Año' : k;
+        headHtml += `<th style="padding: 10px; border: 1px solid var(--border-medium); background: var(--bg-subtle); text-transform: capitalize;">${displayK}</th>`;
     });
     headHtml += '<th style="padding: 10px; border: 1px solid var(--border-medium); background: var(--bg-subtle); width: 40px; text-align: center;"></th>'; // Empty header for trash icon
     headHtml += '</tr>';
@@ -344,6 +376,9 @@ function renderExcelTable() {
             isDuplicate = window.state.directory.equipos.some(e => e.nombre.toLowerCase() === (row.nombreOficial || '').toLowerCase());
         } else if (currentImporterType === 'clubes' && window.state?.directory?.clubes) {
             isDuplicate = window.state.directory.clubes.some(c => c.nombre.toLowerCase() === (row.nombre || '').toLowerCase());
+        } else if (currentImporterType !== 'equipos' && currentImporterType !== 'clubes' && window.state?.directory?.jugadores) {
+            const normalize = (name) => name ? name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.,]/g, '').trim() : '';
+            isDuplicate = window.state.directory.jugadores.some(j => normalize(j.nombre || j.jugador) === normalize(row.nombre));
         }
 
         let bgStyle = isDuplicate ? 'background-color: #fee2e2;' : '';
@@ -383,6 +418,31 @@ function renderExcelTable() {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
                                 <input list="competicionesList" type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
                              </td>`;
+            } else if (k === 'posicionPrincipal' || k === 'posicionSecundaria') {
+                const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
+                posOptions.forEach(p => {
+                    selectHtml += `<option value="${p}" ${(row[k] || '').toUpperCase() === p ? 'selected' : ''}>${p}</option>`;
+                });
+                selectHtml += `</select>`;
+                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
+            } else if (k === 'lateralidad') {
+                const latOptions = ['', 'Derecha', 'Izquierda', 'Ambidiestro'];
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
+                latOptions.forEach(p => {
+                    // Match case-insensitively just in case it was imported or mass-edited differently
+                    selectHtml += `<option value="${p}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
+                });
+                selectHtml += `</select>`;
+                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
+            } else if (k === 'rol') {
+                const rolOptions = ['Jugador', 'Director Deportivo', 'Secretaría Técnica', 'Analista', 'Primer Entrenador', 'Segundo Entrenador', 'Entrenador Porteros', 'Preparador Físico', 'Delegado / Técnico', 'Fisioterapeuta', 'Readaptador', 'Médico', 'Directivo', 'Otro'];
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
+                rolOptions.forEach(p => {
+                    selectHtml += `<option value="${p}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
+                });
+                selectHtml += `</select>`;
+                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
             } else {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
                                 <input type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" 
@@ -461,6 +521,13 @@ window.selectClubSuggestion = function(rowIndex, clubName) {
 }
 
 window.updateRowField = function(index, field, value) {
+    if (typeof value === 'string' && field !== 'id') {
+        if (field === 'posicionPrincipal' || field === 'posicionSecundaria') {
+            value = value.toUpperCase().trim();
+        } else {
+            value = value.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
+        }
+    }
     stagedExcelRows[index][field] = value;
     if (['clubVinculado', 'categoria', 'temporada'].includes(field)) {
         updateOfficialName(index);
@@ -574,16 +641,43 @@ function saveExcelToDirectory() {
             added++;
         });
     } else {
-        if (!window.state.directory.plantillas) window.state.directory.plantillas = [];
+        if (!window.state.directory.jugadores) window.state.directory.jugadores = [];
+        if (!window.state.directory.staff) window.state.directory.staff = [];
         toSave.forEach(r => {
-            const newPlant = {
-                id: 'pl_' + Date.now() + Math.random().toString(36).substr(2, 9),
+            const isStaff = r.rol && r.rol.toLowerCase() !== 'jugador';
+            
+            const newObj = {
+                id: (isStaff ? 'st_' : 'j_') + Date.now() + Math.random().toString(36).substr(2, 9),
                 nombre: r.nombre,
-                rol: r.rol || 'Jugador'
+                [isStaff ? 'staff' : 'jugador']: r.nombre,
+                rol: r.rol || 'Jugador',
+                cargo: isStaff ? r.rol : '',
+                equipo: r.equipo || '',
+                equipoPrincipal: r.equipo || '',
+                club: r.equipo ? (r.equipo.split(' ')[0] || r.equipo) : '',
+                ano: r.ano || '',
+                anoNacimiento: r.ano || '',
+                posicion: !isStaff ? (r.posicionPrincipal || '') : '',
+                posicionSecundaria: !isStaff ? (r.posicionSecundaria || '') : '',
+                comunidad: r.comunidad || '',
+                poblacion: r.poblacion || '',
+                lateralidad: !isStaff ? (r.lateralidad || '') : '',
+                dorsal: !isStaff ? (r.dorsal || '') : '',
+                pais: 'España',
+                sexo: 'MASCULINO',
+                estado: 'ACTIVO'
             };
-            window.state.directory.plantillas.push(newPlant);
-            if (typeof window.saveToFirebase === 'function') {
-                window.saveToFirebase('plantillas', newPlant);
+            
+            if (isStaff) {
+                window.state.directory.staff.push(newObj);
+                if (typeof window.saveToFirebase === 'function') {
+                    window.saveToFirebase('staff', newObj);
+                }
+            } else {
+                window.state.directory.jugadores.push(newObj);
+                if (typeof window.saveToFirebase === 'function') {
+                    window.saveToFirebase('jugadores', newObj);
+                }
             }
             added++;
         });
