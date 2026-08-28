@@ -6396,15 +6396,17 @@ if (elPriorityMatches) {
       saveToFirebase('informes', reportObj);
       saveState();
 
-      if (typeof showNotification === 'function') {
-        showNotification('¡Informe Técnico de Partido guardado con éxito y sincronizado en la nube!', 'success');
+      if (typeof showCustomAlertModal === 'function') {
+        showCustomAlertModal('Aviso del Sistema', '¡Informe Técnico de Partido guardado con éxito!');
       } else {
         alert('¡Informe Técnico de Partido guardado con éxito!');
       }
-
-      closeReportEditor();
+      
+      // Do not close the editor so the user can continue working
+      // closeReportEditor();
+      
       if (typeof renderPartidosList === 'function') {
-        renderPartidosList();
+        renderPartidosList(); // Update the list in the background
       }
     } catch (err) {
       console.error('Error al guardar el informe técnico de partido:', err);
