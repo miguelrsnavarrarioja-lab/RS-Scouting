@@ -2820,7 +2820,7 @@ if (elPriorityMatches) {
   let currentPartidosMonthTab = 'all';
   let currentPartidosWeekTab = currentWeekLabel;
   let currentPartidosDayTab = 'all';
-  let currentPartidosStatusTab = 'all';
+  let currentPartidosStatusTab = 'incompleto';
   let currentPartidosVisionadoTab = 'all';
   let currentPartidosIncidenciaTab = 'all';
 
@@ -5742,6 +5742,7 @@ if (elPriorityMatches) {
     const rawPName = row.querySelector('input.name')?.value.trim() || '';
     const pName = rawPName.replace(/\s*\[.*?\]$/, '');
     const pPos = row.querySelector('select.pos')?.value || 'MC';
+    const pPos2 = row.querySelector('select.pos2')?.value || '';
     const teamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim() || (team === 'local' ? 'Equipo Local' : 'Equipo Visitante');
 
     const localOptionsDescTecnica = getOptionsDescTecnica(pPos);
@@ -5936,7 +5937,7 @@ if (elPriorityMatches) {
               <label class="form-label" style="font-size: 10px; font-weight: 800;">POSICIÓN ALTERNATIVA</label>
               <select id="pmPosicionAlternativa" class="form-control" style="font-weight: 800; text-align: center; height: 38px; margin-bottom: 4px;">
                 <option value="">(Ninguna)</option>
-                ${Object.keys(POSITION_TO_PERFIL_GROUP).map(pos => `<option value="${escapeHtml(pos)}" ${pEval.posicionAlternativa === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`).join('')}
+                ${Object.keys(POSITION_TO_PERFIL_GROUP).map(pos => `<option value="${escapeHtml(pos)}" ${(pPos2 || pEval.posicionAlternativa) === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`).join('')}
               </select>
               <input type="text" id="pmPosicionAlternativaNota" class="form-control" placeholder="Añadir nota sobre la posición..." value="${escapeHtml(pEval.posicionAlternativaNota || '')}" style="height: 38px; font-size: 11px; flex: 1;">
             </div>
