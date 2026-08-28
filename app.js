@@ -4565,11 +4565,21 @@ if (elPriorityMatches) {
       const currentPos2 = p.pos2 || '';
       const hasCurrent = posOptions.includes(currentPos);
       const hasCurrent2 = posOptions.includes(currentPos2);
+      
+      let inputBgStyle = '';
+      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+        if (matchingPlayer) {
+          if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
+          else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+        }
+      }
+
       titHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}">
-          <select class="form-control pos select-compact">
+          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#" style="${inputBgStyle}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}" style="${inputBgStyle}">
+          <select class="form-control pos select-compact" style="${inputBgStyle}">
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
@@ -4606,11 +4616,21 @@ if (elPriorityMatches) {
       const currentPos2 = p.pos2 !== undefined ? p.pos2 : '';
       const hasCurrent = posOptions.includes(currentPos);
       const hasCurrent2 = posOptions.includes(currentPos2);
+      
+      let inputBgStyle = '';
+      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+        if (matchingPlayer) {
+          if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
+          else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+        }
+      }
+
       supHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeHtml(p.name)}">
-          <select class="form-control pos select-compact">
+          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#" style="${inputBgStyle}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeHtml(p.name)}" style="${inputBgStyle}">
+          <select class="form-control pos select-compact" style="${inputBgStyle}">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
