@@ -105,8 +105,8 @@
   };
 
   window.flexibleMatch = function (val, text) {
-    val = (val || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    text = (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    val = (val || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
+    text = (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
     if (!val) return true;
     if (text.includes(val)) return true;
 
@@ -4405,14 +4405,14 @@ if (elPriorityMatches) {
 
       let matchesTeam = false;
       if (pTeams.length > 0) {
-        matchesTeam = pTeams.some(t => t === teamNameLower || (t.length > 2 && (t.includes(teamNameLower) || teamNameLower.includes(t))));
+        matchesTeam = pTeams.some(t => t === teamNameLower || (t.length > 2 && (t.includes(teamNameLower) || teamNameLower.includes(t))) || window.flexibleMatch(teamNameLower, t) || window.flexibleMatch(t, teamNameLower));
       }
 
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
         const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
         matchesTeam = targetTeam.plantilla.some(item => {
           const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-          return itemName === pName;
+          return itemName === pName || window.flexibleMatch(itemName, pName);
         });
       }
       return matchesTeam;
@@ -4486,7 +4486,7 @@ if (elPriorityMatches) {
 
         let matchesTeam = false;
         if (pTeams.length > 0) {
-          matchesTeam = pTeams.some(t => t === teamName || (t.length > 2 && (t.includes(teamName) || teamName.includes(t))));
+          matchesTeam = pTeams.some(t => t === teamName || (t.length > 2 && (t.includes(teamName) || teamName.includes(t))) || window.flexibleMatch(teamName, t) || window.flexibleMatch(t, teamName));
         }
 
         const pName = (p.nombre || p.jugador || p.name || '');
@@ -4494,7 +4494,7 @@ if (elPriorityMatches) {
         if (!matchesTeam && targetTeam && targetTeam.plantilla) {
           matchesTeam = targetTeam.plantilla.some(item => {
             const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
-            return itemName === pName.toLowerCase();
+            return itemName === pName.toLowerCase() || window.flexibleMatch(itemName, pName.toLowerCase());
           });
         }
         if (matchesTeam) addOption(pName);
@@ -9575,7 +9575,7 @@ let currentPlanificacionTab = 'calendario';
       if (parentClub && parentClub.colorPrimary) themeColor = parentClub.colorPrimary;
     }
 
-    const normalizeStr = (str) => String(str || '').replace(/\./g, '').replace(/\s+/g, ' ').toLowerCase().trim();
+    const normalizeStr = (str) => String(str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').replace(/\s+/g, ' ').trim();
     const teamNameNorm = normalizeStr(team.nombre);
 
     const allPlayersList = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
@@ -9587,7 +9587,7 @@ let currentPlanificacionTab = 'calendario';
     });
     allPlayersList.forEach(p => {
       const playerTeamNorm = normalizeStr(p.equipo || p.club || p.seleccion);
-      if (playerTeamNorm === teamNameNorm && p.nombre) {
+      if ((playerTeamNorm === teamNameNorm || window.flexibleMatch(teamNameNorm, playerTeamNorm) || window.flexibleMatch(playerTeamNorm, teamNameNorm)) && p.nombre) {
         combinedPlantillaMap.set(normalizeStr(p.nombre), p.nombre);
       }
     });
@@ -9620,7 +9620,11 @@ let currentPlanificacionTab = 'calendario';
       plantillaHTML += `<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
     } else {
       localPlantillaList.forEach(pName => {
-        const player = allPlayersList.find(p => normalizeStr(p.nombre || p.jugador || p.name) === normalizeStr(pName));
+        const player = allPlayersList.find(p => {
+          const nP = normalizeStr(p.nombre || p.jugador || p.name);
+          const nName = normalizeStr(pName);
+          return nP === nName || window.flexibleMatch(nName, nP) || window.flexibleMatch(nP, nName);
+        });
         if (player) {
           plantillaHTML += `
             <tr style="border-bottom: 1px solid var(--border-light);">
@@ -10195,19 +10199,40 @@ let currentPlanificacionTab = 'calendario';
     let localPlantillaList = team.plantilla ? JSON.parse(JSON.stringify(team.plantilla)) : [];
 
     // Filter localPlantillaList so it ONLY contains players that actually exist in directory
-    const validPlayerNamesSet = new Set(allPlayersList.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
+    const normalizeName = (name) => {
+      if (!name) return '';
+      return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/,/g, '').trim();
+    };
+    const validPlayerNamesSet = new Set(allPlayersList.map(p => normalizeName(p.nombre || p.jugador || p.name)).filter(Boolean));
+    
     localPlantillaList = localPlantillaList.filter(item => {
-      const pName = (typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '')).toLowerCase().trim();
-      return validPlayerNamesSet.has(pName);
+      const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+      const normName = normalizeName(pName);
+      if (validPlayerNamesSet.has(normName)) return true;
+      return allPlayersList.some(p => window.flexibleMatch(normName, normalizeName(p.nombre || p.jugador || p.name)));
     });
 
     // Auto-populate players from directory whose equipo or equipoPrincipal matches this team's name
     if (nombre && allPlayersList.length) {
+      const normTeam = normalizeName(nombre);
       allPlayersList.forEach(p => {
         const pEq = p.equipoPrincipal || p.equipo || '';
-        if (pEq && pEq.toLowerCase() === nombre.toLowerCase()) {
+        const normEq = normalizeName(pEq);
+        
+        const isMatch = normEq && (
+          normEq === normTeam || 
+          normEq.includes(normTeam) || 
+          normTeam.includes(normEq) || 
+          window.flexibleMatch(normTeam, normEq) || 
+          window.flexibleMatch(normEq, normTeam)
+        );
+        
+        if (isMatch) {
           const pName = p.nombre || p.jugador || p.name || '';
-          if (pName && !localPlantillaList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === pName.toLowerCase())) {
+          if (pName && !localPlantillaList.some(item => {
+            const iName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
+            return normalizeName(iName) === normalizeName(pName) || window.flexibleMatch(normalizeName(iName), normalizeName(pName));
+          })) {
             localPlantillaList.push(pName);
           }
         }
