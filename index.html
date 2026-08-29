@@ -1525,29 +1525,18 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
         <div class="view-title-group">
           <h1>🎬 Cartelera de Scouting</h1>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas">
-            <i data-lucide="printer"></i> Exportar PDF
-          </button>
-          <button class="btn btn-primary" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos">
-            <i data-lucide="file-input"></i> 📥 Importar Texto (Calendarios)
-          </button>
-        </div>
       </div>
 
-      <!-- Control Panel: Equipos Prioritarios & Filtro de Jornada -->
+      <!-- Control Panel: Filtro de Jornada -->
       <div class="cartelera-controls-card mb-4" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
         
-        <!-- Equipos Prioritarios Chips -->
-        <div style="margin-bottom: 16px;">
+        <!-- Equipos Prioritarios Chips (Ocultos temporalmente) -->
+        <div style="display: none; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <h3 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
               <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios y de Interés
             </h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-primary" id="btnCarteleraDestacadosFinde" style="font-size: 12px; padding: 4px 10px; font-weight: 700;">
-                <i data-lucide="zap" style="width: 13px;"></i> Destacados del Finde
-              </button>
               <button class="btn btn-sm btn-secondary" id="btnAddInterestingTeam" style="font-size: 12px; padding: 4px 10px; border-color: #9333ea; color: #7e22ce;">
                 <i data-lucide="eye" style="width: 13px;"></i> Equipo Jugadores Interesantes
               </button>
@@ -1566,13 +1555,25 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
           </div>
         </div>
 
-        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 16px 0;">
-
-        <!-- Buscador Rápido de Cartelera -->
-        <div class="toolbar mb-3">
-          <div class="toolbar-search" style="flex: 1;">
+        <!-- Buscador Rápido de Cartelera y Botones de Acción -->
+        <div class="toolbar mb-3" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <div class="toolbar-search" style="flex: 1; min-width: 250px;">
             <i data-lucide="search"></i>
             <input type="text" id="carteleraSearchInput" placeholder="🔍 Buscador rápido por equipo, estadio, jornada o competición...">
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button class="btn btn-sm btn-secondary" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full); border-color: #3b82f6; color: #1d4ed8; background: rgba(59, 130, 246, 0.1);">
+              <i data-lucide="file-input" style="width: 16px;"></i> Importar
+            </button>
+            <button class="btn btn-sm btn-secondary" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full);">
+              <i data-lucide="printer" style="width: 16px;"></i> Exportar
+            </button>
+            <button class="btn btn-sm btn-secondary" id="btnOpenClubesPrioritariosModal" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full); border-color: #f59e0b; color: #b45309; background: rgba(245, 158, 11, 0.1);">
+              <i data-lucide="star" style="width: 16px;"></i> Prioritarios
+            </button>
+            <button class="btn btn-sm btn-primary" id="btnCarteleraDestacadosFinde" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full);">
+              <i data-lucide="zap" style="width: 16px;"></i> Destacados del Finde
+            </button>
           </div>
         </div>
 
@@ -1881,6 +1882,49 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
       </div>
       <div class="modal-body" style="overflow-y: auto; padding: 24px; display: flex; flex-direction: column;" id="motivationalModalContent">
         <!-- JS populates this -->
+      </div>
+    </div>
+  </div>
+  <!-- MODAL GESTOR CLUBES PRIORITARIOS -->
+  <div class="modal-overlay hidden" id="modalGestorClubesPrioritarios" style="z-index: 20060;">
+    <div class="modal-card" style="width: 1000px; max-width: 95vw; height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl);">
+      <div class="modal-header" style="background: rgba(245, 158, 11, 0.1); border-bottom: 1px solid rgba(245, 158, 11, 0.2);">
+        <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #b45309; display: flex; align-items: center; gap: 10px;"><i data-lucide="star"></i> Gestor de Prioridades</h3>
+        <button type="button" class="modal-close" id="closeGestorClubesPrioritariosBtn" style="color: #b45309;"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <style>
+          .gestor-tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border-light); margin-bottom: 16px; }
+          .gestor-tab { background: none; border: none; padding: 8px 16px; font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+          .gestor-tab.active { color: #b45309; border-bottom: 2px solid #b45309; }
+          .gestor-tab-content { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+          .gestor-tab-content.active { display: flex; }
+        </style>
+        
+        <div class="gestor-tabs">
+          <button type="button" class="gestor-tab active" data-tab="tab-clubes-completos"><i data-lucide="shield" style="width: 14px; display: inline-block; margin-right: 4px; vertical-align: text-bottom;"></i> Clubes Completos</button>
+          <button type="button" class="gestor-tab" data-tab="tab-equipos-especificos"><i data-lucide="users" style="width: 14px; display: inline-block; margin-right: 4px; vertical-align: text-bottom;"></i> Equipos Sueltos</button>
+        </div>
+
+        <div id="tab-clubes-completos" class="gestor-tab-content active">
+          <div class="toolbar-search" style="margin-bottom: 16px; width: 100%; flex: 0 0 40px; max-width: none;">
+            <i data-lucide="search"></i>
+            <input type="text" id="gestorClubesPrioritariosSearch" placeholder="🔍 Buscar club entero en el directorio (ej: Osasuna...)" style="width: 100%;">
+          </div>
+          <div style="flex: 1; overflow-y: auto; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;" id="gestorClubesPrioritariosList">
+            <!-- JS populates this -->
+          </div>
+        </div>
+
+        <div id="tab-equipos-especificos" class="gestor-tab-content">
+          <div class="toolbar-search" style="margin-bottom: 16px; width: 100%; flex: 0 0 40px; max-width: none;">
+            <i data-lucide="search"></i>
+            <input type="text" id="gestorSpecificTeamSearch" placeholder="🔍 Buscar equipo en el calendario..." style="width: 100%;">
+          </div>
+          <div style="flex: 1; overflow-y: auto; background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;" id="gestorSpecificTeamsList">
+            <!-- JS populates this -->
+          </div>
+        </div>
       </div>
     </div>
   </div>

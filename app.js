@@ -24703,7 +24703,8 @@
     try {
       if (!container) return;
 
-      const priorityTeamsLower = (state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim());
+      const priorityClubsLower = (state.directory?.clubes || []).filter(c => c.esPrioritario).map(c => (c.nombre || c.club || '').toLowerCase().trim());
+      const priorityTeamsLower = [...new Set([...(state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim()), ...priorityClubsLower])];
       const interestingTeamsLower = (state.cartelera.interestingTeams || []).map(t => String(t || '').toLowerCase().trim());
       const calendarios = state.cartelera.calendarios || [];
       const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
@@ -25853,18 +25854,487 @@
     `);
     printWin.document.close();
   }
+  function openGestorClubesPrioritarios() {
+    const modal = document.getElementById('modalGestorClubesPrioritarios');
+    const listContainer = document.getElementById('gestorClubesPrioritariosList');
+    const searchInput = document.getElementById('gestorClubesPrioritariosSearch');
+    const closeBtn = document.getElementById('closeGestorClubesPrioritariosBtn');
 
-  function initCarteleraListeners() {
-    const btnAddPriority = document.getElementById('btnAddPriorityTeam');
-    if (btnAddPriority && !btnAddPriority.dataset.initialized) {
-      btnAddPriority.dataset.initialized = 'true';
-      btnAddPriority.onclick = () => openAddTeamsModal('priority');
+    // Aux function to filter Informes seen
+    function getInformesVistos(teamName, isClub) {
+      if (!state.reports || !teamName) return isClub ? { isGrouped: true, totalTeams: 0, seenTeams: 0, teamsData: [] } : [];
+      const searchStr = String(teamName).toLowerCase().trim();
+      
+      const normalizeStr = (name) => {
+        if (!name) return '';
+        let n = String(name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const patternsToRemove = [
+          /\b(ca|cd|sd|ud|cf|fc|rc|ad|cp|at|udc|ucd|atletico|atlético|club atletico|club deportivo|sociedad deportiva|union deportiva|club de futbol|futbol club|club)\b/g,
+          /\b(lni|ln|dh|división de honor|division de honor|nacional|juvenil|cadete|infantil)\b/g,
+          /\b\d{2}\/\d{2}\b/g,
+          /\s+/g
+        ];
+        patternsToRemove.forEach(p => { n = n.replace(p, ' '); });
+        return n.trim().replace(/\s+/g, ' ');
+      };
+      
+      const searchNorm = normalizeStr(searchStr);
+
+      if (isClub) {
+        // 1. Get all unique teams in Cartelera
+        const allCarteleraMatches = [];
+        (state.cartelera.calendarios || []).forEach(cal => {
+          (cal.partidos || []).forEach(m => allCarteleraMatches.push(m));
+        });
+        const uniqueCarteleraTeams = new Set();
+        allCarteleraMatches.forEach(m => {
+          if (m.local) uniqueCarteleraTeams.add(m.local.trim());
+          if (m.visitante) uniqueCarteleraTeams.add(m.visitante.trim());
+        });
+
+        // 2. Filter teams that belong to the club
+        const categoryOrder = [
+          '1 RFEF', '2 RFEF', '3 RFEF', 'AUT', 'PREF', 'REG', 
+          'DHJ', 'LNJ', 'JAU', 'CV', 'CH', 'CPR', 'IH', 'ITX', 
+          'ALV', 'ALVB', 'BEN', 'BENB'
+        ];
+        
+        const getTeamCategoryIndex = (teamName) => {
+          const upper = teamName.toUpperCase();
+          for (let i = 0; i < categoryOrder.length; i++) {
+            const regex = new RegExp(`\\b${categoryOrder[i]}\\b`, 'i');
+            if (regex.test(teamName)) return i;
+          }
+          return 999;
+        };
+
+        const clubTeams = Array.from(uniqueCarteleraTeams).filter(team => {
+          const tLower = team.toLowerCase();
+          if (tLower.includes(searchStr)) return true;
+          const tNorm = normalizeStr(tLower);
+          if (searchNorm && tNorm.includes(searchNorm)) return true;
+          return false;
+        }).sort((a, b) => {
+          const idxA = getTeamCategoryIndex(a);
+          const idxB = getTeamCategoryIndex(b);
+          if (idxA !== idxB) return idxA - idxB;
+          return a.localeCompare(b);
+        });
+
+        // 3. Find reports for each club team
+        const teamsData = [];
+        let seenTeamsCount = 0;
+        
+        clubTeams.forEach(team => {
+          const teamLower = team.toLowerCase();
+          const teamReports = state.reports.filter(r => {
+             const loc = String(r.equipoLocal || r.localTeam || r.local || '').toLowerCase();
+             const vis = String(r.equipoVisitante || r.visitanteTeam || r.visitante || '').toLowerCase();
+             return loc === teamLower || vis === teamLower || loc.includes(teamLower) || vis.includes(teamLower);
+          });
+          
+          if (teamReports.length > 0) seenTeamsCount++;
+          
+          teamsData.push({
+            teamName: team,
+            reports: teamReports
+          });
+        });
+
+        // 4. Find orphan reports (reports for the club that don't match any of the cartelera clubTeams)
+        const allClubReports = state.reports.filter(r => {
+          const loc = String(r.equipoLocal || r.localTeam || r.local || '').toLowerCase();
+          const vis = String(r.equipoVisitante || r.visitanteTeam || r.visitante || '').toLowerCase();
+          if (loc.includes(searchStr) || vis.includes(searchStr)) return true;
+          const locNorm = normalizeStr(loc);
+          const visNorm = normalizeStr(vis);
+          if (searchNorm && (locNorm.includes(searchNorm) || visNorm.includes(searchNorm))) return true;
+          return false;
+        });
+        
+        const usedReportIds = new Set();
+        teamsData.forEach(td => td.reports.forEach(r => usedReportIds.add(r.id || r.reportId)));
+        
+        const orphanReports = allClubReports.filter(r => !usedReportIds.has(r.id || r.reportId));
+        if (orphanReports.length > 0) {
+          teamsData.push({
+            teamName: 'Otros / Amistosos',
+            reports: orphanReports
+          });
+        }
+
+        return {
+          isGrouped: true,
+          totalTeams: clubTeams.length,
+          seenTeams: seenTeamsCount,
+          teamsData: teamsData
+        };
+
+      } else {
+        // Specific Team
+        return state.reports.filter(r => {
+          const loc = String(r.equipoLocal || r.localTeam || r.local || '').toLowerCase();
+          const vis = String(r.equipoVisitante || r.visitanteTeam || r.visitante || '').toLowerCase();
+          return loc === searchStr || vis === searchStr || loc.includes(searchStr) || vis.includes(searchStr);
+        });
+      }
     }
 
-    const btnAddInteresting = document.getElementById('btnAddInterestingTeam');
-    if (btnAddInteresting && !btnAddInteresting.dataset.initialized) {
-      btnAddInteresting.dataset.initialized = 'true';
-      btnAddInteresting.onclick = () => openAddTeamsModal('interesting');
+    // Modal to show matched reports
+    window.openInformesVistosModal = function(teamName, dataOrInformes) {
+      const isGrouped = !Array.isArray(dataOrInformes) && dataOrInformes.isGrouped;
+      
+      const renderReportItem = (h) => {
+        const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
+        const isSinEval = h.tags && h.tags.includes('SIN EVALUAR');
+        let badges = '';
+        if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
+        if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR</span>`;
+
+        return `
+        <div class="match-report-link-emergente" data-repid="${h.reportId || h.id}" data-playerid="${h.playerId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.localTeam || h.equipoLocal || h.local || 'Local')} <span style="color: var(--text-muted); font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(h.visitanteTeam || h.equipoVisitante || h.visitante || 'Visitante')} ${badges}</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.date || h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || h.categoria || 'Sin Especificar')}</div>
+          </div>
+          <i data-lucide="external-link" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+        </div>
+        `;
+      };
+
+      let informesHtml = '';
+      
+      if (isGrouped) {
+        if (dataOrInformes.teamsData.length > 0) {
+          dataOrInformes.teamsData.forEach(td => {
+            const id = 'acc-' + Math.random().toString(36).substr(2, 9);
+            
+            let badgeBg = '#fee2e2'; // Red / Pendiente
+            let badgeText = '#ef4444'; 
+            let badgeContent = 'Pendiente';
+            if (td.reports.length === 1) {
+              badgeBg = 'rgba(245, 158, 11, 0.15)'; // Light Orange
+              badgeText = 'rgba(217, 119, 6, 1)'; // Darker Orange
+              badgeContent = '1 visto';
+            } else if (td.reports.length === 2) {
+              badgeBg = 'rgba(59, 130, 246, 0.15)'; // Light Blue
+              badgeText = 'rgba(37, 99, 235, 1)'; // Darker Blue
+              badgeContent = '2 vistos';
+            } else if (td.reports.length > 2) {
+              badgeBg = 'rgba(34, 197, 94, 0.15)'; // Light Green
+              badgeText = 'rgba(22, 163, 74, 1)'; // Darker Green
+              badgeContent = td.reports.length + ' vistos';
+            }
+
+            informesHtml += `<div style="margin-bottom: 8px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden;">`;
+            informesHtml += `<div onclick="const content = document.getElementById('${id}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
+              ${escapeHtml(td.teamName)}
+              <div style="display: flex; align-items: center; gap: 8px;">
+                 <span style="font-size: 11px; color: ${badgeText}; font-weight: 700; background: ${badgeBg}; padding: 2px 8px; border-radius: 12px;">${badgeContent}</span>
+                 <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s;"></i>
+              </div>
+            </div>`;
+            informesHtml += `<div id="${id}" style="display: none; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
+            if (td.reports.length > 0) {
+              informesHtml += td.reports.map(renderReportItem).join('');
+            } else {
+              informesHtml += `<div style="padding: 12px; font-size: 12px; color: #ef4444; background: #fee2e2; border-radius: 6px; border: 1px dashed #fca5a5; font-weight: 600; text-align: center;"><i data-lucide="alert-circle" style="width: 14px; height: 14px; margin-right: 6px; vertical-align: middle;"></i> Este equipo está pendiente de ver</div>`;
+            }
+            informesHtml += `</div></div>`;
+          });
+        } else {
+          informesHtml = `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin equipos en cartelera</div>`;
+        }
+      } else {
+        const informes = dataOrInformes;
+        informesHtml = informes.length > 0 ? informes.map(renderReportItem).join('') : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin informes registrados</div>`;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.style.zIndex = '20080';
+      overlay.innerHTML = `
+        <div class="modal-card" style="width: 1000px; max-width: 95vw; height: 85vh; padding: 24px; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="file-text" style="color: var(--primary-blue);"></i> Partidos vistos de ${escapeHtml(teamName)}
+            </h3>
+            <button class="btn btn-secondary compact" id="btnCloseVistosEmergente" style="padding: 6px;"><i data-lucide="x"></i></button>
+          </div>
+          <div style="overflow-y: auto; padding-right: 4px; flex-grow: 1;">
+            ${informesHtml}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      if (window.lucide) window.lucide.createIcons();
+
+      document.getElementById('btnCloseVistosEmergente').onclick = () => overlay.remove();
+
+      overlay.querySelectorAll('.match-report-link-emergente').forEach(el => {
+        el.onclick = () => {
+          const playerId = el.dataset.playerid;
+          if (playerId && typeof window.openFicha === 'function') {
+             overlay.remove(); // Close mini modal
+             document.getElementById('modalGestorClubesPrioritarios').classList.add('hidden'); // Close gestor too
+             window.openFicha(playerId);
+          }
+        };
+      });
+    };
+
+    // Tabs
+    const tabs = modal.querySelectorAll('.gestor-tab');
+    const tabContents = modal.querySelectorAll('.gestor-tab-content');
+    
+    // Tab Specific Teams
+    const specificCatSelect = document.getElementById('gestorSpecificTeamCat');
+    const specificTeamSelect = document.getElementById('gestorSpecificTeamSelect');
+    const btnAddSpecificTeam = document.getElementById('btnGestorAddSpecificTeam');
+    const specificTeamsList = document.getElementById('gestorSpecificTeamsList');
+
+    if (!modal || !listContainer) return;
+
+    // Reset search
+    if (searchInput) searchInput.value = '';
+
+    // Initialize Tabs
+    tabs.forEach(t => {
+      t.onclick = () => {
+        tabs.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById(t.dataset.tab).classList.add('active');
+      };
+    });
+
+    // Get all clubs and sort alphabetically
+    const allClubs = (state.directory?.clubes || []).slice().sort((a, b) => {
+      const nameA = (a.nombre || a.club || '').toLowerCase();
+      const nameB = (b.nombre || b.club || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+    function renderList(query = '') {
+      listContainer.innerHTML = '';
+      const q = query.toLowerCase();
+
+      let filteredClubs = [];
+      if (q) {
+        filteredClubs = allClubs.filter(c => {
+          const name = (c.nombre || c.club || '').toLowerCase();
+          return name.includes(q);
+        });
+      } else {
+        filteredClubs = allClubs.filter(c => c.esPrioritario === true);
+      }
+
+      if (filteredClubs.length === 0) {
+        if (!q) {
+          listContainer.innerHTML = `
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--text-muted); text-align: center; height: 100%;">
+              <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-color);">
+                <i data-lucide="search" style="width: 24px; color: var(--text-muted);"></i>
+              </div>
+              <h4 style="margin: 0 0 8px 0; color: var(--text-main); font-weight: 700; font-size: 16px;">Buscar Clubes</h4>
+              <p style="margin: 0; font-size: 13px; line-height: 1.5; max-width: 280px;">
+                Escribe el nombre de un club en el buscador para añadirlo a tus prioritarios.
+              </p>
+            </div>
+          `;
+        } else {
+          listContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">No se encontraron clubes.</div>`;
+        }
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      filteredClubs.forEach(club => {
+        const isPriority = club.esPrioritario === true;
+        const clubName = escapeHtml(club.nombre || club.club || 'Sin Nombre');
+        
+        // Count vistos
+        const vistosObj = getInformesVistos(club.nombre || club.club || '', true);
+        const vistosBadge = vistosObj.seenTeams > 0 
+          ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistosObj.seenTeams} / ${vistosObj.totalTeams} equipos vistos</span>` 
+          : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
+        
+        const itemHtml = `
+          <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+            <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
+              ${clubName}
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${vistosBadge}
+              <label class="switch" style="margin: 0;">
+                <input type="checkbox" class="club-priority-toggle" data-id="${club.id}" ${isPriority ? 'checked' : ''}>
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+        `;
+        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+
+      // Attach listener to toggles
+      listContainer.querySelectorAll('.club-priority-toggle').forEach(toggle => {
+        toggle.addEventListener('change', (e) => {
+          const clubId = e.target.dataset.id;
+          const isChecked = e.target.checked;
+          
+          const clubIndex = state.directory.clubes.findIndex(c => c.id === clubId);
+          if (clubIndex > -1) {
+            state.directory.clubes[clubIndex].esPrioritario = isChecked;
+            saveToFirebase('clubes', state.directory.clubes[clubIndex]);
+            
+            // Re-render to update the star icon color
+            renderList(searchInput ? searchInput.value : '');
+            
+            // Refresh cartelera to reflect new priority teams if needed
+            if (typeof renderCartelera === 'function') {
+               renderCartelera();
+            }
+          }
+        });
+      });
+    }
+
+    renderList();
+
+    if (searchInput) {
+      searchInput.oninput = (e) => renderList(e.target.value);
+    }
+
+    if (closeBtn && !closeBtn.dataset.hasListener) {
+      closeBtn.dataset.hasListener = "true";
+      closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    }
+
+    // --- SPECIFIC TEAMS LOGIC ---
+    // Make sure we have the priorityTeams array initialized
+    if (!state.cartelera) state.cartelera = {};
+    if (!state.cartelera.priorityTeams) state.cartelera.priorityTeams = [];
+
+    const specificSearchInput = document.getElementById('gestorSpecificTeamSearch');
+
+    // Gather all unique teams from Cartelera
+    const allMatches = [];
+    (state.cartelera.calendarios || []).forEach(cal => {
+      (cal.partidos || []).forEach(m => {
+        allMatches.push(m);
+      });
+    });
+    const uniqueTeamsSet = new Set();
+    allMatches.forEach(m => {
+      if (m.local) uniqueTeamsSet.add(m.local.trim());
+      if (m.visitante) uniqueTeamsSet.add(m.visitante.trim());
+    });
+    const allUniqueTeams = Array.from(uniqueTeamsSet).sort((a, b) => a.localeCompare(b));
+
+    function renderSpecificTeamsList(query = '') {
+      if (!specificTeamsList) return;
+      specificTeamsList.innerHTML = '';
+      const q = query.toLowerCase();
+
+      let filteredTeams = [];
+      if (q) {
+        filteredTeams = allUniqueTeams.filter(t => t.toLowerCase().includes(q));
+      } else {
+        filteredTeams = [...state.cartelera.priorityTeams].sort((a, b) => a.localeCompare(b));
+      }
+
+      if (filteredTeams.length === 0) {
+        if (!q) {
+          specificTeamsList.innerHTML = `
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--text-muted); text-align: center; height: 100%;">
+              <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-color);">
+                <i data-lucide="search" style="width: 24px; color: var(--text-muted);"></i>
+              </div>
+              <h4 style="margin: 0 0 8px 0; color: var(--text-main); font-weight: 700; font-size: 16px;">Buscar Equipos</h4>
+              <p style="margin: 0; font-size: 13px; line-height: 1.5; max-width: 280px;">
+                Escribe el nombre de un equipo para buscarlo en la cartelera y añadirlo a tus equipos específicos.
+              </p>
+            </div>
+          `;
+        } else {
+          specificTeamsList.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">No se encontraron equipos en la cartelera actual con ese nombre.</div>`;
+        }
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      filteredTeams.forEach((team) => {
+        const isPriority = state.cartelera.priorityTeams.includes(team);
+        
+        // Count vistos
+        const vistos = getInformesVistos(team, false);
+        const vistosBadge = vistos.length > 0 
+          ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
+          : `<span class="badge-vistos" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: default;">0 vistos</span>`;
+
+        const itemHtml = `
+          <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+            <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+              <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
+              ${escapeHtml(team)}
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${vistosBadge}
+              <label class="switch" style="margin: 0;">
+                <input type="checkbox" class="specific-team-priority-toggle" data-team="${escapeHtml(team)}" ${isPriority ? 'checked' : ''}>
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+        `;
+        specificTeamsList.insertAdjacentHTML('beforeend', itemHtml);
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+
+      // Bind toggles
+      specificTeamsList.querySelectorAll('.specific-team-priority-toggle').forEach(toggle => {
+        toggle.addEventListener('change', (e) => {
+          const teamName = e.target.dataset.team;
+          const isChecked = e.target.checked;
+          
+          if (isChecked) {
+            if (!state.cartelera.priorityTeams.includes(teamName)) {
+              state.cartelera.priorityTeams.push(teamName);
+            }
+          } else {
+            const idx = state.cartelera.priorityTeams.indexOf(teamName);
+            if (idx > -1) state.cartelera.priorityTeams.splice(idx, 1);
+          }
+          
+          saveSettingsToFirebase(); // save to app_settings
+          
+          // Re-render
+          renderSpecificTeamsList(specificSearchInput ? specificSearchInput.value : '');
+          
+          if (typeof renderCartelera === 'function') renderCartelera();
+        });
+      });
+    }
+
+    if (specificSearchInput) {
+      specificSearchInput.value = '';
+      specificSearchInput.oninput = (e) => renderSpecificTeamsList(e.target.value);
+    }
+    renderSpecificTeamsList();
+
+    modal.classList.remove('hidden');
+  }
+  function initCarteleraListeners() {
+    const btnOpenGestor = document.getElementById('btnOpenClubesPrioritariosModal');
+    if (btnOpenGestor && !btnOpenGestor.dataset.initialized) {
+      btnOpenGestor.dataset.initialized = 'true';
+      btnOpenGestor.onclick = () => openGestorClubesPrioritarios();
     }
 
     const btnDestacadosFinde = document.getElementById('btnCarteleraDestacadosFinde');
