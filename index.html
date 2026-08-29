@@ -200,9 +200,18 @@
 
         <!-- CENTER COLUMN -->
         <div class="dashboard-center-col" style="display: flex; flex-direction: column; height: 100%;">
-          <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding: 32px; flex-grow: 1;">
-            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-family: var(--font-heading); font-size: 34px; font-weight: 900; margin-top: -20px; margin-bottom: 100px; padding: 20px; border-radius: var(--radius-lg); text-align: center; text-transform: uppercase; letter-spacing: 2px; box-shadow: var(--shadow-lg); box-sizing: border-box;"></div>
-            <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; max-width: 95%; max-height: 310px; object-fit: contain;">
+          <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding-top: 20px; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding-left: 32px; padding-right: 32px; padding-bottom: 32px; flex-grow: 1; overflow-y: auto;">
+            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-family: var(--font-heading); font-size: 34px; font-weight: 900; padding: 20px; border-radius: var(--radius-lg); text-align: center; text-transform: uppercase; letter-spacing: 2px; box-shadow: var(--shadow-lg); box-sizing: border-box; margin-bottom: 20px; cursor: pointer; transition: transform 0.2s ease;"></div>
+            <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; max-width: 95%; max-height: 400px; object-fit: contain; margin-bottom: 20px; flex-grow: 1;">
+            
+            <div id="partidosVistosContainer" style="width: 100%; max-width: 95%; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); box-sizing: border-box; cursor: pointer; transition: transform 0.2s ease;">
+               <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
+                 <div>
+                   <div style="font-family: var(--font-heading); font-size: 16px; font-weight: 900; color: var(--text-main); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">Partidos Vistos</div>
+                   <div id="kpiPartidosVistos" style="font-size: 42px; font-weight: 900; color: var(--text-main);">0</div>
+                 </div>
+               </div>
+            </div>
           </div>
         </div>
 
@@ -1849,6 +1858,33 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
     </div>
   </div>
 
+
+  <!-- MODAL PARTIDOS VISTOS -->
+  <div class="modal-overlay hidden" id="modalPartidosVistos" style="z-index: 20050;">
+    <div class="modal-card" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl);">
+      <div class="modal-header banner-blue">
+        <h3 style="margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 10px;"><i data-lucide="eye"></i> Partidos Vistos (Desglose)</h3>
+        <button type="button" class="modal-close" id="closePartidosVistosBtn" style="color: white;"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; padding: 24px; display: flex; flex-direction: column;" id="partidosVistosModalContent">
+        <!-- JS populates this -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MOTIVACIONAL -->
+  <div class="modal-overlay hidden" id="modalMotivational" style="z-index: 20055;">
+    <div class="modal-card" style="max-width: 500px; max-height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-xl);">
+      <div class="modal-header" id="modalMotivationalHeader" style="background: var(--bg-surface);">
+        <h3 style="margin: 0; font-size: 20px; color: white; display: flex; align-items: center; gap: 10px;" id="modalMotivationalTitle"><i data-lucide="activity"></i> Estado Actual</h3>
+        <button type="button" class="modal-close" id="closeMotivationalBtn" style="color: white;"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; padding: 24px; display: flex; flex-direction: column;" id="motivationalModalContent">
+        <!-- JS populates this -->
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="generalModalOverlay" style="z-index: 10020;">
     <div class="modal-card xlarge" id="generalModalCard">
       <div class="modal-header">
@@ -1873,10 +1909,9 @@ ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; b
   <!-- PDF.js for reading PDFs client-side -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   
-  <script src="app.js?v=202608272308" defer></script>
+  <script src="app.js?v=202608291547" defer></script>
   <script src="importer_v2.js?v=202608272300" defer></script>
 
 
 </body>
 </html>
-

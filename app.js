@@ -683,7 +683,7 @@
         if (Array.isArray(cartelera_calendarios) && cartelera_calendarios.length > 0) {
           state.cartelera.calendarios = cartelera_calendarios;
         }
-        
+
         if (Array.isArray(notasCategorias) && notasCategorias.length > 0) {
           state.notasCategorias = notasCategorias;
         }
@@ -1147,7 +1147,7 @@
     const elPendingEvents = document.getElementById('kpiPendingEvents');
     const elPriorityMatches = document.getElementById('kpiPriorityMatchesThisWeek');
 
-    
+
     if (elVistos) elVistos.textContent = totalVistos;
     if (elScheduled) elScheduled.textContent = scheduledMatches;
     if (elDirect) elDirect.textContent = directMatches;
@@ -1157,26 +1157,84 @@
       let msg = '';
       let color = '';
       let textColor = '#ffffff';
+      let zona = '';
+      let paraBajar = 0;
       if (directMatches > 20) {
         msg = '¡ESTAS JODIDO AMIGO!';
         color = '#ef4444';
+        zona = 'Zona Crítica (Más de 20)';
+        paraBajar = directMatches - 20;
       } else if (directMatches > 15) {
         msg = '¡ESPABILA MIGUEL!';
         color = '#f97316';
+        zona = 'Zona Peligro (16 - 20)';
+        paraBajar = directMatches - 15;
       } else if (directMatches > 10) {
         msg = 'NO TE RELAJES';
         color = '#fde047'; // bright yellow
         textColor = '#854d0e'; // dark yellow/brown text for contrast
+        zona = 'Zona Alerta (11 - 15)';
+        paraBajar = directMatches - 10;
       } else if (directMatches > 0) {
         msg = 'TE QUEDA POCO ¡ANIMO!';
         color = '#3b82f6';
+        zona = 'Zona Control (1 - 10)';
+        paraBajar = directMatches;
       } else {
         msg = 'AL DIA (POR FIN)';
         color = '#10b981';
+        zona = 'Zona Perfecta (0)';
+        paraBajar = 0;
       }
       elMotivational.textContent = msg;
       elMotivational.style.backgroundColor = color;
       elMotivational.style.color = textColor;
+
+      // Modal logic for Motivational Message
+      elMotivational.onclick = () => {
+        const modal = document.getElementById('modalMotivational');
+          const content = document.getElementById('motivationalModalContent');
+          const header = document.getElementById('modalMotivationalHeader');
+          const title = document.getElementById('modalMotivationalTitle');
+
+          if (modal && content) {
+            if (header) header.style.backgroundColor = color;
+            if (title) title.style.color = textColor;
+
+            const closeBtn = document.getElementById('closeMotivationalBtn');
+            if (closeBtn) {
+              closeBtn.style.color = textColor;
+              if (!closeBtn.dataset.hasListener) {
+                closeBtn.dataset.hasListener = "true";
+                closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+              }
+            }
+
+            let icon = '';
+            if (directMatches > 20) icon = 'skull';
+            else if (directMatches > 15) icon = 'flame';
+            else if (directMatches > 10) icon = 'alert-triangle';
+            else if (directMatches > 0) icon = 'coffee';
+            else icon = 'check-circle';
+
+            content.innerHTML = `
+                     <div style="text-align: center; padding: 20px;">
+                        <i data-lucide="${icon}" style="width: 64px; height: 64px; color: ${color}; margin-bottom: 20px;"></i>
+                        <h2 style="font-size: 28px; font-weight: 900; color: var(--text-main); margin-bottom: 10px;">${msg}</h2>
+                        <div style="font-size: 18px; color: var(--text-secondary); margin-bottom: 5px;">Estado: <strong>${zona}</strong></div>
+                        ${paraBajar > 0 ? `<div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 30px; background: var(--bg-surface-hover); padding: 6px 16px; border-radius: 20px; display: inline-block;">Tienes que completar <strong>${paraBajar}</strong> informe${paraBajar > 1 ? 's' : ''} para bajar de nivel</div>` : '<div style="margin-bottom: 30px;"></div>'}
+                        
+                        <div style="background: var(--bg-surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); display: inline-block; min-width: 250px;">
+                            <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px;">Informes Pendientes</div>
+                            <div style="font-size: 48px; font-weight: 900; color: ${color};">${directMatches}</div>
+                        </div>
+                     </div>
+                 `;
+
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+          }
+      };
     }
 
     const totalDirecto = reports.filter(r => r.completado && (!r.visionado || r.visionado === 'DIRECTO' || r.visionado === 'En vivo')).length;
@@ -1185,9 +1243,112 @@
     if (elTotalDirecto) elTotalDirecto.textContent = totalDirecto;
     if (elTotalVideo) elTotalVideo.textContent = totalVideo;
 
+    // --- Partidos Vistos (Informes) Breakdown ---
+    const elPartidosVistos = document.getElementById('kpiPartidosVistos');
+    const elPartidosVistosContainer = document.getElementById('partidosVistosContainer');
+
+    if (elPartidosVistos) {
+      elPartidosVistos.textContent = reports.length;
+    }
+
+    if (elPartidosVistosContainer) {
+      let bg = '';
+      if (reports.length < 50) bg = '#fee2e2'; // soft red
+      else if (reports.length < 100) bg = '#ffedd5'; // soft orange
+      else if (reports.length < 150) bg = '#fef9c3'; // soft yellow
+      else if (reports.length < 200) bg = '#dcfce7'; // soft light green
+      else bg = '#d1fae5'; // softer green
+      elPartidosVistosContainer.style.backgroundColor = bg;
+      
+      const breakdown = {};
+      const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+      reports.forEach(r => {
+        if (!r.date) return;
+        const d = new Date(r.date);
+        if (isNaN(d)) return;
+        const monthYear = `${meses[d.getMonth()]} ${d.getFullYear()}`;
+
+        const dayOfWeek = d.getDay();
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() + diffToMonday);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        const startDay = startOfWeek.getDate();
+        const endDay = endOfWeek.getDate();
+        const startMonthStr = meses[startOfWeek.getMonth()].toLowerCase();
+        const endMonthStr = meses[endOfWeek.getMonth()].toLowerCase();
+
+        let weekStr = '';
+        if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+          weekStr = `Del ${startDay}-${endDay} ${startMonthStr}`;
+        } else {
+          weekStr = `Del ${startDay} ${startMonthStr} al ${endDay} ${endMonthStr}`;
+        }
+
+        if (!breakdown[monthYear]) breakdown[monthYear] = { total: 0, weeks: {} };
+        breakdown[monthYear].total++;
+        if (!breakdown[monthYear].weeks[weekStr]) {
+          breakdown[monthYear].weeks[weekStr] = { count: 0, ts: startOfWeek.getTime() };
+        }
+        breakdown[monthYear].weeks[weekStr].count++;
+      });
+
+      const sortedMonths = Object.keys(breakdown).sort((a, b) => {
+        const [mA, yA] = a.split(' ');
+        const [mB, yB] = b.split(' ');
+        if (yA !== yB) return yB - yA;
+        return meses.indexOf(mB) - meses.indexOf(mA);
+      });
+
+      let html = '';
+      sortedMonths.forEach(m => {
+        html += `<div style="margin-bottom: 20px; background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 18px; color: var(--text-main); margin-bottom: 12px; border-bottom: 2px solid var(--border-light); padding-bottom: 8px;">
+            <span><i data-lucide="calendar" style="width: 18px; height: 18px; margin-right: 6px; vertical-align: text-bottom;"></i>${m}</span>
+            <span style="color: var(--primary-blue);">${breakdown[m].total} informes</span>
+          </div>`;
+        const sortedWeeks = Object.keys(breakdown[m].weeks).sort((w1, w2) => breakdown[m].weeks[w1].ts - breakdown[m].weeks[w2].ts);
+        sortedWeeks.forEach(w => {
+          html += `<div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; padding-left: 24px;">
+            <span>${w}</span>
+            <span style="font-weight: 700; color: var(--text-main); background: var(--bg-surface-hover); padding: 2px 8px; border-radius: 12px;">${breakdown[m].weeks[w].count}</span>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+
+
+      const modalContent = document.getElementById('partidosVistosModalContent');
+      if (modalContent) {
+        modalContent.innerHTML = html || '<div style="font-size: 16px; color: var(--text-muted); text-align: center; padding: 20px;">No hay informes registrados.</div>';
+      }
+
+      if (!elPartidosVistosContainer.dataset.hasListener) {
+        elPartidosVistosContainer.dataset.hasListener = "true";
+        elPartidosVistosContainer.addEventListener('click', () => {
+          const modal = document.getElementById('modalPartidosVistos');
+          if (modal) {
+            modal.classList.remove('hidden');
+            // Make sure the close button works
+            const closeBtn = document.getElementById('closePartidosVistosBtn');
+            if (closeBtn && !closeBtn.dataset.hasListener) {
+              closeBtn.dataset.hasListener = "true";
+              closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+            }
+          }
+        });
+      }
+    }
+
+
     // Primer bloque: Directorio
     if (elTotalPlayers) elTotalPlayers.textContent = players.length;
-    
+
     const clubesCount = (state.directory?.clubes || []).length;
     const elTotalClubes = document.getElementById('kpiTotalClubes');
     if (elTotalClubes) elTotalClubes.textContent = clubesCount;
@@ -1201,7 +1362,7 @@
     if (elTotalSelecciones) elTotalSelecciones.textContent = seleccionesCount;
 
     // Segundo bloque: Planificación
-    
+
     let carteleraCount = 0;
     const carteleraToday = new Date();
     const carteleraDay = carteleraToday.getDay() || 7;
@@ -1218,7 +1379,7 @@
         if (!p.fecha) return;
         const matchDate = new Date(p.fecha);
         if (matchDate >= carteleraMonday && matchDate <= carteleraSunday) {
-           carteleraCount++;
+          carteleraCount++;
         }
       });
     });
@@ -1237,7 +1398,7 @@
     const notasCount = (state.notas || []).length;
     const elTotalNotas = document.getElementById('kpiTotalNotas');
     if (elTotalNotas) elTotalNotas.textContent = notasCount;
-if (elPriorityMatches) {
+    if (elPriorityMatches) {
       const pTeamsLower = (state.cartelera?.priorityTeams || []).map(t => String(t).toLowerCase().trim());
       let pMatchesCount = 0;
 
@@ -1306,7 +1467,7 @@ if (elPriorityMatches) {
                   return;
                 }
                 const key = n.toLowerCase().trim();
-                
+
                 // Also check if 'NO JUEGA' is set in the player's individual historical evaluations for this report
                 const pDir = players.find(pd => (pd.nombre || pd.jugador || pd.name || '').toLowerCase().trim() === key);
                 if (pDir && pDir.historialEvaluaciones) {
@@ -1420,7 +1581,7 @@ if (elPriorityMatches) {
 
     const teams = state.directory?.equipos || [];
     const allReportsToCount = state.reports || [];
-    
+
     const normalizeNameForStats = (name) => {
       if (!name) return '';
       let n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1445,10 +1606,10 @@ if (elPriorityMatches) {
       if (!t1 || !t2) return false;
       const lt1 = t1.toLowerCase().trim();
       const lt2 = t2.toLowerCase().trim();
-      
+
       const c1 = normalizeCatForStats(cat1);
       const c2 = normalizeCatForStats(cat2);
-      
+
       if (c1 && c2 && c1 !== c2 && !c1.includes(c2) && !c2.includes(c1)) {
         if (lt1 === lt2) return true;
         return false;
@@ -1469,7 +1630,7 @@ if (elPriorityMatches) {
     teams.forEach(t => {
       let cat = String(t.categoria || 'Sin Categoría').trim();
       const teamKey = t.nombre ? t.nombre.trim() : '';
-      
+
       let numVistos = 0;
       if (teamKey) {
         allReportsToCount.forEach(r => {
@@ -1592,7 +1753,7 @@ if (elPriorityMatches) {
       const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : '#f8fafc';
 
       const playersJson = encodeURIComponent(JSON.stringify(y.jugadoresVistos || []));
-      
+
       html += `
         <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid ${isSub23 ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-color)'}; background: ${defaultBg}; gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='${hoverBg}';" onmouseout="this.style.background='${defaultBg}';" onclick="openPlayersSubcategoryModal('${escapeHtml(groupName)}', '${escapeHtml(y.year)}', '${playersJson}')">
           <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
@@ -1626,7 +1787,7 @@ if (elPriorityMatches) {
     });
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
-    
+
     // Legend for times seen
     html += `
       <div style="display: flex; gap: 16px; font-size: 11px; font-weight: 600; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; justify-content: center;">
@@ -1647,16 +1808,16 @@ if (elPriorityMatches) {
         let rowBgStyle = '';
         if (p.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
         else if (p.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
-        
+
         const playerIdStr = p.id ? `'${escapeHtml(p.id)}'` : 'null';
-        
+
         const vistos = p.vistos || 1;
         let badgeColor = 'rgba(234, 179, 8, 1)'; // Yellow
         if (vistos === 2) badgeColor = 'rgba(59, 130, 246, 1)'; // Blue
         if (vistos > 2) badgeColor = 'rgba(34, 197, 94, 1)'; // Green
         const vistosBadge = `<span style="background: ${badgeColor}; color: white; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;" title="${vistos} veces visto">${vistos}</span>`;
 
-        
+
         tbodyHtml += `
           <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
             <td style="padding: 12px 16px; font-weight: 600; color: var(--text-dark);">${escapeHtml(p.nombre || 'Sin nombre')}</td>
@@ -1717,12 +1878,12 @@ if (elPriorityMatches) {
       const btnClose = document.getElementById('btnCloseModal');
       if (btnClose && !document.getElementById('btnBackToAgeGroup')) {
         const header = btnClose.parentNode;
-        
+
         const btnContainer = document.createElement('div');
         btnContainer.style.display = 'flex';
         btnContainer.style.gap = '16px';
         btnContainer.style.alignItems = 'center';
-        
+
         const backBtn = document.createElement('button');
         backBtn.id = 'btnBackToAgeGroup';
         backBtn.type = 'button';
@@ -1736,21 +1897,21 @@ if (elPriorityMatches) {
             if (categoryObj) categoryObj.click();
           }, 300);
         };
-        
+
         header.insertBefore(btnContainer, btnClose);
         btnContainer.appendChild(backBtn);
         btnContainer.appendChild(btnClose); // Moves btnClose into the container
-        
+
         const cleanup = () => {
           if (btnContainer.parentNode) {
-             // Move btnClose back to header when closing so it's not destroyed
-             btnContainer.parentNode.insertBefore(btnClose, btnContainer);
-             btnContainer.parentNode.removeChild(btnContainer);
+            // Move btnClose back to header when closing so it's not destroyed
+            btnContainer.parentNode.insertBefore(btnClose, btnContainer);
+            btnContainer.parentNode.removeChild(btnContainer);
           }
           if (btnClose) btnClose.removeEventListener('click', cleanup);
         };
         if (btnClose) btnClose.addEventListener('click', cleanup);
-        
+
         if (window.lucide) window.lucide.createIcons();
       }
     }, 100);
@@ -1816,7 +1977,7 @@ if (elPriorityMatches) {
     });
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
-    
+
     // Legend for times seen
     html += `
       <div style="display: flex; gap: 16px; font-size: 11px; font-weight: 600; padding: 8px 12px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; justify-content: center;">
@@ -1894,7 +2055,7 @@ if (elPriorityMatches) {
           const q = e.target.value.toLowerCase().trim();
           document.querySelectorAll('#generalModalBody > div > div > div > div').forEach(el => {
             if (el.querySelector('button')) {
-               el.style.display = el.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+              el.style.display = el.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
             }
           });
         });
@@ -1903,12 +2064,12 @@ if (elPriorityMatches) {
       const btnClose = document.getElementById('btnCloseModal');
       if (btnClose && !document.getElementById('btnBackToTeamGroup')) {
         const header = btnClose.parentNode;
-        
+
         const btnContainer = document.createElement('div');
         btnContainer.style.display = 'flex';
         btnContainer.style.gap = '16px';
         btnContainer.style.alignItems = 'center';
-        
+
         const backBtn = document.createElement('button');
         backBtn.id = 'btnBackToTeamGroup';
         backBtn.type = 'button';
@@ -1923,21 +2084,21 @@ if (elPriorityMatches) {
             if (categoryObj) categoryObj.click();
           }, 300);
         };
-        
+
         header.insertBefore(btnContainer, btnClose);
         btnContainer.appendChild(backBtn);
         btnContainer.appendChild(btnClose); // Moves btnClose into the container
-        
+
         const cleanup = () => {
           if (btnContainer.parentNode) {
-             // Move btnClose back to header when closing so it's not destroyed
-             btnContainer.parentNode.insertBefore(btnClose, btnContainer);
-             btnContainer.parentNode.removeChild(btnContainer);
+            // Move btnClose back to header when closing so it's not destroyed
+            btnContainer.parentNode.insertBefore(btnClose, btnContainer);
+            btnContainer.parentNode.removeChild(btnContainer);
           }
           if (btnClose) btnClose.removeEventListener('click', cleanup);
         };
         if (btnClose) btnClose.addEventListener('click', cleanup);
-        
+
         if (window.lucide) window.lucide.createIcons();
       }
     }, 100);
@@ -2164,7 +2325,7 @@ if (elPriorityMatches) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  
+
   function initDashboardShortcuts() {
     document.querySelectorAll('.kpi-card[data-shortcut]').forEach(card => {
       card.onclick = () => {
@@ -2190,9 +2351,9 @@ if (elPriorityMatches) {
         } else if (target === 'notas') {
           console.log('Notas shortcut clicked!', typeof window.openNotaModal);
           if (typeof window.openNotaModal === 'function') {
-             window.openNotaModal(null);
+            window.openNotaModal(null);
           } else {
-             console.error('window.openNotaModal is not a function!', window.openNotaModal);
+            console.error('window.openNotaModal is not a function!', window.openNotaModal);
           }
         } else if (target === 'enlaces') {
           currentPlanificacionTab = 'enlaces';
@@ -2234,12 +2395,12 @@ if (elPriorityMatches) {
   let calendarActiveCategory = 'all';
   let calendarDaysCount = 10;
 
-  window.setCalendarCategory = function(cat) {
+  window.setCalendarCategory = function (cat) {
     calendarActiveCategory = cat;
     renderCalendario();
   };
 
-  window.updateAgendaCategoryColor = function(e, catId) {
+  window.updateAgendaCategoryColor = function (e, catId) {
     const newColor = e.target.value;
     const cat = (state.agendaCategories || []).find(c => c.id === catId);
     if (cat) {
@@ -2264,16 +2425,16 @@ if (elPriorityMatches) {
       btnDays?.classList.toggle('active', mode === 'days');
       document.getElementById('calendarDaysCountSelector')?.classList.toggle('hidden', mode !== 'days');
       document.getElementById('calendarCategoryTabs')?.classList.toggle('hidden', mode !== 'list');
-      
+
       document.getElementById('calendarMatchesContainer')?.classList.toggle('hidden', mode !== 'list');
       document.getElementById('calendarDaysWrapper')?.classList.toggle('hidden', mode !== 'days');
       document.getElementById('calendarWeekWrapper')?.classList.toggle('hidden', mode !== 'week');
       document.getElementById('calendarMonthWrapper')?.classList.toggle('hidden', mode !== 'month');
-      
+
       if (mode === 'week' || mode === 'days') {
         calendarCurrentDate = new Date();
       }
-      
+
       renderCalendario();
     }
 
@@ -2282,7 +2443,7 @@ if (elPriorityMatches) {
       calendarDaysCount = parseInt(e.target.value, 10);
       renderCalendario();
     });
-    
+
     btnList?.addEventListener('click', () => setActiveMode('list'));
     btnWeek?.addEventListener('click', () => setActiveMode('week'));
     btnDays?.addEventListener('click', () => setActiveMode('days'));
@@ -2342,11 +2503,11 @@ if (elPriorityMatches) {
 
     const uniqueTags = new Set();
     state.matches.forEach(m => { if (m.categoria) uniqueTags.add(m.categoria); });
-    (state.agenda || []).forEach(a => { 
+    (state.agenda || []).forEach(a => {
       const cats = a.categorias || (a.categoria ? [a.categoria] : []);
       cats.forEach(c => uniqueTags.add(c));
     });
-    (state.reports || []).forEach(r => { 
+    (state.reports || []).forEach(r => {
       const cats = r.categorias || (r.categoria ? [r.categoria] : []);
       cats.forEach(c => uniqueTags.add(c));
     });
@@ -2915,7 +3076,7 @@ if (elPriorityMatches) {
     const dayMap = {};
     const daySortMap = {};
     const visionadoMap = { 'DIRECTO': 0, 'VÍDEO': 0 };
-    const incidenciaMap = { 
+    const incidenciaMap = {
       '': 0,
       'Falta acta en Federación': 0,
       'Equipo no creado en app': 0,
@@ -2936,7 +3097,7 @@ if (elPriorityMatches) {
 
       const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
       visionadoMap[vis] = (visionadoMap[vis] || 0) + 1;
-      
+
       const val = r.incidencia || '';
       incidenciaMap[val] = (incidenciaMap[val] || 0) + 1;
 
@@ -3127,7 +3288,7 @@ if (elPriorityMatches) {
       currentPartidosVisionadoTab = e.target.value;
       renderPartidosList();
     });
-    
+
     document.getElementById('partidosIncidenciaSelect')?.addEventListener('change', (e) => {
       currentPartidosIncidenciaTab = e.target.value;
       renderPartidosList();
@@ -3205,7 +3366,7 @@ if (elPriorityMatches) {
         const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
         matchesVisionado = (vis === currentPartidosVisionadoTab);
       }
-      
+
       let matchesIncidencia = true;
       if (currentPartidosIncidenciaTab !== 'all') {
         const val = r.incidencia || '';
@@ -3691,7 +3852,7 @@ if (elPriorityMatches) {
       (state.directory.estadios || []).forEach(e => { if (e.nombre) allStadiums.add(e.nombre); if (e.estadio) allStadiums.add(e.estadio); });
       (state.directory.clubes || []).forEach(c => { if (c.estadio) allStadiums.add(c.estadio); if (c.estadioVinculado) allStadiums.add(c.estadioVinculado); });
       (state.directory.equipos || []).forEach(eq => { if (eq.estadio) allStadiums.add(eq.estadio); if (eq.estadioVinculado) allStadiums.add(eq.estadioVinculado); });
-      
+
       estadiosListOptions.innerHTML = Array.from(allStadiums).filter(Boolean).map(est => `<option value="${escapeHtml(est)}"></option>`).join('');
     }
 
@@ -4165,7 +4326,7 @@ if (elPriorityMatches) {
     if (!teamInput || !badgeLabel) return;
 
     const teamName = teamInput.value.trim();
-    
+
     const lastTeamName = teamInput.dataset.lastTeam || '';
     const teamChanged = (teamName !== lastTeamName);
     teamInput.dataset.lastTeam = teamName;
@@ -4202,7 +4363,7 @@ if (elPriorityMatches) {
         const compVal = teamObj.liga || teamObj.competicion || '';
         const catVal = teamObj.categoria || '';
         const fedVal = teamObj.federacion || '';
-        
+
         let estVal = teamObj.estadio || teamObj.estadioVinculado || '';
         if (!estVal && teamObj.club) {
           const clubObj = (state.directory.clubes || []).find(c => (c.nombre || c.club || '').toLowerCase() === teamObj.club.toLowerCase());
@@ -4762,10 +4923,10 @@ if (elPriorityMatches) {
           const normTExact = t.toLowerCase().replace(/[\.,]/g, '').trim();
           const normTeamExact = teamNameLower.replace(/[\.,]/g, '').trim();
           if (normTExact === normTeamExact) return true;
-          
+
           const normT = normalizeStrictTeam(t);
           const normTeam = normalizeStrictTeam(teamNameLower);
-          
+
           return normT === normTeam && normT.length > 0;
         });
       }
@@ -4933,7 +5094,7 @@ if (elPriorityMatches) {
       const currentPos2 = p.pos2 || '';
       const hasCurrent = posOptions.includes(currentPos);
       const hasCurrent2 = posOptions.includes(currentPos2);
-      
+
       let inputBgStyle = '';
       if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
         const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
@@ -4984,7 +5145,7 @@ if (elPriorityMatches) {
       const currentPos2 = p.pos2 !== undefined ? p.pos2 : '';
       const hasCurrent = posOptions.includes(currentPos);
       const hasCurrent2 = posOptions.includes(currentPos2);
-      
+
       let inputBgStyle = '';
       if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
         const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
@@ -5737,7 +5898,7 @@ if (elPriorityMatches) {
       const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
       const pNorm = normalize(p.nombre);
       const nameNorm = normalize(pName);
-      
+
       const nameMatch = p.nombre && pName && (pNorm === nameNorm || window.flexibleMatch(nameNorm, p.nombre) || window.flexibleMatch(pNorm, pName));
       const numMatch = String(p.dorsal || p.numero || '').trim() === String(pNum).trim();
       const teamMatch = p.equipo && teamName && (window.flexibleMatch(teamName, p.equipo) || window.flexibleMatch(p.equipo, teamName));
@@ -5790,7 +5951,7 @@ if (elPriorityMatches) {
         const existing = playerInDir.historialEvaluaciones[existingIdx];
         const existingIsNoJuega = existing.tags && (existing.tags.includes('NO JUEGA') || existing.tags.includes('NO VISTO'));
         const newIsNoJuega = evalRecord.tags && (evalRecord.tags.includes('NO JUEGA') || evalRecord.tags.includes('NO VISTO'));
-        
+
         const existingHasData = existing.minutos > 0 || existing.rendimiento !== '' || (existing.stats && Object.keys(existing.stats).length > 0);
         const newIsEmpty = evalRecord.minutos === 0 && evalRecord.rendimiento === '' && (!evalRecord.stats || Object.keys(evalRecord.stats).length === 0);
 
@@ -5824,7 +5985,7 @@ if (elPriorityMatches) {
     let sumRend = 0, countRend = 0;
     let sumPot = 0, countPot = 0;
     let sumRendRS = 0, countRendRS = 0;
-    const letterToNum = { 'A+': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 };
+    const letterToNum = { 'A+': 5, 'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1 };
     const minsByComp = {};
 
     player.historialEvaluaciones.forEach(h => {
@@ -5850,11 +6011,11 @@ if (elPriorityMatches) {
     player.minutosPorCompeticion = minsByComp;
 
     const numToLetter = (num) => {
-      if (num >= 4.5) return 'A+';
-      if (num >= 3.5) return 'A';
-      if (num >= 2.5) return 'B';
-      if (num >= 1.5) return 'C';
-      return 'D';
+      if (num >= 4.5) return 'A';
+      if (num >= 3.5) return 'B';
+      if (num >= 2.5) return 'C';
+      if (num >= 1.5) return 'D';
+      return 'E';
     };
 
     if (countRend > 0) {
@@ -6024,6 +6185,7 @@ if (elPriorityMatches) {
                 <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
                 <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
                 <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'E' ? 'active' : ''}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
               </div>
             </div>
 
@@ -6043,6 +6205,7 @@ if (elPriorityMatches) {
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
                 <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
+                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'E' ? 'active' : ''}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
               </div>
             </div>
 
@@ -6179,19 +6342,19 @@ if (elPriorityMatches) {
                 ${['goles', 'asistencias', 'amarillas', 'rojas'].includes(f.key) ? `
                   <div class="stat-counter-details" id="details-container-${f.key}" style="display: ${pStats[f.key] > 0 ? 'block' : 'none'}; margin-top: 8px;">
                     ${(() => {
-                      let html = '';
-                      const count = Math.max(0, parseInt(pStats[f.key]) || 0);
-                      const savedDetails = pStats['detalles_' + f.key];
-                      let savedArr = [];
-                      if (Array.isArray(savedDetails)) savedArr = savedDetails;
-                      else if (typeof savedDetails === 'string') savedArr = [savedDetails];
+          let html = '';
+          const count = Math.max(0, parseInt(pStats[f.key]) || 0);
+          const savedDetails = pStats['detalles_' + f.key];
+          let savedArr = [];
+          if (Array.isArray(savedDetails)) savedArr = savedDetails;
+          else if (typeof savedDetails === 'string') savedArr = [savedDetails];
 
-                      for (let i = 0; i < count; i++) {
-                        const val = savedArr[i] || '';
-                        html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + f.key + '" data-index="' + i + '" placeholder="Detalle ' + (i+1) + '..." value="' + escapeHtml(val) + '">';
-                      }
-                      return html;
-                    })()}
+          for (let i = 0; i < count; i++) {
+            const val = savedArr[i] || '';
+            html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + f.key + '" data-index="' + i + '" placeholder="Detalle ' + (i + 1) + '..." value="' + escapeHtml(val) + '">';
+          }
+          return html;
+        })()}
                   </div>
                 ` : ''}
               </div>
@@ -6260,7 +6423,7 @@ if (elPriorityMatches) {
     modalContent.querySelectorAll('.tag-control-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.classList.toggle('active');
-        
+
         // If "NO JUEGA" or "NO VISTO" is activated, clear the rating buttons
         if ((btn.dataset.tag === 'NO JUEGA' || btn.dataset.tag === 'NO VISTO') && btn.classList.contains('active')) {
           modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
@@ -6410,7 +6573,7 @@ if (elPriorityMatches) {
           let html = '';
           for (let i = 0; i < currentVal; i++) {
             const val = currentInputs[i] || '';
-            html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + statKey + '" data-index="' + i + '" placeholder="Detalle ' + (i+1) + '..." value="' + escapeHtml(val) + '">';
+            html += '<input type="text" class="form-control stat-detail-input" style="font-size: 11px; padding: 4px 8px; height: auto; margin-bottom: 4px;" data-stat="' + statKey + '" data-index="' + i + '" placeholder="Detalle ' + (i + 1) + '..." value="' + escapeHtml(val) + '">';
           }
           detailsContainer.innerHTML = html;
           detailsContainer.style.display = currentVal > 0 ? 'block' : 'none';
@@ -6442,7 +6605,7 @@ if (elPriorityMatches) {
       });
 
       const isNoJuega = activeTags.includes('NO JUEGA') || activeTags.includes('NO VISTO');
-      
+
       const evalObj = {
         name: pName,
         rendimiento: isNoJuega ? '' : (modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active')?.dataset.val || 'C'),
@@ -6545,7 +6708,7 @@ if (elPriorityMatches) {
                 let inputBgStyle = '';
                 if (evalObj.rendimientoRS === 'A') inputBgStyle = 'rgba(34, 197, 94, 0.25)';
                 else if (evalObj.rendimientoRS === 'B') inputBgStyle = 'rgba(234, 179, 8, 0.25)';
-                
+
                 row.querySelectorAll('input, select').forEach(el => {
                   el.style.backgroundColor = inputBgStyle;
                 });
@@ -6720,14 +6883,14 @@ if (elPriorityMatches) {
       ['local', 'visitante'].forEach(t => {
         ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
           const system = matchTacticalSystems[t]?.[sysKey] || {};
-          
+
           const processPlayers = (playersArr, isTitular) => {
             (playersArr || []).forEach(p => {
               if (!p.num) return;
               const pNum = String(p.num).trim();
               const pName = (p.name || '').replace(/\s*\[.*?\]$/, '').trim();
               const evalKey = `${repId}_${t}_${pNum}`;
-              
+
               if (!state.matchPlayerEvaluations[evalKey]) {
                 state.matchPlayerEvaluations[evalKey] = {
                   rendimiento: '', potencial: '', rendimientoRS: '', tags: [], minutos: 0,
@@ -6735,7 +6898,7 @@ if (elPriorityMatches) {
                   descEmocional: '', perfilRS: '', stats: {}
                 };
               }
-              
+
               state.matchPlayerEvaluations[evalKey].dificultadPartido = getDifficultyRating(t) || '-';
               if (isTitular && !state.matchPlayerEvaluations[evalKey].sustituido) {
                 if (!state.matchPlayerEvaluations[evalKey].minutos) {
@@ -6925,10 +7088,10 @@ if (elPriorityMatches) {
       } else {
         alert('¡Informe Técnico de Partido guardado con éxito!');
       }
-      
+
       // Do not close the editor so the user can continue working
       // closeReportEditor();
-      
+
       // Do not re-render the list here as it switches the view
       // if (typeof renderPartidosList === 'function') {
       //   renderPartidosList(); 
@@ -6943,7 +7106,7 @@ if (elPriorityMatches) {
   // 6. SECTION 3: DIRECTORIO & SUB-TABS (Matches Directorio.png)
   // --------------------------------------------------------------------------
   let currentDirectoryTab = 'jugadores';
-let currentPlanificacionTab = 'calendario';
+  let currentPlanificacionTab = 'calendario';
 
   const LISTA_PAISES = [
     'España', 'Francia', 'Portugal', 'Alemania', 'Inglaterra', 'Italia', 'Argentina',
@@ -7121,7 +7284,7 @@ let currentPlanificacionTab = 'calendario';
   }
   window.navigateToDirectoryTab = navigateToDirectoryTab;
 
-  
+
   function initPlanificacionSubtabs() {
     const subtabs = document.querySelectorAll('.planificacion-tab');
     subtabs.forEach(tab => {
@@ -7138,7 +7301,7 @@ let currentPlanificacionTab = 'calendario';
     if (!activeSubTab) {
       document.querySelector('#view-laboratorio .sub-nav-btn[data-subtab="comparativa"]').classList.add('active');
     }
-    
+
     const currentSubTab = document.querySelector('#view-laboratorio .sub-nav-btn.active').dataset.subtab;
     if (currentSubTab === 'comparativa') {
       if (typeof renderComparativa === 'function') renderComparativa();
@@ -7166,7 +7329,7 @@ let currentPlanificacionTab = 'calendario';
             v.classList.add('hidden');
           }
         });
-        
+
         if (target === 'comparativa') {
           if (typeof renderComparativa === 'function') renderComparativa();
         } else if (target === 'mapas') {
@@ -7178,7 +7341,7 @@ let currentPlanificacionTab = 'calendario';
     });
   }
 
-  window.applyDirTabOrder = function() {
+  window.applyDirTabOrder = function () {
     const bar = document.querySelector('#view-directorio .directory-subtabs-bar');
     if (!bar) return;
     if (state.dirTabOrder && Array.isArray(state.dirTabOrder) && state.dirTabOrder.length > 0) {
@@ -7246,17 +7409,31 @@ let currentPlanificacionTab = 'calendario';
     return `Sub${age}`;
   }
 
+  window.getColorForAttribute = function (val) {
+    const num = parseFloat(val);
+    if (isNaN(num)) return 'var(--primary-blue)';
+    if (num < 3) return '#ef4444';
+    if (num >= 4) return '#10b981';
+    return 'var(--primary-blue)';
+  };
+
   let playerAtributosChartInstance = null;
   window.updatePlayerAtributosChart = function () {
     const canvas = document.getElementById('playerAtributosChart');
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const valEmo = parseInt(document.getElementById('pfAtrEmocional')?.value) || 3;
-    const valFis = parseInt(document.getElementById('pfAtrFisico')?.value) || 3;
-    const valDef = parseInt(document.getElementById('pfAtrDefensa')?.value) || 3;
-    const valAta = parseInt(document.getElementById('pfAtrAtaque')?.value) || 3;
-    const valPue = parseInt(document.getElementById('pfAtrPuesto')?.value) || 3;
+    const valEmo = parseFloat(document.getElementById('pfAtrEmocional')?.value) || 3;
+    const valFis = parseFloat(document.getElementById('pfAtrFisico')?.value) || 3;
+    const valTec = parseFloat(document.getElementById('pfAtrTecnica')?.value) || 3;
+    const valDef = parseFloat(document.getElementById('pfAtrDefensa')?.value) || 3;
+    const valAta = parseFloat(document.getElementById('pfAtrAtaque')?.value) || 3;
+    const valPue = parseFloat(document.getElementById('pfAtrPuesto')?.value) || 3;
+    const valDec = parseFloat(document.getElementById('pfAtrDecisiones')?.value) || 3;
+    const valTac = parseFloat(document.getElementById('pfAtrInteligencia')?.value) || 3;
+    const valRend = parseFloat(document.getElementById('pfRendimientoAvg')?.value) || 0;
+    const valPot = parseFloat(document.getElementById('pfPotencialAvg')?.value) || 0;
+    const valRendRS = parseFloat(document.getElementById('pfRendimientoRSAvg')?.value) || 0;
 
     if (playerAtributosChartInstance) {
       playerAtributosChartInstance.destroy();
@@ -7265,10 +7442,10 @@ let currentPlanificacionTab = 'calendario';
     playerAtributosChartInstance = new Chart(ctx, {
       type: 'radar',
       data: {
-        labels: ['Emocional', 'Físico', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto'],
+        labels: ['Emocional', 'Físico', 'Técnica Ind.', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto', 'Toma Decisiones', 'Int. Táctica', 'Rendimiento', 'Potencial', 'Rend. RS'],
         datasets: [{
           label: 'Atributos',
-          data: [valEmo, valFis, valDef, valAta, valPue],
+          data: [valEmo, valFis, valTec, valDef, valAta, valPue, valDec, valTac, valRend, valPot, valRendRS],
           backgroundColor: 'rgba(59, 130, 246, 0.2)',
           borderColor: 'rgba(59, 130, 246, 1)',
           pointBackgroundColor: 'rgba(59, 130, 246, 1)',
@@ -7285,7 +7462,7 @@ let currentPlanificacionTab = 'calendario';
           r: {
             angleLines: { display: true },
             suggestedMin: 0,
-            suggestedMax: 10,
+            suggestedMax: 5,
             ticks: {
               stepSize: 1
             }
@@ -7431,12 +7608,12 @@ let currentPlanificacionTab = 'calendario';
         let foundAsNoJuega = false;
         let foundDorsal = '-';
         let foundTeam = '';
-        
+
         const checkPlayer = (pObj, teamName, repId) => {
           if (!pObj) return;
           const name = (pObj.name || '');
           if (isSamePlayerName(name, player.nombre || player.jugador || player.name, teamName, player.equipo || player.equipoActual)) {
-            
+
             let isNoJuega = pObj.tags && Array.isArray(pObj.tags) && (pObj.tags.includes('NO JUEGA') || pObj.tags.includes('NO VISTO'));
             if (!isNoJuega && player.historialEvaluaciones) {
               const evalRecord = player.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
@@ -7453,7 +7630,7 @@ let currentPlanificacionTab = 'calendario';
                 posicionesVistas.add(pObj.pos);
               }
             }
-            
+
             if (pObj.num) foundDorsal = pObj.num;
             foundTeam = teamName;
           }
@@ -7483,7 +7660,7 @@ let currentPlanificacionTab = 'calendario';
             }
           });
         }
-        
+
         if (foundAsPlayed || foundAsNoJuega) {
           const repIdStr = String(rep.id);
           if (!allMatchHistoryMap.has(repIdStr)) {
@@ -7607,16 +7784,22 @@ let currentPlanificacionTab = 'calendario';
 
     const valEmo = pStatsObj.atrEmocional || 3;
     const valFis = pStatsObj.atrFisico || 3;
+    const valTec = pStatsObj.atrTecnica || 3;
     const valDef = pStatsObj.atrDefensa || 3;
     const valAta = pStatsObj.atrAtaque || 3;
     const valPue = pStatsObj.atrPuesto || 3;
+    const valDec = pStatsObj.atrDecisiones || 3;
+    const valTac = pStatsObj.atrInteligencia || 3;
+    const valRend = parseFloat(player.rendimientoAcumuladoAvgNum) || 0;
+    const valPot = parseFloat(player.potencialAvgNum) || 0;
+    const valRendRS = parseFloat(player.rendimientoRSAvgNum) || 0;
 
     const tempChart = new Chart(tempCanvas.getContext('2d'), {
       type: 'radar',
       data: {
-        labels: ['Emo', 'Fís', 'Def', 'Ata', 'Pue'],
+        labels: ['Emo', 'Fís', 'Téc', 'Def', 'Ata', 'Pue', 'Dec', 'Tác', 'Rend', 'Pot', 'Rend RS'],
         datasets: [{
-          data: [valEmo, valFis, valDef, valAta, valPue],
+          data: [valEmo, valFis, valTec, valDef, valAta, valPue, valDec, valTac, valRend, valPot, valRendRS],
           backgroundColor: 'rgba(37, 99, 235, 0.2)',
           borderColor: 'rgba(37, 99, 235, 1)',
           pointBackgroundColor: 'rgba(37, 99, 235, 1)',
@@ -7632,7 +7815,7 @@ let currentPlanificacionTab = 'calendario';
           r: {
             angleLines: { display: true },
             suggestedMin: 0,
-            suggestedMax: 10,
+            suggestedMax: 5,
             ticks: { display: false, stepSize: 2 },
             pointLabels: { display: false } // Hide text labels for mini chart
           }
@@ -7764,7 +7947,7 @@ let currentPlanificacionTab = 'calendario';
           let badges = '';
           if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
           if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
-          
+
           return `
           <div class="match-report-link-emergente" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
             <div style="display: flex; flex-direction: column; gap: 2px;">
@@ -7806,7 +7989,7 @@ let currentPlanificacionTab = 'calendario';
               if (targetReport) {
                 let pNum, pPos, teamName, teamId;
                 const pName = player.nombre || player.jugador;
-                
+
                 let foundPlayer = null;
                 const searchGroups = [
                   { team: 'local', group: 'Titulares', name: targetReport.localTeam },
@@ -7814,7 +7997,7 @@ let currentPlanificacionTab = 'calendario';
                   { team: 'visitante', group: 'Titulares', name: targetReport.visitanteTeam },
                   { team: 'visitante', group: 'Suplentes', name: targetReport.visitanteTeam }
                 ];
-                
+
                 for (const g of searchGroups) {
                   const players = targetReport[`${g.team}${g.group}`] || [];
                   const matched = players.find(p => p.name && p.name.trim().toLowerCase() === pName.trim().toLowerCase());
@@ -7827,13 +8010,13 @@ let currentPlanificacionTab = 'calendario';
                     break;
                   }
                 }
-                
+
                 if (foundPlayer) {
                   if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
                   if (targetReport.playerEvaluations) {
                     Object.assign(state.matchPlayerEvaluations, targetReport.playerEvaluations);
                   }
-                  
+
                   openPlayerMatchReportModal({
                     pNum: pNum,
                     pName: pName,
@@ -8000,6 +8183,8 @@ let currentPlanificacionTab = 'calendario';
 
     let posicionesVistasStr = Array.from(posicionesVistas).join(', ');
     if (!posicionesVistasStr) posicionesVistasStr = 'Ninguna registrada';
+
+    const allMatchHistory = player.historialEvaluaciones || [];
 
     if (isEdit) {
       recalculatePlayerAggregates(player);
@@ -8432,13 +8617,13 @@ let currentPlanificacionTab = 'calendario';
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;" class="mb-4">
               ${allMatchHistory.length > 0 ? allMatchHistory.map(h => {
-                const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
-                const isSinEval = h.tags && h.tags.includes('SIN EVALUAR');
-                let badges = '';
-                if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
-                if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
-                
-                return `
+          const isNoJuega = h.tags && (h.tags.includes('NO JUEGA') || h.tags.includes('NO VISTO'));
+          const isSinEval = h.tags && h.tags.includes('SIN EVALUAR');
+          let badges = '';
+          if (isNoJuega) badges += `<span style="background: #fee2e2; color: #ef4444; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">NO JUEGA / NO VISTO</span>`;
+          if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
+
+          return `
                 <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${badges}</div>
@@ -8472,33 +8657,71 @@ let currentPlanificacionTab = 'calendario';
               <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Emocional</span> <span id="valAtrEmocional" style="font-weight: 700; color: var(--primary-blue);">${player.atrEmocional || 3}</span>
+                    <span>Emocional</span> <span id="valAtrEmocional" style="font-weight: 700; color: ${getColorForAttribute(player.atrEmocional || 3)};">${player.atrEmocional || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="10" value="${player.atrEmocional || 3}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="5" step="0.5" value="${player.atrEmocional || 3}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; document.getElementById('valAtrEmocional').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Físico</span> <span id="valAtrFisico" style="font-weight: 700; color: var(--primary-blue);">${player.atrFisico || 3}</span>
+                    <span>Físico</span> <span id="valAtrFisico" style="font-weight: 700; color: ${getColorForAttribute(player.atrFisico || 3)};">${player.atrFisico || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="10" value="${player.atrFisico || 3}" oninput="document.getElementById('valAtrFisico').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="5" step="0.5" value="${player.atrFisico || 3}" oninput="document.getElementById('valAtrFisico').textContent=this.value; document.getElementById('valAtrFisico').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Acciones Defensivas</span> <span id="valAtrDefensa" style="font-weight: 700; color: var(--primary-blue);">${player.atrDefensa || 3}</span>
+                    <span>Técnica Individual</span> <span id="valAtrTecnica" style="font-weight: 700; color: ${getColorForAttribute(player.atrTecnica || 3)};">${player.atrTecnica || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="10" value="${player.atrDefensa || 3}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrTecnica" class="form-range" min="1" max="5" step="0.5" value="${player.atrTecnica || 3}" oninput="document.getElementById('valAtrTecnica').textContent=this.value; document.getElementById('valAtrTecnica').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Acciones Ofensivas</span> <span id="valAtrAtaque" style="font-weight: 700; color: var(--primary-blue);">${player.atrAtaque || 3}</span>
+                    <span>Acciones Defensivas</span> <span id="valAtrDefensa" style="font-weight: 700; color: ${getColorForAttribute(player.atrDefensa || 3)};">${player.atrDefensa || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="10" value="${player.atrAtaque || 3}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="5" step="0.5" value="${player.atrDefensa || 3}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; document.getElementById('valAtrDefensa').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Capacidad Puesto Específico</span> <span id="valAtrPuesto" style="font-weight: 700; color: var(--primary-blue);">${player.atrPuesto || 3}</span>
+                    <span>Acciones Ofensivas</span> <span id="valAtrAtaque" style="font-weight: 700; color: ${getColorForAttribute(player.atrAtaque || 3)};">${player.atrAtaque || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="10" value="${player.atrPuesto || 3}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="5" step="0.5" value="${player.atrAtaque || 3}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; document.getElementById('valAtrAtaque').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Capacidad Puesto Específico</span> <span id="valAtrPuesto" style="font-weight: 700; color: ${getColorForAttribute(player.atrPuesto || 3)};">${player.atrPuesto || 3}</span>
+                  </label>
+                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="5" step="0.5" value="${player.atrPuesto || 3}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; document.getElementById('valAtrPuesto').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Toma de Decisiones</span> <span id="valAtrDecisiones" style="font-weight: 700; color: ${getColorForAttribute(player.atrDecisiones || 3)};">${player.atrDecisiones || 3}</span>
+                  </label>
+                  <input type="range" id="pfAtrDecisiones" class="form-range" min="1" max="5" step="0.5" value="${player.atrDecisiones || 3}" oninput="document.getElementById('valAtrDecisiones').textContent=this.value; document.getElementById('valAtrDecisiones').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="display: flex; justify-content: space-between;">
+                    <span>Inteligencia Táctica</span> <span id="valAtrInteligencia" style="font-weight: 700; color: ${getColorForAttribute(player.atrInteligencia || 3)};">${player.atrInteligencia || 3}</span>
+                  </label>
+                  <input type="range" id="pfAtrInteligencia" class="form-range" min="1" max="5" step="0.5" value="${player.atrInteligencia || 3}" oninput="document.getElementById('valAtrInteligencia').textContent=this.value; document.getElementById('valAtrInteligencia').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                </div>
+
+                <!-- Nuevos Atributos Calculados (Solo Lectura) -->
+                <div class="form-group" style="opacity: 0.9; margin-top: 10px;">
+                  <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Rendimiento (Promedio)</span> <span style="font-weight: 700; color: ${player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)'};">${player.rendimientoAcumuladoAvgNum || '-'}</span>
+                  </label>
+                  <progress id="pfRendimientoAvg" value="${player.rendimientoAcumuladoAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)'}"></progress>
+                </div>
+                <div class="form-group" style="opacity: 0.9;">
+                  <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Potencial (Promedio)</span> <span style="font-weight: 700; color: ${player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899'};">${player.potencialAvgNum || '-'}</span>
+                  </label>
+                  <progress id="pfPotencialAvg" value="${player.potencialAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899'}"></progress>
+                </div>
+                <div class="form-group" style="opacity: 0.9;">
+                  <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Rendimiento RS (Promedio)</span> <span style="font-weight: 700; color: ${player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)'};">${player.rendimientoRSAvgNum || '-'}</span>
+                  </label>
+                  <progress id="pfRendimientoRSAvg" value="${player.rendimientoRSAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)'}"></progress>
                 </div>
               </div>
               
@@ -8565,9 +8788,9 @@ let currentPlanificacionTab = 'calendario';
     const modalSubmitHandler = () => {
       const pNombreTemp = document.getElementById('pfNombre')?.value.trim();
       const pAnoNacTemp = document.getElementById('pfAnoNac')?.value.trim();
-      
+
       if (!isEdit && pNombreTemp && pAnoNacTemp) {
-        const exists = state.directory.jugadores.find(j => 
+        const exists = state.directory.jugadores.find(j =>
           j.nombre && j.nombre.toLowerCase().trim() === pNombreTemp.toLowerCase() &&
           (String(j.anoNac || j.ano || '').trim() === pAnoNacTemp)
         );
@@ -8637,11 +8860,14 @@ let currentPlanificacionTab = 'calendario';
       p.historialEntrenadores = document.getElementById('pfHistorialEntrenadores')?.value.trim() || '';
       p.opinionTecnica = document.getElementById('pfOpinionTecnica')?.value.trim() || '';
 
-      p.atrEmocional = parseInt(document.getElementById('pfAtrEmocional')?.value) || 3;
-      p.atrFisico = parseInt(document.getElementById('pfAtrFisico')?.value) || 3;
-      p.atrDefensa = parseInt(document.getElementById('pfAtrDefensa')?.value) || 3;
-      p.atrAtaque = parseInt(document.getElementById('pfAtrAtaque')?.value) || 3;
-      p.atrPuesto = parseInt(document.getElementById('pfAtrPuesto')?.value) || 3;
+      p.atrEmocional = parseFloat(document.getElementById('pfAtrEmocional')?.value) || 3;
+      p.atrFisico = parseFloat(document.getElementById('pfAtrFisico')?.value) || 3;
+      p.atrTecnica = parseFloat(document.getElementById('pfAtrTecnica')?.value) || 3;
+      p.atrDefensa = parseFloat(document.getElementById('pfAtrDefensa')?.value) || 3;
+      p.atrAtaque = parseFloat(document.getElementById('pfAtrAtaque')?.value) || 3;
+      p.atrPuesto = parseFloat(document.getElementById('pfAtrPuesto')?.value) || 3;
+      p.atrDecisiones = parseFloat(document.getElementById('pfAtrDecisiones')?.value) || 3;
+      p.atrInteligencia = parseFloat(document.getElementById('pfAtrInteligencia')?.value) || 3;
 
       p.lesiones = [...localLesiones];
       p.paises = [...localPaises];
@@ -8686,16 +8912,19 @@ let currentPlanificacionTab = 'calendario';
     } else {
       showModal(titleText, modalHTML, modalSubmitHandler);
     }
+
     // Subtab switching logic
-    const subtabs = document.querySelectorAll('.player-subtab');
-    const panes = document.querySelectorAll('.player-tab-pane');
+    const currentOverlay = isGeneralOpenCheck ? document.getElementById('secondaryModalOverlay') : document.getElementById('generalModalOverlay');
+    const subtabs = currentOverlay.querySelectorAll('.player-subtab');
+    const panes = currentOverlay.querySelectorAll('.player-tab-pane');
+
     subtabs.forEach(tab => {
       tab.addEventListener('click', () => {
         subtabs.forEach(t => t.classList.remove('active'));
         panes.forEach(p => p.classList.add('hidden'));
 
         tab.classList.add('active');
-        const targetPane = document.getElementById('ptab-' + tab.dataset.ptab);
+        const targetPane = currentOverlay.querySelector('#ptab-' + tab.dataset.ptab);
         if (targetPane) targetPane.classList.remove('hidden');
 
         if (tab.dataset.ptab === 'atributos') {
@@ -8708,7 +8937,7 @@ let currentPlanificacionTab = 'calendario';
 
     if (tabIdToOpen) {
       setTimeout(() => {
-        const tabBtn = document.querySelector(`.player-subtab[data-ptab="${tabIdToOpen}"]`);
+        const tabBtn = currentOverlay.querySelector(`.player-subtab[data-ptab="${tabIdToOpen}"]`);
         if (tabBtn) tabBtn.click();
       }, 50);
     }
@@ -8720,12 +8949,12 @@ let currentPlanificacionTab = 'calendario';
         if (repId) {
           if (typeof hideSecondaryModal === 'function') hideSecondaryModal();
           if (typeof hideModal === 'function') hideModal();
-          
+
           const targetReport = state.reports.find(r => r.id === repId);
           if (targetReport) {
             let pNum, pPos, teamName, teamId;
             const pName = player.nombre || player.jugador;
-            
+
             let foundPlayer = null;
             const searchGroups = [
               { team: 'local', group: 'Titulares', name: targetReport.localTeam },
@@ -8733,7 +8962,7 @@ let currentPlanificacionTab = 'calendario';
               { team: 'visitante', group: 'Titulares', name: targetReport.visitanteTeam },
               { team: 'visitante', group: 'Suplentes', name: targetReport.visitanteTeam }
             ];
-            
+
             for (const g of searchGroups) {
               const players = targetReport[`${g.team}${g.group}`] || [];
               const matched = players.find(p => p.name && p.name.trim().toLowerCase() === pName.trim().toLowerCase());
@@ -8746,13 +8975,13 @@ let currentPlanificacionTab = 'calendario';
                 break;
               }
             }
-            
+
             if (foundPlayer) {
               if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
               if (targetReport.playerEvaluations) {
                 Object.assign(state.matchPlayerEvaluations, targetReport.playerEvaluations);
               }
-              
+
               openPlayerMatchReportModal({
                 pNum: pNum,
                 pName: pName,
@@ -10517,7 +10746,7 @@ let currentPlanificacionTab = 'calendario';
           let isZurdo = false;
           if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
-          
+
           let pBg = 'rgba(15, 23, 42, 0.92)';
           let pColor = '#ffffff';
           let pBorder = 'rgba(255,255,255,0.3)';
@@ -10974,7 +11203,7 @@ let currentPlanificacionTab = 'calendario';
       return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/,/g, '').trim();
     };
     const validPlayerNamesSet = new Set(allPlayersList.map(p => normalizeName(p.nombre || p.jugador || p.name)).filter(Boolean));
-    
+
     localPlantillaList = localPlantillaList.filter(item => {
       const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
       const normName = normalizeName(pName);
@@ -10988,15 +11217,15 @@ let currentPlanificacionTab = 'calendario';
       allPlayersList.forEach(p => {
         const pEq = p.equipoPrincipal || p.equipo || '';
         const normEq = normalizeName(pEq);
-        
+
         const isMatch = normEq && (
-          normEq === normTeam || 
-          normEq.includes(normTeam) || 
-          normTeam.includes(normEq) || 
-          window.flexibleMatch(normTeam, normEq) || 
+          normEq === normTeam ||
+          normEq.includes(normTeam) ||
+          normTeam.includes(normEq) ||
+          window.flexibleMatch(normTeam, normEq) ||
           window.flexibleMatch(normEq, normTeam)
         );
-        
+
         if (isMatch) {
           const pName = p.nombre || p.jugador || p.name || '';
           if (pName && !localPlantillaList.some(item => {
@@ -12223,7 +12452,7 @@ let currentPlanificacionTab = 'calendario';
             let isZurdo = false;
             if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
-            
+
             let pBg = 'rgba(15, 23, 42, 0.92)';
             let pColor = '#ffffff';
             let pBorder = 'rgba(255,255,255,0.3)';
@@ -12237,7 +12466,7 @@ let currentPlanificacionTab = 'calendario';
               pColor = '#000000';
               pBorder = 'rgba(0,0,0,0.3)';
             }
-            
+
             return `
             <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
@@ -12973,11 +13202,11 @@ let currentPlanificacionTab = 'calendario';
           let isZurdo = false;
           if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
-          
+
           let pBg = 'rgba(15, 23, 42, 0.92)';
           let pColor = '#ffffff';
           let pBorder = 'rgba(255,255,255,0.3)';
-          
+
           return `
           <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
@@ -14705,11 +14934,11 @@ let currentPlanificacionTab = 'calendario';
             let isZurdo = false;
             if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
-            
+
             let pBg = 'rgba(15, 23, 42, 0.92)';
             let pColor = '#ffffff';
             let pBorder = 'rgba(255,255,255,0.3)';
-            
+
             return `
             <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
@@ -15715,10 +15944,10 @@ let currentPlanificacionTab = 'calendario';
 
           const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
-          
+
           if (!j.pos1 && foundP && foundP.pos1) j.pos1 = foundP.pos1;
           if (!j.pos2 && foundP && foundP.pos2) j.pos2 = foundP.pos2;
-          
+
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
 
           const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
@@ -19774,7 +20003,7 @@ let currentPlanificacionTab = 'calendario';
   }
 
   window.renderDirectorio = renderDirectorio;
-  
+
   // --------------------------------------------------------------------------
   // SECTION: PLANIFICACION
   // --------------------------------------------------------------------------
@@ -19795,7 +20024,7 @@ let currentPlanificacionTab = 'calendario';
     });
 
     let targetViewId = 'subview-' + currentPlanificacionTab;
-    
+
     const activeView = document.getElementById(targetViewId);
     if (activeView) {
       activeView.classList.remove('hidden');
@@ -19806,7 +20035,7 @@ let currentPlanificacionTab = 'calendario';
     } else if (currentPlanificacionTab === 'agenda') {
       const title = document.getElementById('agendaDynamicTitle');
       if (title) {
-         title.innerHTML = '📝 Agenda';
+        title.innerHTML = '📝 Agenda';
       }
       if (typeof renderAgenda === 'function') renderAgenda();
     } else if (currentPlanificacionTab === 'enlaces') {
@@ -19816,7 +20045,7 @@ let currentPlanificacionTab = 'calendario';
     }
   }
 
-function renderDirectorio(tabOverride = null, pageOverride = null) {
+  function renderDirectorio(tabOverride = null, pageOverride = null) {
     if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
     cleanOrphanPlayersFromAllTeams();
 
@@ -20320,10 +20549,10 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
               </thead>
               <tbody>
                 ${pageItems.map(j => {
-                  let rowBgStyle = '';
-                  if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
-                  else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
-                  return `
+          let rowBgStyle = '';
+          if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+          else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          return `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${rowBgStyle}" class="dir-table-row">
                     <td style="padding: 10px 8px; text-align: center; display: ${isBulkSelectActive ? 'table-cell' : 'none'};">
                       <input type="checkbox" class="dir-item-checkbox" data-id="${j.id}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
@@ -20344,7 +20573,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
                   </tr>`;
-                }).join('')}
+        }).join('')}
               </tbody>
             </table>
           </div>
@@ -23116,8 +23345,12 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
         ['titulares', 'suplentes'].forEach(grp => {
           (sys[grp] || []).forEach(row => {
             ['player1', 'player2', 'player3', 'player4', 'player5', 'player6'].forEach(col => {
-              if (row[col] && String(row[col].id) === String(playerId)) {
-                playerEntries.push(row[col]);
+              if (row[col]) {
+                if (String(row[col].id) === String(playerId)) {
+                  playerEntries.push(row[col]);
+                } else if (!row[col].id && isSamePlayerName(row[col].name, player.nombre || player.jugador || player.name, rep.localTeam, player.equipo)) {
+                  playerEntries.push(row[col]);
+                }
               }
             });
           });
@@ -23155,7 +23388,11 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
       if (playedInThisMatch) appearances++;
     });
 
-    const avgNota = countNota > 0 ? (totalNota / countNota).toFixed(1) : 'N/A';
+    if (player.historialEvaluaciones && player.historialEvaluaciones.length > appearances) {
+      appearances = player.historialEvaluaciones.length;
+    }
+
+    const avgNota = player.rendimientoAcumuladoAvgNum || 'N/A';
 
     valoraciones.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
@@ -23173,6 +23410,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
       appearances,
       avgNota,
       positions: Array.from(positions),
+      posicionesVistasStr: Array.from(positions).join(', ') || 'Ninguna registrada',
       valoraciones,
       fortalezas,
       debilidades
@@ -23287,7 +23525,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                <div style="display: flex; gap: 16px; align-items: center; justify-content: space-around; text-align: center;">
                  <div>
                    <div style="font-size: 32px; font-weight: 900; color: var(--primary-blue, #2563eb);">${stats.avgNota}</div>
-                   <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Nota Media</div>
+                   <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rendimiento</div>
                  </div>
                  <div>
                    <div style="font-size: 32px; font-weight: 900; color: var(--status-success, #10b981);">${stats.appearances}</div>
@@ -23446,12 +23684,37 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
                 ${renderRow('Año', p => escapeHtml(p.ano || '-'))}
                 ${renderRow('Posición Principal', p => escapeHtml(p.posicion || '-'))}
                 ${renderRow('Posición Secundaria', p => escapeHtml(p.posicionSecundaria || '-'))}
-                ${renderRow('Lateralidad', p => escapeHtml(p.lateralidad || '-'))}
-                ${renderRow('Posiciones Vistas', p => p.positions.length > 0 ? p.positions.map(pos => escapeHtml(pos)).join(', ') : '-')}
+                ${renderRow('Lateralidad', p => escapeHtml(p.pierna || p.lateralidad || '-'))}
+                ${renderRow('Posiciones Vistas', p => {
+          if (p.posicionesVistasStr) return escapeHtml(p.posicionesVistasStr);
+          return p.positions && p.positions.length > 0 ? p.positions.map(pos => escapeHtml(pos)).join(', ') : '-';
+        })}
+                
                 
                 <h4 style="margin: 24px 0 12px 0; font-size: 14px; font-weight: 800; color: var(--text-main); text-transform: uppercase;">Métricas de Rendimiento</h4>
-                ${renderBarRow('Nota Media', 'avgNota', 10, 'var(--primary-blue)')}
+                ${renderBarRow('Rendimiento (Promedio)', 'avgNota', 5, 'var(--primary-blue)')}
                 ${renderBarRow('Partidos Analizados', 'appearances', Math.max(...activePlayers.map(p => p.appearances || 0), 5), 'var(--status-success)')}
+                ${renderRow('Perfil Físico', p => {
+          if (!p.descFisica || p.descFisica.trim() === '') return '-';
+          // Create a mapping of known terms to their category index
+          const orderMap = {};
+          if (typeof OPTIONS_DESC_FISICA !== 'undefined') {
+            let catIdx = 0;
+            for (const key in OPTIONS_DESC_FISICA) {
+              OPTIONS_DESC_FISICA[key].forEach(term => {
+                orderMap[term.toLowerCase()] = catIdx;
+              });
+              catIdx++;
+            }
+          }
+          const items = p.descFisica.split(',').map(s => s.trim()).filter(s => s);
+          items.sort((a, b) => {
+            const aIdx = orderMap[a.toLowerCase()] !== undefined ? orderMap[a.toLowerCase()] : 999;
+            const bIdx = orderMap[b.toLowerCase()] !== undefined ? orderMap[b.toLowerCase()] : 999;
+            return aIdx - bIdx;
+          });
+          return `<span style="font-size:12px; font-style:italic;">${escapeHtml(items.join(', '))}</span>`;
+        })}
                 ${renderRow('Fortalezas (Top)', p => p.fortalezas !== '-' ? `<span style="color:var(--status-success); font-size:12px;">${escapeHtml(p.fortalezas)}</span>` : '-')}
                 ${renderRow('Debilidades (Top)', p => p.debilidades !== '-' ? `<span style="color:var(--status-danger, #ef4444); font-size:12px;">${escapeHtml(p.debilidades)}</span>` : '-')}
              </div>
@@ -23521,17 +23784,23 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
 
       const valEmo = stats.atrEmocional || 3;
       const valFis = stats.atrFisico || 3;
+      const valTec = stats.atrTecnica || 3;
       const valDef = stats.atrDefensa || 3;
       const valAta = stats.atrAtaque || 3;
       const valPue = stats.atrPuesto || 3;
+      const valDec = stats.atrDecisiones || 3;
+      const valTac = stats.atrInteligencia || 3;
+      const valRend = parseFloat(stats.rendimientoAcumuladoAvgNum) || 0;
+      const valPot = parseFloat(stats.potencialAvgNum) || 0;
+      const valRendRS = parseFloat(stats.rendimientoRSAvgNum) || 0;
 
       comparativaIndividualChartInstance = new Chart(ctx, {
         type: 'radar',
         data: {
-          labels: ['Emocional', 'Físico', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto'],
+          labels: ['Emocional', 'Físico', 'Técnica Ind.', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto', 'Toma Decisiones', 'Int. Táctica', 'Rendimiento', 'Potencial', 'Rend. RS'],
           datasets: [{
             label: stats.nombre,
-            data: [valEmo, valFis, valDef, valAta, valPue],
+            data: [valEmo, valFis, valTec, valDef, valAta, valPue, valDec, valTac, valRend, valPot, valRendRS],
             backgroundColor: 'rgba(59, 130, 246, 0.2)',
             borderColor: 'rgba(59, 130, 246, 1)',
             pointBackgroundColor: 'rgba(59, 130, 246, 1)',
@@ -23548,7 +23817,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
             r: {
               angleLines: { display: true },
               suggestedMin: 0,
-              suggestedMax: 10,
+              suggestedMax: 5,
               ticks: { stepSize: 1 }
             }
           },
@@ -23581,9 +23850,15 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
           data: [
             p.atrEmocional || 3,
             p.atrFisico || 3,
+            p.atrTecnica || 3,
             p.atrDefensa || 3,
             p.atrAtaque || 3,
-            p.atrPuesto || 3
+            p.atrPuesto || 3,
+            p.atrDecisiones || 3,
+            p.atrInteligencia || 3,
+            parseFloat(p.rendimientoAcumuladoAvgNum) || 0,
+            parseFloat(p.potencialAvgNum) || 0,
+            parseFloat(p.rendimientoRSAvgNum) || 0
           ],
           backgroundColor: colors[index].bg,
           borderColor: colors[index].border,
@@ -23598,7 +23873,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
       comparativaMultiChartInstance = new Chart(ctx, {
         type: 'radar',
         data: {
-          labels: ['Emocional', 'Físico', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto'],
+          labels: ['Emocional', 'Físico', 'Técnica Ind.', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto', 'Toma Decisiones', 'Int. Táctica', 'Rendimiento', 'Potencial', 'Rend. RS'],
           datasets: datasets
         },
         options: {
@@ -23608,7 +23883,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
             r: {
               angleLines: { display: true },
               suggestedMin: 0,
-              suggestedMax: 10,
+              suggestedMax: 5,
               ticks: { stepSize: 1 }
             }
           },
@@ -23638,17 +23913,23 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
 
     const valEmo = stats.atrEmocional || 3;
     const valFis = stats.atrFisico || 3;
+    const valTec = stats.atrTecnica || 3;
     const valDef = stats.atrDefensa || 3;
     const valAta = stats.atrAtaque || 3;
     const valPue = stats.atrPuesto || 3;
+    const valDec = stats.atrDecisiones || 3;
+    const valTac = stats.atrInteligencia || 3;
+    const valRend = parseFloat(player.rendimientoAcumuladoAvgNum) || 0;
+    const valPot = parseFloat(player.potencialAvgNum) || 0;
+    const valRendRS = parseFloat(player.rendimientoRSAvgNum) || 0;
 
     const tempChart = new Chart(tempCanvas.getContext('2d'), {
       type: 'radar',
       data: {
-        labels: ['Emocional', 'Físico', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto'],
+        labels: ['Emocional', 'Físico', 'Técnica Ind.', 'A. Defensivas', 'A. Ofensivas', 'Capacidad Puesto', 'Toma Decisiones', 'Int. Táctica', 'Rendimiento', 'Potencial', 'Rend. RS'],
         datasets: [{
           label: 'Atributos',
-          data: [valEmo, valFis, valDef, valAta, valPue],
+          data: [valEmo, valFis, valTec, valDef, valAta, valPue, valDec, valTac, valRend, valPot, valRendRS],
           backgroundColor: 'rgba(37, 99, 235, 0.2)',
           borderColor: 'rgba(37, 99, 235, 1)',
           pointBackgroundColor: 'rgba(37, 99, 235, 1)',
@@ -23662,7 +23943,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
           r: {
             angleLines: { display: true },
             suggestedMin: 0,
-            suggestedMax: 10,
+            suggestedMax: 5,
             ticks: { stepSize: 1 }
           }
         },
@@ -24895,22 +25176,22 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     }
 
     const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-    
+
     let normRaw = normalize(rawName);
-    
+
     // 1. Direct exact match
     for (let eq of (state.directory?.equipos || [])) {
-        let n = eq.nombreOficial || eq.nombre;
-        if (!n) continue;
-        if (normalize(n) === normRaw) return n;
+      let n = eq.nombreOficial || eq.nombre;
+      if (!n) continue;
+      if (normalize(n) === normRaw) return n;
     }
-    
+
     // 2. Sorted words match
     let sortedRaw = normRaw.split(' ').sort().join(' ');
     for (let eq of (state.directory?.equipos || [])) {
-        let n = eq.nombreOficial || eq.nombre;
-        if (!n) continue;
-        if (normalize(n).split(' ').sort().join(' ') === sortedRaw) return n;
+      let n = eq.nombreOficial || eq.nombre;
+      if (!n) continue;
+      if (normalize(n).split(' ').sort().join(' ') === sortedRaw) return n;
     }
 
     // 3. Fallback partial/heuristic match
@@ -24923,7 +25204,7 @@ function renderDirectorio(tabOverride = null, pageOverride = null) {
     for (let eq of (state.directory?.equipos || [])) {
       const originalName = eq.nombreOficial || eq.nombre;
       if (!originalName) continue;
-      
+
       const tName = normalize(originalName);
 
       let hasCore = true;
@@ -26180,7 +26461,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const hasDesc = !!t.descripcion;
       const subtasks = t.subtareas || [];
       const completedSubtasks = subtasks.filter(s => s.done).length;
-      
+
       let prioBg = '#fef9c3'; let prioColor = '#854d0e';
       if (t.prioridad === 'Alta') { prioBg = '#fee2e2'; prioColor = '#991b1b'; }
       else if (t.prioridad === 'Baja') { prioBg = '#dcfce7'; prioColor = '#166534'; }
@@ -26203,11 +26484,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     <span>${escapeHtml(t.fecha || 'Sin fecha')}</span>
                   </div>
                   ${(t.categorias || (t.categoria ? [t.categoria] : [])).map(catId => {
-                    const catObj = (state.agendaCategories || []).find(c => c.id === catId);
-                    const label = catObj ? catObj.label : catId;
-                    const cColor = getCategoryColor(catId);
-                    return `<div style="background: ${cColor.bg}; color: ${cColor.text}; border: 1px solid ${cColor.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bookmark" style="width: 10px; height: 10px;"></i> ${escapeHtml(label)}</div>`;
-                  }).join('')}
+        const catObj = (state.agendaCategories || []).find(c => c.id === catId);
+        const label = catObj ? catObj.label : catId;
+        const cColor = getCategoryColor(catId);
+        return `<div style="background: ${cColor.bg}; color: ${cColor.text}; border: 1px solid ${cColor.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bookmark" style="width: 10px; height: 10px;"></i> ${escapeHtml(label)}</div>`;
+      }).join('')}
                   ${hasDesc ? `<div style="display:flex; align-items:center; gap:2px; color: var(--primary-blue);" title="Tiene descripción"><i data-lucide="align-left" style="width:12px; height:12px;"></i></div>` : ''}
                   ${subtasks.length > 0 ? `<div style="display:flex; align-items:center; gap:4px; font-weight: 600;"><i data-lucide="check-square" style="width:10px;height:10px;"></i> ${completedSubtasks}/${subtasks.length}</div>` : ''}
                 </div>
@@ -26449,7 +26730,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         `).join('');
       }
-      
+
       container.querySelectorAll('.subtask-checkbox').forEach(chk => {
         chk.addEventListener('change', (e) => {
           const idx = parseInt(e.target.dataset.idx);
@@ -26536,7 +26817,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     normalizeAgendaCategories();
     const taskCats = task.categorias || (task.categoria ? [task.categoria] : []);
     const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill ${taskCats.includes(c.id) ? 'active' : ''} ${task.categoria === c.id ? 'main' : ''}" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
-    
+
     const card = document.getElementById('generalModalCard');
     if (card) card.className = 'modal-card xlarge';
 
@@ -26639,7 +26920,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           catValues.push(newId);
         }
       }
-      
+
       if (catValues.length === 0) {
         const defaultCat = (state.agendaCategories || [])[0];
         if (defaultCat) {
@@ -26669,18 +26950,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (agCatPills) {
       agCatPills.querySelectorAll('.tag-pill').forEach(pill => {
         pill.addEventListener('click', () => {
-        if (!pill.classList.contains('active')) {
-          pill.classList.add('active');
-          if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
-        } else if (!pill.classList.contains('main')) {
-          pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
-          pill.classList.add('main');
-        } else {
-          pill.classList.remove('active', 'main');
-          const nextActive = pill.parentElement.querySelector('.tag-pill.active');
-          if (nextActive) nextActive.classList.add('main');
-        }
-      });
+          if (!pill.classList.contains('active')) {
+            pill.classList.add('active');
+            if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
+          } else if (!pill.classList.contains('main')) {
+            pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
+            pill.classList.add('main');
+          } else {
+            pill.classList.remove('active', 'main');
+            const nextActive = pill.parentElement.querySelector('.tag-pill.active');
+            if (nextActive) nextActive.classList.add('main');
+          }
+        });
       });
     }
 
@@ -26690,7 +26971,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const agCatCust = document.getElementById('agCatEditCustom');
         const catName = agCatCust?.value.trim();
         if (!catName) return;
-        
+
         let existing = (state.agendaCategories || []).find(c => c.label.toLowerCase() === catName.toLowerCase());
         let catId = existing ? existing.id : null;
         if (!existing) {
@@ -26709,28 +26990,28 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             newPill.dataset.val = catId;
             newPill.textContent = catName;
             newPill.addEventListener('click', () => {
-        if (!newPill.classList.contains('active')) {
-          newPill.classList.add('active');
-          if (!newPill.parentElement.querySelector('.tag-newPill.main')) newPill.classList.add('main');
-        } else if (!newPill.classList.contains('main')) {
-          newPill.parentElement.querySelectorAll('.tag-newPill.main').forEach(p => p.classList.remove('main'));
-          newPill.classList.add('main');
-        } else {
-          newPill.classList.remove('active', 'main');
-          const nextActive = newPill.parentElement.querySelector('.tag-newPill.active');
-          if (nextActive) nextActive.classList.add('main');
-        }
-      });
+              if (!newPill.classList.contains('active')) {
+                newPill.classList.add('active');
+                if (!newPill.parentElement.querySelector('.tag-newPill.main')) newPill.classList.add('main');
+              } else if (!newPill.classList.contains('main')) {
+                newPill.parentElement.querySelectorAll('.tag-newPill.main').forEach(p => p.classList.remove('main'));
+                newPill.classList.add('main');
+              } else {
+                newPill.classList.remove('active', 'main');
+                const nextActive = newPill.parentElement.querySelector('.tag-newPill.active');
+                if (nextActive) nextActive.classList.add('main');
+              }
+            });
             if (!agCatPills.querySelector('.tag-pill.main')) newPill.classList.add('main');
             agCatPills.appendChild(newPill);
           } else {
             if (!pillExists.classList.contains('active')) {
-               pillExists.classList.add('active');
-               if (!agCatPills.querySelector('.tag-pill.main')) pillExists.classList.add('main');
+              pillExists.classList.add('active');
+              if (!agCatPills.querySelector('.tag-pill.main')) pillExists.classList.add('main');
             }
           }
         }
-        
+
         if (agCatCust) agCatCust.value = '';
       });
     }
@@ -26741,7 +27022,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
     const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
     const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
-    
+
     const card = document.getElementById('generalModalCard');
     if (card) card.className = 'modal-card xlarge';
 
@@ -26856,8 +27137,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           saveToFirebase('agendaCategories', newCatObj);
           catValues.push(newId);
         }
-      } 
-      
+      }
+
       if (catValues.length === 0) {
         const defaultCat = (state.agendaCategories || [])[0];
         if (defaultCat) {
@@ -27072,11 +27353,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
 
     const currentUniqueTags = Object.keys(tagsMap);
-    
+
     // Add any new tags that aren't in customTabOrder yet
     const newTags = currentUniqueTags.filter(tag => !state.customTabOrder.includes(tag)).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
     state.customTabOrder.push(...newTags);
-    
+
     // Filter tags to render: must be in currentUniqueTags
     const activeCategoryTags = state.customTabOrder.filter(tag => tag === '⭐ Favoritos' || currentUniqueTags.includes(tag));
 
@@ -29295,7 +29576,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       lucide.createIcons();
     }
 
-    window.updateCategoryColor = function(e, catId) {
+    window.updateCategoryColor = function (e, catId) {
       e.stopPropagation();
       const newColor = e.target.value;
       const cat = state.notasCategorias.find(c => c.id === catId);
@@ -29347,10 +29628,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     function renderCards() {
       cardsGrid.innerHTML = '';
-      const fichas = currentCategoryId === 'todas' 
-          ? [...state.notasFichas] 
-          : state.notasFichas.filter(f => f.categoryId === currentCategoryId);
-      
+      const fichas = currentCategoryId === 'todas'
+        ? [...state.notasFichas]
+        : state.notasFichas.filter(f => f.categoryId === currentCategoryId);
+
       const category = state.notasCategorias.find(c => c.id === currentCategoryId);
       const accentColor = category && category.color ? category.color : 'var(--primary-blue)';
 
@@ -29360,7 +29641,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       fichas.forEach(ficha => {
         const cardCategory = state.notasCategorias.find(c => c.id === ficha.categoryId);
         const cardColor = currentCategoryId === 'todas' && cardCategory && cardCategory.color ? cardCategory.color : accentColor;
-        
+
         const card = document.createElement('div');
         card.className = 'entity-card';
         card.dataset.id = ficha.id;
@@ -29497,7 +29778,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (!currentEditingFicha) return;
         currentEditingFicha.title = inputTitle.value.trim();
         currentEditingFicha.content = editorAreaField.innerHTML;
-        
+
         let targetCategoryIds = [];
         const notasCatPills = document.getElementById('notasCatPills');
         if (notasCatPills) {
@@ -29505,30 +29786,30 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             targetCategoryIds.push(p.dataset.val);
           });
         }
-        
+
         // Also check custom input just in case they typed without clicking Añadir
         const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
         const customValue = customInput?.value.trim();
         if (customValue) {
-           let existing = state.notasCategorias.find(c => c.name.toLowerCase() === customValue.toLowerCase());
-           if (existing) {
-             if (!targetCategoryIds.includes(existing.id)) targetCategoryIds.push(existing.id);
-           } else {
-              const defaultColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
-              const newColor = defaultColors[state.notasCategorias.length % defaultColors.length];
-              const newCatId = 'cat_' + Date.now();
-              const newCat = { id: newCatId, name: customValue, color: newColor };
-              state.notasCategorias.push(newCat);
-              saveState();
-              saveToFirebase('notas_categorias', newCat);
-              renderTags();
-              targetCategoryIds.push(newCatId);
-           }
+          let existing = state.notasCategorias.find(c => c.name.toLowerCase() === customValue.toLowerCase());
+          if (existing) {
+            if (!targetCategoryIds.includes(existing.id)) targetCategoryIds.push(existing.id);
+          } else {
+            const defaultColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+            const newColor = defaultColors[state.notasCategorias.length % defaultColors.length];
+            const newCatId = 'cat_' + Date.now();
+            const newCat = { id: newCatId, name: customValue, color: newColor };
+            state.notasCategorias.push(newCat);
+            saveState();
+            saveToFirebase('notas_categorias', newCat);
+            renderTags();
+            targetCategoryIds.push(newCatId);
+          }
         }
-        
+
         if (targetCategoryIds.length === 0) {
-           alert("Por favor selecciona al menos una etiqueta.");
-           return;
+          alert("Por favor selecciona al menos una etiqueta.");
+          return;
         }
 
         currentEditingFicha.categoryIds = targetCategoryIds;
@@ -29546,9 +29827,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
         // Switch to the first category we just saved to if not "todas"
         if (currentCategoryId !== 'todas' && !targetCategoryIds.includes(currentCategoryId)) {
-           selectCategoryFn(targetCategoryIds[0]);
+          selectCategoryFn(targetCategoryIds[0]);
         } else {
-           selectCategoryFn(currentCategoryId);
+          selectCategoryFn(currentCategoryId);
         }
       });
     }
@@ -29565,7 +29846,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
 
       const notasCatPills = document.getElementById('notasCatPills');
-      
+
       let initialCatIds = [];
       if (ficha) {
         currentEditingFicha = ficha;
@@ -29585,7 +29866,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         editorAreaField.innerHTML = '';
         initialCatIds = currentEditingFicha.categoryIds;
       }
-      
+
       if (notasCatPills) {
         notasCatPills.innerHTML = (state.notasCategorias || []).map(cat => {
           const isActive = initialCatIds.includes(cat.id);
@@ -29594,31 +29875,31 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             ${escapeHtml(cat.name)}
           </div>`;
         }).join('');
-        
+
         notasCatPills.querySelectorAll('.tag-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-        if (!pill.classList.contains('active')) {
-          pill.classList.add('active');
-          if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
-        } else if (!pill.classList.contains('main')) {
-          pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
-          pill.classList.add('main');
-        } else {
-          pill.classList.remove('active', 'main');
-          const nextActive = pill.parentElement.querySelector('.tag-pill.active');
-          if (nextActive) nextActive.classList.add('main');
-        }
-      });
+          pill.addEventListener('click', () => {
+            if (!pill.classList.contains('active')) {
+              pill.classList.add('active');
+              if (!pill.parentElement.querySelector('.tag-pill.main')) pill.classList.add('main');
+            } else if (!pill.classList.contains('main')) {
+              pill.parentElement.querySelectorAll('.tag-pill.main').forEach(p => p.classList.remove('main'));
+              pill.classList.add('main');
+            } else {
+              pill.classList.remove('active', 'main');
+              const nextActive = pill.parentElement.querySelector('.tag-pill.active');
+              if (nextActive) nextActive.classList.add('main');
+            }
+          });
         });
       }
-      
+
       const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
       if (customInput) customInput.value = '';
 
       modalEdicion.classList.remove('hidden');
       setTimeout(() => inputTitle.focus(), 100);
     }
-    
+
     // Add logic for the inline "Añadir" button
     const btnNotasCatInlineSave = document.getElementById('btnNotasCatInlineSave');
     if (btnNotasCatInlineSave) {
@@ -29626,7 +29907,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const customInput = document.getElementById('modalEdicionNotaCategoryCustom');
         const customValue = customInput?.value.trim();
         if (!customValue) return;
-        
+
         let targetId = null;
         let existing = state.notasCategorias.find(c => c.name.toLowerCase() === customValue.toLowerCase());
         if (existing) {
@@ -29641,25 +29922,25 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           saveToFirebase('notas_categorias', newCat);
           renderTags();
           targetId = newCatId;
-          
+
           // Add pill to current modal
           const notasCatPills = document.getElementById('notasCatPills');
           if (notasCatPills) {
-             const pillHTML = `<div class="tag-pill active" data-val="${newCatId}">
+            const pillHTML = `<div class="tag-pill active" data-val="${newCatId}">
                 <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${newColor};"></span>
                 ${escapeHtml(customValue)}
               </div>`;
-             notasCatPills.insertAdjacentHTML('beforeend', pillHTML);
-             const newPill = notasCatPills.lastElementChild;
-             newPill.addEventListener('click', () => newPill.classList.toggle('active'));
+            notasCatPills.insertAdjacentHTML('beforeend', pillHTML);
+            const newPill = notasCatPills.lastElementChild;
+            newPill.addEventListener('click', () => newPill.classList.toggle('active'));
           }
         }
-        
+
         if (targetId && existing) {
-           const existingPill = document.querySelector(`#notasCatPills .tag-pill[data-val="${targetId}"]`);
-           if (existingPill) existingPill.classList.add('active');
+          const existingPill = document.querySelector(`#notasCatPills .tag-pill[data-val="${targetId}"]`);
+          if (existingPill) existingPill.classList.add('active');
         }
-        
+
         if (customInput) customInput.value = '';
       });
     }
@@ -29669,7 +29950,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const btnGlobalNewNota = document.getElementById('btnGlobalNewNota');
     if (btnGlobalNewNota) btnGlobalNewNota.addEventListener('click', () => openNotaModal());
 
-    window.renderNotasModule = function() {
+    window.renderNotasModule = function () {
       if (!currentCategoryId) currentCategoryId = 'todas';
       selectCategoryFn(currentCategoryId);
     };
@@ -30191,20 +30472,20 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
 
 
-window.openFederationBreakdown = function(type) {
+  window.openFederationBreakdown = function (type) {
     const list = state.directory?.[type] || [];
     const countsByFed = {};
-    
+
     list.forEach(item => {
       const fed = item.federacion || 'Sin Federación';
       countsByFed[fed] = (countsByFed[fed] || 0) + 1;
     });
-    
+
     const fedArray = Object.keys(countsByFed).map(fed => ({ name: fed, count: countsByFed[fed] }));
     fedArray.sort((a, b) => b.count - a.count);
-    
+
     let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 16px;">';
-    
+
     if (fedArray.length === 0) {
       html = '<div style="text-align: center; color: var(--text-muted); padding: 20px; width: 100%;">No hay datos registrados aún.</div>';
     } else {
@@ -30212,14 +30493,14 @@ window.openFederationBreakdown = function(type) {
         let iconHtml = '<i data-lucide="map-pin" style="width: 18px; height: 18px;"></i>';
         let fedObj = (state.directory?.federaciones || []).find(fd => fd.nombre === f.name);
         if (!fedObj) {
-          fedObj = (state.directory?.federaciones || []).find(fd => 
+          fedObj = (state.directory?.federaciones || []).find(fd =>
             fd.nombre && (fd.nombre.includes(f.name) || f.name.includes(fd.nombre))
           );
         }
-        
+
         let logoToUse = fedObj?.logo;
         const nameLower = f.name.toLowerCase();
-        
+
         if (!logoToUse) {
           if (nameLower.includes('arabia') || nameLower.includes('saudi')) {
             logoToUse = 'https://upload.wikimedia.org/wikipedia/commons/0/0d/Flag_of_Saudi_Arabia.svg';
@@ -30243,14 +30524,14 @@ window.openFederationBreakdown = function(type) {
         `;
       });
     }
-    
+
     html += '</div>';
-    
+
     const capitalized = type.charAt(0).toUpperCase() + type.slice(1);
-    
+
     const card = document.getElementById('generalModalCard');
     if (card) card.className = 'modal-card xlarge';
-    
+
     showModal(`Desglose de ${capitalized} por Federación`, html, null);
 
     const btnSubmit = document.getElementById('btnSubmitModal');
@@ -30262,20 +30543,20 @@ window.openFederationBreakdown = function(type) {
 
 
 
-    function renderCalendarWeekView(filteredMatches) {
+  function renderCalendarWeekView(filteredMatches) {
     const year = calendarCurrentDate.getFullYear();
     const month = calendarCurrentDate.getMonth();
     const date = calendarCurrentDate.getDate();
-    
+
     const currentDayOfWeek = calendarCurrentDate.getDay();
     const distanceToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
     const startOfWeek = new Date(year, month, date - distanceToMonday);
-    
+
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    
+
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
-    
+
     let titleStr = '';
     if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
       titleStr = `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getFullYear()}`;
@@ -30286,23 +30567,23 @@ window.openFederationBreakdown = function(type) {
 
     const headerRow = document.getElementById('weekHeaderRow');
     let headerHTML = `<div class="week-header-cell" style="justify-content:flex-end; color:var(--text-muted); font-size:10px; padding-bottom:8px;">GMT+2</div>`;
-    
+
     function getLocalDateStr(dateObj) {
       return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     }
-    
+
     const weekDates = [];
     const todayStr = getLocalDateStr(new Date());
-    
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek);
       d.setDate(startOfWeek.getDate() + i);
       weekDates.push(d);
-      
+
       const dayNames = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
       const dateStr = getLocalDateStr(d);
       const isToday = dateStr === todayStr;
-      
+
       headerHTML += `
         <div class="week-header-cell">
           <span class="week-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayNames[i]}</span>
@@ -30314,14 +30595,14 @@ window.openFederationBreakdown = function(type) {
 
     const gridContainer = document.getElementById('weekGridContainer');
     let gridHTML = '';
-    
+
     let timeColHTML = `<div class="week-time-col">`;
     for (let h = 6; h <= 23; h++) {
       timeColHTML += `<div class="week-time-slot">${h}:00</div>`;
     }
     timeColHTML += `</div>`;
     gridHTML += timeColHTML;
-    
+
     for (let i = 0; i < 7; i++) {
       let dayColHTML = `<div class="week-day-col">`;
       for (let h = 6; h <= 23; h++) {
@@ -30330,20 +30611,20 @@ window.openFederationBreakdown = function(type) {
       dayColHTML += `</div>`;
       gridHTML += dayColHTML;
     }
-    
+
     let allDayHTML = `<div class="week-all-day-row">
                         <div class="week-all-day-label">Todo el día</div>`;
-    
+
     let allDayCells = Array(7).fill('');
     let dayEvents = Array(7).fill().map(() => []);
 
     for (let i = 0; i < 7; i++) {
       const dateStr = getLocalDateStr(weekDates[i]);
-      
+
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
       const dayAgenda = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
       const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
-      
+
       dayMatches.forEach(m => {
         const item = { type: 'match', data: m, isAllDay: !m.hora, hora: m.hora, title: `⚽ ${m.local.split(' ')[0]} v ${m.visitante.split(' ')[0]}` };
         if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
@@ -30367,23 +30648,23 @@ window.openFederationBreakdown = function(type) {
       });
     }
 
-    for (let i=0; i<7; i++) {
+    for (let i = 0; i < 7; i++) {
       allDayHTML += `<div class="week-all-day-cell">${allDayCells[i]}</div>`;
     }
     allDayHTML += `</div>`;
-    
+
     gridContainer.innerHTML = gridHTML;
-    
+
     for (let i = 0; i < 7; i++) {
       dayEvents[i].forEach(ev => {
         const cardHTML = generateTimedEventCard(ev, i);
         gridContainer.insertAdjacentHTML('beforeend', cardHTML);
       });
     }
-    
+
     let existingAllDay = document.getElementById('weekAllDayRow');
     if (existingAllDay) existingAllDay.remove();
-    
+
     const wrapper = document.getElementById('calendarWeekWrapper');
     const scrollArea = document.querySelector('.week-scroll-area');
     const newAllDay = document.createElement('div');
@@ -30409,11 +30690,11 @@ window.openFederationBreakdown = function(type) {
     const mm = parts[1] || 0;
     let startHour = 6;
     let hoursOffset = (hh - startHour) + (mm / 60);
-    if (hoursOffset < 0) hoursOffset = 0; 
-    
+    if (hoursOffset < 0) hoursOffset = 0;
+
     const topPx = hoursOffset * 50;
     const heightPx = 1.5 * 50;
-    
+
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
       if (ev.data.estado === 'programado') {
@@ -30453,46 +30734,46 @@ window.openFederationBreakdown = function(type) {
     `;
   }
 
-document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) => {
-  const agendaCard = e.target.closest('[data-type="agenda"]');
-  if (agendaCard) {
-    e.stopPropagation();
-    openAgendaTaskDetailModal(agendaCard.dataset.agid);
-    return;
-  }
-
-  const reportCard = e.target.closest('[data-repid]');
-  if (reportCard) {
-    e.stopPropagation();
-    openMatchReportEditor(reportCard.dataset.repid);
-    return;
-  }
-
-  const matchCard = e.target.closest('[data-type="match"]');
-  if (matchCard) {
-    e.stopPropagation();
-    const matchId = matchCard.dataset.mid;
-    const match = state.matches.find(m => m.id === matchId);
-    if (match && match.reportId) {
-      openMatchReportEditor(match.reportId, match);
-    } else if (match) {
-      createReportFromMatch(matchId);
+  document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) => {
+    const agendaCard = e.target.closest('[data-type="agenda"]');
+    if (agendaCard) {
+      e.stopPropagation();
+      openAgendaTaskDetailModal(agendaCard.dataset.agid);
+      return;
     }
-    return;
-  }
-});
+
+    const reportCard = e.target.closest('[data-repid]');
+    if (reportCard) {
+      e.stopPropagation();
+      openMatchReportEditor(reportCard.dataset.repid);
+      return;
+    }
+
+    const matchCard = e.target.closest('[data-type="match"]');
+    if (matchCard) {
+      e.stopPropagation();
+      const matchId = matchCard.dataset.mid;
+      const match = state.matches.find(m => m.id === matchId);
+      if (match && match.reportId) {
+        openMatchReportEditor(match.reportId, match);
+      } else if (match) {
+        createReportFromMatch(matchId);
+      }
+      return;
+    }
+  });
 
   function renderCalendarDaysView(filteredMatches) {
     const year = calendarCurrentDate.getFullYear();
     const month = calendarCurrentDate.getMonth();
     const date = calendarCurrentDate.getDate();
-    
+
     const startOfDays = new Date(year, month, date);
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    
+
     const endOfDays = new Date(startOfDays);
     endOfDays.setDate(startOfDays.getDate() + (calendarDaysCount - 1));
-    
+
     let titleStr = '';
     if (startOfDays.getMonth() === endOfDays.getMonth()) {
       titleStr = `${startOfDays.getDate()} - ${endOfDays.getDate()} ${monthNames[startOfDays.getMonth()]} ${startOfDays.getFullYear()}`;
@@ -30504,24 +30785,24 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
     const headerRow = document.getElementById('daysHeaderRow');
     headerRow.style.gridTemplateColumns = `60px repeat(${calendarDaysCount}, 1fr)`;
     let headerHTML = `<div class="days-header-cell" style="justify-content:flex-end; color:var(--text-muted); font-size:10px; padding-bottom:8px;">GMT+2</div>`;
-    
+
     function getLocalDateStr(dateObj) {
       return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
     }
-    
+
     const daysDates = [];
     const todayStr = getLocalDateStr(new Date());
-    
+
     for (let i = 0; i < calendarDaysCount; i++) {
       const d = new Date(startOfDays);
       d.setDate(startOfDays.getDate() + i);
       daysDates.push(d);
-      
+
       const dayNames = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
       const dayName = dayNames[d.getDay()];
       const dateStr = getLocalDateStr(d);
       const isToday = dateStr === todayStr;
-      
+
       headerHTML += `
         <div class="days-header-cell">
           <span class="days-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayName}</span>
@@ -30534,14 +30815,14 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
     const gridContainer = document.getElementById('daysGridContainer');
     gridContainer.style.gridTemplateColumns = `60px repeat(${calendarDaysCount}, 1fr)`;
     let gridHTML = '';
-    
+
     let timeColHTML = `<div class="days-time-col">`;
     for (let h = 6; h <= 23; h++) {
       timeColHTML += `<div class="days-time-slot">${h}:00</div>`;
     }
     timeColHTML += `</div>`;
     gridHTML += timeColHTML;
-    
+
     for (let i = 0; i < calendarDaysCount; i++) {
       let dayColHTML = `<div class="days-day-col">`;
       for (let h = 6; h <= 23; h++) {
@@ -30550,20 +30831,20 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
       dayColHTML += `</div>`;
       gridHTML += dayColHTML;
     }
-    
+
     let allDayHTML = `<div class="days-all-day-row" style="grid-template-columns: 60px repeat(${calendarDaysCount}, 1fr);">
                         <div class="days-all-day-label">Todo el día</div>`;
-    
+
     let allDayCells = Array(calendarDaysCount).fill('');
     let dayEvents = Array(calendarDaysCount).fill().map(() => []);
 
     for (let i = 0; i < calendarDaysCount; i++) {
       const dateStr = getLocalDateStr(daysDates[i]);
-      
+
       const dayMatches = filteredMatches.filter(m => m.fecha === dateStr);
       const dayAgenda = (state.agenda || []).filter(t => t.fecha === dateStr && (calendarActiveCategory === 'all' || (t.categorias || (t.categoria ? [t.categoria] : [])).includes(calendarActiveCategory)));
       const dayReports = (state.reports || []).filter(r => (r.date || r.fecha) === dateStr && (calendarActiveCategory === 'all' || (r.categorias || (r.categoria ? [r.categoria] : [])).includes(calendarActiveCategory)));
-      
+
       dayMatches.forEach(m => {
         const item = { type: 'match', data: m, isAllDay: !m.hora, hora: m.hora, title: `⚽ ${m.local.split(' ')[0]} v ${m.visitante.split(' ')[0]}` };
         if (item.isAllDay) allDayCells[i] += generateAllDayPill(item);
@@ -30587,23 +30868,23 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
       });
     }
 
-    for (let i=0; i<calendarDaysCount; i++) {
+    for (let i = 0; i < calendarDaysCount; i++) {
       allDayHTML += `<div class="days-all-day-cell">${allDayCells[i]}</div>`;
     }
     allDayHTML += `</div>`;
-    
+
     gridContainer.innerHTML = gridHTML;
-    
+
     for (let i = 0; i < calendarDaysCount; i++) {
       dayEvents[i].forEach(ev => {
         const cardHTML = generateTimedEventCardDays(ev, i);
         gridContainer.insertAdjacentHTML('beforeend', cardHTML);
       });
     }
-    
+
     let existingAllDay = document.getElementById('daysAllDayRow');
     if (existingAllDay) existingAllDay.remove();
-    
+
     const wrapper = document.getElementById('calendarDaysWrapper');
     const scrollArea = document.querySelector('.days-scroll-area');
     const newAllDay = document.createElement('div');
@@ -30618,11 +30899,11 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
     const mm = parts[1] || 0;
     let startHour = 6;
     let hoursOffset = (hh - startHour) + (mm / 60);
-    if (hoursOffset < 0) hoursOffset = 0; 
-    
+    if (hoursOffset < 0) hoursOffset = 0;
+
     const topPx = hoursOffset * 50;
     const heightPx = 1.5 * 50;
-    
+
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
       if (ev.data.estado === 'programado') {
@@ -30663,32 +30944,32 @@ document.getElementById('calendarWeekWrapper')?.addEventListener('click', (e) =>
   }
 
 
-document.getElementById('calendarDaysWrapper')?.addEventListener('click', (e) => {
-  const agendaCard = e.target.closest('[data-type="agenda"]');
-  if (agendaCard) {
-    e.stopPropagation();
-    openAgendaTaskDetailModal(agendaCard.dataset.agid);
-    return;
-  }
-
-  const reportCard = e.target.closest('[data-repid]');
-  if (reportCard) {
-    e.stopPropagation();
-    openMatchReportEditor(reportCard.dataset.repid);
-    return;
-  }
-
-  const matchCard = e.target.closest('[data-type="match"]');
-  if (matchCard) {
-    e.stopPropagation();
-    const matchId = matchCard.dataset.mid;
-    const match = state.matches.find(m => m.id === matchId);
-    if (match && match.reportId) {
-      openMatchReportEditor(match.reportId, match);
-    } else if (match) {
-      createReportFromMatch(matchId);
+  document.getElementById('calendarDaysWrapper')?.addEventListener('click', (e) => {
+    const agendaCard = e.target.closest('[data-type="agenda"]');
+    if (agendaCard) {
+      e.stopPropagation();
+      openAgendaTaskDetailModal(agendaCard.dataset.agid);
+      return;
     }
-    return;
-  }
-});
+
+    const reportCard = e.target.closest('[data-repid]');
+    if (reportCard) {
+      e.stopPropagation();
+      openMatchReportEditor(reportCard.dataset.repid);
+      return;
+    }
+
+    const matchCard = e.target.closest('[data-type="match"]');
+    if (matchCard) {
+      e.stopPropagation();
+      const matchId = matchCard.dataset.mid;
+      const match = state.matches.find(m => m.id === matchId);
+      if (match && match.reportId) {
+        openMatchReportEditor(match.reportId, match);
+      } else if (match) {
+        createReportFromMatch(matchId);
+      }
+      return;
+    }
+  });
 })();
