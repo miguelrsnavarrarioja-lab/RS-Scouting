@@ -1277,6 +1277,12 @@
           <input type="text" id="selMapasEquipo" list="dl_selMapasEquipo" class="form-control" style="font-weight: 600;" placeholder="-- Todos los equipos --">
           <datalist id="dl_selMapasEquipo"></datalist>
         </div>
+        <div id="filterMapasCategoria11Ideal" style="width: 250px; display: none;">
+          <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Categoría</label>
+          <select id="selMapasCategoria11Ideal" class="form-control" style="font-weight: 600;">
+            <option value="">-- Todas las categorías --</option>
+          </select>
+        </div>
         <div id="filterMapasSistema" style="display: flex; align-items: flex-end; gap: 8px;">
           <div style="width: 200px;">
             <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Sistema Táctico</label>
@@ -1315,9 +1321,9 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start;" id="mapasExportContainer">
+      <div style="display: grid; grid-template-columns: 42% 58%; gap: 32px; align-items: start;" id="mapasExportContainer">
         
-        <div style="grid-column: span 1; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
+        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
              <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 0;">Jugadores en el 11 Ideal</h3>
              <button id="btnMapasToComparador" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; display: none;" onclick="goToComparadorFromMapas()">Ir al Comparador <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i></button>
@@ -1341,8 +1347,8 @@
            </table>
         </div>
 
-        <div style="grid-column: span 2;">
-          <div class="campograma-pitch-bg-h" style="position: relative; width: 90%; aspect-ratio: 105 / 68; border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
+        <div>
+          <div class="campograma-pitch-bg-h" style="position: relative; width: 100%; aspect-ratio: 105 / 68; border-radius: 4px; border: 4px solid #ffffff; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 20px rgba(0,0,0,0.2);" id="mapasCampogramaPitch">
 
 
 
@@ -1356,7 +1362,7 @@
     
 <!-- Sub-vista Importador -->
       <div class="laboratorio-subview page-content hidden" id="subview-importador">
-        <div class="importador-card" style="max-width: 1500px; width: 95%; margin: 40px auto; padding: 40px; background: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); border: 1px solid var(--border-light, #e2e8f0);">
+        <div class="importador-card" style="max-width: 900px; width: 95%; margin: 40px auto; padding: 48px; background: #ffffff; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1), 0 10px 20px -5px rgba(0,0,0,0.05); border: 1px solid var(--border-light, #e2e8f0);">
         <!-- Header -->
         <div class="importador-header" style="margin-bottom: 32px; text-align: center;">
           <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: var(--primary-blue-light, #eff6ff); border-radius: 50%; margin-bottom: 16px;">
@@ -1372,11 +1378,10 @@
         <!-- PASO 1: PEGAR DATOS Y VALORES POR DEFECTO -->
         <div id="importerStep1Container">
           <form id="importerForm" onsubmit="return false;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; margin-bottom: 24px;">
-              <!-- Columna Izquierda: Ajustes -->
-              <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- Tipo de Importación -->
-            <div class="mb-4" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 32px; margin-bottom: 32px;">
+              
+              <!-- Tipo de Importación -->
+              <div class="mb-4" style="display: none;">
               <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
                 🔄 TIPO DE IMPORTACIÓN
               </label>
@@ -1406,21 +1411,20 @@
             </div>
 
             <!-- Equipo Principal de Destino -->
-            <div id="importerEquipoDestinoContainer" class="mb-4" style="background: var(--bg-subtle, #f8fafc); padding: 18px; border-radius: var(--radius-md, 10px); border: 1px solid var(--border-light, #e2e8f0);">
+            <div id="importerEquipoDestinoContainer" style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; position: relative;">
+              <div style="position: absolute; top: -12px; left: 24px; background: #2563eb; color: white; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Paso 1: Destino</div>
               <div class="form-group mb-0">
-                <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue, #2563eb); font-weight: 800; display: flex; align-items: center; gap: 6px;">
-                  👕 EQUIPO PRINCIPAL DE DESTINO (Opcional - se asignará a todos los registros extraídos)
-                </label>
+                <label style="font-weight: 700; color: #334155; margin-bottom: 12px; display: block; font-size: 14px;">¿A qué equipo quieres importar estos jugadores?</label>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                   <div>
-                    <select id="importerDefaultEquipoSelect" class="form-control font-bold" style="font-size: 14px; padding: 10px;">
-                      <option value="" selected>-- Seleccionar de los Equipos del Directorio --</option>
+                    <select id="importerDefaultEquipoSelect" class="form-control" style="font-size: 14px; padding: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;">
+                      <option value="" selected>-- Seleccionar del Directorio --</option>
                     </select>
                   </div>
                   <div>
                   <div style="position: relative; flex-grow: 1;">
-                    <input type="text" id="importerDefaultEquipo" class="form-control font-bold" style="font-size: 14px; padding: 10px; width: 100%;" placeholder="O escribir nombre de equipo manualmente..." autocomplete="off">
+                    <input type="text" id="importerDefaultEquipo" class="form-control" style="font-size: 14px; padding: 12px; width: 100%; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" placeholder="O escribir nombre manualmente..." autocomplete="off">
                     <div id="importerEquiposAutocomplete" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                   </div>
                   </div>
@@ -1428,12 +1432,12 @@
               </div>
             </div>
 
-              </div> <!-- End Columna Izquierda -->
-              
               <!-- Columna Derecha: Textarea -->
-              <div style="display: flex; flex-direction: column; height: 100%;">
-                <div class="form-group mb-0" style="flex-grow: 1; display: flex; flex-direction: column; height: 100%;">
-                  <label class="form-label font-bold text-uppercase text-xs" style="color: var(--primary-blue); font-weight: 800;">📄 LISTADO COPIADO DE LA FEDERACIÓN</label>
+              <div style="background: #ffffff; padding: 0;">
+                <div class="form-group mb-0">
+                  <div style="position: relative; padding-top: 12px;">
+                    <div style="position: absolute; top: -12px; left: 0; background: #10b981; color: white; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Paso 2: Datos</div>
+                    <label style="font-weight: 700; color: #334155; margin-bottom: 12px; display: block; font-size: 14px;">Pega el listado copiado de la Federación</label>
               <textarea id="importerRawText" class="form-control importer-textarea" rows="10" placeholder="Pega aquí la lista de la federación. Ejemplo:
 Albisu Muñoz, Unai
 Astrain Perez, Ander
@@ -1441,14 +1445,15 @@ Fuentes Bacáicoa, Martín Javier
 Galvete Vilar, Alvaro
 
    Delegados (1)
-ECHARTE ESPINAL, MIGUEL" style="flex-grow: 1; min-height: 250px; resize: none; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); padding: 16px; font-family: monospace; font-size: 13px;"></textarea>
+ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); padding: 16px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 14px; line-height: 1.5; color: #1e293b; transition: all 0.2s;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.02)';"></textarea>
+                  </div>
                 </div>
 
-              </div> <!-- End Columna Derecha -->
-            </div> <!-- End Grid -->
+              </div> 
+            </div> <!-- End Flex Column -->
 
             <!-- Action Button -->
-            <div style="display: flex; justify-content: center; border-top: 1px solid var(--border-light, #e2e8f0); padding-top: 32px; margin-top: 8px;">
+            <div style="display: flex; justify-content: center; border-top: 1px solid var(--border-light, #e2e8f0); padding-top: 32px; margin-top: 16px;">
               <button type="button" class="btn btn-primary btn-lg" id="btnProcessImporterText" style="font-weight: 800; padding: 16px 48px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-size: 16px; border-radius: 12px; box-shadow: 0 4px 14px rgba(37,99,235,0.3); transition: all 0.2s;">
                 <i data-lucide="table" style="width: 20px; height: 20px;"></i> Procesar y Crear Hoja Interactiva
               </button>

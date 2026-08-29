@@ -449,7 +449,6 @@
     // Always save config immediately (including seeding flags and deletion tombstones)
     if (!state.deletedTombstones) state.deletedTombstones = {};
     const configToSave = Object.assign({}, state.settings || {}, {
-      mapPreferences: state.mapPreferences || {},
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
       customTabOrder: state.customTabOrder || [],
@@ -719,9 +718,6 @@
             state.dirTabOrder = Array.isArray(configData.dirTabOrder) ? configData.dirTabOrder : Object.values(configData.dirTabOrder);
             if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
-          if (configData.mapPreferences && typeof configData.mapPreferences === 'object') {
-            state.mapPreferences = configData.mapPreferences;
-          }
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -805,7 +801,6 @@
             state.dirTabOrder = Array.isArray(configData.dirTabOrder) ? configData.dirTabOrder : Object.values(configData.dirTabOrder);
             if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
-          if (configData.mapPreferences && typeof configData.mapPreferences === 'object') state.mapPreferences = configData.mapPreferences;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -836,6 +831,26 @@
       }
     }, err => {
       console.error('Error escuchando configuracion:', err);
+    });
+
+    // Escuchar cambios en sistemas tácticos de forma independiente
+    db.collection('configuracion').doc('sistemas_tacticos').onSnapshot(doc => {
+      if (doc.exists) {
+        state.mapPreferences = doc.data() || {};
+        // Si estamos en la pestaña Mapas, forzamos actualización de la UI para evitar race conditions
+        const mapasTab = document.getElementById('mapasTab');
+        if (mapasTab && !mapasTab.classList.contains('hidden')) {
+          const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+          const tag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+          const sel = document.getElementById('selMapasSistema');
+          if (sel && state.mapPreferences[tag]) {
+            if (sel.value !== state.mapPreferences[tag]) {
+              sel.value = state.mapPreferences[tag];
+              if (typeof renderMapasPins === 'function') renderMapasPins();
+            }
+          }
+        }
+      }
     });
 
     // 2. Factory genérico para escuchar colecciones
@@ -5918,10 +5933,13 @@
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
-      if (evalData.tags && evalData.tags.length > 0) {
+      
+      // Sincronización absoluta de los tags:
+      // Lo que se seleccione o deseleccione en el informe, se refleja exactamente igual en el directorio
+      if (evalData.tags) {
         const trackingTags = evalData.tags.filter(t => t !== 'NO JUEGA' && t !== 'NO VISTO');
-        const newTags = new Set([...(playerInDir.controlSeguimiento || []), ...trackingTags]);
-        playerInDir.controlSeguimiento = Array.from(newTags);
+        // Sobreescribimos en lugar de solo añadir, para que el usuario pueda deseleccionar (desquitar) tags
+        playerInDir.controlSeguimiento = trackingTags;
       }
 
       // Append/update match evaluation history
@@ -29382,6 +29400,20 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
     }
 
+    // Poblar selector de Categoría para 11 IDEAL
+    const selCat11 = document.getElementById('selMapasCategoria11Ideal');
+    if (selCat11 && selCat11.options.length <= 1) {
+      if (typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined') {
+        LISTA_CATEGORIAS_EQUIPO.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          selCat11.appendChild(opt);
+        });
+      }
+      selCat11.onchange = () => renderMapasPins();
+    }
+
     // Assign events
     const bindDatalistEvent = (el, handler) => {
       el.onchange = (e) => {
@@ -29407,7 +29439,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const tag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
       if (!state.mapPreferences) state.mapPreferences = {};
       state.mapPreferences[tag] = e.target.value;
+      
       if (typeof saveState === 'function') saveState();
+      
+      // Guardado forzado y directo en Firebase para asegurar persistencia
+      // Pasamos un objeto nuevo y usamos merge para sobreescribir SÓLO la etiqueta actual
+      if (typeof db !== 'undefined' && db) {
+        db.collection('configuracion').doc('sistemas_tacticos').set({
+          [tag]: e.target.value
+        }, { merge: true }).catch(err => console.warn('Error saving sistemas tacticos directly:', err));
+      }
+      
       renderMapasPins();
     };
 
@@ -29418,7 +29460,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const tag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
         if (!state.mapPreferences) state.mapPreferences = {};
         state.mapPreferences[tag] = document.getElementById('selMapasSistema').value;
+        
         if (typeof saveState === 'function') saveState();
+        
+        if (typeof db !== 'undefined' && db) {
+          db.collection('configuracion').doc('sistemas_tacticos').set({
+            [tag]: document.getElementById('selMapasSistema').value
+          }, { merge: true }).catch(err => console.warn('Error saving sistemas tacticos directly:', err));
+        }
+        
         if (typeof showToast === 'function') showToast(`Sistema táctico guardado para ${tag}`, 'success');
       };
     }
@@ -29444,6 +29494,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const filterEquipo = document.getElementById('filterMapasEquipo');
         if (filterEquipo) {
           filterEquipo.style.display = (tag === 'DESTACADO EQUIPO') ? 'block' : 'none';
+        }
+
+        const filterCat11 = document.getElementById('filterMapasCategoria11Ideal');
+        if (filterCat11) {
+          filterCat11.style.display = (tag === '11 IDEAL') ? 'block' : 'none';
         }
 
         const mainTitle = document.querySelector('#subview-mapas .view-header h1');
@@ -29476,6 +29531,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (!container) return;
 
     const selEquipo = document.getElementById('selMapasEquipo')?.value;
+    const selCat11Ideal = document.getElementById('selMapasCategoria11Ideal')?.value;
     const sysSelect = document.getElementById('selMapasSistema')?.value || '1-4-3-3';
 
     container.innerHTML = '';
@@ -29496,6 +29552,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
       if (!isTagged) return false;
       if (activeMapTag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
+      if (activeMapTag === '11 IDEAL' && selCat11Ideal) {
+        const equipName = String(p.equipo || '').toUpperCase();
+        const term = selCat11Ideal.toUpperCase();
+        if (!equipName.includes(term) && String(p.categoria || '').toUpperCase() !== term) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -29504,8 +29567,23 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     defaultPositions.forEach((_, idx) => { slotMap[idx] = []; });
 
     filteredPlayers.forEach(p => {
-      const pPrimary = (p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
-      const pSecondary = (p.posicionSecundaria || p.posicionSec || '').toUpperCase().trim();
+      let pPrimary = (p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
+      let pSecondary = (p.posicionSecundaria || p.posicionSec || '').toUpperCase().trim();
+
+      // Regla específica: si tiene DCD y DC, el DC pasa a ser DCZ para el campograma
+      if (pPrimary === 'DCD' && pSecondary === 'DC') {
+        pSecondary = 'DCZ';
+      } else if (pPrimary === 'DC' && pSecondary === 'DCD') {
+        pPrimary = 'DCZ';
+      }
+
+      // Regla específica: si tiene MCD y MC, el MC pasa a ser MCZ para el campograma
+      if (pPrimary === 'MCD' && pSecondary === 'MC') {
+        pSecondary = 'MCZ';
+      } else if (pPrimary === 'MC' && pSecondary === 'MCD') {
+        pPrimary = 'MCZ';
+      }
+
       let primaryAssigned = false;
       let secondaryAssigned = false;
 
@@ -29647,7 +29725,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     container.innerHTML = positions.map((posCoords, slotIdx) => {
       const posCode = defaultPositions[slotIdx] || 'MC';
-      const matchingPlayers = slotMap[slotIdx] || [];
+      let matchingPlayers = slotMap[slotIdx] || [];
+
+      // Ordenar para que las posiciones principales (negro) salgan primero y las secundarias (amarillo) después
+      matchingPlayers.sort((a, b) => {
+        if (a.isSecondary === b.isSecondary) return 0;
+        return a.isSecondary ? 1 : -1;
+      });
 
       let playersHTML = '';
       if (matchingPlayers.length > 0) {
@@ -29655,7 +29739,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           const p = obj.player;
           const isSecondary = obj.isSecondary;
           const fullName = p.nombre || p.jugador || '';
-          const shortName = fullName.split(' ').slice(0, 2).join(' ');
+          let shortName = fullName.split(' ').slice(0, 2).join(' ');
+          if (activeMapTag === 'MAPA RS' && p.ano) {
+            let yearStr = String(p.ano).trim();
+            if (yearStr.length === 4) yearStr = "'" + yearStr.substring(2);
+            shortName += ` ${yearStr}`;
+          }
           const tooltipText = `${fullName}${p.equipo ? ` - ${p.equipo}` : ''}${isSecondary ? ' (Pos. Secundaria)' : ''}`;
 
           let bgStyle = 'background: rgba(15, 23, 42, 0.92); color: #ffffff; border: 1px solid rgba(255,255,255,0.3);';
