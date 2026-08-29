@@ -305,13 +305,17 @@ a {
 .view-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end !important;
   margin-bottom: 24px;
 }
 
+.view-header h1,
+.view-header .view-title-group {
+  display: none !important;
+}
+
 .view-title-group h1 {
-  font-size: 24px;
-  font-weight: 700;
+  display: none !important;
 }
 
 .view-subtitle {

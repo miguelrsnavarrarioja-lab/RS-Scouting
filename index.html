@@ -274,7 +274,7 @@
                 <span class="kpi-subtext">Partidos esta semana</span>
               </div>
             </div>
-            <div class="kpi-card" data-shortcut="tareas">
+            <div class="kpi-card" data-shortcut="agenda">
               <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
               <div class="kpi-info">
                 <span class="kpi-label">Agenda</span>
@@ -282,12 +282,12 @@
                 <span class="kpi-subtext" id="kpiHighPriorityTasks">0 pendientes</span>
               </div>
             </div>
-            <div class="kpi-card" data-shortcut="eventos">
-              <div class="kpi-icon info"><i data-lucide="clock"></i></div>
+            <div class="kpi-card" data-shortcut="notas-page">
+              <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
               <div class="kpi-info">
-                <span class="kpi-label">Eventos</span>
-                <span class="kpi-value" id="kpiPendingEvents">0</span>
-                <span class="kpi-subtext">Próximos eventos</span>
+                <span class="kpi-label">Página Notas</span>
+                <span class="kpi-value" id="kpiTotalNotasPage">0</span>
+                <span class="kpi-subtext">Ver base de notas</span>
               </div>
             </div>
             <div class="kpi-card" data-shortcut="notas">
@@ -443,11 +443,11 @@
           </div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-secondary" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas">
-            <i data-lucide="archive"></i> Archivo
+          <button class="btn btn-sm" id="btnOpenAgendaArchive" title="Ver tareas completadas archivadas" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="archive" style="width: 14px; height: 14px;"></i> Archivo
           </button>
-          <button class="btn btn-primary" id="btnNewAgendaTask">
-            <i data-lucide="plus"></i> Nueva Tarea / Evento
+          <button class="btn btn-sm" id="btnNewAgendaTask" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="plus" style="width: 14px; height: 14px;"></i> Nueva Tarea / Evento
           </button>
         </div>
       </div>
@@ -458,8 +458,8 @@
           <div class="agenda-card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
               <h3 style="margin: 0;">Categorías</h3>
-              <button class="btn btn-sm btn-secondary" id="btnAddNewAgendaCat" title="Añadir nueva categoría">
-                <i data-lucide="plus" style="width: 14px;"></i> Nueva
+              <button class="btn btn-sm" id="btnAddNewAgendaCat" title="Añadir nueva categoría" style="font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 4px;">
+                <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Nueva
               </button>
             </div>
             <ul class="category-list" id="agendaCategoryFilters">
@@ -478,24 +478,34 @@
     </div>
 
     <div class="planificacion-subview hidden" id="subview-enlaces">
-      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div class="view-header" style="display: none;">
         <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
           <i data-lucide="link"></i> Enlaces de Interés
         </h1>
-        <button class="btn btn-primary" id="btnAddNewFavCol">
-          <i data-lucide="plus"></i> Nueva Columna Favoritos
-        </button>
       </div>
 
-      <div class="toolbar" style="margin-bottom: 24px;">
-        <div class="toolbar-search">
-          <i data-lucide="search"></i>
-          <input type="text" id="linkSearchInput" placeholder="Buscar enlaces por título o URL...">
+      <div class="directory-subtabs-bar" style="margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; width: 100%; border: none; padding: 0;">
+        
+        <!-- Tabs -->
+        <div id="linksCategoryTabs" style="display: flex; gap: 8px; flex: 1; overflow-x: auto; min-width: 300px; padding-bottom: 4px;">
+          <!-- Filled by JS -->
         </div>
-      </div>
 
-      <div id="linksCategoryTabs" style="display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 8px;">
-        <!-- Filled by JS -->
+        <!-- Right Side: Search & Action -->
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <div class="filter-search-box" style="margin: 0; background: white; border: 1px solid var(--border-medium);">
+            <i data-lucide="search" style="color: var(--text-muted);"></i>
+            <input type="text" id="linkSearchInput" placeholder="Buscar título o URL..." style="border: none; outline: none; background: transparent; font-size: 13px; color: var(--text-dark); width: 180px;">
+          </div>
+          
+          <button type="button" class="btn btn-sm" id="btnAddNewFavCol" style="font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;" title="Nueva Columna">
+            <i data-lucide="layout" style="width: 14px; height: 14px;"></i> Columna
+          </button>
+          
+          <button type="button" class="btn btn-sm" id="btnAddNewLink" style="font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;" title="Añadir Nuevo Enlace">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Nuevo Enlace
+          </button>
+        </div>
       </div>
 
       <div id="linksBoardContainer" class="board-wrapper" style="overflow-x: auto; display: flex; gap: 24px; padding-bottom: 16px;">
@@ -513,8 +523,8 @@
           <h1>📝 Notas</h1>
         </div>
         <div class="view-actions">
-          <button type="button" class="btn btn-primary" id="btnGlobalNewNota">
-            <i data-lucide="plus"></i> Nueva Nota
+          <button type="button" class="btn btn-sm" id="btnGlobalNewNota" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="plus" style="width: 14px; height: 14px;"></i> Nueva Nota
           </button>
         </div>
       </div>
@@ -556,24 +566,18 @@
 <section class="tab-view" id="view-partidos">
       <!-- Partidos List view state -->
       <div id="partidosListState" class="partidos-list-container">
-        <div class="view-header">
-          <div class="view-title-group">
-            <h1>⚽ Partidos e Informes Técnicos</h1>
-          </div>
-          <button class="btn btn-primary" id="btnCreateNewMatchReport">
-            <i data-lucide="plus-circle"></i> Crear Nuevo Informe de Partido
-          </button>
-        </div>
-
-        <div class="dir-subfilter-container mb-4" style="display: flex; gap: 16px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); align-items: center; overflow-x: auto;">
-          <div class="toolbar-search" style="margin: 0; min-width: 250px; flex-shrink: 0;">
-            <i data-lucide="search"></i>
-            <input type="text" id="reportsSearchInput" placeholder="Buscar informes..." style="font-size: 13px;">
+        <div class="dir-subfilter-container mb-4" style="display: flex; flex-wrap: nowrap; gap: 12px; background: var(--bg-subtle, #f8fafc); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); align-items: center; overflow-x: auto;">
+          <div class="filter-search-box" style="margin: 0; min-width: 200px; flex-shrink: 0; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="search" style="color: var(--text-muted); width: 14px; height: 14px;"></i>
+            <input type="text" id="reportsSearchInput" placeholder="Buscar informes..." style="border: none; outline: none; background: transparent; font-size: 13px; color: var(--text-dark); width: 100%;">
           </div>
           <!-- Smart Category Subtabs Bar -->
-          <div id="matchCategorySubtabsBar" style="display: flex; flex-wrap: nowrap; gap: 8px;">
+          <div id="matchCategorySubtabsBar" style="display: flex; flex-wrap: nowrap; gap: 8px; flex-shrink: 0;">
             <!-- Dynamic Category Tabs generated by JS -->
           </div>
+          <button class="btn btn-sm" id="btnCreateNewMatchReport" style="margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i> Nuevo Informe
+          </button>
         </div>
 
         <div class="reports-grid" id="reportsListContainer">
@@ -705,10 +709,13 @@
               </div>
               <div class="form-group">
                 <label>VISIONADO</label>
-                <select id="reportVisionado" class="form-control">
-                  <option value="DIRECTO">DIRECTO</option>
-                  <option value="VÍDEO">VÍDEO</option>
-                </select>
+                <div style="display: flex; gap: 8px;">
+                  <select id="reportVisionado" class="form-control" style="flex: 1;">
+                    <option value="DIRECTO">DIRECTO</option>
+                    <option value="VÍDEO">VÍDEO</option>
+                  </select>
+                  <input type="url" id="reportVideoLink" class="form-control" placeholder="Pega el enlace web aquí..." style="flex: 2; display: none;">
+                </div>
               </div>
             </div>
           </div>
@@ -1141,54 +1148,25 @@
             <input type="text" id="dirYearFilterInput" placeholder="Año o 'vacio'" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
           </div>
 
-          <div class="filter-search-box" id="dirDuplicatesContainer" style="display: none; max-width: 130px; margin-left: 12px; cursor: pointer; justify-content: center; background: white; border: 1px solid var(--border-medium); transition: all 0.2s;" onclick="toggleDuplicatesFilter()">
-            <i data-lucide="users" style="color: var(--text-muted);"></i>
-            <span id="dirDuplicatesText" style="font-size: 13px; color: #334155; font-weight: 500; user-select: none;">Duplicados</span>
-          </div>
+          <button type="button" id="dirDuplicatesContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: white; white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDuplicatesFilter()">
+            <i data-lucide="copy" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+            <span id="dirDuplicatesText">Duplicados</span>
+          </button>
 
-          <div class="filter-search-box" id="dirDestacadosContainer" style="display: none; max-width: 130px; margin-left: 12px; cursor: pointer; justify-content: center; background: white; border: 1px solid var(--border-medium); transition: all 0.2s;" onclick="toggleDestacadosFilter()">
-            <i data-lucide="star" style="color: var(--text-muted);"></i>
-            <span id="dirDestacadosText" style="font-size: 13px; color: #334155; font-weight: 500; user-select: none;">Destacados</span>
-          </div>
+          <button type="button" id="dirDestacadosContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: white; white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDestacadosFilter()">
+            <i data-lucide="star" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+            <span id="dirDestacadosText">Destacados</span>
+          </button>
           
-          <div class="filter-search-box" id="dirCargoFilterContainer" style="display: none; max-width: 180px; margin-left: 12px;">
-            <i data-lucide="briefcase"></i>
-            <select id="dirCargoFilterSelect" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155; cursor: pointer;">
-              <option value="all">Cualquier Cargo</option>
-              <option value="Director Deportivo">Director Deportivo</option>
-              <option value="Secretaría Técnica">Secretaría Técnica</option>
-              <option value="Analista">Analista</option>
-              <option value="Primer Entrenador">Primer Entrenador</option>
-              <option value="Segundo Entrenador">Segundo Entrenador</option>
-              <option value="Entrenador Porteros">Entrenador Porteros</option>
-              <option value="Preparador Físico">Preparador Físico</option>
-              <option value="Delegado / Técnico">Delegado / Técnico</option>
-              <option value="Fisioterapeuta">Fisioterapeuta</option>
-              <option value="Readaptador">Readaptador</option>
-              <option value="Médico">Médico</option>
-              <option value="Scout">Scout</option>
-              <option value="Nutricionista">Nutricionista</option>
-              <option value="Psicólogo">Psicólogo</option>
-              <option value="Encargado de Material">Encargado de Material</option>
-              <option value="Presidente">Presidente</option>
-              <option value="Directivo">Directivo</option>
-              <option value="Otro">Otro</option>
-            </select>
-          </div>
 
-          <div class="filter-search-box" id="dirDuplicatesFilterContainer" style="display: none; margin-left: 12px; cursor: pointer; padding: 0; background: transparent; border: none; box-shadow: none;" title="Mostrar solo duplicados">
-            <button type="button" id="dirDuplicatesFilterBtn" class="btn btn-sm" style="background: white; border: 1px solid var(--border-color); color: var(--text-muted); display: flex; align-items: center; gap: 6px; border-radius: 20px; font-weight: 600; padding: 6px 12px; transition: all 0.2s;">
-              <i data-lucide="copy" style="width: 14px; height: 14px;"></i> Duplicados
-            </button>
-          </div>
 
           <!-- Quick Action Icon Buttons -->
           <div class="action-icon-buttons" style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
-            <button type="button" class="btn btn-secondary" id="btnToggleBulkDelete" title="Activar Modo Selección Múltiple" style="display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; padding: 8px 16px; background: white; border: 1px solid var(--border-light); color: var(--text-dark); transition: all 0.2s;">
+            <button type="button" class="btn btn-sm" id="btnToggleBulkDelete" title="Activar Modo Selección Múltiple" style="font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
               <i data-lucide="check-square" style="width: 16px; height: 16px;"></i> Selección Múltiple
             </button>
-            <button type="button" class="btn btn-primary" id="btnAddNewPlayerHeader" style="display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; padding: 8px 16px;">
-              <i data-lucide="user-plus"></i> Crear Nuevo Jugador
+            <button type="button" class="btn btn-sm" id="btnAddNewPlayerHeader" style="font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i> Nuevo Jugador
             </button>
           </div>
         </div>
@@ -1222,21 +1200,21 @@
       <!-- Sub-vista Comparativa -->
       <div class="laboratorio-subview page-content" id="subview-comparativa">
 
-      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 class="page-title" id="comparativaTitle">
-          <i data-lucide="bar-chart-2"></i> Comparador
-        </h1>
-        <button class="btn btn-secondary" id="btnExportComparativaPDF" title="Exportar vista actual a PDF">
-          <i data-lucide="printer"></i> Exportar PDF
+      <!-- Removed view-header to save space -->
+      <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px; align-items: center;">
+        <style>
+          .comp-mode-tab { font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+          .comp-mode-tab.active { background: rgba(37, 99, 235, 0.08); color: var(--primary-blue); border-color: rgba(37, 99, 235, 0.3); }
+        </style>
+        <button class="comp-mode-tab active" data-mode="individual">
+          <i data-lucide="user" style="width: 14px; height: 14px;"></i> Análisis Individual
         </button>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
-        <button class="btn btn-secondary comp-mode-tab active" data-mode="individual" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
-          <i data-lucide="user"></i> Análisis Individual
+        <button class="comp-mode-tab" data-mode="multiple">
+          <i data-lucide="users" style="width: 14px; height: 14px;"></i> Comparador Jugadores
         </button>
-        <button class="btn btn-secondary comp-mode-tab" data-mode="multiple" style="font-weight: 700; border-radius: 20px; transition: all 0.2s;">
-          <i data-lucide="users"></i> Comparador Jugadores
+        
+        <button class="btn btn-sm" id="btnExportComparativaPDF" title="Exportar vista actual a PDF" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px; margin-left: auto;">
+          <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar PDF
         </button>
       </div>
 
@@ -1249,27 +1227,19 @@
       <!-- Sub-vista Mapas -->
       <div class="laboratorio-subview page-content hidden" id="subview-mapas">
 
-      <div class="view-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="layout-dashboard"></i> Mapas y Seguimiento
-        </h1>
-        <button class="btn btn-secondary" id="btnExportMapasPDF" title="Exportar vista actual a PDF">
-          <i data-lucide="printer"></i> Exportar PDF
-        </button>
-      </div>
-      
-      <div style="display: flex; gap: 16px; margin-bottom: 24px; align-items: flex-end; justify-content: flex-start; flex-wrap: wrap;">
+      <!-- Removed view-header to save space -->
+      <div style="display: flex; gap: 16px; margin-bottom: 12px; align-items: flex-end; justify-content: flex-start; flex-wrap: wrap;">
         <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="mapas-toggle-group">
           <style>
-            .mapas-toggle-btn { font-weight: 700; border-radius: 20px; transition: all 0.2s; padding: 6px 16px; }
-            .mapas-toggle-btn.active { background-color: var(--primary-blue); color: white; border-color: var(--primary-blue); }
+            .mapas-toggle-btn { font-size: 13px; font-weight: 700; border-radius: 20px; transition: all 0.2s; padding: 6px 16px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); cursor: pointer; }
+            .mapas-toggle-btn.active { background: rgba(37, 99, 235, 0.08); color: var(--primary-blue); border-color: rgba(37, 99, 235, 0.3); }
           </style>
-          <button class="btn btn-secondary mapas-toggle-btn active" data-tag="MAPA RS">Mapa RS</button>
-          <button class="btn btn-secondary mapas-toggle-btn" data-tag="11 IDEAL">11 Ideal</button>
-          <button class="btn btn-secondary mapas-toggle-btn" data-tag="JULEN">Julen</button>
-          <button class="btn btn-secondary mapas-toggle-btn" data-tag="LERINES">Lerines</button>
-          <button class="btn btn-secondary mapas-toggle-btn" data-tag="ERF">ERF</button>
-          <button class="btn btn-secondary mapas-toggle-btn" data-tag="DESTACADO EQUIPO">Destacado Equipo</button>
+          <button class="mapas-toggle-btn active" data-tag="MAPA RS">Mapa RS</button>
+          <button class="mapas-toggle-btn" data-tag="11 IDEAL">11 Ideal</button>
+          <button class="mapas-toggle-btn" data-tag="JULEN">Julen</button>
+          <button class="mapas-toggle-btn" data-tag="LERINES">Lerines</button>
+          <button class="mapas-toggle-btn" data-tag="ERF">ERF</button>
+          <button class="mapas-toggle-btn" data-tag="DESTACADO EQUIPO">Destacado Equipo</button>
         </div>
 
         <div id="filterMapasEquipo" style="width: 250px; display: none;">
@@ -1318,12 +1288,16 @@
           </select>
           </div>
           <button id="btnSaveMapasSistema" class="btn btn-primary" style="height: 38px; padding: 0 12px;" title="Guardar sistema para esta etiqueta"><i data-lucide="save"></i></button>
+          
+          <button class="btn btn-sm" id="btnExportMapasPDF" title="Exportar vista actual a PDF" style="height: 38px; font-size: 13px; font-weight: 700; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px; margin-left: 16px;">
+            <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar PDF
+          </button>
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 42% 58%; gap: 32px; align-items: start;" id="mapasExportContainer">
+      <div style="display: grid; grid-template-columns: 40% 60%; gap: 24px; align-items: stretch;" id="mapasExportContainer">
         
-        <div style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; max-height: 862px; overflow-y: auto;">
+        <div id="mapasTableContainer" style="background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 16px; overflow-x: auto; overflow-y: auto;">
            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
              <h3 id="mapasJugadoresTitle" style="margin-top: 0; font-size: 16px; font-weight: 800; color: var(--text-dark); margin-bottom: 0;">Jugadores en el 11 Ideal</h3>
              <button id="btnMapasToComparador" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px; display: none;" onclick="goToComparadorFromMapas()">Ir al Comparador <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i></button>
@@ -1571,62 +1545,69 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
             <input type="text" id="carteleraSearchInput" placeholder="🔍 Buscador rápido por equipo, estadio, jornada o competición...">
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-            <button class="btn btn-sm btn-secondary" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full); border-color: #3b82f6; color: #1d4ed8; background: rgba(59, 130, 246, 0.1);">
-              <i data-lucide="file-input" style="width: 16px;"></i> Importar
+            <button class="btn btn-sm" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="file-input" style="width: 14px; height: 14px;"></i> Importar
             </button>
-            <button class="btn btn-sm btn-secondary" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full);">
-              <i data-lucide="printer" style="width: 16px;"></i> Exportar
+            <button class="btn btn-sm" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar
             </button>
-            <button class="btn btn-sm btn-secondary" id="btnOpenClubesPrioritariosModal" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full); border-color: #f59e0b; color: #b45309; background: rgba(245, 158, 11, 0.1);">
-              <i data-lucide="star" style="width: 16px;"></i> Prioritarios
+            <button class="btn btn-sm" id="btnOpenClubesPrioritariosModal" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(245, 158, 11, 0.3); color: #b45309; background: rgba(245, 158, 11, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="star" style="width: 14px; height: 14px;"></i> Prioritarios
             </button>
-            <button class="btn btn-sm btn-primary" id="btnCarteleraDestacadosFinde" style="font-size: 12px; padding: 8px 16px; font-weight: 700; border-radius: var(--radius-full);">
-              <i data-lucide="zap" style="width: 16px;"></i> Destacados del Finde
+            <button class="btn btn-sm" id="btnCarteleraDestacadosFinde" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(139, 92, 246, 0.3); color: #6d28d9; background: rgba(139, 92, 246, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="zap" style="width: 14px; height: 14px;"></i> Destacados del Finde
             </button>
           </div>
         </div>
 
         <!-- Selector de Liga y Selector de Jornada -->
         <div class="cartelera-filters-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Categoría</label>
-              <select id="carteleraFilterCategoria" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Categoría:</span>
+              <select id="carteleraFilterCategoria" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Federación</label>
-              <select id="carteleraFilterFederacion" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Federación:</span>
+              <select id="carteleraFilterFederacion" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Grupo</label>
-              <select id="carteleraFilterGrupo" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Grupo:</span>
+              <select id="carteleraFilterGrupo" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Jornada</label>
-              <select id="carteleraFilterJornada" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px; position: relative;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Jornada:</span>
+              <div id="carteleraFilterJornadaTrigger" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; cursor: pointer; color: var(--text-dark); width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                <span id="carteleraFilterJornadaLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">Todas</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div id="carteleraFilterJornadaDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; min-width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Fecha</label>
-              <select id="carteleraFilterFecha" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px; position: relative;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Fecha:</span>
+              <div id="carteleraFilterFechaTrigger" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; cursor: pointer; color: var(--text-dark); width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                <span id="carteleraFilterFechaLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">Todas</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div id="carteleraFilterFechaDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; min-width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Filtro de Interés</label>
-              <select id="carteleraFilterInteres" class="form-control">
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Interés:</span>
+              <select id="carteleraFilterInteres" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;">
                 <option value="all">Todos los partidos</option>
                 <option value="priority_teams">Equipos prioritarios</option>
-                <option value="tracked_players">Partidos con jugadores en seguimiento</option>
+                <option value="tracked_players">Partidos con seguimiento</option>
               </select>
             </div>
-            <div style="flex: 1; min-width: 140px; position: relative;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Equipo</label>
-              <input type="text" id="carteleraFilterEquipo" class="form-control" placeholder="Todos" autocomplete="off">
+            <div style="flex: 1; min-width: 180px; position: relative; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Equipo:</span>
+              <input type="text" id="carteleraFilterEquipo" class="form-control" placeholder="Todos" autocomplete="off" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; box-shadow: none; color: var(--text-dark); width: 100%;">
               <div id="carteleraFilterEquipoDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
             </div>
-            <div style="flex: 1; min-width: 140px;">
-              <label style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; display: block;">Técnico</label>
-              <select id="carteleraFilterTecnico" class="form-control"></select>
+            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Técnico:</span>
+              <select id="carteleraFilterTecnico" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
             </div>
-          </div>
-      </div>
+        </div>
 
       <!-- Filtros de Cartelera: Federación, Categoría, Jornada (estilo Directorio) -->
       <div id="carteleraFilterPillsContainer">
@@ -1939,7 +1920,7 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   </div>
 
   <div class="modal-overlay hidden" id="generalModalOverlay" style="z-index: 10020;">
-    <div class="modal-card xlarge" id="generalModalCard">
+    <div class="modal-card" id="generalModalCard">
       <div class="modal-header">
         <h3 id="modalTitle">Crear Registro</h3>
         <button type="button" class="modal-close" id="btnCloseModal"><i data-lucide="x"></i></button>
@@ -1948,8 +1929,8 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
         <!-- Rendered dynamically depending on entity type -->
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="btnSubmitModal">Guardar</button>
+        <button type="button" class="btn btn-secondary" id="btnCancelModal" style="border-radius: 20px; font-weight: 600; padding: 8px 24px; box-shadow: none;">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnSubmitModal" style="border-radius: 20px; font-weight: 600; padding: 8px 24px; box-shadow: none;">Guardar</button>
       </div>
     </div>
   </div>

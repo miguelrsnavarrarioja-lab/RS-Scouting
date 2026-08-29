@@ -136,6 +136,7 @@
   // 1. Initial State & Data Persistence
   // --------------------------------------------------------------------------
   const STORAGE_KEY = 'RS_SCOUTING_DATA_V1';
+  let isConfigLoadedFromFirebase = false;
 
   const DEFAULT_INITIAL_STATE = {
     settings: {
@@ -451,11 +452,13 @@
     const configToSave = Object.assign({}, state.settings || {}, {
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
+      favLinksOrderStr: JSON.stringify(state.favLinksOrder || {}),
       customTabOrder: state.customTabOrder || [],
       dirTabOrder: state.dirTabOrder || [],
       customClubTypes: state.customClubTypes || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
+      directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
       agendaCategories: state.agendaCategories || [],
       cartelera: {
         priorityTeams: state.cartelera?.priorityTeams || [],
@@ -487,9 +490,11 @@
       notifications: state.notifications || []
     });
 
-    markLocalWrite('configuracion', 'app_settings');
-    db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
-      .catch(e => console.warn('Error sync configuracion:', e));
+    if (isConfigLoadedFromFirebase) {
+      markLocalWrite('configuracion', 'app_settings');
+      db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
+        .catch(e => console.warn('Error sync configuracion:', e));
+    }
   }
 
 
@@ -549,16 +554,23 @@
       const configToSave = Object.assign({}, state.settings || {}, {
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
         favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
+        favLinksOrderStr: JSON.stringify(state.favLinksOrder || {}),
         customTabOrder: state.customTabOrder || [],
         dirTabOrder: state.dirTabOrder || [],
+        customClubTypes: state.customClubTypes || [],
+        directoryCategoriesOrder: state.directoryCategoriesOrder || [],
+        directoryFederationsOrder: state.directoryFederationsOrder || [],
+        directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
         agendaCategories: state.agendaCategories || [],
         cartelera: {
           priorityTeams: state.cartelera?.priorityTeams || [],
           interestingTeams: state.cartelera?.interestingTeams || []
         }
       });
-      markLocalWrite('configuracion', 'app_settings');
-      await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
+      if (isConfigLoadedFromFirebase) {
+        markLocalWrite('configuracion', 'app_settings');
+        await db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true });
+      }
 
       // Save Cartelera Calendars to their own collection
       if (state.cartelera && Array.isArray(state.cartelera.calendarios)) {
@@ -711,6 +723,9 @@
           } else if (configData.favColumns) {
             state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
           }
+          if (configData.favLinksOrderStr) {
+            try { state.favLinksOrder = JSON.parse(configData.favLinksOrderStr); } catch (e) { state.favLinksOrder = {}; }
+          }
           if (configData.customTabOrder) {
             state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
           }
@@ -778,6 +793,7 @@
 
     // 1. Escuchar la configuración global (incluyendo el estado de la UI)
     db.collection('configuracion').doc('app_settings').onSnapshot(doc => {
+      isConfigLoadedFromFirebase = true;
       if (isRecentLocalWrite('configuracion', 'app_settings')) return;
 
       if (doc.exists) {
@@ -794,6 +810,9 @@
           } else if (configData.favColumns) {
             state.favColumns = Array.isArray(configData.favColumns) ? configData.favColumns : Object.values(configData.favColumns);
           }
+          if (configData.favLinksOrderStr) {
+            try { state.favLinksOrder = JSON.parse(configData.favLinksOrderStr); } catch (e) { state.favLinksOrder = {}; }
+          }
           if (configData.customTabOrder) {
             state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
           }
@@ -801,6 +820,9 @@
             state.dirTabOrder = Array.isArray(configData.dirTabOrder) ? configData.dirTabOrder : Object.values(configData.dirTabOrder);
             if (typeof window.applyDirTabOrder === 'function') window.applyDirTabOrder();
           }
+          if (configData.directoryCategoriesOrder) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
+          if (configData.directoryFederationsOrder) state.directoryFederationsOrder = configData.directoryFederationsOrder;
+          if (configData.directoryStaffCargoOrder) state.directoryStaffCargoOrder = configData.directoryStaffCargoOrder;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
           }
@@ -1159,8 +1181,13 @@
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
+    const elTotalNotasPage = document.getElementById('kpiTotalNotasPage');
     const elPendingEvents = document.getElementById('kpiPendingEvents');
     const elPriorityMatches = document.getElementById('kpiPriorityMatchesThisWeek');
+
+    if (elTotalNotasPage) {
+      elTotalNotasPage.textContent = state.notasFichas ? state.notasFichas.length : 0;
+    }
 
 
     if (elVistos) elVistos.textContent = totalVistos;
@@ -2351,8 +2378,8 @@
           openFederationBreakdown(target);
         } else if (target === 'cartelera') {
           navigateToTab('cartelera');
-        } else if (target === 'tareas' || target === 'eventos') {
-          currentPlanificacionTab = target;
+        } else if (target === 'agenda' || target === 'notas-page') {
+          currentPlanificacionTab = target === 'notas-page' ? 'notas' : target;
           navigateToTab('planificacion');
         } else if (target === 'mapas' || target === 'comparador' || target === 'importador') {
           // Si el shortcut es "importador", necesitamos forzar el click en el sub-tab
@@ -2620,12 +2647,12 @@
 
               <div style="display: flex; gap: 8px; margin-top: 6px;">
                 ${item.reportId ? `
-                  <button class="btn btn-primary btn-open-report" data-repid="${item.reportId}" data-mid="${item.id}" style="width: 100%;">
-                    <i data-lucide="file-text"></i> Ver Informe Técnico
+                  <button class="btn btn-sm btn-open-report" data-repid="${item.reportId}" data-mid="${item.id}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                    <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Ver Informe
                   </button>
                 ` : `
-                  <button class="btn btn-secondary btn-create-report-from-match" data-mid="${item.id}" style="width: 100%;">
-                    <i data-lucide="plus"></i> Crear Informe Técnico
+                  <button class="btn btn-sm btn-create-report-from-match" data-mid="${item.id}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
+                    <i data-lucide="plus" style="width: 14px; height: 14px;"></i> Crear Informe
                   </button>
                 `}
               </div>
@@ -3178,23 +3205,21 @@
     });
 
     let html = `
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="file-check-2" style="width: 14px;"></i> Estado:
-            </span>
-            <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+        <div style="display: flex; gap: 12px; flex-wrap: nowrap; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="file-check-2" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Estado:</span>
+            <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosStatusTab === 'all' ? 'selected' : ''}>TODOS (${reports.length})</option>
               <option value="incompleto" ${currentPartidosStatusTab === 'incompleto' ? 'selected' : ''}>SIN COMPLETAR (${countIncompleto})</option>
               <option value="completado" ${currentPartidosStatusTab === 'completado' ? 'selected' : ''}>COMPLETADOS (${countCompletado})</option>
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="trophy" style="width: 14px;"></i> Competición:
-            </span>
-            <select id="partidosCatSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="trophy" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Competición:</span>
+            <select id="partidosCatSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
               ${categories.map(cat => {
       const count = catMap[cat];
@@ -3203,11 +3228,10 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="calendar" style="width: 14px;"></i> Mes:
-            </span>
-            <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Mes:</span>
+            <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosMonthTab === 'all' ? 'selected' : ''}>TODOS</option>
               ${months.map(monthKey => {
       const count = monthMap[monthKey];
@@ -3218,11 +3242,10 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="calendar-days" style="width: 14px;"></i> Semana:
-            </span>
-            <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="calendar-days" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Semana:</span>
+            <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
               ${weeks.map(weekKey => {
       const count = weekMap[weekKey];
@@ -3231,11 +3254,10 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="clock" style="width: 14px;"></i> Día:
-            </span>
-            <select id="partidosDaySelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="clock" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Día:</span>
+            <select id="partidosDaySelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
               ${days.map(dayKey => {
       const count = dayMap[dayKey];
@@ -3244,22 +3266,20 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="tv" style="width: 14px;"></i> Visionado:
-            </span>
-            <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="tv" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Visionado:</span>
+            <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosVisionadoTab === 'all' ? 'selected' : ''}>TODOS</option>
               <option value="DIRECTO" ${currentPartidosVisionadoTab === 'DIRECTO' ? 'selected' : ''}>DIRECTO (${visionadoMap['DIRECTO']})</option>
               <option value="VÍDEO" ${currentPartidosVisionadoTab === 'VÍDEO' ? 'selected' : ''}>VÍDEO (${visionadoMap['VÍDEO']})</option>
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
-              <i data-lucide="alert-triangle" style="width: 14px;"></i> Incidencias:
-            </span>
-            <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; padding: 4px 28px 4px 8px; height: auto; border-radius: 6px; width: auto; min-width: 120px;">
+          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
+            <i data-lucide="alert-triangle" style="width: 14px; color: var(--text-muted);"></i>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Incidencias:</span>
+            <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosIncidenciaTab === 'all' ? 'selected' : ''}>TODAS</option>
               <option value="" ${currentPartidosIncidenciaTab === '' ? 'selected' : ''}>Sin Incidencias (${incidenciaMap[''] || 0})</option>
               <option value="Falta acta en Federación" ${currentPartidosIncidenciaTab === 'Falta acta en Federación' ? 'selected' : ''}>Falta acta en Fed. (${incidenciaMap['Falta acta en Federación'] || 0})</option>
@@ -3584,21 +3604,26 @@
                 <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}${r.clima ? ` | ${escapeHtml(r.clima)}` : ''}</div>
               </div>
 
-              <div style="display: flex; gap: 8px; margin-top: 10px;">
-                <button class="btn btn-primary btn-edit-report" data-repid="${r.id}" style="flex: 1;">
-                  <i data-lucide="edit"></i> Abrir Informe
+              <div style="display: flex; gap: 4px; margin-top: 12px;">
+                <button class="btn btn-sm btn-edit-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
+                  <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Abrir
                 </button>
                 ${!r.completado ? `
-                <button class="btn btn-success btn-complete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800;">
-                  <i data-lucide="check-circle"></i> Completar Informe
+                <button class="btn btn-sm btn-complete-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                  <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Completar
                 </button>
                 ` : `
-                <button class="btn btn-secondary btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; font-weight: 800; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light);">
-                  <i data-lucide="refresh-cw"></i> Reabrir
+                <button class="btn btn-sm btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light); box-shadow: none;">
+                  <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Reabrir
                 </button>
                 `}
-                <button class="btn btn-outline-danger btn-delete-report" data-repid="${r.id}">
-                  <i data-lucide="trash-2"></i>
+                ${(r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo') && r.videoLink ? `
+                <a href="${escapeHtml(r.videoLink)}" target="_blank" class="btn btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.2); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: none;">
+                  <i data-lucide="play" style="width: 12px; height: 12px;"></i> Vídeo
+                </a>
+                ` : ''}
+                <button class="btn btn-sm btn-delete-report" data-repid="${r.id}" style="padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(239,68,68,0.08); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); box-shadow: none; display: flex; align-items: center; justify-content: center;">
+                  <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
                 </button>
               </div>
               <div style="margin-top: 8px;">
@@ -3911,6 +3936,21 @@
     document.getElementById('reportVisitanteTeam').value = repData.visitanteTeam || '';
     document.getElementById('reportLocalScore').value = repData.localScore || 0;
     document.getElementById('reportVisitanteScore').value = repData.visitanteScore || 0;
+
+    // Calculate initial auto goals for tracking manual overrides
+    let initLocalAuto = 0;
+    let initVisitanteAuto = 0;
+    if (repData.playerEvaluations) {
+      Object.keys(repData.playerEvaluations).forEach(key => {
+        const ev = repData.playerEvaluations[key];
+        if (ev.stats && ev.stats.goles) {
+          if (key.includes('_local_')) initLocalAuto += parseInt(ev.stats.goles, 10) || 0;
+          if (key.includes('_visitante_')) initVisitanteAuto += parseInt(ev.stats.goles, 10) || 0;
+        }
+      });
+    }
+    document.getElementById('reportLocalScore').dataset.autoGoals = initLocalAuto;
+    document.getElementById('reportVisitanteScore').dataset.autoGoals = initVisitanteAuto;
     document.getElementById('reportDate').value = repData.date || '';
     document.getElementById('reportTime').value = repData.time || '17:00';
     document.getElementById('reportEstadio').value = repData.estadio || '';
@@ -3926,8 +3966,24 @@
     document.getElementById('reportCompeticion').value = repData.competicion || '';
     document.getElementById('reportCategoria').value = repData.categoria || '';
     document.getElementById('reportFederacion').value = repData.federacion || '';
-    document.getElementById('reportVisionado').value = repData.visionado || 'DIRECTO';
-
+    
+    const visionadoEl = document.getElementById('reportVisionado');
+    const videoLinkEl = document.getElementById('reportVideoLink');
+    if (visionadoEl) {
+      visionadoEl.value = repData.visionado || 'DIRECTO';
+      if (videoLinkEl) {
+        videoLinkEl.value = repData.videoLink || '';
+        videoLinkEl.style.display = visionadoEl.value === 'VÍDEO' ? 'block' : 'none';
+        
+        // Ensure listener is only added once
+        if (!visionadoEl.dataset.listenerAdded) {
+          visionadoEl.addEventListener('change', (e) => {
+            videoLinkEl.style.display = e.target.value === 'VÍDEO' ? 'block' : 'none';
+          });
+          visionadoEl.dataset.listenerAdded = 'true';
+        }
+      }
+    }
     // Initialize Tactical Systems (Principal, Secundario, Ocasional)
     activeTacticalRole = { local: 'principal', visitante: 'principal' };
 
@@ -6703,7 +6759,15 @@
         });
         const scoreInput = document.getElementById(team === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
         if (scoreInput) {
-          scoreInput.value = totalGoals;
+          const currentAuto = parseInt(scoreInput.dataset.autoGoals) || 0;
+          const currentValue = parseInt(scoreInput.value) || 0;
+          
+          if (currentValue === currentAuto) {
+            scoreInput.value = totalGoals;
+          } else {
+            scoreInput.value = Math.max(0, currentValue + (totalGoals - currentAuto));
+          }
+          scoreInput.dataset.autoGoals = totalGoals;
         }
 
         // Update pitch visually to reflect any new stat badges (like goals)
@@ -6960,6 +7024,7 @@
         categoria: document.getElementById('reportCategoria')?.value || '',
         federacion: document.getElementById('reportFederacion')?.value || '',
         visionado: document.getElementById('reportVisionado')?.value || 'DIRECTO',
+        videoLink: document.getElementById('reportVideoLink')?.value || '',
 
         localSystems: matchTacticalSystems.local,
         visitanteSystems: matchTacticalSystems.visitante,
@@ -7124,6 +7189,7 @@
   // 6. SECTION 3: DIRECTORIO & SUB-TABS (Matches Directorio.png)
   // --------------------------------------------------------------------------
   let currentDirectoryTab = 'jugadores';
+  let currentStaffCargoTab = 'all';
   let currentPlanificacionTab = 'calendario';
 
   const LISTA_PAISES = [
@@ -20271,7 +20337,7 @@
       }
 
       if (currentDirectoryTab === 'staff') {
-        const cargoVal = document.getElementById('dirCargoFilterSelect')?.value || 'all';
+        const cargoVal = currentStaffCargoTab;
         if (cargoVal !== 'all') {
           const itemCargo = String(item.cargo || '').trim();
           if (itemCargo !== cargoVal) return false;
@@ -20454,6 +20520,37 @@
               ${escapeHtml(com)}
             </button>
           `).join('')}
+        </div>
+      `;
+    } else if (currentDirectoryTab === 'staff') {
+      const cargoSet = new Set(rawItems.map(s => (s.cargo || 'Sin Cargo').trim()).filter(Boolean));
+      const cargos = Array.from(cargoSet);
+      if (!state.directoryStaffCargoOrder) state.directoryStaffCargoOrder = [];
+      cargos.sort((a, b) => {
+        const idxA = state.directoryStaffCargoOrder.indexOf(a);
+        const idxB = state.directoryStaffCargoOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'es');
+      });
+      const allCargos = ['all', ...cargos];
+      
+      subFilterBarHTML = `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="briefcase" style="width: 14px;"></i> Cargo:
+          </span>
+          ${allCargos.map(cargo => {
+            const isActive = currentStaffCargoTab === cargo;
+            const label = cargo === 'all' ? 'Todos los Cargos' : cargo;
+            const isDraggable = cargo !== 'all';
+            return `
+              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${isActive ? 'active' : ''}" data-type="cargo" data-val="${escapeHtml(cargo)}" draggable="${isDraggable}" title="${escapeHtml(label)}${isDraggable ? ' (Arrastra para reordenar)' : ''}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
+                ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(label)}
+              </button>
+            `;
+          }).join('')}
         </div>
       `;
     }
@@ -21283,6 +21380,7 @@
         });
       } else if (currentDirectoryTab === 'staff') {
         container.innerHTML = `
+          ${subFilterBarHTML}
           ${bulkToolbarHTML}
           <div class="table-responsive" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;">
             <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
@@ -21745,6 +21843,8 @@
           currentComunidadFilter = val;
         } else if (type === 'genero') {
           currentGenderFilter = val;
+        } else if (type === 'cargo') {
+          currentStaffCargoTab = val;
         }
         currentDirectoryPage = 1;
         renderDirectorio();
@@ -21878,6 +21978,86 @@
           // Deduplicate keeping the first occurrence
           const seen = new Set();
           state.directoryCategoriesOrder = state.directoryCategoriesOrder.filter(c => {
+            const lower = c.toLowerCase().trim();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+          });
+
+          if (typeof saveStateImmediate === 'function') {
+            saveStateImmediate();
+          } else {
+            saveState();
+          }
+          renderDirectorio();
+        }
+      });
+    });
+
+    let draggedCargoName = null;
+    container.querySelectorAll('.btn-cargo-draggable').forEach(btn => {
+      btn.addEventListener('dragstart', (e) => {
+        draggedCargoName = btn.dataset.val;
+        if (draggedCargoName === 'all') {
+          e.preventDefault();
+          return;
+        }
+        btn.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedCargoName);
+      });
+
+      btn.addEventListener('dragend', () => {
+        btn.style.opacity = '1';
+        container.querySelectorAll('.btn-cargo-draggable').forEach(b => {
+          b.style.border = currentStaffCargoTab === b.dataset.val ? '1px solid var(--primary-blue, #2563eb)' : '1px solid var(--border-light)';
+        });
+      });
+
+      btn.addEventListener('dragover', (e) => {
+        const targetVal = btn.dataset.val;
+        if (targetVal === 'all' || draggedCargoName === 'all') return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        btn.style.border = '2px dashed var(--primary-blue, #2563eb)';
+      });
+
+      btn.addEventListener('dragleave', () => {
+        const targetVal = btn.dataset.val;
+        if (targetVal === 'all') return;
+        btn.style.border = currentStaffCargoTab === targetVal ? '1px solid var(--primary-blue, #2563eb)' : '1px solid var(--border-light)';
+      });
+
+      btn.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetCargoName = btn.dataset.val;
+        if (!draggedCargoName || draggedCargoName === 'all' || targetCargoName === 'all' || draggedCargoName === targetCargoName) return;
+
+        if (!state.directoryStaffCargoOrder) state.directoryStaffCargoOrder = [];
+
+        container.querySelectorAll('.btn-cargo-draggable').forEach(b => {
+          const val = b.dataset.val;
+          if (val && val !== 'all') {
+            const exists = state.directoryStaffCargoOrder.some(c => c.toLowerCase().trim() === val.toLowerCase().trim());
+            if (!exists) state.directoryStaffCargoOrder.push(val);
+          }
+        });
+
+        const fromIdx = state.directoryStaffCargoOrder.findIndex(c => c.toLowerCase().trim() === draggedCargoName.toLowerCase().trim());
+        const toIdx = state.directoryStaffCargoOrder.findIndex(c => c.toLowerCase().trim() === targetCargoName.toLowerCase().trim());
+
+        if (fromIdx !== -1 && toIdx !== -1) {
+          state.directoryStaffCargoOrder.splice(fromIdx, 1);
+
+          const newTargetIdx = state.directoryStaffCargoOrder.findIndex(c => c.toLowerCase().trim() === targetCargoName.toLowerCase().trim());
+          if (newTargetIdx !== -1) {
+            state.directoryStaffCargoOrder.splice(newTargetIdx, 0, draggedCargoName);
+          } else {
+            state.directoryStaffCargoOrder.push(draggedCargoName);
+          }
+
+          const seen = new Set();
+          state.directoryStaffCargoOrder = state.directoryStaffCargoOrder.filter(c => {
             const lower = c.toLowerCase().trim();
             if (seen.has(lower)) return false;
             seen.add(lower);
@@ -23241,19 +23421,53 @@
     }, 20000);
   }
 
+  function ensureCarteleraState() {
+    if (!state.cartelera) {
+      state.cartelera = {
+        calendarios: [],
+        priorityTeams: [],
+        interestingTeams: []
+      };
+    }
+  }
+
   // --------------------------------------------------------------------------
   // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
   // --------------------------------------------------------------------------
   let selectedCarteleraCategoria = 'all';
   let selectedCarteleraFederacion = 'all';
-  let selectedCarteleraJornada = 'all';
-  let selectedCarteleraFecha = 'all';
+  let selectedCarteleraJornadas = [];
+  let selectedCarteleraFechas = [];
   let selectedCarteleraInteres = 'all';
   let selectedCarteleraEquipo = 'all';
   let selectedCarteleraGrupo = 'all';
   let selectedCarteleraTecnico = 'all';
   let selectedCarteleraSubview = 'destacados';
   let currentCarteleraFilteredMatches = []; // 'destacados' | 'jornadas'
+
+  function getCarteleraCatRank(catStr) {
+    if (!catStr) return 999;
+    const cat = String(catStr).trim().toUpperCase();
+    
+    let idx = LISTA_CATEGORIAS_EQUIPO.findIndex(c => cat === c || cat.includes(c));
+    if (idx !== -1) return idx;
+    
+    const s = cat.toLowerCase();
+    if (s.includes('tercera rfef')) return LISTA_CATEGORIAS_EQUIPO.indexOf('3 RFEF');
+    if (s.includes('división honor juvenil') || s.includes('division honor juvenil')) return LISTA_CATEGORIAS_EQUIPO.indexOf('DHJ');
+    if (s.includes('liga nacional juvenil')) return LISTA_CATEGORIAS_EQUIPO.indexOf('LNJ');
+    if (s.includes('primera autonómica juvenil') || s.includes('primera autonomica juvenil')) return LISTA_CATEGORIAS_EQUIPO.indexOf('JAU');
+    if (s.includes('liga vasca cadete') || s.includes('liga cadete navarra')) return LISTA_CATEGORIAS_EQUIPO.indexOf('CV');
+    if (s.includes('cadete honor') || s.includes('primera autonómica cadete') || s.includes('primera autonomica cadete')) return LISTA_CATEGORIAS_EQUIPO.indexOf('CH');
+    if (s.includes('infantil honor') || s.includes('primera autonómica infantil') || s.includes('primera autonomica infantil')) return LISTA_CATEGORIAS_EQUIPO.indexOf('IH');
+    if (s.includes('infantil txiki')) return LISTA_CATEGORIAS_EQUIPO.indexOf('ITX');
+    if (s.includes('alevin b') || s.includes('alevín b')) return LISTA_CATEGORIAS_EQUIPO.indexOf('ALVB');
+    if (s.includes('alevin') || s.includes('alevín')) return LISTA_CATEGORIAS_EQUIPO.indexOf('ALV');
+    if (s.includes('benjamin b') || s.includes('benjamín b')) return LISTA_CATEGORIAS_EQUIPO.indexOf('BENB');
+    if (s.includes('benjamin') || s.includes('benjamín')) return LISTA_CATEGORIAS_EQUIPO.indexOf('BEN');
+    
+    return 999; // Otros al final
+  }
 
   function ensureCarteleraState() {
     if (!state.cartelera) {
@@ -23327,6 +23541,18 @@
         if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
       }
       localStorage.setItem('rs_scouting_cartelera_mapped_v2', 'true');
+    }
+
+    if (!state.cartelera.timesResetTo0000_v2) {
+      if (state.cartelera.calendarios) {
+        state.cartelera.calendarios.forEach(cal => {
+          if (cal.partidos) {
+            cal.partidos.forEach(m => m.hora = '00:00');
+          }
+        });
+      }
+      state.cartelera.timesResetTo0000_v2 = true;
+      if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
     }
   }
 
@@ -24553,9 +24779,9 @@
           if (jor) jorSet.add(jor);
 
           if (fecha) {
-            if (!selectedCarteleraJornada || selectedCarteleraJornada === 'all') {
+            if (selectedCarteleraJornadas.length === 0) {
               fechaSet.add(fecha);
-            } else if (jor === selectedCarteleraJornada) {
+            } else if (selectedCarteleraJornadas.includes(jor)) {
               fechaSet.add(fecha);
             }
           }
@@ -24566,8 +24792,8 @@
         });
       });
 
-      if (selectedCarteleraFecha && selectedCarteleraFecha !== 'all' && !fechaSet.has(selectedCarteleraFecha)) {
-        selectedCarteleraFecha = 'all';
+      if (selectedCarteleraFechas.length > 0) {
+        selectedCarteleraFechas = selectedCarteleraFechas.filter(f => fechaSet.has(f));
       }
 
       const populateSelect = (id, optionsSet, selectedValue, defaultLabel) => {
@@ -24583,24 +24809,8 @@
             return numA - numB;
           }
           if (id === 'carteleraFilterCategoria') {
-            const getCatRank = (catStr) => {
-              const s = String(catStr).toLowerCase();
-              if (s.includes('tercera rfef')) return 1;
-              if (s.includes('dhj') || s.includes('división honor juvenil') || s.includes('division honor juvenil')) return 2;
-              if (s.includes('lnj') || s.includes('liga nacional juvenil')) return 3;
-              if (s.includes('jau') || s.includes('primera autonómica juvenil') || s.includes('primera autonomica juvenil')) return 4;
-              if (s.includes('cv') || s.includes('liga vasca cadete') || s.includes('liga cadete navarra')) return 5;
-              if (s.includes('ch') || s.includes('cadete honor') || s.includes('primera autonómica cadete') || s.includes('primera autonomica cadete')) return 6;
-              if (s.includes('ih') || s.includes('infantil honor') || s.includes('primera autonómica infantil') || s.includes('primera autonomica infantil')) return 7;
-              if (s.includes('itx') || s.includes('infantil txiki')) return 8;
-              if (s.includes('alvb') || s.includes('alevin b') || s.includes('alevín b')) return 10;
-              if (s.includes('alv') || s.includes('alevin') || s.includes('alevín')) return 9;
-              if (s.includes('benb') || s.includes('benjamin b') || s.includes('benjamín b')) return 12;
-              if (s.includes('ben') || s.includes('benjamin') || s.includes('benjamín')) return 11;
-              return 99; // Otros al final
-            };
-            const rankA = getCatRank(a);
-            const rankB = getCatRank(b);
+            const rankA = getCarteleraCatRank(a);
+            const rankB = getCarteleraCatRank(b);
             if (rankA !== rankB) return rankA - rankB;
             return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
           }
@@ -24650,8 +24860,163 @@
       populateSelect('carteleraFilterCategoria', compSet, selectedCarteleraCategoria, '🏆 Todas');
       populateSelect('carteleraFilterFederacion', fedSet, selectedCarteleraFederacion, 'Todas');
       populateSelect('carteleraFilterGrupo', grupoSet, selectedCarteleraGrupo, 'Todos');
-      populateSelect('carteleraFilterJornada', jorSet, selectedCarteleraJornada, 'Todas');
-      populateSelect('carteleraFilterFecha', fechaSet, selectedCarteleraFecha, 'Todas');
+      
+      const jorTrigger = document.getElementById('carteleraFilterJornadaTrigger');
+      const jorDropdown = document.getElementById('carteleraFilterJornadaDropdown');
+      const jorLabel = document.getElementById('carteleraFilterJornadaLabel');
+      if (jorTrigger && jorDropdown && jorLabel) {
+        const arrJor = Array.from(jorSet).sort((a, b) => {
+          const numA = parseInt((String(a).match(/\d+/) || [0])[0]);
+          const numB = parseInt((String(b).match(/\d+/) || [0])[0]);
+          return numA - numB;
+        });
+        const updateJorLabel = () => {
+          if (selectedCarteleraJornadas.length === 0) {
+            jorLabel.textContent = 'Todas';
+          } else if (selectedCarteleraJornadas.length === 1) {
+            jorLabel.textContent = String(selectedCarteleraJornadas[0]).replace(/jornada\s*/i, '');
+          } else {
+            jorLabel.textContent = `${selectedCarteleraJornadas.length} selecc.`;
+          }
+        };
+        updateJorLabel();
+
+        const renderJorDropdown = () => {
+          let html = `<div class="jor-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${selectedCarteleraJornadas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">Todas</div>`;
+          arrJor.forEach(j => {
+            const displayLabel = String(j).replace(/jornada\s*/i, '');
+            const isChecked = selectedCarteleraJornadas.includes(j);
+            html += `<div class="jor-item" data-val="${escapeHtml(j)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer; pointer-events: none;">
+                <span>${escapeHtml(displayLabel)}</span>
+              </div>`;
+          });
+          jorDropdown.innerHTML = html;
+
+          jorDropdown.querySelector('.jor-item-all').addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedCarteleraJornadas = [];
+            updateJorLabel();
+            renderJorDropdown();
+            setTimeout(() => {
+              renderCarteleraFilters();
+              renderCarteleraMatches();
+            }, 10);
+          });
+
+          jorDropdown.querySelectorAll('.jor-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const val = item.dataset.val;
+              if (selectedCarteleraJornadas.includes(val)) {
+                selectedCarteleraJornadas = selectedCarteleraJornadas.filter(v => v !== val);
+              } else {
+                selectedCarteleraJornadas.push(val);
+              }
+              updateJorLabel();
+              renderJorDropdown();
+              setTimeout(() => {
+                renderCarteleraFilters();
+                renderCarteleraMatches();
+              }, 10);
+            });
+          });
+        };
+        renderJorDropdown();
+
+        if (!jorTrigger.dataset.bound) {
+          jorTrigger.dataset.bound = 'true';
+          jorTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            jorDropdown.classList.toggle('hidden');
+            if (!jorDropdown.classList.contains('hidden')) {
+              renderJorDropdown();
+            }
+          });
+          document.addEventListener('click', (e) => {
+            if (!jorTrigger.contains(e.target) && !jorDropdown.contains(e.target)) {
+              jorDropdown.classList.add('hidden');
+            }
+          });
+        }
+      }
+      
+      const fechaTrigger = document.getElementById('carteleraFilterFechaTrigger');
+      const fechaDropdown = document.getElementById('carteleraFilterFechaDropdown');
+      const fechaLabel = document.getElementById('carteleraFilterFechaLabel');
+      if (fechaTrigger && fechaDropdown && fechaLabel) {
+        const arrFechas = Array.from(fechaSet).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
+        const updateFechaLabel = () => {
+          if (selectedCarteleraFechas.length === 0) {
+            fechaLabel.textContent = 'Todas';
+          } else if (selectedCarteleraFechas.length === 1) {
+            const parts = selectedCarteleraFechas[0].split('-');
+            fechaLabel.textContent = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : selectedCarteleraFechas[0];
+          } else {
+            fechaLabel.textContent = `${selectedCarteleraFechas.length} selecc.`;
+          }
+        };
+        updateFechaLabel();
+
+        const renderFechaDropdown = () => {
+          let html = `<div class="fecha-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${selectedCarteleraFechas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">Todas</div>`;
+          arrFechas.forEach(f => {
+            const parts = f.split('-');
+            const displayLabel = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : f;
+            const isChecked = selectedCarteleraFechas.includes(f);
+            html += `<div class="fecha-item" data-val="${escapeHtml(f)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer; pointer-events: none;">
+                <span>${escapeHtml(displayLabel)}</span>
+              </div>`;
+          });
+          fechaDropdown.innerHTML = html;
+
+          fechaDropdown.querySelector('.fecha-item-all').addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedCarteleraFechas = [];
+            updateFechaLabel();
+            renderFechaDropdown();
+            setTimeout(() => {
+              renderCarteleraMatches();
+            }, 10);
+          });
+
+          fechaDropdown.querySelectorAll('.fecha-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const val = item.dataset.val;
+              if (selectedCarteleraFechas.includes(val)) {
+                selectedCarteleraFechas = selectedCarteleraFechas.filter(v => v !== val);
+              } else {
+                selectedCarteleraFechas.push(val);
+              }
+              updateFechaLabel();
+              renderFechaDropdown();
+              setTimeout(() => {
+                renderCarteleraMatches();
+              }, 10);
+            });
+          });
+        };
+        renderFechaDropdown();
+        
+        if (!fechaTrigger.dataset.bound) {
+          fechaTrigger.dataset.bound = 'true';
+          fechaTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fechaDropdown.classList.toggle('hidden');
+            if (!fechaDropdown.classList.contains('hidden')) {
+              renderFechaDropdown();
+            }
+          });
+          document.addEventListener('click', (e) => {
+            if (!fechaTrigger.contains(e.target) && !fechaDropdown.contains(e.target)) {
+              fechaDropdown.classList.add('hidden');
+            }
+          });
+        }
+      }
+
       populateSelect('carteleraFilterTecnico', tecnicoSet, selectedCarteleraTecnico, 'Todos');
       // Custom autocomplete para Equipo
       const eqInput = document.getElementById('carteleraFilterEquipo');
@@ -24726,6 +25091,14 @@
       const interestingTeamsLower = (state.cartelera.interestingTeams || []).map(t => String(t || '').toLowerCase().trim());
       const calendarios = state.cartelera.calendarios || [];
       const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
+
+      if (!state.cartelera.timesResetTo0000_v3) {
+        calendarios.forEach(cal => {
+          (cal.partidos || []).forEach(m => { m.hora = '00:00'; });
+        });
+        state.cartelera.timesResetTo0000_v3 = true;
+        if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
+      }
 
       let allMatches = [];
       calendarios.forEach(cal => {
@@ -24804,12 +25177,12 @@
         allMatches = allMatches.filter(m => (m.grupo || '') === selectedCarteleraGrupo);
       }
       // Apply Jornada filter
-      if (selectedCarteleraJornada !== 'all') {
-        allMatches = allMatches.filter(m => m.jornada === selectedCarteleraJornada);
+      if (selectedCarteleraJornadas.length > 0) {
+        allMatches = allMatches.filter(m => selectedCarteleraJornadas.includes(m.jornada));
       }
       // Apply Fecha filter
-      if (selectedCarteleraFecha !== 'all') {
-        allMatches = allMatches.filter(m => m.fecha === selectedCarteleraFecha);
+      if (selectedCarteleraFechas.length > 0) {
+        allMatches = allMatches.filter(m => selectedCarteleraFechas.includes(m.fecha));
       }
       // Apply Equipo filter
       if (selectedCarteleraEquipo !== 'all') {
@@ -24869,18 +25242,35 @@
 
       // Sort: if filterCarteleraThisWeekend is active, sort by date/time directly. Otherwise by Jornada then date/time.
       allMatches.sort((a, b) => {
-        const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
-        const dateB = new Date((b.fecha || '9999-12-31') + 'T' + (b.hora || '00:00'));
+        let dateAStr = (a.fecha || '9999-12-31').trim();
+        if (dateAStr.includes('/')) dateAStr = dateAStr.split('/').reverse().join('-');
+        let dateBStr = (b.fecha || '9999-12-31').trim();
+        if (dateBStr.includes('/')) dateBStr = dateBStr.split('/').reverse().join('-');
+
+        let horaA = (a.hora || '00:00').trim();
+        if (horaA.length === 4) horaA = '0' + horaA; // e.g. 9:30 -> 09:30
+        let horaB = (b.hora || '00:00').trim();
+        if (horaB.length === 4) horaB = '0' + horaB;
+
+        const dateA = new Date(dateAStr + 'T' + horaA).getTime();
+        const dateB = new Date(dateBStr + 'T' + horaB).getTime();
+
+        const tA = isNaN(dateA) ? 99999999999999 : dateA;
+        const tB = isNaN(dateB) ? 99999999999999 : dateB;
 
         if (window.filterCarteleraThisWeekend) {
-          return dateA - dateB;
+          return tA - tB;
         }
+
+        const rankA = getCarteleraCatRank(a.competicion);
+        const rankB = getCarteleraCatRank(b.competicion);
+        if (rankA !== rankB) return rankA - rankB;
 
         const jorA = parseInt(String(a.jornada || '').match(/\d+/) || [999]);
         const jorB = parseInt(String(b.jornada || '').match(/\d+/) || [999]);
         if (jorA !== jorB) return jorA - jorB;
 
-        return dateA - dateB;
+        return tA - tB;
       });
 
       if (allMatches.length === 0) {
@@ -25007,14 +25397,14 @@
             <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
           </td>
           <td style="padding: 8px 12px;">
-            <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+            <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '00:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
           </td>
           <td style="padding: 8px 12px;">
             ${getTecnicoSelect(m.id, m.tecnico)}
           </td>
           <td style="padding: 8px 12px; text-align: center;">
-            <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-              <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
+            <button type="button" class="btn btn-sm btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 700; font-size: 10px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); box-shadow: none; white-space: nowrap;">
+              <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Crear Informe
             </button>
           </td>
         </tr>
@@ -25155,14 +25545,14 @@
                         <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
                       </td>
                       <td style="padding: 8px 12px;">
-                        <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '17:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                        <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '00:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
                       </td>
                       <td style="padding: 8px 12px;">
                         ${getTecnicoSelect(m.id, m.tecnico)}
                       </td>
                       <td style="padding: 8px 12px; text-align: center;">
-                        <button type="button" class="btn btn-primary btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                          <i data-lucide="zap" style="width: 12px; height: 12px; color: #f59e0b;"></i> CREAR INFORME
+                        <button type="button" class="btn btn-sm btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 700; font-size: 10px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); box-shadow: none; white-space: nowrap;">
+                          <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Crear Informe
                         </button>
                       </td>
                     </tr>
@@ -25758,7 +26148,7 @@
       <tr style="${(m.isHighInterest || m.isPriority) ? 'background-color: #f0fdf4;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
         <td style="padding: 12px 16px; font-weight: 600; white-space: nowrap; border-bottom: 1px solid #e2e8f0; color: #334155;">
           ${fmtDate(m.fecha)}<br>
-          <span style="font-size: 11px; color: #2563eb; font-weight: 700;">${m.hora || '17:00'} hs</span>
+          <span style="font-size: 11px; color: #2563eb; font-weight: 700;">${m.hora || '00:00'} hs</span>
         </td>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
           <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(m.local || m.localTeam || 'Local')}</strong> 
@@ -26406,14 +26796,14 @@
         selectedCarteleraCategoria = 'all';
         selectedCarteleraFederacion = 'all';
         selectedCarteleraGrupo = 'all';
-        selectedCarteleraJornada = 'all';
-        selectedCarteleraFecha = 'all';
+        selectedCarteleraJornadas = [];
+        selectedCarteleraFechas = [];
         selectedCarteleraEquipo = 'all';
         selectedCarteleraTecnico = 'all';
         selectedCarteleraInteres = 'priority_teams';
         window.filterCarteleraThisWeekend = true;
 
-        const ids = ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterJornada', 'carteleraFilterFecha', 'carteleraFilterEquipo', 'carteleraFilterTecnico'];
+        const ids = ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterJornada', 'carteleraFilterEquipo', 'carteleraFilterTecnico'];
         ids.forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = (id === 'carteleraFilterEquipo' ? '' : 'all');
@@ -26477,7 +26867,6 @@
       selectedCarteleraJornada = val;
       renderCarteleraFilters();
     });
-    bindSelect('carteleraFilterFecha', val => selectedCarteleraFecha = val);
     bindSelect('carteleraFilterTecnico', val => selectedCarteleraTecnico = val);
     bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
 
@@ -26719,7 +27108,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             jornada: currentJornada,
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
-            hora: '17:00',
+            hora: '00:00',
             local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
             visitante: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawVisitante, competicionName) : rawVisitante,
             competicion: competicionName,
@@ -26740,7 +27129,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             jornada: 'Jornada 1',
             fechaRealJornada: currentFechaReal,
             fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
-            hora: '17:00',
+            hora: '00:00',
             local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
             visitante: 'Rival',
             competicion: competicionName,
@@ -27030,6 +27419,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id || t.codigo}" title="Editar" style="padding: 4px;">
                 <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
               </button>
+              <button class="btn-action-icon btn-duplicate-agenda-task" data-id="${t.id || t.codigo}" title="Duplicar" style="padding: 4px; color: var(--primary-blue);">
+                <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
+              </button>
               <button class="btn-action-icon danger btn-delete-task" data-id="${t.id || t.codigo}" title="Eliminar" style="padding: 4px;">
                 <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
               </button>
@@ -27162,7 +27554,86 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         });
       });
     });
+    container.querySelectorAll('.btn-duplicate-agenda-task').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        duplicateAgendaTask(btn.dataset.id);
+      });
+    });
   }
+
+  function duplicateAgendaTask(taskId) {
+    const task = (state.agenda || []).find(t => String(t.id) === String(taskId));
+    if (!task) return;
+    const newTask = JSON.parse(JSON.stringify(task));
+    newTask.id = 'ag_' + Date.now() + Math.floor(Math.random() * 1000);
+    newTask.titulo = newTask.titulo + ' (Copia)';
+    state.agenda.push(newTask);
+    saveToFirebase('agenda', newTask);
+    saveState();
+    renderAgenda();
+    if (typeof renderCalendario === 'function') renderCalendario();
+    if (typeof showToast === 'function') showToast('Tarea / Evento duplicado con éxito', 'success');
+  }
+
+  document.addEventListener('contextmenu', (e) => {
+    const pill = e.target.closest('.day-agenda-pill') || e.target.closest('.agenda-card-item');
+    if (pill) {
+      e.preventDefault();
+      const taskId = pill.dataset.agid || pill.dataset.id;
+      if (!taskId) return;
+
+      const existing = document.getElementById('agendaContextMenu');
+      if (existing) existing.remove();
+
+      const menu = document.createElement('div');
+      menu.id = 'agendaContextMenu';
+      menu.style.position = 'absolute';
+      menu.style.left = e.pageX + 'px';
+      menu.style.top = e.pageY + 'px';
+      menu.style.background = 'var(--bg-card)';
+      menu.style.border = '1px solid var(--border-light)';
+      menu.style.borderRadius = 'var(--radius-md)';
+      menu.style.boxShadow = 'var(--shadow-lg)';
+      menu.style.zIndex = '999999';
+      menu.style.padding = '6px';
+      menu.style.display = 'flex';
+      menu.style.flexDirection = 'column';
+      menu.style.gap = '4px';
+      menu.style.minWidth = '160px';
+
+      const duplicateBtn = document.createElement('button');
+      duplicateBtn.className = 'btn btn-secondary';
+      duplicateBtn.style.textAlign = 'left';
+      duplicateBtn.style.padding = '8px 12px';
+      duplicateBtn.style.fontSize = '12px';
+      duplicateBtn.style.width = '100%';
+      duplicateBtn.style.display = 'flex';
+      duplicateBtn.style.alignItems = 'center';
+      duplicateBtn.style.gap = '8px';
+      duplicateBtn.style.justifyContent = 'flex-start';
+      duplicateBtn.style.border = 'none';
+      duplicateBtn.innerHTML = '<i data-lucide="copy" style="width:14px;height:14px;color:var(--primary-blue);"></i> Duplicar';
+      duplicateBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        duplicateAgendaTask(taskId);
+        menu.remove();
+      };
+
+      menu.appendChild(duplicateBtn);
+      document.body.appendChild(menu);
+
+      if (window.lucide) window.lucide.createIcons({root: menu});
+
+      const closeMenu = (evt) => {
+        if (!menu.contains(evt.target)) {
+          menu.remove();
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
+    }
+  });
 
   function openAgendaTaskDetailModal(taskId) {
     const task = (state.agenda || []).find(t => t.id === taskId);
@@ -27237,6 +27708,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px;">
           <button class="btn btn-secondary" id="btnDetailEditTask">
             <i data-lucide="edit-2"></i> Editar Tarea
+          </button>
+          <button class="btn btn-secondary" id="btnDetailDuplicateTask" style="background: rgba(59, 130, 246, 0.1); color: var(--primary-blue); border-color: var(--primary-blue);">
+            <i data-lucide="copy"></i> Duplicar
           </button>
           <button class="btn btn-outline-danger" id="btnDetailDeleteTask">
             <i data-lucide="trash-2"></i> Eliminar
@@ -27327,6 +27801,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     document.getElementById('btnDetailEditTask')?.addEventListener('click', () => {
       hideModal();
       openEditAgendaTaskModal(task.id);
+    });
+
+    document.getElementById('btnDetailDuplicateTask')?.addEventListener('click', () => {
+      duplicateAgendaTask(task.id);
+      hideModal();
     });
 
     document.getElementById('btnDetailDeleteTask')?.addEventListener('click', () => {
@@ -28169,7 +28648,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const c = l.favCol || state.favColumns[0] || 'Columna 1';
         return c === colName;
       });
-      colLinks.sort((a, b) => (a.order || 0) - (b.order || 0));
+      const orderArr = state.favLinksOrder && state.favLinksOrder[colName] ? state.favLinksOrder[colName] : [];
+      colLinks.sort((a, b) => {
+        const idxA = orderArr.indexOf(String(a.id));
+        const idxB = orderArr.indexOf(String(b.id));
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return (a.order || 0) - (b.order || 0);
+      });
 
       // Handle unassigned favorites to fallback into first column
       if (colIdx === 0) {
@@ -28283,6 +28770,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           if (idx !== -1) {
             state.favColumns[idx] = cleanName;
           }
+          if (state.favLinksOrder && state.favLinksOrder[oldName]) {
+            state.favLinksOrder[cleanName] = state.favLinksOrder[oldName];
+            delete state.favLinksOrder[oldName];
+          }
           state.links.forEach(l => {
             if (l.favCol === oldName) {
               l.favCol = cleanName;
@@ -28315,6 +28806,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const colName = btn.dataset.favCol;
         showCustomConfirmModal('Eliminar Columna', `¿Estás seguro de que deseas eliminar la columna "${colName}"? Los enlaces asignados volverán a la vista general.`, () => {
           state.favColumns = state.favColumns.filter(c => c !== colName);
+          if (state.favLinksOrder && state.favLinksOrder[colName]) {
+            delete state.favLinksOrder[colName];
+          }
           saveState();
           renderEnlaces();
         });
@@ -28329,17 +28823,23 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           handle: '.link-drag-handle',
           onEnd: (evt) => {
             const targetCol = evt.to.dataset.favCol;
-            Array.from(evt.to.children).forEach((child, index) => {
-              const linkId = child.dataset.id;
-              if (linkId) {
-                const link = state.links.find(l => String(l.id) === String(linkId));
-                if (link) {
-                  link.favCol = targetCol;
-                  link.order = index;
-                  saveToFirebase('enlaces', link);
-                }
+            const sourceCol = evt.from.dataset.favCol;
+            
+            if (!state.favLinksOrder) state.favLinksOrder = {};
+            
+            state.favLinksOrder[sourceCol] = Array.from(evt.from.children).map(c => String(c.dataset.id)).filter(Boolean);
+            if (sourceCol !== targetCol) {
+              state.favLinksOrder[targetCol] = Array.from(evt.to.children).map(c => String(c.dataset.id)).filter(Boolean);
+            }
+            
+            const linkId = evt.item.dataset.id;
+            if (linkId) {
+              const link = state.links.find(l => String(l.id) === String(linkId));
+              if (link) {
+                link.favCol = targetCol;
+                saveToFirebase('enlaces', link);
               }
-            });
+            }
             saveState();
           }
         });
@@ -28558,6 +29058,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const existingTags = getExistingTagsList();
     const tagOptions = existingTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
+    const card = document.getElementById('generalModalCard');
+    if (card) card.className = 'modal-card';
+
     showModal('Añadir Nuevo Enlace', `
       <form id="newLinkForm" onsubmit="return false;">
         <div class="form-group mb-3">
@@ -28568,7 +29071,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <label class="form-label">URL Completa</label>
           <div style="display: flex; gap: 8px;">
             <input type="url" id="lUrl" class="form-control" placeholder="Ej: https://www.transfermarkt.es" required>
-            <button type="button" id="btnAutoFavicon" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px;">
+            <button type="button" id="btnAutoFavicon" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; border-radius: 20px; padding: 4px 12px; box-shadow: none;">
               ⚡ Auto Logo
             </button>
           </div>
@@ -28586,7 +29089,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <div style="display: flex; gap: 8px; align-items: center;">
             <input type="text" id="lLogo" class="form-control" placeholder="Ej: https://sitio.com/logo.png o ⚽">
             <input type="file" id="lLogoFile" accept="image/*" class="hidden">
-            <button type="button" id="btnUploadLogoFile" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; height: 38px;">
+            <button type="button" id="btnUploadLogoFile" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; height: 38px; border-radius: 20px; padding: 4px 12px; box-shadow: none;">
               📁 Subir Imagen
             </button>
           </div>
@@ -29633,7 +30136,25 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       let tableRows = '';
       const renderedIds = new Set();
 
-      filteredPlayers.forEach(p => {
+      const tablePlayers = [...filteredPlayers].sort((a, b) => {
+        const aLevel = a.rendimientoRSAvgNum ? parseFloat(a.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[a.rendimientoRS] || 0 );
+        const bLevel = b.rendimientoRSAvgNum ? parseFloat(b.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[b.rendimientoRS] || 0 );
+        if (aLevel !== bLevel) return bLevel - aLevel;
+        
+        const posA = (a.posicionPrincipal || a.posicion || a.pos || '').toLowerCase();
+        const posB = (b.posicionPrincipal || b.posicion || b.pos || '').toLowerCase();
+        if (posA !== posB) return posA.localeCompare(posB, 'es');
+
+        const secA = (a.posicionSecundaria || a.posicionSec || '').toLowerCase();
+        const secB = (b.posicionSecundaria || b.posicionSec || '').toLowerCase();
+        if (secA !== secB) return secA.localeCompare(secB, 'es');
+
+        const nameA = (a.nombre || a.jugador || '').toLowerCase();
+        const nameB = (b.nombre || b.jugador || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      tablePlayers.forEach(p => {
         if (renderedIds.has(p.id)) return;
         renderedIds.add(p.id);
 
@@ -29727,8 +30248,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const posCode = defaultPositions[slotIdx] || 'MC';
       let matchingPlayers = slotMap[slotIdx] || [];
 
-      // Ordenar para que las posiciones principales (negro) salgan primero y las secundarias (amarillo) después
+      // Ordenar por nivel y después posiciones principales (negro) antes que secundarias (amarillo)
       matchingPlayers.sort((a, b) => {
+        const aLevel = a.player.rendimientoRSAvgNum ? parseFloat(a.player.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[a.player.rendimientoRS] || 0 );
+        const bLevel = b.player.rendimientoRSAvgNum ? parseFloat(b.player.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[b.player.rendimientoRS] || 0 );
+        if (aLevel !== bLevel) return bLevel - aLevel;
+        
         if (a.isSecondary === b.isSecondary) return 0;
         return a.isSecondary ? 1 : -1;
       });
@@ -29789,6 +30314,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
       });
     });
+
+    // Synchronize height of the table container with the pitch map
+    const pitchElement = document.getElementById('mapasCampogramaPitch');
+    const tableContainer = document.getElementById('mapasTableContainer');
+    if (pitchElement && tableContainer) {
+      if (!window.mapasResizeObserver) {
+        window.mapasResizeObserver = new ResizeObserver(entries => {
+          for (let entry of entries) {
+            // Include border (offsetHeight) + 16px to ensure it completely fills the visual column height
+            tableContainer.style.height = (pitchElement.offsetHeight + 16) + 'px';
+          }
+        });
+        window.mapasResizeObserver.observe(pitchElement);
+      }
+      setTimeout(() => {
+        tableContainer.style.height = (pitchElement.offsetHeight + 16) + 'px';
+      }, 50);
+    }
   }
 
   window.goToComparadorFromMapas = function () {
@@ -30289,8 +30832,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
 
           <!-- LÍNEA 5: BOTÓN -->
-          <button type="button" class="btn btn-secondary" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${accentColor}40;">
-            <i data-lucide="edit-3"></i> Ver / Editar Nota
+          <button type="button" class="btn btn-sm" style="width: 100%; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid ${accentColor}40; color: ${accentColor}; background: ${accentColor}15; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i> Ver / Editar Nota
           </button>
         `;
 
