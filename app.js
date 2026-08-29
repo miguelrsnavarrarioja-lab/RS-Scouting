@@ -26149,33 +26149,77 @@
         return;
       }
 
+      const groupedClubs = {};
       filteredClubs.forEach(club => {
-        const isPriority = club.esPrioritario === true;
-        const clubName = escapeHtml(club.nombre || club.club || 'Sin Nombre');
-        
-        // Count vistos
-        const vistosObj = getInformesVistos(club.nombre || club.club || '', true);
-        const vistosBadge = vistosObj.seenTeams > 0 
-          ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistosObj.seenTeams} / ${vistosObj.totalTeams} equipos vistos</span>` 
-          : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
-        
-        const itemHtml = `
-          <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-            <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
-              ${clubName}
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              ${vistosBadge}
-              <label class="switch" style="margin: 0;">
-                <input type="checkbox" class="club-priority-toggle" data-id="${club.id}" ${isPriority ? 'checked' : ''}>
-                <span class="slider round"></span>
-              </label>
-            </div>
-          </div>
-        `;
-        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+        const fed = club.federacion || 'Sin Federación';
+        if (!groupedClubs[fed]) groupedClubs[fed] = [];
+        groupedClubs[fed].push(club);
       });
+
+      let html = '';
+      const isSearching = !!q;
+
+      const getFederationSortScore = (fed) => {
+        const lowerFed = fed.toLowerCase();
+        if (lowerFed.includes('navarra')) return 1;
+        if (lowerFed.includes('aragon') || lowerFed.includes('aragonesa')) return 2;
+        if (lowerFed.includes('rioja') || lowerFed.includes('riojana')) return 3;
+        return 99; // Rest at the end
+      };
+
+      const sortedFederations = Object.keys(groupedClubs).sort((a, b) => {
+        const scoreA = getFederationSortScore(a);
+        const scoreB = getFederationSortScore(b);
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        return a.localeCompare(b);
+      });
+
+      sortedFederations.forEach(fed => {
+        const fedId = 'fed-' + Math.random().toString(36).substr(2, 9);
+        const clubs = groupedClubs[fed];
+        
+        const displayStyle = isSearching ? 'block' : 'none';
+        const rotateStyle = isSearching ? 'rotate(180deg)' : 'rotate(0deg)';
+
+        html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden;">`;
+        html += `<div onclick="const content = document.getElementById('${fedId}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
+          <div>${escapeHtml(fed)} <span style="font-size: 12px; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(${clubs.length} clubes)</span></div>
+          <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: ${rotateStyle};"></i>
+        </div>`;
+        html += `<div id="${fedId}" style="display: ${displayStyle}; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
+        html += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
+
+        clubs.forEach(club => {
+          const isPriority = club.esPrioritario === true;
+          const clubName = escapeHtml(club.nombre || club.club || 'Sin Nombre');
+          
+          // Count vistos
+          const vistosObj = getInformesVistos(club.nombre || club.club || '', true);
+          const vistosBadge = vistosObj.seenTeams > 0 
+            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistosObj.seenTeams} / ${vistosObj.totalTeams} equipos vistos</span>` 
+            : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
+          
+          html += `
+            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+              <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
+                ${clubName}
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${vistosBadge}
+                <label class="switch" style="margin: 0;">
+                  <input type="checkbox" class="club-priority-toggle" data-id="${club.id}" ${isPriority ? 'checked' : ''}>
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+          `;
+        });
+
+        html += `</div></div></div>`;
+      });
+      
+      listContainer.innerHTML = html;
 
       if (window.lucide) window.lucide.createIcons();
 
