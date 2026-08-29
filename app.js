@@ -29402,7 +29402,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     };
 
     bindDatalistEvent(selEquipo, renderMapasPins);
-    document.getElementById('selMapasSistema').onchange = renderMapasPins;
+    document.getElementById('selMapasSistema').onchange = (e) => {
+      const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
+      const tag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
+      if (!state.mapPreferences) state.mapPreferences = {};
+      state.mapPreferences[tag] = e.target.value;
+      if (typeof saveState === 'function') saveState();
+      renderMapasPins();
+    };
 
     const btnSaveMapasSistema = document.getElementById('btnSaveMapasSistema');
     if (btnSaveMapasSistema) {
@@ -29427,10 +29434,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
         const tag = btn.dataset.tag;
 
-        // Recuperar el sistema guardado para esta etiqueta
-        if (state.mapPreferences && state.mapPreferences[tag]) {
-          const sel = document.getElementById('selMapasSistema');
-          if (sel) sel.value = state.mapPreferences[tag];
+        // Recuperar el sistema guardado para esta etiqueta o usar por defecto
+        const sel = document.getElementById('selMapasSistema');
+        if (sel) {
+          sel.value = (state.mapPreferences && state.mapPreferences[tag]) ? state.mapPreferences[tag] : '1-4-3-3';
         }
 
         // Mostrar/Ocultar el filtro de equipo
@@ -29456,9 +29463,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     const activeTagBtn = document.querySelector('.mapas-toggle-btn.active');
     const initTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
-    if (state.mapPreferences && state.mapPreferences[initTag]) {
-      const sel = document.getElementById('selMapasSistema');
-      if (sel) sel.value = state.mapPreferences[initTag];
+    const sel = document.getElementById('selMapasSistema');
+    if (sel) {
+      sel.value = (state.mapPreferences && state.mapPreferences[initTag]) ? state.mapPreferences[initTag] : '1-4-3-3';
     }
 
     renderMapasPins();
