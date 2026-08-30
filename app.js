@@ -6066,7 +6066,8 @@
     const totalStats = {
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
       regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-      duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
+      duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
+      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
     };
 
     let sumRend = 0, countRend = 0;
@@ -6184,7 +6185,8 @@
         stats: {
           goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
           regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-          duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
+          duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
+          golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
         }
       };
     }
@@ -6214,25 +6216,30 @@
     const pStats = Object.assign({
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
       regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-      duelosPerdidos: 0, aereoGanado: 0, amarillas: 0, rojas: 0
+      duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
+      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
     }, pEval.stats || {});
 
     const STAT_FIELDS = [
       { key: 'goles', label: 'Goles', icon: '⚽' },
       { key: 'asistencias', label: 'Asistencias', icon: '🅰️' },
+      { key: 'amarillas', label: 'Amarillas', icon: '🟨' },
+      { key: 'rojas', label: 'Rojas', icon: '🟥' },
+      { key: 'golesPropia', label: 'Gol Propia', icon: '🤦' },
       { key: 'tirosPuerta', label: 'Tiros a Puerta', icon: '🎯' },
       { key: 'tirosFuera', label: 'Tiros Fuera', icon: '🥅' },
       { key: 'pasesBuenos', label: 'Pases Buenos', icon: '🟢' },
       { key: 'pasesMalos', label: 'Pases Malos', icon: '🔴' },
+      { key: 'paseFiltradoExito', label: 'P. Filtrado Éxito', icon: '🪄' },
+      { key: 'paseFiltradoFallado', label: 'P. Filtrado Fall.', icon: '❌' },
       { key: 'regatesExito', label: 'Regates Éxito', icon: '🏃' },
       { key: 'regatesFallidos', label: 'Regates Fallidos', icon: '🚫' },
       { key: 'recuperaciones', label: 'Recuperaciones', icon: '🛡️' },
       { key: 'perdidas', label: 'Pérdidas', icon: '⚠️' },
       { key: 'duelosGanados', label: 'Duelos Ganados', icon: '⚔️' },
       { key: 'duelosPerdidos', label: 'Duelos Perdidos', icon: '❌' },
-      { key: 'aereoGanado', label: 'Juego Aéreo', icon: '✈️' },
-      { key: 'amarillas', label: 'Amarillas', icon: '🟨' },
-      { key: 'rojas', label: 'Rojas', icon: '🟥' }
+      { key: 'aereoGanado', label: 'Aéreo Ganado', icon: '✈️' },
+      { key: 'aereoPerdido', label: 'Aéreo Perdido', icon: '💥' }
     ];
 
     const modalHTML = `
@@ -30982,6 +30989,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const text = (e.originalEvent || e).clipboardData.getData('text/plain');
         document.execCommand('insertText', false, text);
       });
+
+      // Update the 'checked' attribute so innerHTML captures the checkbox state
+      const updateCheckboxState = (e) => {
+        if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
+          if (e.target.checked) {
+            e.target.setAttribute('checked', 'checked');
+          } else {
+            e.target.removeAttribute('checked');
+          }
+        }
+      };
+      editorAreaField.addEventListener('change', updateCheckboxState);
+      editorAreaField.addEventListener('click', updateCheckboxState);
 
       if (btnAttach && fileInput) {
         btnAttach.addEventListener('click', () => fileInput.click());
