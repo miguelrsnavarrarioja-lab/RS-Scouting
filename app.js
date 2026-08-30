@@ -6075,18 +6075,29 @@
     let sumRendRS = 0, countRendRS = 0;
     const letterToNum = { 'A+': 5, 'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1 };
     const minsByComp = {};
+    const statsByComp = {};
 
     player.historialEvaluaciones.forEach(h => {
-      // Group minutes by competition
+      // Group minutes and key stats by competition
       const comp = h.competicion || 'Sin Especificar';
       if (!minsByComp[comp]) minsByComp[comp] = 0;
       minsByComp[comp] += (parseInt(h.minutos) || 0);
+
+      if (!statsByComp[comp]) {
+        statsByComp[comp] = { minutos: 0, goles: 0, asistencias: 0, amarillas: 0, rojas: 0, penaltiParado: 0 };
+      }
+      statsByComp[comp].minutos += (parseInt(h.minutos) || 0);
 
       // Sum stats
       if (h.stats) {
         for (const key in totalStats) {
           totalStats[key] += (h.stats[key] || 0);
         }
+        statsByComp[comp].goles += (h.stats.goles || 0);
+        statsByComp[comp].asistencias += (h.stats.asistencias || 0);
+        statsByComp[comp].amarillas += (h.stats.amarillas || 0);
+        statsByComp[comp].rojas += (h.stats.rojas || 0);
+        statsByComp[comp].penaltiParado += (h.stats.penaltiParado || 0);
       }
 
       // Calculate averages
@@ -6097,6 +6108,7 @@
 
     player.stats = totalStats;
     player.minutosPorCompeticion = minsByComp;
+    player.statsPorCompeticion = statsByComp;
 
     const numToLetter = (num) => {
       if (num >= 4.5) return 'A';
@@ -8002,6 +8014,13 @@
                 <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER INFORMES <i data-lucide="file-text" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
             </div>
+            <div class="ficha-stat-box" id="btnEstadisticasEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; border: 2px solid var(--primary-blue); background: var(--bg-subtle);" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
+              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">ESTADÍSTICAS</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="font-size: 24px;">📊</div>
+                <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER ESTADÍSTICAS <i data-lucide="bar-chart-2" style="width:10px;height:10px;vertical-align:middle;"></i></div>
+              </div>
+            </div>
             <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">EN MAPAS RS</div>
               <div class="ficha-stat-value">${inMapas}</div>
@@ -8142,6 +8161,68 @@
             }
           });
         });
+      };
+    }
+
+    const btnEstadisticasEmergente = document.getElementById('btnEstadisticasEmergente');
+    if (btnEstadisticasEmergente) {
+      btnEstadisticasEmergente.onclick = () => {
+        let statsPorComp = player.statsPorCompeticion;
+        
+        if (!statsPorComp && player.historialEvaluaciones) {
+          statsPorComp = {};
+          player.historialEvaluaciones.forEach(h => {
+            const comp = h.competicion || 'Sin Especificar';
+            if (!statsPorComp[comp]) statsPorComp[comp] = { minutos: 0, goles: 0, asistencias: 0, amarillas: 0, rojas: 0, penaltiParado: 0 };
+            statsPorComp[comp].minutos += (parseInt(h.minutos) || 0);
+            if (h.stats) {
+              statsPorComp[comp].goles += (h.stats.goles || 0);
+              statsPorComp[comp].asistencias += (h.stats.asistencias || 0);
+              statsPorComp[comp].amarillas += (h.stats.amarillas || 0);
+              statsPorComp[comp].rojas += (h.stats.rojas || 0);
+              statsPorComp[comp].penaltiParado += (h.stats.penaltiParado || 0);
+            }
+          });
+        }
+        
+        statsPorComp = statsPorComp || {};
+        
+        let estadisticasHtml = Object.keys(statsPorComp).length > 0
+          ? Object.entries(statsPorComp).map(([c, s]) => `
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+              <div style="font-weight: 800; font-size: 14px; margin-bottom: 8px; color: var(--text-main); border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">${escapeHtml(c)}</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary);">
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Minutos Jugados">⏱️</span> <strong>${s.minutos}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Goles">⚽</span> <strong>${s.goles}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Asistencias">🅰️</span> <strong>${s.asistencias}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Amarillas">🟨</span> <strong>${s.amarillas}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Rojas">🟥</span> <strong>${s.rojas}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Penaltis Parados">🧤</span> <strong>${s.penaltiParado}</strong></div>
+              </div>
+            </div>
+          `).join('')
+          : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin estadísticas registradas</div>`;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.zIndex = '20040';
+        overlay.innerHTML = `
+          <div class="modal-card" style="max-width: 500px; padding: 24px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="bar-chart-2" style="color: var(--primary-blue);"></i> Estadísticas por competición
+              </h3>
+              <button class="btn btn-secondary compact" id="btnCloseEstadisticasEmergente" style="padding: 6px;"><i data-lucide="x"></i></button>
+            </div>
+            <div style="overflow-y: auto; padding-right: 4px; flex-grow: 1;">
+              ${estadisticasHtml}
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        if (window.lucide) window.lucide.createIcons();
+
+        document.getElementById('btnCloseEstadisticasEmergente').onclick = () => overlay.remove();
       };
     }
 
@@ -8325,6 +8406,7 @@
     // Fallback for minutes if not grouped
     const minutos = player.minutos || '';
     const minutosPorComp = player.minutosPorCompeticion || {};
+    const statsPorComp = player.statsPorCompeticion || {};
 
     const stats = player.stats || {};
 
@@ -8689,6 +8771,29 @@
               <div class="form-group">
                 <label class="form-label">RENDIMIENTO RS ${rendimientoRSNum}</label>
                 <input type="text" id="pfRendRS" class="form-control" value="${escapeHtml(rendimientoRS)}" readonly style="background: var(--bg-body);">
+              </div>
+            </div>
+
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="activity"></i> ESTADÍSTICAS PARTIDO
+            </div>
+            <div class="form-group mb-4">
+              <div class="form-control" style="background: var(--bg-body); height: auto; display: flex; flex-direction: column; gap: 8px; padding: 12px;">
+                ${Object.keys(statsPorComp).length > 0
+      ? Object.entries(statsPorComp).map(([c, s]) => `
+                  <div style="display:flex; justify-content:space-between; align-items: center; font-size:13px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
+                    <span style="font-weight: 800;">${escapeHtml(c)}</span>
+                    <div style="display:flex; gap: 12px; color: var(--text-muted);">
+                      <span title="Minutos Jugados">⏱️ ${s.minutos}</span>
+                      <span title="Goles">⚽ ${s.goles}</span>
+                      <span title="Asistencias">🅰️ ${s.asistencias}</span>
+                      <span title="Amarillas">🟨 ${s.amarillas}</span>
+                      <span title="Rojas">🟥 ${s.rojas}</span>
+                      <span title="Penaltis Parados">🧤 ${s.penaltiParado}</span>
+                    </div>
+                  </div>
+                `).join('')
+      : `<div style="color: var(--text-muted); font-size:13px;">Sin estadísticas registradas</div>`}
               </div>
             </div>
 
