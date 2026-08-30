@@ -13519,8 +13519,9 @@
       return j;
     });
 
-    const activePlayers = parsedJugadores.filter(j => !j.baja);
+    const activePlayers = parsedJugadores.filter(j => !j.baja && !j.alta);
     const bajaPlayers = parsedJugadores.filter(j => j.baja);
+    const altaPlayers = parsedJugadores.filter(j => j.alta);
 
     let listHtml = '';
     if (parsedJugadores.length === 0) {
@@ -13540,7 +13541,9 @@
       });
       listHtml += '</div>';
 
-      // Column 2: Bajas
+      // Column 2: Bajas & Altas
+      listHtml += '<div style="display: flex; flex-direction: column; gap: 16px;">';
+      
       listHtml += '<div><h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid var(--border-light); padding-bottom: 4px;">BAJAS (' + bajaPlayers.length + ')</h4>';
       if (bajaPlayers.length === 0) listHtml += '<p style="font-size: 12px; color: var(--text-muted);">Ninguno</p>';
       bajaPlayers.forEach(p => {
@@ -13555,7 +13558,21 @@
       });
       listHtml += '</div>';
 
+      listHtml += '<div><h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid var(--border-light); padding-bottom: 4px;">ALTAS (' + altaPlayers.length + ')</h4>';
+      if (altaPlayers.length === 0) listHtml += '<p style="font-size: 12px; color: var(--text-muted);">Ninguno</p>';
+      altaPlayers.forEach(p => {
+        const pName = escapeHtml(p.nombre || p.jugador || '');
+        const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #22c55e;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
+
+        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #22c55e; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> ${linkHtml}</div>`;
+        if (p.motivo) {
+          listHtml += `<div style="font-size: 11px; color: #22c55e; margin-left: 20px; margin-top: -4px; margin-bottom: 4px; opacity: 0.7;">Motivo: ${escapeHtml(p.motivo)}</div>`;
+        }
+      });
       listHtml += '</div>';
+
+      listHtml += '</div>'; // End Column 2
     }
 
     showSecondaryModal('Plantilla Convocada: ' + escapeHtml(conv.nombre || conv.titulo || 'Convocatoria'), listHtml, null);
@@ -16183,43 +16200,56 @@
         <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left;">
           <th style="padding: 8px 12px;">JUGADOR</th>
           ${hasMatch ? `<th style="padding: 8px 12px; width: 60px;">DORSAL</th>` : ''}
-          <th style="padding: 8px 12px; width: 80px;">POSICIÓN 1</th>
-          <th style="padding: 8px 12px; width: 80px;">POSICIÓN 2</th>
+          <th style="padding: 8px 12px; width: 60px; text-align: center;">ALTA</th>
           <th style="padding: 8px 12px; width: 60px; text-align: center;">BAJA</th>
-          <th style="padding: 8px 12px;">MOTIVO DE BAJA</th>
+          <th style="padding: 8px 12px;">MOTIVO</th>
           <th style="padding: 8px 12px; text-align: right;">ELIMINAR</th>
         </tr>
       `;
 
       if (localJugadoresList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${hasMatch ? 6 : 5}" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
       } else {
+        // Ordenar: Normal -> Baja -> Alta
+        localJugadoresList.sort((a, b) => {
+          const aObj = typeof a === 'string' ? { nombre: a, alta: false, baja: false, motivo: '' } : a;
+          const bObj = typeof b === 'string' ? { nombre: b, alta: false, baja: false, motivo: '' } : b;
+          const getType = (j) => {
+            if (j.alta) return 2;
+            if (j.baja) return 1;
+            return 0;
+          };
+          return getType(aObj) - getType(bObj);
+        });
+
         const allPlayers = (state.directory && state.directory.jugadores) || [];
         tbody.innerHTML = localJugadoresList.map((j, idx) => {
           // Normalize to object if it was a string
           if (typeof j === 'string') {
-            j = { nombre: j, baja: false, motivo: '' };
+            j = { nombre: j, alta: false, baja: false, motivo: '' };
             localJugadoresList[idx] = j;
           }
 
           const jName = j.nombre || j.jugador || j.name || '';
           const foundP = allPlayers.find(p => (p.nombre && p.nombre.toLowerCase() === jName.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === jName.toLowerCase()));
 
-          if (!j.pos1 && foundP && foundP.pos1) j.pos1 = foundP.pos1;
-          if (!j.pos2 && foundP && foundP.pos2) j.pos2 = foundP.pos2;
+          let badgeHTML = '';
+          if (j.baja) {
+            badgeHTML = `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; background-color: #e5e7eb; color: #000; margin-left: 6px;">BAJA</span>`;
+          } else if (j.alta) {
+            badgeHTML = `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; background-color: #e5e7eb; color: #000; margin-left: 6px;">ALTA</span>`;
+          }
 
-          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
-
-          const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
-          const pos1HTML = `<select class="form-control cn-jugador-pos1" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos1 === p || (!j.pos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
-          const pos2HTML = `<select class="form-control cn-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${j.pos2 === p || (!j.pos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const nameStr = `<span style="display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</span>${badgeHTML}`;
+          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">${nameStr}</a>` : `<span style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">${nameStr}</span>`;
 
           let rowBgStyle = '';
-          if (j.baja) {
-            rowBgStyle = 'opacity: 0.7; background-color: #fef2f2;';
-          } else if (foundP) {
+          if (foundP) {
             if (foundP.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
             else if (foundP.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
+          if (j.baja) {
+            rowBgStyle += ' opacity: 0.6;';
           }
           const dorsalHTML = hasMatch ? `<td style="padding: 8px 12px;"><input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" value="${escapeHtml(j.dorsal || '')}" placeholder="Dorsal" style="font-size: 11px; padding: 4px 8px; height: 26px;"></td>` : '';
 
@@ -16227,13 +16257,14 @@
             <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               ${dorsalHTML}
-              <td style="padding: 8px 12px;">${pos1HTML}</td>
-              <td style="padding: 8px 12px;">${pos2HTML}</td>
+              <td style="padding: 8px 12px; text-align: center;">
+                <input type="checkbox" class="cn-jugador-alta" data-idx="${idx}" ${j.alta ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+              </td>
               <td style="padding: 8px 12px; text-align: center;">
                 <input type="checkbox" class="cn-jugador-baja" data-idx="${idx}" ${j.baja ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
               </td>
               <td style="padding: 8px 12px;">
-                <input type="text" class="form-control cn-jugador-motivo" data-idx="${idx}" value="${escapeHtml(j.motivo || '')}" placeholder="Motivo (ej. Lesión)" ${j.baja ? '' : 'disabled'} style="font-size: 11px; padding: 4px 8px; height: 26px;">
+                <input type="text" class="form-control cn-jugador-motivo" data-idx="${idx}" value="${escapeHtml(j.motivo || '')}" placeholder="Motivo" ${ (j.baja || j.alta) ? '' : 'disabled' } style="font-size: 11px; padding: 4px 8px; height: 26px;">
               </td>
               <td style="padding: 8px 12px; text-align: right;">
                 <button type="button" class="btn-action-icon danger btn-del-cn-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
@@ -16261,19 +16292,16 @@
           });
         });
 
-        tbody.querySelectorAll('.cn-jugador-pos1').forEach(sel => {
-          sel.addEventListener('change', (e) => {
-            const index = parseInt(sel.dataset.idx, 10);
-            localJugadoresList[index].pos1 = e.target.value;
-            renderCnCampogramaPins();
-          });
-        });
-
-        tbody.querySelectorAll('.cn-jugador-pos2').forEach(sel => {
-          sel.addEventListener('change', (e) => {
-            const index = parseInt(sel.dataset.idx, 10);
-            localJugadoresList[index].pos2 = e.target.value;
-            renderCnCampogramaPins();
+        tbody.querySelectorAll('.cn-jugador-alta').forEach(cb => {
+          cb.addEventListener('change', (e) => {
+            const index = parseInt(cb.dataset.idx, 10);
+            localJugadoresList[index].alta = e.target.checked;
+            if (e.target.checked) {
+              localJugadoresList[index].baja = false;
+            } else if (!localJugadoresList[index].baja) {
+              localJugadoresList[index].motivo = '';
+            }
+            renderCnJugadoresTable();
           });
         });
 
@@ -16281,7 +16309,9 @@
           cb.addEventListener('change', (e) => {
             const index = parseInt(cb.dataset.idx, 10);
             localJugadoresList[index].baja = e.target.checked;
-            if (!e.target.checked) {
+            if (e.target.checked) {
+              localJugadoresList[index].alta = false;
+            } else if (!localJugadoresList[index].alta) {
               localJugadoresList[index].motivo = '';
             }
             renderCnJugadoresTable();
@@ -20661,7 +20691,7 @@
         ${genderBarHTML}
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="globe" style="width: 14px;"></i> Comunidades:
+            <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
           </span>
           ${allComs.map(comName => {
         const fullName = comName === 'TODAS' ? 'TODAS' : (comToFedMap.get(comName) || comName);
@@ -20698,7 +20728,7 @@
       subFilterBarHTML = `
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
-            <i data-lucide="map-pin" style="width: 14px;"></i> Comunidad:
+            <i data-lucide="map-pin" style="width: 14px;"></i> Federación:
           </span>
           ${allComunidades.map(com => {
             const isDraggable = com !== 'TODAS';
