@@ -6965,8 +6965,13 @@
         if (!posPri) {
           foundPlayer.posicionPrincipal = pObj.pos;
           updated = true;
-        } else if (!foundPlayer.posicionSecundaria && foundPlayer.posicionPrincipal !== pObj.pos) {
+        } else if (!foundPlayer.posicionSecundaria && foundPlayer.posicionPrincipal !== pObj.pos && !pObj.pos2) {
           foundPlayer.posicionSecundaria = pObj.pos;
+          updated = true;
+        }
+        
+        if (pObj.pos2 && foundPlayer.posicionSecundaria !== pObj.pos2) {
+          foundPlayer.posicionSecundaria = pObj.pos2;
           updated = true;
         }
         if (updated) {
@@ -30236,6 +30241,71 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       }
     }
 
+    // Poblar selector de Equipos para MAPA RS (Multi-select)
+    const btnRSEquiposMulti = document.getElementById('btnMapaRSEquiposMulti');
+    const dropdownRSEquiposMulti = document.getElementById('dropdownMapaRSEquiposMulti');
+    if (btnRSEquiposMulti && dropdownRSEquiposMulti) {
+      const rsTeams = new Set();
+      players.forEach(p => {
+        if ((p.controlSeguimiento || []).includes('MAPA RS') && p.equipo && String(p.equipo).trim() !== '') {
+          rsTeams.add(String(p.equipo).trim());
+        }
+      });
+      const sortedRSTeams = Array.from(rsTeams).sort((a, b) => a.localeCompare(b));
+      
+      let html = `<label style="display: block; padding: 4px; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
+                    <input type="checkbox" id="cbAllMapaRSEquipos" style="margin-right: 6px;"> <strong>Seleccionar todos</strong>
+                  </label>`;
+      sortedRSTeams.forEach(t => {
+        html += `<label style="display: block; padding: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                   <input type="checkbox" class="cb-mapa-rs-equipo" value="${escapeHtml(t)}" style="margin-right: 6px;"> ${escapeHtml(t)}
+                 </label>`;
+      });
+      dropdownRSEquiposMulti.innerHTML = html;
+
+      // Event listeners for multi-select dropdown
+      btnRSEquiposMulti.onclick = (e) => {
+        e.stopPropagation();
+        const isVisible = dropdownRSEquiposMulti.style.display === 'block';
+        dropdownRSEquiposMulti.style.display = isVisible ? 'none' : 'block';
+      };
+      
+      document.addEventListener('click', (e) => {
+        if (!btnRSEquiposMulti.contains(e.target) && !dropdownRSEquiposMulti.contains(e.target)) {
+          dropdownRSEquiposMulti.style.display = 'none';
+        }
+      });
+
+      const updateBtnText = () => {
+        const cbs = dropdownRSEquiposMulti.querySelectorAll('.cb-mapa-rs-equipo:checked');
+        if (cbs.length === 0) {
+          btnRSEquiposMulti.textContent = '-- Todos los equipos --';
+        } else if (cbs.length === 1) {
+          btnRSEquiposMulti.textContent = cbs[0].value;
+        } else {
+          btnRSEquiposMulti.textContent = `${cbs.length} equipos seleccionados`;
+        }
+        renderMapasPins();
+      };
+
+      const cbAll = dropdownRSEquiposMulti.querySelector('#cbAllMapaRSEquipos');
+      if (cbAll) {
+        cbAll.onchange = (e) => {
+          dropdownRSEquiposMulti.querySelectorAll('.cb-mapa-rs-equipo').forEach(cb => cb.checked = e.target.checked);
+          updateBtnText();
+        };
+      }
+
+      dropdownRSEquiposMulti.querySelectorAll('.cb-mapa-rs-equipo').forEach(cb => {
+        cb.onchange = () => {
+          const total = dropdownRSEquiposMulti.querySelectorAll('.cb-mapa-rs-equipo').length;
+          const checked = dropdownRSEquiposMulti.querySelectorAll('.cb-mapa-rs-equipo:checked').length;
+          if (cbAll) cbAll.checked = (total === checked && total > 0);
+          updateBtnText();
+        };
+      });
+    }
+
     // Poblar selector de Categoría para 11 IDEAL
     const selCat11 = document.getElementById('selMapasCategoria11Ideal');
     if (selCat11 && selCat11.options.length <= 1) {
@@ -30331,6 +30401,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         if (filterEquipo) {
           filterEquipo.style.display = (tag === 'DESTACADO EQUIPO') ? 'block' : 'none';
         }
+        
+        const filterMapaRSEquiposMulti = document.getElementById('filterMapaRSEquiposMulti');
+        if (filterMapaRSEquiposMulti) {
+          filterMapaRSEquiposMulti.style.display = (tag === 'MAPA RS') ? 'block' : 'none';
+        }
 
         const filterCat11 = document.getElementById('filterMapasCategoria11Ideal');
         if (filterCat11) {
@@ -30384,10 +30459,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const activeMapTag = activeTagBtn ? activeTagBtn.dataset.tag : '11 IDEAL';
 
     // Filter by year, competicion, equipo and selected tag
+    let selectedMapaRSTeams = [];
+    const cbMapasRSTeams = document.querySelectorAll('.cb-mapa-rs-equipo:checked');
+    if (cbMapasRSTeams.length > 0) {
+      selectedMapaRSTeams = Array.from(cbMapasRSTeams).map(cb => cb.value);
+    }
+
     const filteredPlayers = players.filter(p => {
       const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
       if (!isTagged) return false;
       if (activeMapTag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
+      if (activeMapTag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {
+        if (!selectedMapaRSTeams.includes(String(p.equipo || '').trim())) return false;
+      }
       if (activeMapTag === '11 IDEAL' && selCat11Ideal) {
         const equipName = String(p.equipo || '').toUpperCase();
         const term = selCat11Ideal.toUpperCase();
@@ -30396,6 +30480,35 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
       }
       return true;
+    });
+
+    // Update Mapas Tabs Count
+    const toggleBtns = document.querySelectorAll('.mapas-toggle-btn');
+    toggleBtns.forEach(btn => {
+      const tag = btn.dataset.tag;
+      const countFiltered = players.filter(p => {
+        const isTagged = (p.controlSeguimiento || []).includes(tag);
+        if (!isTagged) return false;
+        if (tag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
+        if (tag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {
+          if (!selectedMapaRSTeams.includes(String(p.equipo || '').trim())) return false;
+        }
+        if (tag === '11 IDEAL' && selCat11Ideal) {
+          const equipName = String(p.equipo || '').toUpperCase();
+          const term = selCat11Ideal.toUpperCase();
+          if (!equipName.includes(term) && String(p.categoria || '').toUpperCase() !== term) {
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      let originalLabel = btn.dataset.label;
+      if (!originalLabel) {
+        originalLabel = btn.textContent.split(' (')[0].trim();
+        btn.dataset.label = originalLabel;
+      }
+      btn.textContent = `${originalLabel} (${countFiltered.length})`;
     });
 
     // Group players by position slot
@@ -30418,6 +30531,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         pSecondary = 'MCZ';
       } else if (pPrimary === 'MC' && pSecondary === 'MCD') {
         pPrimary = 'MCZ';
+      }
+
+      // Reglas específicas para el sistema 1-4-3-3
+      if (sysSelect === '1-4-3-3') {
+        const mapTo433 = (pos) => {
+          if (pos === 'MCZ' || pos === 'MPZ') return 'MVZ';
+          if (pos === 'MCD' || pos === 'MPD' || pos === 'MP') return 'MVD';
+          return pos;
+        };
+        pPrimary = mapTo433(pPrimary);
+        pSecondary = mapTo433(pSecondary);
       }
 
       let primaryAssigned = false;

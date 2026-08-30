@@ -40,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e.target.closest('.club-vinculado-input') && !e.target.closest('.club-suggestions')) {
             document.querySelectorAll('.club-suggestions').forEach(el => el.classList.add('hidden'));
         }
+        if (!e.target.closest('.equipo-vinculado-input') && !e.target.closest('.equipo-suggestions')) {
+            document.querySelectorAll('.equipo-suggestions').forEach(el => el.classList.add('hidden'));
+        }
     });
 
     const checkState = setInterval(() => {
@@ -433,6 +436,14 @@ function renderExcelTable() {
                 });
                 selectHtml += `</select>`;
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
+            } else if (k === 'equipo') {
+                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light); position: relative;">
+                                <input type="search" value="${row[k] || ''}" 
+                                    oninput="updateRowField(${rowIndex}, '${k}', this.value); showEquipoSuggestions(this, ${rowIndex});" 
+                                    class="form-control excel-cell-field equipo-vinculado-input" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}" 
+                                    onfocus="showEquipoSuggestions(this, ${rowIndex})" autocomplete="off">
+                                <div class="equipo-suggestions hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+                             </td>`;
             } else {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
                                 <input type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" 
@@ -507,6 +518,48 @@ window.showClubSuggestions = function(input, rowIndex) {
 window.selectClubSuggestion = function(rowIndex, clubName) {
     stagedExcelRows[rowIndex].clubVinculado = clubName;
     updateOfficialName(rowIndex);
+    renderExcelTable();
+}
+
+window.showEquipoSuggestions = function(input, rowIndex) {
+    document.querySelectorAll('.equipo-suggestions').forEach(el => el.classList.add('hidden'));
+    
+    let listaEquipos = [];
+    if (window.state?.directory?.equipos && window.state.directory.equipos.length > 0) {
+        listaEquipos = window.state.directory.equipos;
+    }
+    
+    if (listaEquipos.length === 0) return;
+    
+    const val = input.value.toLowerCase().replace(/\./g, '');
+    const sugCont = input.nextElementSibling;
+    
+    let filtered = listaEquipos;
+    if (val) {
+        filtered = filtered.filter(e => (e.nombre || '').toLowerCase().replace(/\./g, '').includes(val));
+    }
+    
+    if (filtered.length === 0) {
+        sugCont.innerHTML = '<div style="padding: 8px 12px; font-size: 12px; color: #666;">No hay coincidencias en tu base de datos</div>';
+        sugCont.classList.remove('hidden');
+        return;
+    }
+    
+    filtered.sort((a,b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    
+    sugCont.innerHTML = filtered.slice(0, 50).map(e => 
+        `<div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 12px;" 
+            onmousedown="selectEquipoSuggestion(${rowIndex}, '${(e.nombre || '').replace(/'/g, "\\'")}')"
+            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+            ${e.nombre}
+        </div>`
+    ).join('');
+    
+    sugCont.classList.remove('hidden');
+}
+
+window.selectEquipoSuggestion = function(rowIndex, equipoName) {
+    stagedExcelRows[rowIndex].equipo = equipoName;
     renderExcelTable();
 }
 
