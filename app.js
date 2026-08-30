@@ -458,6 +458,7 @@
       customClubTypes: state.customClubTypes || [],
       directoryCategoriesOrder: state.directoryCategoriesOrder || [],
       directoryFederationsOrder: state.directoryFederationsOrder || [],
+      directoryEstadiosComunidadOrder: state.directoryEstadiosComunidadOrder || [],
       directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
       agendaCategories: state.agendaCategories || [],
       cartelera: {
@@ -560,6 +561,7 @@
         customClubTypes: state.customClubTypes || [],
         directoryCategoriesOrder: state.directoryCategoriesOrder || [],
         directoryFederationsOrder: state.directoryFederationsOrder || [],
+        directoryEstadiosComunidadOrder: state.directoryEstadiosComunidadOrder || [],
         directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
         agendaCategories: state.agendaCategories || [],
         cartelera: {
@@ -822,6 +824,7 @@
           }
           if (configData.directoryCategoriesOrder) state.directoryCategoriesOrder = configData.directoryCategoriesOrder;
           if (configData.directoryFederationsOrder) state.directoryFederationsOrder = configData.directoryFederationsOrder;
+          if (configData.directoryEstadiosComunidadOrder) state.directoryEstadiosComunidadOrder = configData.directoryEstadiosComunidadOrder;
           if (configData.directoryStaffCargoOrder) state.directoryStaffCargoOrder = configData.directoryStaffCargoOrder;
           if (Array.isArray(configData.customClubTypes) && configData.customClubTypes.length > 0) {
             state.customClubTypes = Array.from(new Set([...(state.customClubTypes || []), ...configData.customClubTypes]));
@@ -9635,6 +9638,7 @@
       if (t && !state.customClubTypes.includes(t)) state.customClubTypes.push(t);
     });
     const anoFundacion = club.anoFundacion || club.ano || '';
+    const pais = club.pais !== undefined ? club.pais : 'España';
     const comunidad = club.comunidad || '';
     const localidad = club.localidad || '';
     const federacion = club.federacion || '';
@@ -9770,7 +9774,16 @@
                   </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
+                  <div class="form-group">
+                    <label class="form-label">PAÍS</label>
+                    <select id="cfPais" class="form-control">
+                      <option value="">Seleccionar...</option>
+                      ${[...new Set([...LISTA_PAISES, ...(state.customPaises || [])])].map(p => `<option value="${escapeHtml(p)}" ${pais === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                      ${![...LISTA_PAISES, ...(state.customPaises || [])].includes(pais) && pais ? `<option value="${escapeHtml(pais)}" selected>${escapeHtml(pais)}</option>` : ''}
+                      <option value="__NEW_PAIS__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo país...</option>
+                    </select>
+                  </div>
                   <div class="form-group">
                     <label class="form-label">PROVINCIA / COMUNIDAD</label>
                     <select id="cfComunidad" class="form-control">
@@ -10126,6 +10139,7 @@
         tipoClub: finalTipoStr,
         anoFundacion: document.getElementById('cfAnoFundacion').value.trim(),
         ano: document.getElementById('cfAnoFundacion').value.trim(),
+        pais: document.getElementById('cfPais').value.trim(),
         comunidad: document.getElementById('cfComunidad').value.trim(),
         localidad: document.getElementById('cfLocalidad').value.trim(),
         federacion: document.getElementById('cfFederacion').value.trim(),
@@ -10651,6 +10665,29 @@
 
     clubComSelect?.addEventListener('change', (e) => {
       updateClubLocalidadesOptions(e.target.value, '');
+    });
+
+    const clubPaisSelect = document.getElementById('cfPais');
+    clubPaisSelect?.addEventListener('change', (e) => {
+      if (e.target.value === '__NEW_PAIS__') {
+        clubPaisSelect.value = '';
+        showCustomPromptModal('Añadir Nuevo País', '', (newPaisName) => {
+          if (newPaisName && newPaisName.trim()) {
+            const trimmed = newPaisName.trim();
+            if (!state.customPaises) state.customPaises = [];
+            if (!state.customPaises.includes(trimmed)) {
+              state.customPaises.push(trimmed);
+              saveState();
+            }
+            const opt = document.createElement('option');
+            opt.value = trimmed;
+            opt.textContent = trimmed;
+            opt.selected = true;
+            clubPaisSelect.insertBefore(opt, clubPaisSelect.lastElementChild);
+            clubPaisSelect.value = trimmed;
+          }
+        });
+      }
     });
 
     clubLocSelect?.addEventListener('change', (e) => {
@@ -11210,6 +11247,10 @@
 
           <div id="fichaTabClub-resumen" class="ficha-tab-pane" style="display: block;">
             <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+                <div class="ficha-stat-label">PAÍS</div>
+                <div class="ficha-stat-value">${escapeHtml(club.pais || 'España')}</div>
+              </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">COMUNIDAD</div>
                 <div class="ficha-stat-value">${escapeHtml(club.comunidad || '-')}</div>
@@ -18562,6 +18603,7 @@
     if (nameLower.includes('arabia') || nameLower.includes('saff')) return 'Arabia Saudita';
     if (nameLower.includes('uzbeki') || nameLower.includes('ufa')) return 'Uzbekistán';
     if (nameLower.includes('uruguay') || nameLower.includes('auf')) return 'Uruguay';
+    if (nameLower.includes('inglesa') || nameLower.includes('inglaterra') || nameLower.includes('the fa') || nameLower.includes('thefa')) return 'Inglaterra';
 
     return fedName.replace(/^(real\s+|federación\s+(de\s+fútbol\s+de\s+la\s+|de\s+fútbol\s+de\s+|de\s+|del\s+)?|federació\s+)/i, '').trim();
   }
@@ -20542,11 +20584,11 @@
             <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
               <i data-lucide="layers" style="width: 14px;"></i> Grupo:
             </span>
-            ${allGroups.map(grp => `
-              <button type="button" class="btn-dir-subfilter ${currentSubGroupFilter === grp ? 'active' : ''}" data-type="grupo" data-val="${escapeHtml(grp)}" style="padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${currentSubGroupFilter === grp ? '#059669' : 'var(--border-light)'}; background: ${currentSubGroupFilter === grp ? '#059669' : '#ffffff'}; color: ${currentSubGroupFilter === grp ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-                ${escapeHtml(grp)}
-              </button>
-            `).join('')}
+            <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: #ffffff; color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
+              ${allGroups.map(grp => `
+                <option value="${escapeHtml(grp)}" ${currentSubGroupFilter === grp ? 'selected' : ''}>${escapeHtml(grp)}</option>
+              `).join('')}
+            </select>
           </div>
         </div>
       `;
@@ -20636,8 +20678,16 @@
       `;
     } else if (currentDirectoryTab === 'estadios') {
       const comunidadesSet = new Set(rawItems.map(est => (est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
-      ['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid'].forEach(c => comunidadesSet.add(c));
-      const comunidades = Array.from(comunidadesSet).sort((a, b) => a.localeCompare(b, 'es'));
+      const comunidades = Array.from(comunidadesSet);
+      if (!state.directoryEstadiosComunidadOrder) state.directoryEstadiosComunidadOrder = [];
+      comunidades.sort((a, b) => {
+        const idxA = state.directoryEstadiosComunidadOrder.indexOf(a);
+        const idxB = state.directoryEstadiosComunidadOrder.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, 'es');
+      });
       const allComunidades = ['TODAS', ...comunidades];
 
       subFilterBarHTML = `
@@ -20645,11 +20695,21 @@
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="map-pin" style="width: 14px;"></i> Comunidad:
           </span>
-          ${allComunidades.map(com => `
-            <button type="button" class="btn-dir-subfilter ${currentComunidadFilter === com ? 'active' : ''}" data-type="comunidad" data-val="${escapeHtml(com)}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid ${currentComunidadFilter === com ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${currentComunidadFilter === com ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${currentComunidadFilter === com ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s;">
-              ${escapeHtml(com)}
+          ${allComunidades.map(com => {
+            const isDraggable = com !== 'TODAS';
+            const isActive = currentComunidadFilter === com;
+            return `
+            <button type="button" 
+                    class="btn-dir-subfilter btn-est-com-draggable ${isActive ? 'active' : ''}" 
+                    data-type="comunidad" 
+                    data-val="${escapeHtml(com)}" 
+                    draggable="${isDraggable}" 
+                    title="${escapeHtml(com)} (Arrastra para reordenar)"
+                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+              ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(com)}
             </button>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
     } else if (currentDirectoryTab === 'staff') {
@@ -21981,6 +22041,18 @@
       });
     });
 
+    container.querySelectorAll('.select-dir-subfilter').forEach(select => {
+      select.addEventListener('change', (e) => {
+        const type = select.dataset.type;
+        const val = e.target.value;
+        if (type === 'grupo') {
+          currentSubGroupFilter = val;
+        }
+        currentDirectoryPage = 1;
+        renderDirectorio();
+      });
+    });
+
     // Drag & Drop reordering for federation subfilter tabs
     let draggedFedName = null;
     container.querySelectorAll('.btn-fed-draggable').forEach(btn => {
@@ -22036,6 +22108,65 @@
         if (fromIdx !== -1 && toIdx !== -1) {
           state.directoryFederationsOrder.splice(fromIdx, 1);
           state.directoryFederationsOrder.splice(toIdx, 0, draggedFedName);
+          saveState();
+          renderDirectorio();
+        }
+      });
+    });
+
+    // Drag & Drop reordering for estadios comunidades
+    let draggedEstComName = null;
+    container.querySelectorAll('.btn-est-com-draggable').forEach(btn => {
+      btn.addEventListener('dragstart', (e) => {
+        draggedEstComName = btn.dataset.val;
+        if (draggedEstComName === 'TODAS') {
+          e.preventDefault();
+          return;
+        }
+        btn.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedEstComName);
+      });
+
+      btn.addEventListener('dragend', () => {
+        btn.style.opacity = '1';
+        draggedEstComName = null;
+      });
+
+      btn.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const targetVal = btn.dataset.val;
+        if (draggedEstComName && draggedEstComName !== 'TODAS' && targetVal !== 'TODAS' && draggedEstComName !== targetVal) {
+          e.dataTransfer.dropEffect = 'move';
+          btn.style.border = '1px dashed var(--primary-blue, #2563eb)';
+        }
+      });
+
+      btn.addEventListener('dragleave', () => {
+        const targetVal = btn.dataset.val;
+        btn.style.border = currentComunidadFilter === targetVal ? '1px solid var(--primary-blue, #2563eb)' : '1px solid var(--border-light)';
+      });
+
+      btn.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetVal = btn.dataset.val;
+        if (!draggedEstComName || draggedEstComName === 'TODAS' || targetVal === 'TODAS' || draggedEstComName === targetVal) return;
+
+        if (!state.directoryEstadiosComunidadOrder) state.directoryEstadiosComunidadOrder = [];
+
+        container.querySelectorAll('.btn-est-com-draggable').forEach(b => {
+          const val = b.dataset.val;
+          if (val && val !== 'TODAS' && !state.directoryEstadiosComunidadOrder.includes(val)) {
+            state.directoryEstadiosComunidadOrder.push(val);
+          }
+        });
+
+        const fromIdx = state.directoryEstadiosComunidadOrder.indexOf(draggedEstComName);
+        const toIdx = state.directoryEstadiosComunidadOrder.indexOf(targetVal);
+
+        if (fromIdx !== -1 && toIdx !== -1) {
+          state.directoryEstadiosComunidadOrder.splice(fromIdx, 1);
+          state.directoryEstadiosComunidadOrder.splice(toIdx, 0, draggedEstComName);
           saveState();
           renderDirectorio();
         }
