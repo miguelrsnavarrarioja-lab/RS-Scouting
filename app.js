@@ -1203,7 +1203,7 @@
       let paraBajar = 0;
       if (directMatches > 20) {
         msg = '¡ESTAS JODIDO AMIGO!';
-        color = '#ef4444';
+        color = '#3b82f6';
         zona = 'Zona Crítica (Más de 20)';
         paraBajar = directMatches - 20;
       } else if (directMatches > 15) {
@@ -25153,8 +25153,45 @@
             return false;
           });
 
-          const isPriorityLocal = isTeamInList(locLower, comp, priorityTeamsLower);
-          const isPriorityVisitante = isTeamInList(visLower, comp, priorityTeamsLower);
+          
+          const isTeamExcluded = (teamLower) => {
+            const levels = state.cartelera.priorityTeamsLevels || {};
+            for (const [tName, tLevel] of Object.entries(levels)) {
+              if (tLevel === 'X' || tLevel === '') {
+                const normExcluded = normalizeTeamName(tName.toLowerCase());
+                const normTeam = normalizeTeamName(teamLower);
+                if (normExcluded && normTeam && (normExcluded === normTeam || normTeam.includes(normExcluded) || normExcluded.includes(normTeam))) return true;
+              }
+            }
+            return false;
+          };
+
+          const getTeamPriorityLevel = (teamLower, matchComp) => {
+             if (isTeamExcluded(teamLower)) return null;
+             
+             // 1. Check explicit specific team levels
+             const levels = state.cartelera.priorityTeamsLevels || {};
+             for (const [tName, tLevel] of Object.entries(levels)) {
+                if (tLevel === 'X' || tLevel === '') continue;
+                const normSpecific = normalizeTeamName(tName.toLowerCase());
+                const normTeam = normalizeTeamName(teamLower);
+                if (normSpecific && normTeam && (normSpecific === normTeam || normTeam.includes(normSpecific) || normSpecific.includes(normTeam))) return tLevel;
+             }
+             // 2. Check club priority level
+             for (const club of (state.directory?.clubes || [])) {
+                if (!club.esPrioritario || !club.prioridadNivel) continue;
+                const clubNameLower = (club.nombre || club.club || '').toLowerCase();
+                const normClub = normalizeTeamName(clubNameLower);
+                const normTeam = normalizeTeamName(teamLower);
+                if (normClub && normTeam && (normClub === normTeam || normTeam.includes(normClub) || normClub.includes(normTeam))) return club.prioridadNivel;
+             }
+             // 3. Fallback to generic priority check (if it was added without a specific level, fallback to C)
+             if (isTeamInList(teamLower, matchComp, priorityTeamsLower)) return 'C';
+             return null;
+          };
+
+          const isPriorityLocal = !isTeamExcluded(locLower) && isTeamInList(locLower, comp, priorityTeamsLower);
+          const isPriorityVisitante = !isTeamExcluded(visLower) && isTeamInList(visLower, comp, priorityTeamsLower);
 
           const isInterestingLocal = isTeamInList(locLower, comp, interestingTeamsLower);
           const isInterestingVisitante = isTeamInList(visLower, comp, interestingTeamsLower);
@@ -25162,6 +25199,9 @@
           const isHighInterest = isPriorityLocal || isPriorityVisitante || isInterestingLocal || isInterestingVisitante;
           const isClash = (isPriorityLocal || isInterestingLocal) && (isPriorityVisitante || isInterestingVisitante);
           const fed = m.federacion || cal.federacion || 'General';
+
+          const locPrio = getTeamPriorityLevel(locLower, comp);
+          const visPrio = getTeamPriorityLevel(visLower, comp);
 
           allMatches.push({
             ...m,
@@ -25172,7 +25212,9 @@
             isInterestingLocal,
             isInterestingVisitante,
             isHighInterest,
-            isClash
+            isClash,
+            locPrio,
+            visPrio
           });
         });
       });
@@ -25375,175 +25417,37 @@
         if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
         else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
 
-        let bgStyle = '';
-        let borderLeft = 'border-left: 4px solid transparent;';
-        let clashIcon = '';
-
-        if (m.isClash) {
-          if (m.isInterestingLocal || m.isInterestingVisitante) {
-            bgStyle = 'background: rgba(147, 51, 234, 0.08);';
-            borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.8);';
-            clashIcon = '<span title="Duelo Directo Interesante">👁️</span>';
-          } else {
-            bgStyle = 'background: rgba(34, 197, 94, 0.06);';
-            borderLeft = 'border-left: 4px solid rgba(34, 197, 94, 0.8);';
-            clashIcon = '<span title="Duelo Directo Prioritario">⭐</span>';
-          }
-        } else if (m.isInterestingLocal || m.isInterestingVisitante) {
-          bgStyle = 'background: rgba(147, 51, 234, 0.04);';
-          borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.6);';
-        } else if (m.isPriorityLocal || m.isPriorityVisitante) {
-          bgStyle = 'background: rgba(245, 158, 11, 0.03);';
-          borderLeft = 'border-left: 4px solid rgba(245, 158, 11, 0.6);';
-        }
-
-        return `
-        <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
-          <td style="padding: 8px 12px; ${borderLeft}">
-            <span style="font-size: 11px; font-weight: 800; color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); padding: 3px 6px; border-radius: 4px;">${escapeHtml(m.jornada || '-')}</span>
-          </td>
-          <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-          <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
-          <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(formatTeamName(m.visitante))}</td>
-          <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
-          <td style="padding: 8px 12px;">
-            <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
-          </td>
-          <td style="padding: 8px 12px;">
-            <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '00:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
-          </td>
-          <td style="padding: 8px 12px;">
-            ${getTecnicoSelect(m.id, m.tecnico)}
-          </td>
-          <td style="padding: 8px 12px; text-align: center;">
-            <button type="button" class="btn btn-sm btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 700; font-size: 10px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); box-shadow: none; white-space: nowrap;">
-              <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Crear Informe
-            </button>
-          </td>
-        </tr>
-      `;
-      }).join('');
-
-      html += `</tbody></table></div>`;
-
-      html += `</tbody></table></div>`;
-      container.innerHTML = html;
-
-      bindCarteleraMatchEvents(container, allMatches);
-      if (window.lucide) window.lucide.createIcons();
-    } catch (e) {
-      container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera: ${e.message}<br><br>${e.stack}</div>`;
-      console.error(e);
-    }
-  }
-
-  function renderCarteleraJornadasGrid(allMatches) {
-    const container = document.getElementById('carteleraMatchesGrid');
-    if (!container) return;
-    try {
-
-      if (allMatches.length === 0) {
-        container.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 20px; color: var(--text-muted); background: var(--bg-card); border: 2px dashed var(--border-color); border-radius: var(--radius-lg);">
-          <i data-lucide="calendar-off" style="width: 44px; height: 44px; color: var(--primary-blue); margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;"></i>
-          <h4 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">No hay encuentros cargados</h4>
-          <p style="font-size: 13px; margin-bottom: 16px;">Importa el texto de los encuentros de tu competición para visualizarlos por Jornadas.</p>
-          <button class="btn btn-primary" onclick="openImportTextCalendarModal()" style="font-weight: 800;">
-            <i data-lucide="file-input"></i> 📥 Importar Texto de Calendario
-          </button>
-        </div>
-      `;
-        if (window.lucide) window.lucide.createIcons();
-        return;
-      }
-
-      // Group matches by Jornada
-      const groupedByJornada = {};
-      allMatches.forEach(m => {
-        const jorKey = m.jornada || 'Sin Jornada';
-        if (!groupedByJornada[jorKey]) groupedByJornada[jorKey] = [];
-        groupedByJornada[jorKey].push(m);
-      });
-
-      // Sort Jornada keys naturally
-      const sortedJornadas = Object.keys(groupedByJornada).sort((a, b) => {
-        const numA = parseInt(a.replace(/\D/g, '')) || 0;
-        const numB = parseInt(b.replace(/\D/g, '')) || 0;
-        if (numA && numB) return numA - numB;
-        return a.localeCompare(b);
-      });
-
-      let html = '';
-      sortedJornadas.forEach(jorName => {
-        const jorMatches = groupedByJornada[jorName];
-        const realDateMatch = jorMatches.find(m => m.fechaRealJornada);
-        const realDateText = realDateMatch ? `<span style="color: var(--text-muted); font-size: 13px; font-weight: 600; margin-left: 6px;">(${realDateMatch.fechaRealJornada})</span>` : '';
-
-        html += `
-        <div style="grid-column: 1 / -1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm);">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color);">
-            <h3 style="font-size: 16px; font-weight: 800; color: var(--primary-blue, #2563eb); margin: 0; display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="calendar" style="width: 18px; height: 18px;"></i> ${escapeHtml(jorName)} ${realDateText}
-            </h3>
-            <span class="badge" style="font-size: 11px; font-weight: 800; background: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 4px 10px; border-radius: 9999px;">${jorMatches.length} partidos</span>
-          </div>
-
-          <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--border-light); font-weight: 800; color: var(--text-muted); text-align: left; background: rgba(0,0,0,0.02);">
-                  <th style="padding: 10px 12px; width: 12%;">COMPETICIÓN</th>
-                  <th style="padding: 10px 12px; width: 18%;">LOCAL</th>
-                  <th style="padding: 10px 12px; width: 18%;">VISITANTE</th>
-                  <th style="padding: 10px 12px; width: 9%;">FECHA ORIG.</th>
-                  <th style="padding: 10px 12px; width: 9%;">FECHA ASIGN.</th>
-                  <th style="padding: 10px 12px; width: 8%;">HORA</th>
-                  <th style="padding: 10px 12px; width: 14%;">TÉCNICO</th>
-                  <th style="padding: 10px 12px; text-align: center; width: 12%;">ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${jorMatches.map(m => {
-          const locLower = (m.local || '').toLowerCase();
-          const visLower = (m.visitante || '').toLowerCase();
-          const isPriorityLocal = !!m.isPriorityLocal;
-          const isPriorityVisitante = !!m.isPriorityVisitante;
-          const isHighInterest = !!m.isHighInterest;
-          const isClashBool = !!m.isClash;
-          const isInterestingLocal = !!m.isInterestingLocal;
-          const isInterestingVisitante = !!m.isInterestingVisitante;
-
-          let locStyle = 'font-weight: 700; color: var(--text-main);';
-          if (isInterestingLocal) locStyle = isClashBool ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
-          else if (isPriorityLocal) locStyle = isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
-
-          let visStyle = 'font-weight: 700; color: var(--text-main);';
-          if (isInterestingVisitante) visStyle = isClashBool ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
-          else if (isPriorityVisitante) visStyle = isClashBool ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+        
+          const locPrio = m.locPrio;
+          const visPrio = m.visPrio;
 
           let bgStyle = '';
           let borderLeft = 'border-left: 4px solid transparent;';
           let clashIcon = '';
 
-          if (isClashBool) {
-            if (isInterestingLocal || isInterestingVisitante) {
-              bgStyle = 'background: rgba(147, 51, 234, 0.08);';
-              borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.8);';
-              clashIcon = '<span title="Duelo Directo Interesante">👁️</span>';
-            } else {
-              bgStyle = 'background: rgba(34, 197, 94, 0.06);';
-              borderLeft = 'border-left: 4px solid rgba(34, 197, 94, 0.8);';
-              clashIcon = '<span title="Duelo Directo Prioritario">⭐</span>';
-            }
-          } else if (isInterestingLocal || isInterestingVisitante) {
-            bgStyle = 'background: rgba(147, 51, 234, 0.04);';
-            borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.6);';
-          } else if (isPriorityLocal || isPriorityVisitante) {
-            bgStyle = 'background: rgba(245, 158, 11, 0.03);';
-            borderLeft = 'border-left: 4px solid rgba(245, 158, 11, 0.6);';
+          if (locPrio && visPrio) {
+             const combo = [locPrio, visPrio].sort().join('-'); 
+             if (combo === 'A-A') { bgStyle = 'background: rgba(34, 197, 94, 0.15);'; borderLeft = 'border-left: 4px solid rgba(34, 197, 94, 0.8);'; clashIcon = '<span title="Duelo A-A" style="font-size:14px">🔥</span>'; }
+             else if (combo === 'A-B') { bgStyle = 'background: rgba(16, 185, 129, 0.15);'; borderLeft = 'border-left: 4px solid rgba(16, 185, 129, 0.8);'; clashIcon = '<span title="Duelo A-B">⭐</span>'; }
+             else if (combo === 'B-B') { bgStyle = 'background: rgba(20, 184, 166, 0.15);'; borderLeft = 'border-left: 4px solid rgba(20, 184, 166, 0.8);'; clashIcon = '<span title="Duelo B-B">⭐</span>'; }
+             else if (combo === 'A-C') { bgStyle = 'background: rgba(6, 182, 212, 0.15);'; borderLeft = 'border-left: 4px solid rgba(6, 182, 212, 0.8);'; clashIcon = '<span title="Duelo A-C">⭐</span>'; }
+             else if (combo === 'B-C') { bgStyle = 'background: rgba(14, 165, 233, 0.15);'; borderLeft = 'border-left: 4px solid rgba(14, 165, 233, 0.8);'; clashIcon = '<span title="Duelo B-C">⚔️</span>';}
+             else if (combo === 'C-C') { bgStyle = 'background: rgba(59, 130, 246, 0.15);'; borderLeft = 'border-left: 4px solid rgba(59, 130, 246, 0.8);'; clashIcon = '<span title="Duelo C-C">⚔️</span>';}
+          } else if (locPrio || visPrio) {
+             const p = locPrio || visPrio;
+             if (p === 'A') { bgStyle = 'background: rgba(16, 185, 129, 0.04);'; borderLeft = 'border-left: 4px solid rgba(16, 185, 129, 0.3);'; }
+             else if (p === 'B') { bgStyle = 'background: rgba(234, 179, 8, 0.04);'; borderLeft = 'border-left: 4px solid rgba(234, 179, 8, 0.3);'; }
+             else if (p === 'C') { bgStyle = 'background: rgba(59, 130, 246, 0.04);'; borderLeft = 'border-left: 4px solid rgba(59, 130, 246, 0.3);'; }
+             
+             if (m.isClash && (m.isInterestingLocal || m.isInterestingVisitante)) {
+                clashIcon = '<span title="Prioridad vs Interés">⚔️</span>';
+             }
+          } else if (m.isClash && (m.isInterestingLocal || m.isInterestingVisitante)) {
+             bgStyle = 'background: rgba(147, 51, 234, 0.08);'; borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.8);'; clashIcon = '<span title="Duelo Interesante">👁️</span>';
+          } else if (m.isInterestingLocal || m.isInterestingVisitante) {
+             bgStyle = 'background: rgba(147, 51, 234, 0.04);'; borderLeft = 'border-left: 4px solid rgba(147, 51, 234, 0.6);';
           }
-
-          const formatTeamName = (str) => {
+const formatTeamName = (str) => {
             if (!str) return '';
             return str;
           };
@@ -25570,14 +25474,12 @@
                       </td>
                     </tr>
                   `;
-        }).join('')}
+        }).join('');
+        html += `
               </tbody>
             </table>
           </div>
-        </div>
       `;
-      }).join('');
-
       container.innerHTML = html;
       bindCarteleraMatchEvents(container, allMatches);
       if (window.lucide) window.lucide.createIcons();
@@ -26547,7 +26449,7 @@
           return name.includes(q);
         });
       } else {
-        filteredClubs = allClubs.filter(c => c.esPrioritario === true);
+        filteredClubs = allClubs.filter(c => c.prioridadNivel || c.esPrioritario === true);
       }
 
       if (filteredClubs.length === 0) {
@@ -26596,13 +26498,13 @@
       });
 
       sortedFederations.forEach(fed => {
-        const fedId = 'fed-' + Math.random().toString(36).substr(2, 9);
+        const fedId = 'fed-' + fed.replace(/[^a-zA-Z0-9]/g, '');
         const clubs = groupedClubs[fed];
         
         const displayStyle = isSearching ? 'block' : 'none';
         const rotateStyle = isSearching ? 'rotate(180deg)' : 'rotate(0deg)';
 
-        html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden;">`;
+        html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden; flex-shrink: 0;">`;
         html += `<div onclick="const content = document.getElementById('${fedId}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
           <div>${escapeHtml(fed)} <span style="font-size: 12px; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(${clubs.length} clubes)</span></div>
           <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: ${rotateStyle};"></i>
@@ -26610,10 +26512,34 @@
         html += `<div id="${fedId}" style="display: ${displayStyle}; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
         html += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
 
+        // Sort clubs by priority A > B > C > None, then name
+        clubs.sort((a, b) => {
+          const getPrioVal = (c) => {
+            const level = c.prioridadNivel || (c.esPrioritario ? 'C' : '');
+            if (level === 'A') return 1;
+            if (level === 'B') return 2;
+            if (level === 'C') return 3;
+            return 4;
+          };
+          const valA = getPrioVal(a);
+          const valB = getPrioVal(b);
+          if (valA !== valB) return valA - valB;
+          const nameA = (a.nombre || a.club || '').toLowerCase();
+          const nameB = (b.nombre || b.club || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+
         clubs.forEach(club => {
-          const isPriority = club.esPrioritario === true;
+          const prioLevel = club.prioridadNivel || (club.esPrioritario ? 'C' : '');
+          const isPriority = !!prioLevel;
           const clubName = escapeHtml(club.nombre || club.club || 'Sin Nombre');
           
+          let starColor = 'var(--text-muted)';
+          let bgColor = 'var(--bg-card)';
+          if (prioLevel === 'A') { starColor = '#10b981'; bgColor = 'rgba(16, 185, 129, 0.08)'; }
+          if (prioLevel === 'B') { starColor = '#eab308'; bgColor = 'rgba(234, 179, 8, 0.08)'; }
+          if (prioLevel === 'C') { starColor = '#3b82f6'; bgColor = 'rgba(59, 130, 246, 0.08)'; }
+
           // Count vistos
           const vistosObj = getInformesVistos(club.nombre || club.club || '', true);
           const vistosBadge = vistosObj.seenTeams > 0 
@@ -26621,17 +26547,19 @@
             : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
           
           html += `
-            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: ${bgColor}; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
               <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
+                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
                 ${clubName}
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 ${vistosBadge}
-                <label class="switch" style="margin: 0;">
-                  <input type="checkbox" class="club-priority-toggle" data-id="${club.id}" ${isPriority ? 'checked' : ''}>
-                  <span class="slider round"></span>
-                </label>
+                <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
+                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                </div>
               </div>
             </div>
           `;
@@ -26644,23 +26572,50 @@
 
       if (window.lucide) window.lucide.createIcons();
 
-      // Attach listener to toggles
-      listContainer.querySelectorAll('.club-priority-toggle').forEach(toggle => {
-        toggle.addEventListener('change', (e) => {
-          const clubId = e.target.dataset.id;
-          const isChecked = e.target.checked;
+      // Attach listener to priority buttons
+      listContainer.querySelectorAll('.club-priority-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const currentBtn = e.currentTarget;
+          const clubId = currentBtn.dataset.id;
+          const level = currentBtn.dataset.level;
           
           const clubIndex = state.directory.clubes.findIndex(c => c.id === clubId);
           if (clubIndex > -1) {
-            state.directory.clubes[clubIndex].esPrioritario = isChecked;
+            state.directory.clubes[clubIndex].prioridadNivel = level;
+            state.directory.clubes[clubIndex].esPrioritario = !!level;
             saveToFirebase('clubes', state.directory.clubes[clubIndex]);
             
-            // Re-render to update the star icon color
-            renderList(searchInput ? searchInput.value : '');
+            // Re-render immediately to sort, preserving accordions
+            const actualListContainer = document.getElementById('gestorClubesPrioritariosList');
+            const scrollTop = actualListContainer ? actualListContainer.scrollTop : 0;
+            const openIds = [];
+            if (actualListContainer) {
+              actualListContainer.querySelectorAll('div[id^="fed-"]').forEach(el => {
+                if (el.style.display === 'block') openIds.push(el.id);
+              });
+            }
             
-            // Refresh cartelera to reflect new priority teams if needed
+            renderList(document.getElementById('gestorClubesPrioritariosSearch')?.value || '');
+            
+            if (actualListContainer) {
+              openIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                  el.style.display = 'block';
+                  const header = el.previousElementSibling;
+                  if (header) {
+                    const icon = header.querySelector('.acc-icon');
+                    if (icon) icon.style.transform = 'rotate(180deg)';
+                  }
+                }
+              });
+              actualListContainer.scrollTop = scrollTop;
+            }
+            
+            // Refresh cartelera to reflect new priority teams debounced
             if (typeof renderCartelera === 'function') {
-               renderCartelera();
+               if (window.carteleraUpdateTimeout) clearTimeout(window.carteleraUpdateTimeout);
+               window.carteleraUpdateTimeout = setTimeout(() => { renderCartelera(); }, 300);
             }
           }
         });
@@ -26706,15 +26661,59 @@
       specificTeamsList.innerHTML = '';
       const q = query.toLowerCase();
 
-      let filteredTeams = [];
       if (q) {
-        filteredTeams = allUniqueTeams.filter(t => t.toLowerCase().includes(q));
-      } else {
-        filteredTeams = [...state.cartelera.priorityTeams].sort((a, b) => a.localeCompare(b));
-      }
+        let filteredTeams = allUniqueTeams.filter(t => t.toLowerCase().includes(q));
+        if (filteredTeams.length === 0) {
+          specificTeamsList.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">No se encontraron equipos en la cartelera actual con ese nombre.</div>`;
+          return;
+        }
+        
+        let html = '';
+        filteredTeams.forEach((team) => {
+          const isPriority = state.cartelera.priorityTeams.includes(team);
+          const prioLevel = isPriority ? ((state.cartelera.priorityTeamsLevels || {})[team] || 'C') : '';
+          
+          let starColor = 'var(--text-muted)';
+          if (prioLevel === 'A') starColor = '#10b981';
+          if (prioLevel === 'B') starColor = '#eab308';
+          if (prioLevel === 'C') starColor = '#3b82f6';
 
-      if (filteredTeams.length === 0) {
-        if (!q) {
+          const vistos = getInformesVistos(team, false);
+          const vistosBadge = vistos.length > 0 
+            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
+            : `<span class="badge-vistos" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: default;">0 vistos</span>`;
+
+          html += `
+            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light); flex-shrink: 0; margin-bottom: 8px;">
+              <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
+                ${escapeHtml(team)}
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${vistosBadge}
+                <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'X' ? 'var(--bg-card)' : 'transparent'}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        specificTeamsList.innerHTML = html;
+      } else {
+        const priorityClubs = (state.directory?.clubes || []).filter(c => c.prioridadNivel || c.esPrioritario).sort((a,b) => {
+          const lA = a.prioridadNivel || (a.esPrioritario ? 'C' : '');
+          const lB = b.prioridadNivel || (b.esPrioritario ? 'C' : '');
+          if (lA !== lB) {
+            const v = {'A': 1, 'B': 2, 'C': 3};
+            return (v[lA] || 4) - (v[lB] || 4);
+          }
+          return (a.nombre || '').localeCompare(b.nombre || '');
+        });
+
+        if (priorityClubs.length === 0) {
           specificTeamsList.innerHTML = `
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; color: var(--text-muted); text-align: center; height: 100%;">
               <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-color);">
@@ -26722,67 +26721,140 @@
               </div>
               <h4 style="margin: 0 0 8px 0; color: var(--text-main); font-weight: 700; font-size: 16px;">Buscar Equipos</h4>
               <p style="margin: 0; font-size: 13px; line-height: 1.5; max-width: 280px;">
-                Escribe el nombre de un equipo para buscarlo en la cartelera y añadirlo a tus equipos específicos.
+                Primero marca Clubes Prioritarios en la otra pestaña para ver aquí el desglose de todos sus equipos, o usa el buscador para añadir equipos sueltos.
               </p>
             </div>
           `;
-        } else {
-          specificTeamsList.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">No se encontraron equipos en la cartelera actual con ese nombre.</div>`;
+          if (window.lucide) window.lucide.createIcons();
+          return;
         }
-        if (window.lucide) window.lucide.createIcons();
-        return;
+
+        let html = '';
+        priorityClubs.forEach(club => {
+          const clubName = escapeHtml(club.nombre || club.club || 'Sin Nombre');
+          const clubNameLower = clubName.toLowerCase();
+          const clubLevel = club.prioridadNivel || (club.esPrioritario ? 'C' : '');
+          
+          let color = 'var(--text-muted)';
+          if (clubLevel === 'A') color = '#10b981';
+          if (clubLevel === 'B') color = '#eab308';
+          if (clubLevel === 'C') color = '#3b82f6';
+
+          const clubTeams = allUniqueTeams.filter(t => {
+            const tl = t.toLowerCase();
+            return tl.includes(clubNameLower) || clubNameLower.includes(tl);
+          });
+          
+          if (clubTeams.length > 0) {
+            const clubId = 'club-teams-' + clubName.replace(/[^a-zA-Z0-9]/g, '');
+            html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden; flex-shrink: 0;">`;
+            html += `<div onclick="const content = document.getElementById('${clubId}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'flex'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 10px 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-light); font-weight: 800; font-size: 13px; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-subtle)'">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="shield" style="width: 14px; color: ${color};"></i> ${clubName} (Nivel ${clubLevel})
+                </div>
+                <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(180deg);"></i>
+              </div>`;
+            html += `<div id="${clubId}" style="display: flex; flex-direction: column; gap: 0;">`;
+            
+            clubTeams.forEach(team => {
+              const explicitLevel = (state.cartelera.priorityTeamsLevels || {})[team];
+              // If team is not explicitly overridden, it inherits club priority
+              const prioLevel = explicitLevel || clubLevel;
+              const isPriority = prioLevel && prioLevel !== 'X';
+              
+              let starColor = 'var(--text-muted)';
+              let bgColor = 'var(--bg-card)';
+              if (prioLevel === 'A') { starColor = '#10b981'; bgColor = 'rgba(16, 185, 129, 0.08)'; }
+              if (prioLevel === 'B') { starColor = '#eab308'; bgColor = 'rgba(234, 179, 8, 0.08)'; }
+              if (prioLevel === 'C') { starColor = '#3b82f6'; bgColor = 'rgba(59, 130, 246, 0.08)'; }
+
+              const vistos = getInformesVistos(team, false);
+              const vistosBadge = vistos.length > 0 
+                ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
+                : `<span class="badge-vistos" style="background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; margin-left: 8px; cursor: default;">0 vistos</span>`;
+
+              html += `
+                <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${bgColor}; border-bottom: 1px solid var(--border-light);">
+                  <div style="font-weight: 600; font-size: 13px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
+                    ${escapeHtml(team)}
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    ${vistosBadge}
+                    <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'X' ? 'var(--bg-card)' : 'transparent'}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            });
+            html += `</div></div>`;
+          }
+        });
+        specificTeamsList.innerHTML = html;
       }
-
-      filteredTeams.forEach((team) => {
-        const isPriority = state.cartelera.priorityTeams.includes(team);
-        
-        // Count vistos
-        const vistos = getInformesVistos(team, false);
-        const vistosBadge = vistos.length > 0 
-          ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
-          : `<span class="badge-vistos" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: default;">0 vistos</span>`;
-
-        const itemHtml = `
-          <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-            <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${isPriority ? '#f59e0b' : 'var(--text-muted)'};"></i>
-              ${escapeHtml(team)}
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              ${vistosBadge}
-              <label class="switch" style="margin: 0;">
-                <input type="checkbox" class="specific-team-priority-toggle" data-team="${escapeHtml(team)}" ${isPriority ? 'checked' : ''}>
-                <span class="slider round"></span>
-              </label>
-            </div>
-          </div>
-        `;
-        specificTeamsList.insertAdjacentHTML('beforeend', itemHtml);
-      });
 
       if (window.lucide) window.lucide.createIcons();
 
-      // Bind toggles
-      specificTeamsList.querySelectorAll('.specific-team-priority-toggle').forEach(toggle => {
-        toggle.addEventListener('change', (e) => {
-          const teamName = e.target.dataset.team;
-          const isChecked = e.target.checked;
+      // Bind buttons
+      specificTeamsList.querySelectorAll('.specific-team-priority-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const teamName = e.currentTarget.dataset.team;
+          const level = e.currentTarget.dataset.level;
           
-          if (isChecked) {
+          if (!state.cartelera.priorityTeamsLevels) {
+             state.cartelera.priorityTeamsLevels = {};
+          }
+
+          if (level === 'X') {
+            state.cartelera.priorityTeamsLevels[teamName] = 'X';
+            const idx = state.cartelera.priorityTeams.indexOf(teamName);
+            if (idx > -1) state.cartelera.priorityTeams.splice(idx, 1);
+          } else if (level) {
+            state.cartelera.priorityTeamsLevels[teamName] = level;
             if (!state.cartelera.priorityTeams.includes(teamName)) {
               state.cartelera.priorityTeams.push(teamName);
             }
           } else {
+            delete state.cartelera.priorityTeamsLevels[teamName];
             const idx = state.cartelera.priorityTeams.indexOf(teamName);
             if (idx > -1) state.cartelera.priorityTeams.splice(idx, 1);
           }
           
           saveSettingsToFirebase(); // save to app_settings
           
-          // Re-render
-          renderSpecificTeamsList(specificSearchInput ? specificSearchInput.value : '');
+          // Re-render immediately to sort, preserving accordions
+          const listContainer = document.getElementById('prioritySpecificTeamsList');
+          const scrollTop = listContainer ? listContainer.scrollTop : 0;
+          const openIds = [];
+          if (listContainer) {
+            listContainer.querySelectorAll('.accordion-content[style*="display: block"]').forEach(el => openIds.push(el.id));
+          }
           
-          if (typeof renderCartelera === 'function') renderCartelera();
+          renderSpecificTeamsList(document.getElementById('searchSpecificTeams')?.value || '');
+          
+          if (listContainer) {
+            openIds.forEach(id => {
+              const el = document.getElementById(id);
+              if (el) {
+                el.style.display = 'block';
+                const header = el.previousElementSibling;
+                if (header) {
+                  const icon = header.querySelector('.acc-icon');
+                  if (icon) icon.style.transform = 'rotate(180deg)';
+                }
+              }
+            });
+            listContainer.scrollTop = scrollTop;
+          }
+
+          if (typeof renderCartelera === 'function') {
+             if (window.carteleraUpdateTimeout) clearTimeout(window.carteleraUpdateTimeout);
+             window.carteleraUpdateTimeout = setTimeout(() => { renderCartelera(); }, 300);
+          }
         });
       });
     }
@@ -30261,14 +30333,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const posCode = defaultPositions[slotIdx] || 'MC';
       let matchingPlayers = slotMap[slotIdx] || [];
 
-      // Ordenar por nivel y después posiciones principales (negro) antes que secundarias (amarillo)
+      // Ordenar primero por posiciones principales (negro) antes que secundarias (amarillo), y después por nivel
       matchingPlayers.sort((a, b) => {
+        if (a.isSecondary !== b.isSecondary) {
+          return a.isSecondary ? 1 : -1;
+        }
         const aLevel = a.player.rendimientoRSAvgNum ? parseFloat(a.player.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[a.player.rendimientoRS] || 0 );
         const bLevel = b.player.rendimientoRSAvgNum ? parseFloat(b.player.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[b.player.rendimientoRS] || 0 );
         if (aLevel !== bLevel) return bLevel - aLevel;
         
-        if (a.isSecondary === b.isSecondary) return 0;
-        return a.isSecondary ? 1 : -1;
+        return 0;
       });
 
       let playersHTML = '';
