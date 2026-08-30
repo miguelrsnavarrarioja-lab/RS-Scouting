@@ -1406,6 +1406,9 @@
     // Segundo bloque: Planificación
 
     let carteleraCount = 0;
+    let priorityCount = 0;
+    const priorityTeamsLower = (state.cartelera?.priorityTeams || []).map(t => String(t).toLowerCase().trim());
+    
     const carteleraToday = new Date();
     const carteleraDay = carteleraToday.getDay() || 7;
     const carteleraMonday = new Date(carteleraToday);
@@ -1422,12 +1425,17 @@
         const matchDate = new Date(p.fecha);
         if (matchDate >= carteleraMonday && matchDate <= carteleraSunday) {
           carteleraCount++;
+          const l = String(p.local || '').toLowerCase().trim();
+          const v = String(p.visitante || '').toLowerCase().trim();
+          if (priorityTeamsLower.includes(l) || priorityTeamsLower.includes(v)) {
+            priorityCount++;
+          }
         }
       });
     });
 
     const elTotalCartelera = document.getElementById('kpiTotalCartelera');
-    if (elTotalCartelera) elTotalCartelera.textContent = carteleraCount;
+    if (elTotalCartelera) elTotalCartelera.textContent = `${priorityCount}/${carteleraCount}`;
 
     if (elPendingTasks) elPendingTasks.textContent = pendingTasks.length;
     if (elHighPriorityTasks) elHighPriorityTasks.textContent = `${highPriorityTasks} pendientes`;
@@ -1822,9 +1830,14 @@
   window.openPlayersSubcategoryModal = function (groupName, year, playersJson) {
     const players = JSON.parse(decodeURIComponent(playersJson));
     players.sort((a, b) => {
+      const rsA = (a.rendimientoRS && a.rendimientoRS !== '-') ? a.rendimientoRS : 'Z';
+      const rsB = (b.rendimientoRS && b.rendimientoRS !== '-') ? b.rendimientoRS : 'Z';
+      if (rsA !== rsB) return rsA.localeCompare(rsB);
+
       const vA = a.vistos || 1;
       const vB = b.vistos || 1;
       if (vA !== vB) return vB - vA;
+
       return (a.nombre || '').localeCompare(b.nombre || '');
     });
 
@@ -30352,12 +30365,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
 
     // Trigger navigation
-    const compTab = document.querySelector('.nav-tab[data-tab="comparativa"]');
+    const compTab = document.querySelector('.planificacion-tab.sub-nav-btn[data-subtab="comparativa"]');
     if (compTab) compTab.click();
 
     // Ensure the multiple tab is active in the Comparador
     setTimeout(() => {
-      const multiBtn = document.querySelector('.nav-tab[data-comptab="multiple"]');
+      const multiBtn = document.querySelector('.comp-mode-tab[data-mode="multiple"]');
       if (multiBtn) multiBtn.click();
     }, 50);
   };

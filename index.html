@@ -1545,6 +1545,9 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
             <input type="text" id="carteleraSearchInput" placeholder="🔍 Buscador rápido por equipo, estadio, jornada o competición...">
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button class="btn btn-sm" id="btnInfoClubes" title="Ver información de clubes" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); color: #059669; background: rgba(16, 185, 129, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('modalInfoClubes').classList.remove('hidden'); if(window.lucide) lucide.createIcons();">
+              <i data-lucide="info" style="width: 14px; height: 14px;"></i> Info Clubes
+            </button>
             <button class="btn btn-sm" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
               <i data-lucide="file-input" style="width: 14px; height: 14px;"></i> Importar
             </button>
@@ -1937,6 +1940,65 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
 
   <!-- Firebase SDKs (v10 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <!-- Modal Info Clubes -->
+  <div class="modal-overlay hidden" id="modalInfoClubes" style="z-index: 30000;">
+    <div class="modal-card xlarge" style="max-width: 600px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+      <div class="modal-header banner-blue">
+        <h3><i data-lucide="info"></i> Información Clubes</h3>
+        <button type="button" class="modal-close" onclick="document.getElementById('modalInfoClubes').classList.add('hidden')">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 24px; overflow-y: auto; max-height: 80vh;">
+        <table class="info-clubes-table">
+          <thead>
+            <tr>
+              <th>VALORACIÓN CLUBES</th>
+              <th>LISTADO CLUBES</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="val-a" rowspan="10">A</td>
+              <td class="val-a-row">CA OSASUNA</td>
+            </tr>
+            <tr><td class="val-a-row">UDC TXANTREA</td></tr>
+            <tr><td class="val-a-row">CD OBERENA</td></tr>
+            <tr><td class="val-a-row">UD MUTILVERA</td></tr>
+            <tr><td class="val-a-row">CD ARDOI</td></tr>
+            <tr><td class="val-a-row">CF GAZTE BERRIAK</td></tr>
+            <tr><td class="val-a-row">AD SAN JUAN</td></tr>
+            <tr><td class="val-a-row">UD VALLE ARANGUREN</td></tr>
+            <tr><td class="val-a-row">CD LOURDES</td></tr>
+            <tr><td class="val-a-row">CD PAMPLONA</td></tr>
+            
+            <tr>
+              <td class="val-b" rowspan="8">B</td>
+              <td class="val-b-row">CD TUDELANO</td>
+            </tr>
+            <tr><td class="val-b-row">PEÑA SPORT FC</td></tr>
+            <tr><td class="val-b-row">CD IZARRA</td></tr>
+            <tr><td class="val-b-row">SD LAGUNAK</td></tr>
+            <tr><td class="val-b-row">CD HUARTE</td></tr>
+            <tr><td class="val-b-row">UCD BURLADES</td></tr>
+            <tr><td class="val-b-row">CD BAZTAN</td></tr>
+            <tr><td class="val-b-row">BETI GAZTE KJKE</td></tr>
+
+            <tr>
+              <td class="val-c" rowspan="6">C</td>
+              <td class="val-c-row">ROTXAPEA CD</td>
+            </tr>
+            <tr><td class="val-c-row">CD AMIGO</td></tr>
+            <tr><td class="val-c-row">JD SAN JORGE</td></tr>
+            <tr><td class="val-c-row">CD KIROL SPORT</td></tr>
+            <tr><td class="val-c-row">CD VALLE EGÜES</td></tr>
+            <tr><td class="val-c-row">CA CIRBONERO</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <!-- App Script -->

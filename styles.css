@@ -5263,3 +5263,53 @@ body.dark-theme .notif-item.unread {
   width: 14px;
   height: 14px;
 }
+
+/* Table Info Clubes */
+.info-clubes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-main);
+  font-size: 14px;
+}
+
+.info-clubes-table th {
+  background-color: #87CEEB; /* light blue */
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #000;
+}
+
+.info-clubes-table td {
+  border: 1px solid #000;
+  padding: 8px;
+  color: #000;
+}
+
+.info-clubes-table .val-a {
+  background-color: #4CAF50; /* green */
+  text-align: center;
+  font-weight: bold;
+}
+.info-clubes-table .val-a-row {
+  background-color: #81C784; /* lighter green */
+}
+
+.info-clubes-table .val-b {
+  background-color: #FFEB3B; /* yellow */
+  text-align: center;
+  font-weight: bold;
+}
+.info-clubes-table .val-b-row {
+  background-color: #FFF59D; /* lighter yellow */
+}
+
+.info-clubes-table .val-c {
+  background-color: #FFA726; /* orange */
+  text-align: center;
+  font-weight: bold;
+}
+.info-clubes-table .val-c-row {
+  background-color: #FFCC80; /* lighter orange */
+}
