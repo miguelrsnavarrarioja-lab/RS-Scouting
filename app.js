@@ -5452,8 +5452,11 @@
       };
 
       (state.directory.jugadores || []).forEach(p => {
-        const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase();
-        let matches = pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam);
+        const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
+        let matches = false;
+        if (pTeam) {
+          matches = pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam);
+        }
         const pName = (p.nombre || p.jugador || p.name || '');
         if (!matches && teamObj.plantilla) {
           matches = teamObj.plantilla.some(item => {
@@ -7673,6 +7676,25 @@
 
     // Find Selección info for Shield and Link
     let seleccionName = player.seleccion;
+    
+    if (!seleccionName && state.directory.convocatorias) {
+      const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+      const pId = String(player.id || player.codigo);
+      
+      const convInvolucrada = state.directory.convocatorias.find(c => {
+        if (!c.jugadores || !Array.isArray(c.jugadores)) return false;
+        return c.jugadores.some(pj => {
+           const pjName = typeof pj === 'string' ? pj : (pj.nombre || pj.jugador || pj.name || '');
+           if (pj && typeof pj !== 'string' && pj.id && String(pj.id) === pId) return true;
+           if (pjName && pjName.toLowerCase().trim() === pNameLower) return true;
+           return false;
+        });
+      });
+      if (convInvolucrada) {
+        seleccionName = convInvolucrada.seleccionVinculada || convInvolucrada.seleccion || '';
+      }
+    }
+
     let seleccionObj = null;
     let seleccionShieldHTML = '<i data-lucide="flag" style="width:14px;height:14px;vertical-align:middle;"></i>';
     let seleccionLinkClass = '';
@@ -7968,7 +7990,7 @@
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
                   ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
-                  ${player.seleccion ? ` &nbsp;|&nbsp; ${seleccionShieldHTML} <span class="${seleccionLinkClass}" data-selid="${seleccionObj ? seleccionObj.id : ''}">${seleccionNameDisplay}</span>` : ''}
+                  ${seleccionName ? ` &nbsp;|&nbsp; ${seleccionShieldHTML} <span class="${seleccionLinkClass}" data-selid="${seleccionObj ? seleccionObj.id : ''}">${seleccionNameDisplay}</span>` : ''}
                   ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--text-main);">${escapeHtml(player.dorsal)}</strong>` : ''}
                 </div>
               </div>
@@ -13535,9 +13557,11 @@
       activePlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
         const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
+        const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(${escapeHtml(pTeam)})</span>` : '';
         const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed var(--border-light); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-blue)';" onmouseout="this.style.color='inherit';">${pName}</a>` : pName;
 
-        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;"><i data-lucide="user" style="width: 14px; height: 14px; color: var(--primary-blue);"></i> ${linkHtml}</div>`;
+        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;"><i data-lucide="user" style="width: 14px; height: 14px; color: var(--primary-blue);"></i> <span>${linkHtml}${teamHtml}</span></div>`;
       });
       listHtml += '</div>';
 
@@ -13549,9 +13573,11 @@
       bajaPlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
         const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
+        const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: inherit; opacity: 0.7;">(${escapeHtml(pTeam)})</span>` : '';
         const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #ef4444;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
 
-        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #ef4444; opacity: 0.8; text-decoration: line-through; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-minus" style="width: 14px; height: 14px;"></i> ${linkHtml}</div>`;
+        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #ef4444; opacity: 0.8; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-minus" style="width: 14px; height: 14px;"></i> <span style="text-decoration: line-through;">${linkHtml}</span>${teamHtml}</div>`;
         if (p.motivo) {
           listHtml += `<div style="font-size: 11px; color: #ef4444; margin-left: 20px; margin-top: -4px; margin-bottom: 4px; opacity: 0.7;">Motivo: ${escapeHtml(p.motivo)}</div>`;
         }
@@ -13563,9 +13589,11 @@
       altaPlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
         const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
+        const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: inherit; opacity: 0.7;">(${escapeHtml(pTeam)})</span>` : '';
         const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #22c55e;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
 
-        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #22c55e; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> ${linkHtml}</div>`;
+        listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #22c55e; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> <span>${linkHtml}${teamHtml}</span></div>`;
         if (p.motivo) {
           listHtml += `<div style="font-size: 11px; color: #22c55e; margin-left: 20px; margin-top: -4px; margin-bottom: 4px; opacity: 0.7;">Motivo: ${escapeHtml(p.motivo)}</div>`;
         }
@@ -20409,7 +20437,7 @@
         const datalistEl = document.getElementById('dirTeamFilterDatalist');
         if (datalistEl && state.directory && state.directory.jugadores) {
           const uniqueTeams = [...new Set(state.directory.jugadores.map(j => (j.equipo || j.equipoVinculado || '').trim()).filter(t => t))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-          datalistEl.innerHTML = uniqueTeams.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+          datalistEl.innerHTML = `<option value="Sin equipo"></option>` + uniqueTeams.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
         }
       }
       if (cargoContainer) cargoContainer.style.display = 'none';
@@ -20539,7 +20567,11 @@
         }
         if (filterTeamVal) {
           const itemTeam = String(item.equipo || item.equipoVinculado || '').toLowerCase().trim();
-          if (!itemTeam.includes(filterTeamVal)) return false;
+          if (filterTeamVal === 'sin equipo' || filterTeamVal === 'sin asignar' || filterTeamVal === 'vacio' || filterTeamVal === 'vacío') {
+            if (itemTeam !== '') return false;
+          } else {
+            if (!itemTeam.includes(filterTeamVal)) return false;
+          }
         }
       }
 
@@ -20907,7 +20939,9 @@
                     <td style="padding: 10px 16px;">
                       <input type="text" class="inline-edit-year" data-id="${j.id}" value="${escapeHtml(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.equipo || '-')}</td>
+                    <td style="padding: 10px 16px;">
+                      <input type="text" class="inline-edit-team" data-id="${j.id}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeHtml(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                    </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
@@ -20935,6 +20969,35 @@
               saveState();
               saveToFirebase('jugadores', player);
               if (typeof showToast === 'function') showToast(`Año actualizado a ${newYear || 'vacío'}`);
+              
+              const isTeamFiltered = document.getElementById('dirTeamFilterInput')?.value.trim();
+              const isYearFiltered = document.getElementById('dirYearFilterInput')?.value.trim();
+              if (isTeamFiltered || isYearFiltered) {
+                renderDirectorio();
+              }
+            }
+          });
+        });
+
+        container.querySelectorAll('.inline-edit-team').forEach(input => {
+          input.addEventListener('change', (e) => {
+            const playerId = e.target.dataset.id;
+            const newTeam = e.target.value.trim();
+            const player = (state.directory.jugadores || []).find(p => String(p.id) === String(playerId) || (p.codigo && String(p.codigo) === String(playerId)));
+            if (player) {
+              player.equipo = newTeam;
+              player.equipoVinculado = newTeam;
+              player.equipoPrincipal = newTeam;
+              player.club = newTeam ? (newTeam.split(' ')[0] || newTeam) : '';
+              saveState();
+              saveToFirebase('jugadores', player);
+              if (typeof showToast === 'function') showToast(`Equipo actualizado a ${newTeam || 'Sin equipo'}`);
+              
+              const isTeamFiltered = document.getElementById('dirTeamFilterInput')?.value.trim();
+              const isYearFiltered = document.getElementById('dirYearFilterInput')?.value.trim();
+              if (isTeamFiltered || isYearFiltered) {
+                renderDirectorio();
+              }
             }
           });
         });

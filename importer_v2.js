@@ -560,6 +560,7 @@ window.showEquipoSuggestions = function(input, rowIndex) {
 
 window.selectEquipoSuggestion = function(rowIndex, equipoName) {
     stagedExcelRows[rowIndex].equipo = equipoName;
+    stagedExcelRows[rowIndex]._checked = true;
     renderExcelTable();
 }
 
@@ -568,8 +569,14 @@ window.updateRowField = function(index, field, value) {
         value = value.toLowerCase().replace(/(?:^|\s|\-)\S/g, char => char.toUpperCase()).trim();
     }
     stagedExcelRows[index][field] = value;
+    stagedExcelRows[index]._checked = true;
     if (['clubVinculado', 'categoria', 'temporada'].includes(field)) {
         updateOfficialName(index);
+    }
+    const tbody = document.getElementById('excelTableBody');
+    if (tbody && tbody.children[index]) {
+        const checkbox = tbody.children[index].querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = true;
     }
 }
 
@@ -693,6 +700,7 @@ function saveExcelToDirectory() {
                 cargo: isStaff ? r.rol : '',
                 equipo: r.equipo || '',
                 equipoPrincipal: r.equipo || '',
+                equipoVinculado: r.equipo || '',
                 club: r.equipo ? (r.equipo.split(' ')[0] || r.equipo) : '',
                 ano: r.ano || '',
                 anoNac: r.ano || '',
