@@ -1181,6 +1181,8 @@
     const elDirect = document.getElementById('kpiDirectMatchesCount');
     const elTotalDirecto = document.getElementById('kpiTotalDirecto');
     const elTotalVideo = document.getElementById('kpiTotalVideo');
+    const elTotalRS = document.getElementById('kpiTotalRS');
+    const elTotalMS = document.getElementById('kpiTotalMS');
     const elTotalPlayers = document.getElementById('kpiTotalPlayers');
     const elPendingTasks = document.getElementById('kpiPendingTasks');
     const elHighPriorityTasks = document.getElementById('kpiHighPriorityTasks');
@@ -1284,9 +1286,13 @@
 
     const totalDirecto = reports.filter(r => r.completado && (!r.visionado || r.visionado === 'DIRECTO' || r.visionado === 'En vivo')).length;
     const totalVideo = reports.filter(r => r.completado && (r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo')).length;
+    const totalRS = reports.filter(r => r.completado && (r.tipoInforme !== 'MS (Personal)')).length;
+    const totalMS = reports.filter(r => r.completado && (r.tipoInforme === 'MS (Personal)')).length;
 
     if (elTotalDirecto) elTotalDirecto.textContent = totalDirecto;
     if (elTotalVideo) elTotalVideo.textContent = totalVideo;
+    if (elTotalRS) elTotalRS.textContent = totalRS;
+    if (elTotalMS) elTotalMS.textContent = totalMS;
 
     // --- Partidos Vistos (Informes) Breakdown ---
     const elPartidosVistos = document.getElementById('kpiPartidosVistos');
@@ -3121,6 +3127,7 @@
   let currentPartidosStatusTab = 'incompleto';
   let currentPartidosVisionadoTab = 'all';
   let currentPartidosIncidenciaTab = 'all';
+  let currentPartidosTipoInformeTab = 'all';
 
   function renderMatchCategorySubtabs() {
     const container = document.getElementById('matchCategorySubtabsBar');
@@ -3134,12 +3141,14 @@
     const dayMap = {};
     const daySortMap = {};
     const visionadoMap = { 'DIRECTO': 0, 'VÍDEO': 0 };
+    const tipoInformeMap = { 'RS (Trabajo)': 0, 'MS (Personal)': 0 };
     const incidenciaMap = {
       '': 0,
       'Falta acta en Federación': 0,
       'Equipo no creado en app': 0,
       'Falta vídeo del partido': 0,
-      'Suspendido / Aplazado': 0,
+      'Suspendido': 0,
+      'Aplazado': 0,
       'Otra incidencia': 0
     };
 
@@ -3155,6 +3164,9 @@
 
       const vis = r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo' ? 'VÍDEO' : 'DIRECTO';
       visionadoMap[vis] = (visionadoMap[vis] || 0) + 1;
+
+      const tipoInf = r.tipoInforme === 'MS (Personal)' ? 'MS (Personal)' : 'RS (Trabajo)';
+      tipoInformeMap[tipoInf] = (tipoInformeMap[tipoInf] || 0) + 1;
 
       const val = r.incidencia || '';
       incidenciaMap[val] = (incidenciaMap[val] || 0) + 1;
@@ -3221,21 +3233,19 @@
     });
 
     let html = `
-        <div style="display: flex; gap: 12px; flex-wrap: nowrap; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="file-check-2" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Estado:</span>
-            <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+        <div style="display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="file-check-2" style="width: 14px; color: var(--text-muted);" title="Estado"></i>
+            <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosStatusTab === 'all' ? 'selected' : ''}>TODOS (${reports.length})</option>
-              <option value="incompleto" ${currentPartidosStatusTab === 'incompleto' ? 'selected' : ''}>SIN COMPLETAR (${countIncompleto})</option>
-              <option value="completado" ${currentPartidosStatusTab === 'completado' ? 'selected' : ''}>COMPLETADOS (${countCompletado})</option>
+              <option value="incompleto" ${currentPartidosStatusTab === 'incompleto' ? 'selected' : ''}>PENDIENTES (${countIncompleto})</option>
+              <option value="completado" ${currentPartidosStatusTab === 'completado' ? 'selected' : ''}>HECHOS (${countCompletado})</option>
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="trophy" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Competición:</span>
-            <select id="partidosCatSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="trophy" style="width: 14px; color: var(--text-muted);" title="Competición"></i>
+            <select id="partidosCatSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
               ${categories.map(cat => {
       const count = catMap[cat];
@@ -3244,10 +3254,9 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Mes:</span>
-            <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);" title="Mes"></i>
+            <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosMonthTab === 'all' ? 'selected' : ''}>TODOS</option>
               ${months.map(monthKey => {
       const count = monthMap[monthKey];
@@ -3258,10 +3267,9 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="calendar-days" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Semana:</span>
-            <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="calendar-days" style="width: 14px; color: var(--text-muted);" title="Semana"></i>
+            <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
               ${weeks.map(weekKey => {
       const count = weekMap[weekKey];
@@ -3270,10 +3278,9 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="clock" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Día:</span>
-            <select id="partidosDaySelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="clock" style="width: 14px; color: var(--text-muted);" title="Día"></i>
+            <select id="partidosDaySelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
               ${days.map(dayKey => {
       const count = dayMap[dayKey];
@@ -3282,27 +3289,35 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="tv" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Visionado:</span>
-            <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="tv" style="width: 14px; color: var(--text-muted);" title="Visionado"></i>
+            <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosVisionadoTab === 'all' ? 'selected' : ''}>TODOS</option>
               <option value="DIRECTO" ${currentPartidosVisionadoTab === 'DIRECTO' ? 'selected' : ''}>DIRECTO (${visionadoMap['DIRECTO']})</option>
               <option value="VÍDEO" ${currentPartidosVisionadoTab === 'VÍDEO' ? 'selected' : ''}>VÍDEO (${visionadoMap['VÍDEO']})</option>
             </select>
           </div>
+
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="briefcase" style="width: 14px; color: var(--text-muted);" title="Tipo de Informe"></i>
+            <select id="partidosTipoInformeSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+              <option value="all" ${currentPartidosTipoInformeTab === 'all' ? 'selected' : ''}>TODOS</option>
+              <option value="RS (Trabajo)" ${currentPartidosTipoInformeTab === 'RS (Trabajo)' ? 'selected' : ''}>RS (${tipoInformeMap['RS (Trabajo)']})</option>
+              <option value="MS (Personal)" ${currentPartidosTipoInformeTab === 'MS (Personal)' ? 'selected' : ''}>MS (${tipoInformeMap['MS (Personal)']})</option>
+            </select>
+          </div>
           
-          <div style="display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-            <i data-lucide="alert-triangle" style="width: 14px; color: var(--text-muted);"></i>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Incidencias:</span>
-            <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+            <i data-lucide="alert-triangle" style="width: 14px; color: var(--text-muted);" title="Incidencias"></i>
+            <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosIncidenciaTab === 'all' ? 'selected' : ''}>TODAS</option>
               <option value="" ${currentPartidosIncidenciaTab === '' ? 'selected' : ''}>Sin Incidencias (${incidenciaMap[''] || 0})</option>
-              <option value="Falta acta en Federación" ${currentPartidosIncidenciaTab === 'Falta acta en Federación' ? 'selected' : ''}>Falta acta en Fed. (${incidenciaMap['Falta acta en Federación'] || 0})</option>
-              <option value="Equipo no creado en app" ${currentPartidosIncidenciaTab === 'Equipo no creado en app' ? 'selected' : ''}>Equipo no creado (${incidenciaMap['Equipo no creado en app'] || 0})</option>
-              <option value="Falta vídeo del partido" ${currentPartidosIncidenciaTab === 'Falta vídeo del partido' ? 'selected' : ''}>Falta vídeo (${incidenciaMap['Falta vídeo del partido'] || 0})</option>
-              <option value="Suspendido / Aplazado" ${currentPartidosIncidenciaTab === 'Suspendido / Aplazado' ? 'selected' : ''}>Suspendido / Aplazado (${incidenciaMap['Suspendido / Aplazado'] || 0})</option>
-              <option value="Otra incidencia" ${currentPartidosIncidenciaTab === 'Otra incidencia' ? 'selected' : ''}>Otra incidencia (${incidenciaMap['Otra incidencia'] || 0})</option>
+              <option value="Falta acta en Federación" ${currentPartidosIncidenciaTab === 'Falta acta en Federación' ? 'selected' : ''}>Falta acta (${incidenciaMap['Falta acta en Federación'] || 0})</option>
+              <option value="Equipo no creado en app" ${currentPartidosIncidenciaTab === 'Equipo no creado en app' ? 'selected' : ''}>Sin equipo (${incidenciaMap['Equipo no creado en app'] || 0})</option>
+              <option value="Falta vídeo del partido" ${currentPartidosIncidenciaTab === 'Falta vídeo del partido' ? 'selected' : ''}>Sin vídeo (${incidenciaMap['Falta vídeo del partido'] || 0})</option>
+              <option value="Suspendido" ${currentPartidosIncidenciaTab === 'Suspendido' ? 'selected' : ''}>Suspendido (${incidenciaMap['Suspendido'] || 0})</option>
+              <option value="Aplazado" ${currentPartidosIncidenciaTab === 'Aplazado' ? 'selected' : ''}>Aplazado (${incidenciaMap['Aplazado'] || 0})</option>
+              <option value="Otra incidencia" ${currentPartidosIncidenciaTab === 'Otra incidencia' ? 'selected' : ''}>Otras (${incidenciaMap['Otra incidencia'] || 0})</option>
             </select>
           </div>
         </div>
@@ -3337,6 +3352,11 @@
 
     document.getElementById('partidosVisionadoSelect')?.addEventListener('change', (e) => {
       currentPartidosVisionadoTab = e.target.value;
+      renderPartidosList();
+    });
+
+    document.getElementById('partidosTipoInformeSelect')?.addEventListener('change', (e) => {
+      currentPartidosTipoInformeTab = e.target.value;
       renderPartidosList();
     });
 
@@ -3418,13 +3438,19 @@
         matchesVisionado = (vis === currentPartidosVisionadoTab);
       }
 
+      let matchesTipoInforme = true;
+      if (currentPartidosTipoInformeTab !== 'all') {
+        const tipoInf = r.tipoInforme === 'MS (Personal)' ? 'MS (Personal)' : 'RS (Trabajo)';
+        matchesTipoInforme = (tipoInf === currentPartidosTipoInformeTab);
+      }
+
       let matchesIncidencia = true;
       if (currentPartidosIncidenciaTab !== 'all') {
         const val = r.incidencia || '';
         matchesIncidencia = (val === currentPartidosIncidenciaTab);
       }
 
-      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus && matchesVisionado && matchesIncidencia;
+      return matchesCat && matchesMonth && matchesWeek && matchesDay && matchesSearch && matchesStatus && matchesVisionado && matchesTipoInforme && matchesIncidencia;
     });
 
     // Ordenar los informes según estado (Incompletos primero, luego Completados) y luego por fecha más reciente
@@ -3597,6 +3623,7 @@
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
                 ${r.visionado ? `<span class="match-category-tag" style="background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-light);">${escapeHtml(r.visionado)}</span>` : ''}
+                <span class="match-category-tag" style="background: ${r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(99, 102, 241, 0.1)'}; color: ${r.tipoInforme === 'MS (Personal)' ? '#0d9488' : '#4f46e5'}; border: 1px solid ${r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(99, 102, 241, 0.2)'}; font-weight: 800;">${r.tipoInforme === 'MS (Personal)' ? 'MS' : 'RS'}</span>
               </div>
 
               <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
@@ -3648,7 +3675,8 @@
                   <option value="Falta acta en Federación" ${r.incidencia === 'Falta acta en Federación' ? 'selected' : ''}>⚠️ Falta acta en Federación</option>
                   <option value="Equipo no creado en app" ${r.incidencia === 'Equipo no creado en app' ? 'selected' : ''}>⚠️ Equipo no creado en app de la RS</option>
                   <option value="Falta vídeo del partido" ${r.incidencia === 'Falta vídeo del partido' ? 'selected' : ''}>⚠️ Falta vídeo del partido</option>
-                  <option value="Suspendido / Aplazado" ${r.incidencia === 'Suspendido / Aplazado' ? 'selected' : ''}>⚠️ Partido Suspendido / Aplazado</option>
+                  <option value="Suspendido" ${r.incidencia === 'Suspendido' ? 'selected' : ''}>⚠️ Partido Suspendido</option>
+                  <option value="Aplazado" ${r.incidencia === 'Aplazado' ? 'selected' : ''}>⚠️ Partido Aplazado</option>
                   <option value="Otra incidencia" ${r.incidencia === 'Otra incidencia' ? 'selected' : ''}>⚠️ Otra incidencia (Revisar)</option>
                 </select>
               </div>
@@ -3967,6 +3995,7 @@
     }
     document.getElementById('reportLocalScore').dataset.autoGoals = initLocalAuto;
     document.getElementById('reportVisitanteScore').dataset.autoGoals = initVisitanteAuto;
+    document.getElementById('reportTipoInforme').value = repData.tipoInforme || 'RS (Trabajo)';
     document.getElementById('reportDate').value = repData.date || '';
     document.getElementById('reportTime').value = repData.time || '17:00';
     document.getElementById('reportEstadio').value = repData.estadio || '';
@@ -5096,10 +5125,24 @@
 
         let matchesTeam = false;
         if (pTeams.length > 0) {
+          const normalizeStrictTeam = (name) => {
+            if (!name) return '';
+            let n = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '');
+            const prefixes = /\b(ca|cd|sd|ud|cf|fc|rc|ad|cp|at|udc|ucd|atletico|atlético|club atletico|club deportivo|sociedad deportiva|union deportiva|club de futbol|futbol club|club)\b/g;
+            n = n.replace(prefixes, ' ');
+            n = n.replace(/\b\d{2,4}\/\d{2,4}\b/g, ' ');
+            return n.trim().replace(/\s+/g, ' ');
+          };
+
           matchesTeam = pTeams.some(t => {
-            const normT = t.replace(/[\.,]/g, '');
-            const normTeam = teamName.replace(/[\.,]/g, '');
-            return normT === normTeam;
+            const normTExact = t.toLowerCase().replace(/[\.,]/g, '').trim();
+            const normTeamExact = teamName.toLowerCase().replace(/[\.,]/g, '').trim();
+            if (normTExact === normTeamExact) return true;
+
+            const normT = normalizeStrictTeam(t);
+            const normTeam = normalizeStrictTeam(teamName);
+
+            return normT === normTeam && normT.length > 0;
           });
         }
 
@@ -7060,6 +7103,7 @@
         visitanteTeam: visitanteTeam,
         localScore: parseInt(document.getElementById('reportLocalScore')?.value) || 0,
         visitanteScore: parseInt(document.getElementById('reportVisitanteScore')?.value) || 0,
+        tipoInforme: document.getElementById('reportTipoInforme')?.value || 'RS (Trabajo)',
         date: document.getElementById('reportDate')?.value || new Date().toISOString().slice(0, 10),
         time: document.getElementById('reportTime')?.value || '20:00',
         estadio: document.getElementById('reportEstadio')?.value || '',
@@ -31120,6 +31164,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     // Close Custom Dropdowns on outside click
     if (!e.target.closest('.custom-dropdown-wrapper')) {
       document.querySelectorAll('.custom-dropdown-menu:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    }
+
+    // Close lineupAutocompleteDropdown on outside click
+    if (!e.target.closest('#lineupAutocompleteDropdown') && !e.target.closest('.lineup-row input.name')) {
+      const lineupDropdown = document.getElementById('lineupAutocompleteDropdown');
+      if (lineupDropdown) lineupDropdown.style.display = 'none';
     }
 
     const input = e.target;

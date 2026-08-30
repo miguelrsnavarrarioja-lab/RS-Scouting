@@ -5317,3 +5317,6 @@ body.dark-theme .notif-item.unread {
 .info-clubes-table .val-c-row {
   background-color: #FFCC80; /* lighter orange */
 }
+
+.dir-subfilter-container::-webkit-scrollbar { display: none; }
+.dir-subfilter-container { -ms-overflow-style: none; scrollbar-width: none; }
