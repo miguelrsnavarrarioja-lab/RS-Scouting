@@ -6067,7 +6067,7 @@
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
       regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
       duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
-      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
+      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0, penaltiParado: 0
     };
 
     let sumRend = 0, countRend = 0;
@@ -6186,7 +6186,7 @@
           goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
           regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
           duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
-          golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
+          golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0, penaltiParado: 0
         }
       };
     }
@@ -6217,7 +6217,7 @@
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
       regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
       duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
-      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0
+      golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0, penaltiParado: 0
     }, pEval.stats || {});
 
     const STAT_FIELDS = [
@@ -6239,7 +6239,8 @@
       { key: 'duelosGanados', label: 'Duelos Ganados', icon: '⚔️' },
       { key: 'duelosPerdidos', label: 'Duelos Perdidos', icon: '❌' },
       { key: 'aereoGanado', label: 'Aéreo Ganado', icon: '✈️' },
-      { key: 'aereoPerdido', label: 'Aéreo Perdido', icon: '💥' }
+      { key: 'aereoPerdido', label: 'Aéreo Perdido', icon: '💥' },
+      { key: 'penaltiParado', label: 'Penalti Parado', icon: '🧤' }
     ];
 
     const modalHTML = `
