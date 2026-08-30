@@ -7982,14 +7982,7 @@
             </div>
           </div>
 
-          <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" id="btnAtributosCard" class="ficha-stat-box" style="background: var(--bg-subtle); border: 2px solid var(--primary-blue); padding: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
-              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900; margin-bottom: 4px;">ATRIBUTOS</div>
-              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                <img src="${miniChartImgSrc}" style="width: 50px; height: 50px; object-fit: contain;">
-                <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800;">VER / EDITAR <i data-lucide="edit-3" style="width:10px;height:10px;vertical-align:middle;"></i></div>
-              </div>
-            </div>
+          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;">
             <div class="ficha-stat-box" style="padding: 16px;">
               <div class="ficha-stat-label">AÑO NAC.</div>
               <div class="ficha-stat-value">${escapeHtml(player.ano || player.anoNac || '-')}</div>
@@ -8006,32 +7999,43 @@
               <div class="ficha-stat-label">LATERALIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(player.pierna || '-')}</div>
             </div>
-            <div class="ficha-stat-box" id="btnVerInformesEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; border: 2px solid var(--primary-blue); background: var(--bg-subtle);" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
-              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">PARTIDOS VISTOS</div>
+          </div>
+          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
+              <div class="ficha-stat-label">EN MAPAS RS</div>
+              <div class="ficha-stat-value">${inMapas}</div>
+            </div>
+            <div class="ficha-stat-box" style="padding: 16px;">
+              <div class="ficha-stat-label">POTENCIAL</div>
+              <div class="ficha-stat-value">${escapeHtml(player.potencial || '-')}</div>
+            </div>
+            <div class="ficha-stat-box" style="padding: 16px;">
+              <div class="ficha-stat-label">PROYECCIÓN</div>
+              <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
+            </div>
+          </div>
+          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" id="btnAtributosCard" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
+              <div class="ficha-stat-label">ATRIBUTOS</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <img src="${miniChartImgSrc}" style="width: 50px; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER / EDITAR <i data-lucide="edit-3" style="width:10px;height:10px;vertical-align:middle;"></i></div>
+              </div>
+            </div>
+            <div class="ficha-stat-box" id="btnVerInformesEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
+              <div class="ficha-stat-label">PARTIDOS VISTOS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 ${partidosVistosCount}
                 ${partidosNoJuegaCount > 0 ? `<span style="font-size: 11px; color: #ef4444; font-weight: 700; margin-top: 4px;">(+${partidosNoJuegaCount} no juega)</span>` : ''}
                 <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER INFORMES <i data-lucide="file-text" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
             </div>
-            <div class="ficha-stat-box" id="btnEstadisticasEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s; border: 2px solid var(--primary-blue); background: var(--bg-subtle);" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor='var(--bg-subtle)'">
-              <div class="ficha-stat-label" style="color: var(--primary-blue); font-weight: 900;">ESTADÍSTICAS</div>
+            <div class="ficha-stat-box" id="btnEstadisticasEmergente" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
+              <div class="ficha-stat-label">ESTADÍSTICAS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <div style="font-size: 24px;">📊</div>
                 <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER ESTADÍSTICAS <i data-lucide="bar-chart-2" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
-            </div>
-            <div class="ficha-stat-box" style="padding: 16px;">
-              <div class="ficha-stat-label">EN MAPAS RS</div>
-              <div class="ficha-stat-value">${inMapas}</div>
-            </div>
-            <div class="ficha-stat-box" style="padding: 16px;">
-              <div class="ficha-stat-label">PROYECCIÓN</div>
-              <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
-            </div>
-            <div class="ficha-stat-box" style="padding: 16px;">
-              <div class="ficha-stat-label">POTENCIAL</div>
-              <div class="ficha-stat-value">${escapeHtml(player.potencial || '-')}</div>
             </div>
           </div>
 
