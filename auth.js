@@ -11,6 +11,15 @@
    Esta pantalla es la parte visible; la protección real de los datos
    está en firestore.rules (el servidor rechaza cualquier petición
    sin sesión autorizada, aunque alguien salte esta pantalla).
+
+   PUESTA EN MARCHA SIN CORTES
+   La puerta solo se cierra cuando el acceso está ACTIVADO en el
+   proyecto: existe el documento `configuracion/puerta` con el campo
+   `activada: true`, o bien las reglas del servidor ya exigen sesión.
+   Mientras no sea así, la aplicación entra como siempre y muestra un
+   aviso discreto. Así el código se puede publicar antes de crear las
+   cuentas, sin dejar a nadie fuera, y la puerta se cierra sola en
+   cuanto se completa la activación. Ver RUNBOOK de despliegue.
    ============================================================= */
 (function () {
   'use strict';
@@ -29,6 +38,9 @@
     'auth/operation-not-allowed': 'El acceso por correo y contraseña no está activado en Firebase.'
   };
 
+  // Marca local: una vez vista la puerta activada, un fallo de red ya no la vuelve a abrir.
+  const MARCA_ACTIVADA = 'rs_puerta_vista_activada';
+
   function mensajeDe(err) {
     const code = err && err.code;
     return MENSAJES[code] || ('No se ha podido iniciar sesión (' + (code || 'error desconocido') + ').');
@@ -38,7 +50,7 @@
 
   let readyResolve;
   const ready = new Promise((resolve) => { readyResolve = resolve; });
-  const RSAuth = { ready: ready, user: null, signOut: null };
+  const RSAuth = { ready: ready, user: null, signOut: null, modo: null };
   window.RSAuth = RSAuth;
 
   function mostrarPuerta(visible, estado) {
@@ -65,6 +77,17 @@
     if (btn) btn.classList.toggle('hidden', !user);
   }
 
+  // Aviso discreto en la cabecera mientras el acceso no esté activado.
+  function pintarTransitoria() {
+    const chip = $('headerUserEmail');
+    if (chip) {
+      chip.textContent = 'Acceso sin contraseña · pendiente de activar';
+      chip.title = 'La aplicación entra sin contraseña hasta que se active el acceso por usuario.';
+    }
+    const btn = $('btnHeaderLogout');
+    if (btn) btn.classList.add('hidden');
+  }
+
   function ocupado(estado) {
     const btn = $('btnAuthLogin');
     if (!btn) return;
@@ -72,18 +95,76 @@
     btn.textContent = estado ? 'Entrando…' : 'Entrar';
   }
 
-  // --- Sin SDK de Auth no hay forma de proteger los datos: la puerta queda cerrada -----------
+  function cuandoElDomEsteListo(fn) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  // --- ¿Está activado el acceso? ---------------------------------------------------------
+  // Se pregunta por la API REST de Firestore, no por el SDK: el SDK no puede usarse antes de
+  // que app.js active la persistencia local (fallaría con «failed-precondition»), y esto tiene
+  // que decidirse antes de que arranque nada.
+  //   200 con activada:true → activada · 200 sin ese campo o 404 → transitoria
+  //   401/403 (las reglas ya exigen sesión) → activada
+  //   sin respuesta → lo último que se vio; si nunca se vio activada, transitoria
+  function comprobarPuerta(config) {
+    const vistaActivada = (function () { try { return localStorage.getItem(MARCA_ACTIVADA) === '1'; } catch (e) { return false; } })();
+    if (!config || !config.projectId || !config.apiKey || typeof fetch !== 'function') {
+      return Promise.resolve(vistaActivada ? 'activada' : 'transitoria');
+    }
+    // Se usa batchGet y no una lectura directa: un documento que no existe responde 200 con
+    // «missing» en vez de 404, y así no queda un error rojo en la consola en cada carga mientras
+    // el acceso no esté activado.
+    const base = 'projects/' + config.projectId + '/databases/(default)';
+    const url = 'https://firestore.googleapis.com/v1/' + base + '/documents:batchGet?key=' + encodeURIComponent(config.apiKey);
+    const cuerpo = JSON.stringify({ documents: [base + '/documents/configuracion/puerta'] });
+    const controlador = (typeof AbortController === 'function') ? new AbortController() : null;
+    const temporizador = controlador ? setTimeout(function () { controlador.abort(); }, 6000) : null;
+
+    return fetch(url, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: cuerpo,
+      signal: controlador ? controlador.signal : undefined })
+      .then(function (r) {
+        if (r.status === 401 || r.status === 403) return 'activada';
+        if (!r.ok) return vistaActivada ? 'activada' : 'transitoria';
+        return r.json().then(function (lista) {
+          const primero = (Array.isArray(lista) && lista[0]) || {};
+          if (!primero.found) return 'transitoria';                       // «missing»: aún no existe
+          const campos = primero.found.fields || {};
+          const activada = campos.activada && campos.activada.booleanValue === true;
+          return activada ? 'activada' : 'transitoria';
+        }).catch(function () { return vistaActivada ? 'activada' : 'transitoria'; });
+      })
+      .catch(function () { return vistaActivada ? 'activada' : 'transitoria'; })
+      .then(function (modo) {
+        if (temporizador) clearTimeout(temporizador);
+        if (modo === 'activada') { try { localStorage.setItem(MARCA_ACTIVADA, '1'); } catch (e) { /* nada */ } }
+        return modo;
+      });
+  }
+
+  // --- Sin SDK de Auth ------------------------------------------------------------------
+  // Con la puerta activada no hay forma de proteger los datos y se queda cerrada. Mientras esté
+  // en transitoria, la aplicación entra igual que antes de existir esta pantalla.
   if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') {
-    document.addEventListener('DOMContentLoaded', () => {
-      mostrarPuerta(true, 'login');
-      pintarAviso('No se ha podido cargar el sistema de acceso. Recarga la página con conexión a internet.', 'error');
+    comprobarPuerta(window.RS_FIREBASE_CONFIG).then(function (modo) {
+      RSAuth.modo = modo;
+      cuandoElDomEsteListo(function () {
+        if (modo === 'transitoria') {
+          mostrarPuerta(false);
+          pintarTransitoria();
+          readyResolve(null);
+          return;
+        }
+        mostrarPuerta(true, 'login');
+        pintarAviso('No se ha podido cargar el sistema de acceso. Recarga la página con conexión a internet.', 'error');
+      });
     });
     return;
   }
 
   if (!firebase.apps.length) {
     if (!window.RS_FIREBASE_CONFIG) {
-      document.addEventListener('DOMContentLoaded', () => {
+      cuandoElDomEsteListo(() => {
         mostrarPuerta(true, 'login');
         pintarAviso('Falta firebase-config.js: no se puede conectar con el proyecto.', 'error');
       });
@@ -151,31 +232,49 @@
     window.location.reload();
   };
 
+  // El estado de la sesión y el modo de la puerta llegan por caminos distintos y en cualquier
+  // orden; la decisión de cerrar la puerta espera a tener los dos.
+  const puertaLista = comprobarPuerta(window.RS_FIREBASE_CONFIG).then(function (modo) {
+    RSAuth.modo = modo;
+    return modo;
+  });
+
   let huboSesion = false;
   auth.onAuthStateChanged((user) => {
     RSAuth.user = user || null;
-    pintarUsuario(user);
     if (user) {
       huboSesion = true;
+      pintarUsuario(user);
       mostrarPuerta(false);
       pintarAviso('');
       readyResolve(user);
-    } else if (huboSesion) {
-      // La sesión se ha perdido con la app abierta (cierre en otra pestaña, usuario desactivado,
-      // token revocado). Tapar con el overlay no basta: los datos siguen en el DOM y en memoria,
-      // así que hay que recargar. Pero recargar de golpe se lleva por delante lo que el usuario
-      // tuviera a medias, así que primero se avisa y se le dan unos segundos.
-      if (typeof window.showToast === 'function') {
-        window.showToast('Se ha cerrado tu sesión. La app se va a recargar: vuelve a entrar para seguir trabajando.', 'danger', 6000);
-      }
-      mostrarPuerta(true, 'login');
-      setTimeout(function () { window.location.reload(); }, 5000);
-    } else {
-      mostrarPuerta(true, 'login');
+      return;
     }
+    puertaLista.then(function (modo) {
+      if (modo === 'transitoria') {
+        // Acceso aún no activado: se entra como siempre, con el aviso en la cabecera.
+        cuandoElDomEsteListo(function () { mostrarPuerta(false); pintarTransitoria(); });
+        readyResolve(null);
+        return;
+      }
+      pintarUsuario(null);
+      if (huboSesion) {
+        // La sesión se ha perdido con la app abierta (cierre en otra pestaña, usuario desactivado,
+        // token revocado). Tapar con el overlay no basta: los datos siguen en el DOM y en memoria,
+        // así que hay que recargar. Pero recargar de golpe se lleva por delante lo que el usuario
+        // tuviera a medias, así que primero se avisa y se le dan unos segundos.
+        if (typeof window.showToast === 'function') {
+          window.showToast('Se ha cerrado tu sesión. La app se va a recargar: vuelve a entrar para seguir trabajando.', 'danger', 6000);
+        }
+        mostrarPuerta(true, 'login');
+        setTimeout(function () { window.location.reload(); }, 5000);
+      } else {
+        mostrarPuerta(true, 'login');
+      }
+    });
   });
 
-  document.addEventListener('DOMContentLoaded', () => {
+  cuandoElDomEsteListo(() => {
     const form = $('authGateForm');
     if (form) {
       form.addEventListener('submit', async (e) => {

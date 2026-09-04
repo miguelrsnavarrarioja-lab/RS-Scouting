@@ -10,7 +10,14 @@ rules_version = '2';
 // (Firestore → configuracion → acceso → campo "emails", array de
 // correos en minúsculas). Ningún cliente puede modificarla.
 //
+// Las colecciones se enumeran una a una: un permiso en bloque
+// («cualquier colección») dejaría que una cuenta comprometida
+// creara colecciones nuevas fuera de la copia de seguridad, y
+// nada en el servidor frenaría documentos con forma imposible.
+//
 // Despliegue:  npx firebase-tools deploy --only firestore:rules
+// ATENCIÓN: publicar estas reglas cierra la aplicación a quien no
+// tenga cuenta. Van DESPUÉS de crear las cuentas (ver RUNBOOK).
 // =============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,6 +42,13 @@ service cloud.firestore {
         && request.auth.token.email.lower() in listaBlanca();
     }
 
+    // Firestore rechaza documentos de más de 1 MiB, pero lo hace tarde y con un error opaco.
+    // La aplicación ya mide antes de enviar; aquí se corta además cualquier documento que llegue
+    // por otra vía con un campo desmesurado (una foto sin comprimir, por ejemplo).
+    function tamanoRazonable() {
+      return request.resource == null || request.resource.data.size() <= 200;
+    }
+
     // Lista blanca: ni lectura ni escritura desde la app. Las reglas la consultan con get() sin
     // necesitar permiso del cliente, así que dar lectura solo serviría para exponer los correos
     // del equipo a cualquier usuario autorizado (minimización, art. 5.1.c RGPD).
@@ -42,16 +56,40 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Resto de documentos de configuración.
-    match /configuracion/{docId} {
-      allow read, write: if autorizado() && docId != 'acceso';
+    // Interruptor de la puerta de acceso (configuracion/puerta, campo activada). Se crea desde la
+    // consola al terminar la activación. Con estas reglas publicadas, la aplicación ya no puede
+    // leerlo sin sesión, y eso es justo lo que la hace cerrar la puerta: coherente.
+    match /configuracion/puerta {
+      allow read: if autorizado();
+      allow write: if false;
     }
 
-    // Todas las colecciones de primer nivel de la app
-    // (jugadores, clubes, equipos, informes, agenda, enlaces, cartelera_calendarios, notas_*, ...).
-    match /{coleccion}/{docId} {
-      allow read, write: if autorizado() && coleccion != 'configuracion';
+    // Resto de documentos de configuración (app_settings).
+    match /configuracion/{docId} {
+      allow read, write: if autorizado() && docId != 'acceso' && docId != 'puerta';
     }
+
+    // Las diecinueve colecciones de datos de la aplicación, una a una. Cualquier otra queda
+    // denegada por defecto.
+    match /jugadores/{docId}             { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /clubes/{docId}                { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /equipos/{docId}               { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /federaciones/{docId}          { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /selecciones/{docId}           { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /convocatorias/{docId}         { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /torneos/{docId}               { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /staff/{docId}                 { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /agencias/{docId}              { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /agentes/{docId}               { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /estadios/{docId}              { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /partidos/{docId}              { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /informes/{docId}              { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /agenda/{docId}                { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /agendaCategories/{docId}      { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /enlaces/{docId}               { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /cartelera_calendarios/{docId} { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /notas_categorias/{docId}      { allow read, write: if autorizado() && tamanoRazonable(); }
+    match /notas_fichas/{docId}          { allow read, write: if autorizado() && tamanoRazonable(); }
 
     // Las subcolecciones no se usan: quedan denegadas por defecto.
   }

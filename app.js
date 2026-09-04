@@ -32238,6 +32238,22 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     initNotificationsSystem();
     // Las escuchas de Firestore solo arrancan con sesión iniciada (auth.js).
     // Sin sistema de acceso (SDK no cargado) NO se conecta: las reglas del servidor protegen la base igualmente.
+    // Las librerías externas van con huella de integridad: si un proxy de operadora o una caché
+    // alterase el fichero, el navegador lo descarta EN SILENCIO y la aplicación se queda sin
+    // iconos, gráficos o arrastre sin que nadie sepa por qué. Aquí se dice.
+    (function comprobarLibrerias() {
+      const faltan = [];
+      if (typeof lucide === 'undefined') faltan.push('iconos');
+      if (typeof Chart === 'undefined') faltan.push('gráficos');
+      if (typeof Sortable === 'undefined') faltan.push('arrastrar y soltar');
+      if (!faltan.length) return;
+      console.error('No se han podido cargar:', faltan.join(', '));
+      if (typeof showToast === 'function') {
+        showToast('No se ha podido cargar una parte de la aplicación (' + faltan.join(', ') +
+          '). Recarga la página; si sigue igual, prueba con otra conexión.', 'warning', 12000);
+      }
+    })();
+
     if (window.RSAuth && window.RSAuth.ready) {
       window.RSAuth.ready.then(() => initFirebaseRealtimeListener());
     } else {
