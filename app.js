@@ -106,8 +106,8 @@
   };
 
   window.flexibleMatch = function (val, text) {
-    val = (val || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
-    text = (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
+    val = String(val || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
+    text = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\.,]/g, '').trim();
     if (!val) return true;
     if (text.includes(val)) return true;
 
@@ -172,77 +172,116 @@
   // --------------------------------------------------------------------------
   // Image Compression Utility (Canvas Base64 Optimizer)
   // --------------------------------------------------------------------------
-  function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+  /**
+   * Reduce una imagen y la devuelve como data URI, garantizando que no pase de maxBytes.
+   * La foto se guarda DENTRO del documento de Firestore (límite 1 MiB), así que el tope importa.
+   * Firma compatible con la anterior: compressImage(file, maxWidth, maxHeight, quality).
+   */
+  function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8, maxBytes = 200 * 1024) {
     return new Promise((resolve, reject) => {
       if (!file || !(file instanceof File || file instanceof Blob)) {
+        if (typeof showToast === 'function') showToast('Ese archivo no es una imagen válida.', 'danger', 5000);
         return resolve(null);
       }
-      const isPngOrTransparent = file.type && (file.type.includes('png') || file.type.includes('svg') || file.type.includes('webp') || file.type.includes('gif'));
 
-      if (file.type && file.type.includes('svg')) {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(file);
+      const esSvg = !!(file.type && file.type.includes('svg'));
+      const conTransparencia = !!(file.type && (file.type.includes('png') || file.type.includes('webp') || file.type.includes('gif')));
+
+      // Cuántos bytes ocupa de verdad un data URI (la parte base64 son 3 bytes por cada 4 caracteres).
+      const pesoDe = (dataUrl) => {
+        const coma = dataUrl.indexOf(',');
+        const base64 = coma === -1 ? dataUrl : dataUrl.slice(coma + 1);
+        return Math.ceil(base64.length * 3 / 4);
+      };
+
+      // Los SVG no se pueden recomprimir: se aceptan solo si ya son pequeños.
+      if (esSvg) {
+        if (file.size > maxBytes) {
+          const aviso = 'Ese SVG ocupa ' + Math.round(file.size / 1024) + ' KB y el máximo son ' +
+            Math.round(maxBytes / 1024) + ' KB. Usa una imagen JPG o PNG.';
+          if (typeof showToast === 'function') showToast(aviso, 'danger', 7000);
+          return resolve(null);
+        }
+        const lector = new FileReader();
+        lector.onload = (e) => resolve(e.target.result);
+        lector.onerror = (e) => reject(e);
+        lector.readAsDataURL(file);
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
+
+      const lector = new FileReader();
+      lector.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          let width = img.width;
-          let height = img.height;
-          if (width > maxWidth || height > maxHeight) {
-            if (width / height > maxWidth / maxHeight) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            } else {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
+          // Se prueba a lo ancho y, si no basta, se va reduciendo tamaño y calidad hasta caber.
+          const anchosAProbar = [];
+          for (const ancho of [maxWidth, 640, 512, 400, 320]) {
+            if (ancho <= maxWidth && !anchosAProbar.includes(ancho)) anchosAProbar.push(ancho);
+          }
+          const calidades = [quality, 0.7, 0.6, 0.5, 0.4, 0.3];
+
+          const dibujar = (anchoTope, altoTope, mime, calidad) => {
+            let w = img.width, h = img.height;
+            if (w > anchoTope || h > altoTope) {
+              if (w / h > anchoTope / altoTope) { h = Math.round((h * anchoTope) / w); w = anchoTope; }
+              else { w = Math.round((w * altoTope) / h); h = altoTope; }
+            }
+            const lienzo = document.createElement('canvas');
+            lienzo.width = w; lienzo.height = h;
+            const ctx = lienzo.getContext('2d');
+            if (mime === 'image/jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
+            else ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            return mime === 'image/png' ? lienzo.toDataURL(mime) : lienzo.toDataURL(mime, calidad);
+          };
+
+          let mejor = null;
+          const alturaDe = (ancho) => Math.round((maxHeight * ancho) / maxWidth) || ancho;
+
+          // Con transparencia (escudos, logos): se agotan TODOS los tamaños en PNG antes de pasar a
+          // JPEG, porque JPEG rellena el fondo de blanco y un escudo recortado saldría con recuadro.
+          if (conTransparencia) {
+            for (const ancho of anchosAProbar) {
+              const png = dibujar(ancho, alturaDe(ancho), 'image/png', 1);
+              if (!mejor || pesoDe(png) < pesoDe(mejor)) mejor = png;
+              if (pesoDe(png) <= maxBytes) return resolve(png);
             }
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
 
-          if (!isPngOrTransparent) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-          } else {
-            ctx.clearRect(0, 0, width, height);
+          for (const ancho of anchosAProbar) {
+            for (const calidad of calidades) {
+              const jpg = dibujar(ancho, alturaDe(ancho), 'image/jpeg', calidad);
+              if (!mejor || pesoDe(jpg) < pesoDe(mejor)) mejor = jpg;
+              if (pesoDe(jpg) <= maxBytes) return resolve(jpg);
+            }
           }
-
-          ctx.drawImage(img, 0, 0, width, height);
-          const exportMime = isPngOrTransparent ? 'image/png' : 'image/jpeg';
-          const compressedDataUrl = canvas.toDataURL(exportMime, isPngOrTransparent ? undefined : quality);
-          resolve(compressedDataUrl);
+          // Si ni con el mínimo cabe, se devuelve la más ligera conseguida y se avisa.
+          if (!mejor) return resolve(null);   // sin esto, pesoDe(null) lanzaría y la promesa no volvería nunca
+          if (typeof showToast === 'function') {
+            showToast('La imagen sigue siendo grande (' + Math.round(pesoDe(mejor) / 1024) +
+              ' KB) aunque se ha reducido todo lo posible.', 'warning', 6000);
+          }
+          resolve(mejor);
         };
         img.onerror = (err) => reject(err);
         img.src = e.target.result;
       };
-      reader.onerror = (err) => reject(err);
-      reader.readAsDataURL(file);
+      lector.onerror = (err) => reject(err);
+      lector.readAsDataURL(file);
     });
   }
 
   // --------------------------------------------------------------------------
   // 1. Firebase Cloud Database Integration
   // --------------------------------------------------------------------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyBHUThKvVtQ3HtyRFGjDe25NOka4NUV4-Q",
-    authDomain: "rs-scouting-ee0b3.firebaseapp.com",
-    projectId: "rs-scouting-ee0b3",
-    storageBucket: "rs-scouting-ee0b3.firebasestorage.app",
-    messagingSenderId: "971849612591",
-    appId: "1:971849612591:web:18a349fe3aae41e23775da",
-    measurementId: "G-9YBKB2HC6R"
-  };
+  // Configuración pública del proyecto: vive en firebase-config.js (compartida con auth.js).
+  const firebaseConfig = window.RS_FIREBASE_CONFIG;
 
   let db = null;
-  if (typeof firebase !== 'undefined') {
+  if (typeof firebase !== 'undefined' && firebaseConfig) {
     try {
-      firebase.initializeApp(firebaseConfig);
+      // auth.js ya ha inicializado la app; inicializarla dos veces lanza app/duplicate-app.
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
       // Enable offline persistence so the app works without internet
       // (e.g. iPad in the field) and queues changes for later sync
@@ -303,33 +342,37 @@
       // Mark all IDs as local writes to prevent onSnapshot echo
       for (const id of idsToDelete) {
         markLocalWrite(collectionName, id);
-        await db.collection(collectionName).doc(id).delete().catch(() => { });
+        await db.collection(collectionName).doc(id).delete();   // el error sube al try/catch, que SI avisa
       }
 
       const colRef = db.collection(collectionName);
       const strVal = String(docId).trim();
 
+      // Solo por identificador. Buscar además por 'nombre' borraba a CUALQUIER otro registro que
+      // se llamase igual: dos jugadores homónimos desaparecían al borrar uno.
       const queries = [
         colRef.where('id', '==', strVal).get().catch(() => null),
         colRef.where('codigo', '==', strVal).get().catch(() => null)
       ];
 
-      if (itemObj && itemObj.nombre) {
-        queries.push(colRef.where('nombre', '==', itemObj.nombre).get().catch(() => null));
-      }
-
       const snaps = await Promise.all(queries);
+      // Se esperan todos los borrados antes de dar el trabajo por hecho. Lanzarlos sin esperar
+      // dejaba el error fuera del alcance de este try, así que un permiso denegado no avisaba
+      // de nada y aun así se escribía «eliminados permanentemente».
+      const promesas = [];
       snaps.forEach(snap => {
         if (snap && !snap.empty) {
           snap.forEach(doc => {
             markLocalWrite(collectionName, doc.id);
-            doc.ref.delete().catch(() => { });
+            promesas.push(doc.ref.delete());
           });
         }
       });
+      await Promise.all(promesas);
       console.log(`🔥 Documento(s) para '${docId}' eliminados permanentemente de Firebase collection '${collectionName}'`);
     } catch (err) {
       console.error(`Error al borrar en Firebase (${collectionName}):`, err);
+      avisarErrorFirebase(err, 'borrar en ' + collectionName);
     }
   }
 
@@ -341,18 +384,70 @@
           priorityTeams: state.cartelera.priorityTeams || [],
           interestingTeams: state.cartelera.interestingTeams || []
         }
-      }, { merge: true }).catch(e => console.error("Error al guardar equipos en Firebase", e));
+      }, { merge: true }).catch(e => {
+        console.error("Error al guardar equipos en Firebase", e);
+        avisarErrorFirebase(e, 'guardar los equipos de la cartelera');
+      });
     }
   }
 
+  /**
+   * Traduce un error de Firestore a un mensaje comprensible y lo enseña. Antes, TODOS los fallos de
+   * escritura acababan en console.error: el usuario veía la ficha guardada y no lo estaba.
+   */
+  function avisarErrorFirebase(err, queSeHacia) {
+    const codigo = (err && err.code) || '';
+    let texto;
+    if (codigo === 'permission-denied' || codigo === 'unauthenticated') {
+      texto = 'No tienes permiso para guardar. Puede que la sesión haya caducado: vuelve a entrar en la app.';
+    } else if (codigo === 'unavailable' || codigo === 'deadline-exceeded') {
+      texto = 'Sin conexión con el servidor. El cambio se guardará solo cuando vuelva internet.';
+    } else if (codigo === 'invalid-argument' || codigo === 'resource-exhausted' || codigo === 'out-of-range') {
+      texto = 'La ficha es demasiado grande para guardarse. Prueba con una foto más ligera.';
+    } else {
+      texto = 'No se ha podido guardar' + (queSeHacia ? ' (' + queSeHacia + ')' : '') + '. Inténtalo de nuevo.' +
+        (codigo ? ' [' + codigo + ']' : '');
+    }
+    state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: codigo, texto: texto, contexto: queSeHacia || '' };
+    setFirebaseHeaderStatus('error');
+    if (typeof showToast === 'function') showToast(texto, 'danger', 7000);
+    return texto;
+  }
+
   function saveToFirebase(collectionName, item) {
-    if (!db || !item || !item.id) return;
+    if (!db) return;
+    // Sin identificador no hay dónde guardar. Antes se salía en silencio y el usuario creía que
+    // su cambio estaba a salvo; ahora queda registrado y se avisa una vez.
+    if (!item || !item.id) {
+      console.error('No se puede guardar en', collectionName, ': la ficha no tiene identificador.', item);
+      if (!saveToFirebase._avisadoSinId) {
+        saveToFirebase._avisadoSinId = true;
+        if (typeof showToast === 'function') {
+          showToast('Hay una ficha sin identificador que no se ha podido guardar. Vuelve a crearla desde cero.', 'danger', 9000);
+        }
+      }
+      return;
+    }
 
     // Sanitize item to remove undefined values which crash Firestore
     const sanitizedItem = {};
     for (const key in item) {
       if (item[key] !== undefined) {
         sanitizedItem[key] = item[key];
+      }
+    }
+
+    // Firestore rechaza los documentos de más de 1 MiB. Como las fotos van dentro del propio
+    // documento, conviene medirlo aquí y decir qué campo se ha pasado, en vez de fallar luego.
+    if (typeof RSData !== 'undefined' && RSData && typeof RSData.cabe === 'function') {
+      const medida = RSData.cabe(sanitizedItem);
+      if (!medida.ok) {
+        const aviso = RSData.motivo(medida);
+        console.error('Documento demasiado grande para Firestore:', collectionName, item.id, medida);
+        state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: 'documento-demasiado-grande', texto: aviso, contexto: collectionName };
+        setFirebaseHeaderStatus('error');
+        if (typeof showToast === 'function') showToast(aviso, 'danger', 9000);
+        return;
       }
     }
 
@@ -369,22 +464,26 @@
       })
       .catch(err => {
         console.error(`Error al guardar ${item.id} en Firebase (${collectionName}):`, err);
-        setFirebaseHeaderStatus('error');
+        avisarErrorFirebase(err, 'guardar en ' + collectionName);
       });
   }
 
   function deleteMultipleFromFirebase(collectionName, docIdsArray) {
     if (!db || !Array.isArray(docIdsArray) || docIdsArray.length === 0) return;
-    const batch = db.batch();
-    docIdsArray.forEach(id => {
-      if (id) {
-        const ref = db.collection(collectionName).doc(String(id));
-        batch.delete(ref);
-      }
-    });
-    batch.commit()
+    // En lotes de 450: mas de 500 operaciones en un solo lote las rechaza el servidor.
+    const ids = docIdsArray.filter(Boolean).map(id => String(id));
+    const lotes = [];
+    for (let i = 0; i < ids.length; i += 450) lotes.push(ids.slice(i, i + 450));
+    Promise.all(lotes.map(grupo => {
+      const batch = db.batch();
+      grupo.forEach(id => { batch.delete(db.collection(collectionName).doc(id)); });
+      return batch.commit();
+    }))
       .then(() => console.log(`🔥 ${docIdsArray.length} documentos eliminados en lote de '${collectionName}' en Firebase`))
-      .catch(err => console.error(`Error al borrar lote en Firebase (${collectionName}):`, err));
+      .catch(err => {
+        console.error(`Error al borrar lote en Firebase (${collectionName}):`, err);
+        avisarErrorFirebase(err, 'borrar varios de ' + collectionName);
+      });
   }
 
   function setFirebaseHeaderStatus(status = 'synced') {
@@ -433,8 +532,61 @@
   // Debounce timer for auto-sync to Firebase
   let _saveStateDebounceTimer = null;
 
+  // Los desplegables de filtro se cierran al pulsar fuera. La escucha va en `document`, que no se
+  // destruye nunca: si se registra una vez por render, se acumulan para siempre y cada clic de la
+  // aplicación acaba recorriendo decenas de manejadores muertos. Se registra UNA sola vez por
+  // desplegable y los elementos se buscan al vuelo, para que el render pueda rehacerlos.
+  const _cierresRegistrados = Object.create(null);
+  function cerrarAlPulsarFuera(idDisparador, idDesplegable) {
+    const clave = idDisparador + "|" + idDesplegable;
+    if (_cierresRegistrados[clave]) return;
+    _cierresRegistrados[clave] = true;
+    document.addEventListener("click", (e) => {
+      const disparador = document.getElementById(idDisparador);
+      const desplegable = document.getElementById(idDesplegable);
+      if (!disparador || !desplegable) return;
+      if (!disparador.contains(e.target) && !desplegable.contains(e.target)) {
+        desplegable.classList.add("hidden");
+      }
+    });
+  }
   window.saveState = saveState;
+  // El importador (importer_v2.js) vive FUERA del IIFE y llama a window.saveToFirebase tras una
+  // guarda `typeof`. Sin esta exportacion la guarda era siempre falsa y lo importado se quedaba
+  // solo en memoria: al recargar desaparecia, despues de decir «Se han importado N registros».
+  window.saveToFirebase = saveToFirebase;
+  window.hideModal = hideModal;                 // usada desde onclick en linea (ambito global)
+  window.showCustomAlertModal = showCustomAlertModal;
+  window.escapeHtml = escapeHtml;               // para que importer_v2.js pueda escapar
+  window.escapeAttr = escapeAttr;
+  // Los enlaces que vienen de la base (web del club, ficha del jugador) acaban en un href. Un
+  // valor como «javascript:...» guardado ahí se ejecutaría al pulsarlo, así que solo se dejan
+  // pasar las direcciones de verdad. Lo que no lo sea se queda sin enlace, no a medias.
+  function urlSegura(v) {
+    if (v === null || v === undefined) return "";
+    const t = String(v).trim();
+    if (!t) return "";
+    if (/^(https?:|mailto:|tel:)/i.test(t)) return escapeAttr(t);
+    if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return "";        // cualquier otro esquema, fuera
+    return escapeAttr("https://" + t);                     // «club.com» sin esquema
+  }
+  // Igual que urlSegura, pero para navegar: devuelve la dirección sin escapar en HTML,
+  // porque aquí no se pinta, se abre.
+  function destinoSeguro(v) {
+    if (v === null || v === undefined) return "";
+    const t = String(v).trim();
+    if (!t) return "";
+    if (/^https?:/i.test(t)) return t;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return "";
+    return "https://" + t;
+  }
+  window.urlSegura = urlSegura;
+  window.escapeJsAttr = escapeJsAttr;
   window.state = state;
+  // El guardado automatico del informe (informe-borrador.js) vive fuera de este ambito y necesita
+  // saber QUE informe se esta editando; sin esto todos los borradores se guardaban bajo la misma
+  // clave y el de un informe podia ofrecerse al abrir otro distinto.
+  window.rsInformeEnEdicion = function () { return currentEditingReportId || null; };
   function saveState() {
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -488,13 +640,53 @@
       dhjGroup3Seeded: !!state.directory?.dhjGroup3Seeded,
       dhjGroup2Seeded: !!state.directory?.dhjGroup2Seeded,
       deletedTombstones: state.deletedTombstones,
-      notifications: state.notifications || []
+      // Las notificaciones viajan en el MISMO documento que el orden de pestanas, las columnas y el
+      // orden de enlaces. Si el documento pasa del limite del servidor, se rechaza la escritura
+      // entera y deja de sincronizarse TODA la configuracion entre dispositivos.
+      // No se recorta nada por sistema: se guarda todo y solo se reduce si de verdad no cabe (abajo).
+      notifications: (state.notifications || [])
     });
 
     if (isConfigLoadedFromFirebase) {
+      // La misma guarda de tamano que protege las fichas: aqui tambien, porque este documento
+      // acumula historico y es el que sincroniza los ajustes entre el ordenador y el movil.
+      // Si los ajustes no caben, NO se descarta nada a la ligera: primero se intenta reducir solo el
+      // historial de avisos, que es lo unico prescindible, y se avisa de cuantos se han dejado de
+      // guardar. Los ajustes de verdad (pestanas, columnas, enlaces, categorias) no se tocan nunca.
+      if (typeof RSData !== 'undefined' && RSData && typeof RSData.cabe === 'function') {
+        let medida = RSData.cabe(configToSave);
+        let recortados = 0;
+        const historialCompleto = (configToSave.notifications || []).length;
+        while (!medida.ok && (configToSave.notifications || []).length > 20) {
+          const cuantos = Math.max(10, Math.floor(configToSave.notifications.length / 4));
+          configToSave.notifications = configToSave.notifications.slice(0, configToSave.notifications.length - cuantos);
+          recortados = historialCompleto - configToSave.notifications.length;
+          medida = RSData.cabe(configToSave);
+        }
+        if (!medida.ok) {
+          console.error('Los ajustes no caben en un documento del servidor:', medida);
+          if (typeof showToast === 'function') {
+            showToast('Los ajustes no se han podido guardar: ocupan ' + Math.round(medida.bytes / 1024) +
+              ' KB y el maximo es ' + Math.round(medida.limite / 1024) + ' KB. No se ha perdido nada, ' +
+              'pero avisa al administrador.', 'danger', 10000);
+          }
+          setFirebaseHeaderStatus('error');
+          return;
+        }
+        if (recortados > 0) {
+          console.warn('Historial de avisos reducido en ' + recortados + ' entradas para que los ajustes quepan.');
+          if (typeof showToast === 'function') {
+            showToast('Se han archivado ' + recortados + ' avisos antiguos para que los ajustes sigan guardandose. ' +
+              'No se ha perdido ningun dato de jugadores ni informes.', 'warning', 8000);
+          }
+        }
+      }
       markLocalWrite('configuracion', 'app_settings');
       db.collection('configuracion').doc('app_settings').set(configToSave, { merge: true })
-        .catch(e => console.warn('Error sync configuracion:', e));
+        .catch(e => {
+          console.warn('Error sync configuracion:', e);
+          if (typeof avisarErrorFirebase === 'function') avisarErrorFirebase(e, 'guardar los ajustes');
+        });
     }
   }
 
@@ -505,7 +697,10 @@
   async function syncAllToFirebase(notifyUser = true) {
     if (!db) {
       if (notifyUser) alert('⚠️ Firebase no está inicializado o no hay conexión.');
-      return;
+      // Devolver nada por aquí hacía que la restauración de copia dijera «subida correctamente»
+      // sin haberlo intentado siquiera: quien la llama comprueba `r.falladas`, y sobre undefined
+      // esa comprobación es falsa. Todas las salidas informan de lo que ha pasado.
+      return { ok: false, falladas: ['no hay conexión con el servidor'] };
     }
 
     try {
@@ -534,21 +729,38 @@
       };
 
       setFirebaseHeaderStatus('syncing');
+      // Cada colección va en su propio try: antes, una sola ficha rechazada (por ejemplo con una
+      // foto demasiado grande) tumbaba el lote entero, la excepción salía de la función y las
+      // dieciséis colecciones siguientes no se intentaban siquiera. El usuario leía un error de
+      // Firestore sin saber qué se había subido y qué no.
+      const falladas = [];
       for (const [colName, items] of Object.entries(collectionsMap)) {
-        if (Array.isArray(items) && items.length > 0) {
-          // Batch write in chunks of 450 to stay well under 500 limit
+        if (!Array.isArray(items) || !items.length) continue;
+        try {
           for (let i = 0; i < items.length; i += 450) {
             const chunk = items.slice(i, i + 450);
             const batch = db.batch();
             chunk.forEach(item => {
-              if (item && item.id) {
-                markLocalWrite(colName, item.id);
-                const ref = db.collection(colName).doc(String(item.id));
-                batch.set(ref, item, { merge: true });
+              if (!item || !item.id) return;
+              // La guarda de tamaño vive en saveToFirebase; aquí se repite para que una sola
+              // ficha grande no arrastre a las otras 449 del lote.
+              if (typeof RSData !== 'undefined' && RSData && typeof RSData.cabe === 'function') {
+                const medida = RSData.cabe(item);
+                if (!medida.ok) {
+                  console.error('Ficha demasiado grande, no se sube:', colName, item.id, medida);
+                  falladas.push(colName + '/' + item.id + ' (demasiado grande)');
+                  return;
+                }
               }
+              markLocalWrite(colName, item.id);
+              const ref = db.collection(colName).doc(String(item.id));
+              batch.set(ref, item, { merge: true });
             });
             await batch.commit();
           }
+        } catch (e) {
+          console.error('No se pudo sincronizar la colección', colName, e);
+          falladas.push(colName);
         }
       }
 
@@ -590,6 +802,17 @@
         }
       }
 
+      // El aviso dice la verdad: si algo quedó sin subir, se nombra en vez de cantar victoria.
+      if (falladas.length) {
+        console.warn('Sincronización incompleta. Sin subir:', falladas.join(', '));
+        setFirebaseHeaderStatus('error');
+        if (notifyUser) {
+          alert('⚠️ La sincronización ha terminado, pero NO se ha podido subir: ' + falladas.join(', ') +
+            '.\n\nEl resto sí está guardado. Revisa la conexión y vuelve a intentarlo.');
+        }
+        return { ok: false, falladas: falladas };
+      }
+
       console.log('✅ Sincronización completa finalizada en Firebase');
       setFirebaseHeaderStatus('synced');
       if (notifyUser) {
@@ -599,9 +822,12 @@
           alert('☁️ Sincronización con Firebase completada con éxito');
         }
       }
+      return { ok: true, falladas: [] };
     } catch (err) {
       console.error('Error durante la sincronización a Firebase:', err);
+      setFirebaseHeaderStatus('error');
       if (notifyUser) alert('⚠️ Error al sincronizar con Firebase: ' + err.message);
+      return { ok: false, falladas: ['la sincronización se interrumpió: ' + err.message] };
     }
   }
 
@@ -617,7 +843,13 @@
         try {
           const snap = await db.collection(colName).get();
           const docs = [];
-          snap.forEach(doc => docs.push(doc.data()));
+          // El identificador del documento se conserva: sin él, cualquier cambio posterior sobre
+          // esa ficha se descartaba en silencio (saveToFirebase exige item.id). Si el propio dato ya
+          // trae uno, manda el suyo: cambiarlo rompería las referencias entre fichas.
+          snap.forEach(doc => {
+            const d = doc.data() || {};
+            docs.push(d.id ? d : Object.assign({ id: doc.id }, d));
+          });
           return docs;
         } catch (e) {
           console.warn(`Error al consultar ${colName}:`, e);
@@ -851,11 +1083,14 @@
             state.notifications = configData.notifications;
           }
 
-          if (typeof renderAllViews === 'function') renderAllViews();
+          if (typeof renderAllViews === 'function') renderAllViews(true);
         }
       }
     }, err => {
       console.error('Error escuchando configuracion:', err);
+      if (err && err.code === 'permission-denied' && typeof showToast === 'function') {
+        showToast('Tu usuario no tiene acceso a los datos. Comprueba con el administrador que tu correo está autorizado.', 'danger', 8000);
+      }
     });
 
     // Escuchar cambios en sistemas tácticos de forma independiente
@@ -876,6 +1111,8 @@
           }
         }
       }
+    }, err => {
+      console.error('Error escuchando sistemas_tacticos:', err);
     });
 
     // 2. Factory genérico para escuchar colecciones
@@ -886,7 +1123,9 @@
 
         snap.docChanges().forEach(change => {
           const docId = change.doc.id;
-          const data = { id: docId, ...change.doc.data() };
+          // El id del documento va DESPUES del spread: si va antes, un campo 'id' dentro del
+          // documento lo pisa y el atacante controla el identificador que se pinta en 135 atributos.
+          const data = { ...change.doc.data(), id: docId };
 
           if (isRecentLocalWrite(colName, docId)) return; // Anti-echo
 
@@ -906,10 +1145,13 @@
 
         if (hasChanges) {
           arraySetter(currentArray);
-          if (typeof renderAllViews === 'function') renderAllViews();
+          if (typeof renderAllViews === 'function') renderAllViews(true);
         }
       }, err => {
         console.error(`Error escuchando ${colName}:`, err);
+        if (err && err.code === 'permission-denied' && typeof showToast === 'function') {
+          showToast('No tienes acceso a los datos. Si acabas de entrar, cierra sesion y vuelve a entrar; si no, avisa al administrador.', 'danger', 9000);
+        }
       });
     };
 
@@ -931,6 +1173,9 @@
     listenCollection('partidos', () => state.matches, arr => state.matches = arr);
     listenCollection('informes', () => state.reports, arr => state.reports = arr);
     listenCollection('agenda', () => state.agenda, arr => state.agenda = arr);
+    // Las categorías de la agenda no tenían escucha: creabas una en el ordenador y en el móvil no
+    // aparecía hasta recargar, y las tareas de esa categoría se veían con el código en crudo.
+    listenCollection('agendaCategories', () => state.agendaCategories, arr => state.agendaCategories = arr);
     listenCollection('enlaces', () => state.links, arr => state.links = arr);
 
     // Escucha para la nueva colección de calendarios de la cartelera
@@ -1110,18 +1355,30 @@
     });
   }
 
-  function renderAllViews() {
+  function renderAllViews(desdeServidor = false) {
     renderDashboard();
     const activeTab = document.querySelector('.nav-tab.active');
     if (activeTab && activeTab.dataset.tab && activeTab.dataset.tab !== 'dashboard') {
-      renderView(activeTab.dataset.tab);
+      renderView(activeTab.dataset.tab, desdeServidor);
     }
   }
 
-  function renderView(tabName) {
+  function renderView(tabName, desdeServidor = false) {
     if (tabName === 'dashboard') renderDashboard();
     else if (tabName === 'planificacion') renderPlanificacion();
-    else if (tabName === 'partidos') renderPartidosList();
+    else if (tabName === 'partidos') {
+      // Cuando llega un cambio de otro dispositivo se repinta la pestaña activa, y repintar
+      // Partidos ocultaba el editor de informes: al ojeador se le cerraba el informe a mitad de
+      // frase cada vez que un compañero guardaba cualquier cosa, o al volver la cobertura en el
+      // estadio. Si el editor está abierto, se deja en paz; la lista se repinta al cerrarlo.
+      const editor = document.getElementById('matchReportEditorState');
+      const editorAbierto = editor && !editor.classList.contains('hidden');
+      if (desdeServidor && editorAbierto) {
+        try { if (window.RSBorrador) window.RSBorrador.guardar(); } catch (e) { /* nada */ }
+      } else {
+        renderPartidosList();
+      }
+    }
     else if (tabName === 'directorio') renderDirectorio();
     else if (tabName === 'laboratorio') {
       renderLaboratorio();
@@ -1266,14 +1523,14 @@
 
             content.innerHTML = `
                      <div style="text-align: center; padding: 20px;">
-                        <i data-lucide="${icon}" style="width: 64px; height: 64px; color: ${color}; margin-bottom: 20px;"></i>
+                        <i data-lucide="${escapeAttr(icon)}" style="width: 64px; height: 64px; color: ${escapeAttr(color)}; margin-bottom: 20px;"></i>
                         <h2 style="font-size: 28px; font-weight: 900; color: var(--text-main); margin-bottom: 10px;">${msg}</h2>
                         <div style="font-size: 18px; color: var(--text-secondary); margin-bottom: 5px;">Estado: <strong>${zona}</strong></div>
                         ${paraBajar > 0 ? `<div style="font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 30px; background: var(--bg-surface-hover); padding: 6px 16px; border-radius: 20px; display: inline-block;">Tienes que completar <strong>${paraBajar}</strong> informe${paraBajar > 1 ? 's' : ''} para bajar de nivel</div>` : '<div style="margin-bottom: 30px;"></div>'}
                         
                         <div style="background: var(--bg-surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); display: inline-block; min-width: 250px;">
                             <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px;">Informes Pendientes</div>
-                            <div style="font-size: 48px; font-weight: 900; color: ${color};">${directMatches}</div>
+                            <div style="font-size: 48px; font-weight: 900; color: ${escapeAttr(color)};">${directMatches}</div>
                         </div>
                      </div>
                  `;
@@ -1528,7 +1785,7 @@
                 const key = n.toLowerCase().trim();
 
                 // Also check if 'NO JUEGA' is set in the player's individual historical evaluations for this report
-                const pDir = players.find(pd => (pd.nombre || pd.jugador || pd.name || '').toLowerCase().trim() === key);
+                const pDir = players.find(pd => String(pd.nombre || pd.jugador || pd.name || '').toLowerCase().trim() === key);
                 if (pDir && pDir.historialEvaluaciones) {
                   const evalRecord = pDir.historialEvaluaciones.find(h => String(h.reportId) === String(repId));
                   if (evalRecord && evalRecord.tags && (evalRecord.tags.includes('NO JUEGA') || evalRecord.tags.includes('NO VISTO'))) {
@@ -1617,11 +1874,11 @@
       const yearsJson = encodeURIComponent(JSON.stringify(stats.years));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeHtml(groupName)}', '${yearsJson}')">
-        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(yearsJson)}')">
+        <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
-          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stats.vistos >= stats.total && stats.total > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${stats.vistos}/${stats.total}</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(stats.vistos >= stats.total && stats.total > 0 ? 'var(--accent-green)' : 'var(--text-primary)')};">${stats.vistos}/${stats.total}</span>
           <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(groupName)}</span>
         </div>
       </div>`;
@@ -1767,11 +2024,11 @@
       const statsJson = encodeURIComponent(JSON.stringify(groupedStats[groupName]));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeHtml(groupName)}', '${statsJson}')">
-        <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(statsJson)}')">
+        <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
-          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${vistosGroup >= totalGroup && totalGroup > 0 ? 'var(--accent-green)' : 'var(--text-primary)'};">${vistosGroup}/${totalGroup}</span>
+          <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(vistosGroup >= totalGroup && totalGroup > 0 ? 'var(--accent-green)' : 'var(--text-primary)')};">${vistosGroup}/${totalGroup}</span>
           <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(groupName)}</span>
         </div>
       </div>`;
@@ -1814,11 +2071,11 @@
       const playersJson = encodeURIComponent(JSON.stringify(y.jugadoresVistos || []));
 
       html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid ${isSub23 ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-color)'}; background: ${defaultBg}; gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='${hoverBg}';" onmouseout="this.style.background='${defaultBg}';" onclick="openPlayersSubcategoryModal('${escapeHtml(groupName)}', '${escapeHtml(y.year)}', '${playersJson}')">
-          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid ${escapeAttr(isSub23 ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-color)')}; background: ${escapeAttr(defaultBg)}; gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='${escapeJsAttr(hoverBg)}';" onmouseout="this.style.background='${escapeJsAttr(defaultBg)}';" onclick="openPlayersSubcategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(y.year)}', '${escapeJsAttr(playersJson)}')">
+          <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
             <span class="kpi-label" style="font-size: 10px; margin-bottom: 2px;">AÑO ${escapeHtml(y.year)}</span>
-            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)'};">${y.vistos}/${y.total}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(isAllSeen ? 'var(--accent-green)' : 'var(--text-primary)')};">${y.vistos}/${y.total}</span>
             <span class="kpi-subtext" style="font-weight: 600; margin-top: 2px;">Vistos</span>
             ${subLabel}
           </div>
@@ -1873,17 +2130,17 @@
         if (p.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
         else if (p.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
 
-        const playerIdStr = p.id ? `'${escapeHtml(p.id)}'` : 'null';
+        const playerIdStr = p.id ? `'${escapeJsAttr(p.id)}'` : 'null';
 
         const vistos = p.vistos || 1;
         let badgeColor = 'rgba(234, 179, 8, 1)'; // Yellow
         if (vistos === 2) badgeColor = 'rgba(59, 130, 246, 1)'; // Blue
         if (vistos > 2) badgeColor = 'rgba(34, 197, 94, 1)'; // Green
-        const vistosBadge = `<span style="background: ${badgeColor}; color: white; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;" title="${vistos} veces visto">${vistos}</span>`;
+        const vistosBadge = `<span style="background: ${escapeAttr(badgeColor)}; color: white; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;" title="${escapeAttr(vistos)} veces visto">${vistos}</span>`;
 
 
         tbodyHtml += `
-          <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
+          <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(rowBgStyle)}">
             <td style="padding: 12px 16px; font-weight: 600; color: var(--text-dark);">${escapeHtml(p.nombre || 'Sin nombre')}</td>
             <td style="padding: 12px 16px; color: var(--text-muted);">${escapeHtml(p.equipo || '-')}</td>
             <td style="padding: 12px 16px; text-align: center;">
@@ -2010,10 +2267,10 @@
       const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
       const groupsJson = encodeURIComponent(JSON.stringify(stat.groups));
       html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeHtml(stat.cat)}', '${escapeHtml(groupName)}', '${groupsJson}')">
-          <div class="kpi-icon ${iconColor}" style="width: 36px; height: 36px;"><i data-lucide="${iconName}" style="width: 18px; height: 18px;"></i></div>
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeJsAttr(stat.cat)}', '${escapeJsAttr(groupName)}', '${escapeJsAttr(groupsJson)}')">
+          <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
-            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)'};">${stat.vistos}/${stat.total}</span>
+            <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)')};">${stat.vistos}/${stat.total}</span>
             <span class="kpi-subtext" style="font-weight: 800; margin-top: 2px; color: var(--text-dark);">${escapeHtml(stat.cat)}</span>
           </div>
         </div>`;
@@ -2078,12 +2335,12 @@
           rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
         }
 
-        const teamIdStr = t.id ? `'${escapeHtml(t.id)}'` : 'null';
+        const teamIdStr = t.id ? `'${escapeJsAttr(t.id)}'` : 'null';
         const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
 
         teamsHtml += `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${rowBgStyle}">
-                <span style="color: ${teamColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${escapeAttr(rowBgStyle)}">
+                <span style="color: ${escapeAttr(teamColor)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
                 <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
             </div>`;
       });
@@ -2092,7 +2349,7 @@
         <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
             <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</span>
-                <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${badgeColor}; padding: 3px 8px; border-radius: 12px;">
+                <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${escapeAttr(badgeColor)}; padding: 3px 8px; border-radius: 12px;">
                     ${gStats.vistos} / ${gStats.total} Vistos
                 </span>
             </div>
@@ -2210,11 +2467,11 @@
 
         const sel = (state.directory?.selecciones || []).find(s => s.nombre && s.nombre.toLowerCase() === name.toLowerCase());
         if (sel && sel.federacion) {
-          const fed = (state.directory?.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
+          const fed = (state.directory?.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
           if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
         }
 
-        const fed = (state.directory?.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === name.toLowerCase());
+        const fed = (state.directory?.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === name.toLowerCase());
         if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
 
         const fallbackClub = (state.directory?.clubes || []).find(c => c.nombre && name.toLowerCase().includes(c.nombre.toLowerCase()));
@@ -2234,11 +2491,11 @@
       const localLogo = getLogo(r.equipoLocal);
       const visitLogo = getLogo(r.equipoVisitante);
 
-      const localLogoImg = localLogo ? `<img src="${escapeHtml(localLogo)}" alt="Local" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
-      const visitLogoImg = visitLogo ? `<img src="${escapeHtml(visitLogo)}" alt="Visit" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
+      const localLogoImg = localLogo ? `<img src="${escapeAttr(localLogo)}" alt="Local" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
+      const visitLogoImg = visitLogo ? `<img src="${escapeAttr(visitLogo)}" alt="Visit" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
 
       return `
-      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${r.id}\\']').click()">
+      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${escapeJsAttr(r.id)}\\']').click()">
         
         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
           ${localLogoImg}
@@ -2261,7 +2518,7 @@
              ${escapeHtml(r.time || '')}
            </span>
         </div>
-        <button class="btn btn-sm btn-outline btn-dashboard-view-match" style="display:none;" data-match-id="${r.id}"></button>
+        <button class="btn btn-sm btn-outline btn-dashboard-view-match" style="display:none;" data-match-id="${escapeAttr(r.id)}"></button>
       </div>
       `;
     }).join('');
@@ -2296,11 +2553,11 @@
       return `
         <div class="dashboard-widget-item task-item">
           <label class="dashboard-task-label">
-            <input type="checkbox" class="dashboard-task-checkbox" data-task-id="${t.id}">
+            <input type="checkbox" class="dashboard-task-checkbox" data-task-id="${escapeAttr(t.id)}">
             <span class="dashboard-task-title">${escapeHtml(t.titulo)}</span>
           </label>
           <div class="dashboard-task-right">
-            <span class="priority-badge ${badgeClass}">${escapeHtml(t.prioridad || 'Media')}</span>
+            <span class="priority-badge ${escapeAttr(badgeClass)}">${escapeHtml(t.prioridad || 'Media')}</span>
           </div>
         </div>
       `;
@@ -2345,12 +2602,12 @@
       return `
         <div class="dashboard-widget-item task-item">
           <label class="dashboard-task-label">
-            <input type="checkbox" class="dashboard-task-checkbox" data-task-id="${t.id}">
+            <input type="checkbox" class="dashboard-task-checkbox" data-task-id="${escapeAttr(t.id)}">
             <span class="dashboard-task-title">${escapeHtml(t.titulo)}</span>
           </label>
           <div class="dashboard-task-right">
             <span style="font-size: 11px; color: var(--text-muted); margin-right: 6px;">📅 ${escapeHtml(t.fecha || '')}</span>
-            <span class="priority-badge ${badgeClass}">${escapeHtml(t.prioridad || 'Media')}</span>
+            <span class="priority-badge ${escapeAttr(badgeClass)}">${escapeHtml(t.prioridad || 'Media')}</span>
           </div>
         </div>
       `;
@@ -2583,10 +2840,10 @@
 
     const tabsContainer = document.getElementById('calendarCategoryTabs');
     if (tabsContainer) {
-      let tabsHTML = `<button class="btn btn-secondary ${calendarActiveCategory === 'all' ? 'active' : ''} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('all')">Todo</button>`;
+      let tabsHTML = `<button class="btn btn-secondary ${escapeAttr(calendarActiveCategory === 'all' ? 'active' : '')} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('all')">Todo</button>`;
       tagsArray.forEach(tag => {
         const displayName = typeof getCategoryName === 'function' ? getCategoryName(tag) : tag;
-        tabsHTML += `<button class="btn btn-secondary ${calendarActiveCategory === tag ? 'active' : ''} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('${escapeHtml(tag)}')">${escapeHtml(displayName)}</button>`;
+        tabsHTML += `<button class="btn btn-secondary ${escapeAttr(calendarActiveCategory === tag ? 'active' : '')} compact" style="white-space: nowrap; border-radius: 16px;" onclick="setCalendarCategory('${escapeJsAttr(tag)}')">${escapeHtml(displayName)}</button>`;
       });
       tabsContainer.innerHTML = tabsHTML;
     }
@@ -2652,7 +2909,7 @@
             <div class="match-card">
               <div class="match-card-header">
                 <span class="match-category-tag">${escapeHtml(item.categoria)}</span>
-                <span class="match-status-badge ${item.estado}">${item.estado === 'visto' ? '✓ Visto' : item.estado === 'directo' ? '🔴 En Directo' : '📅 Programado'}</span>
+                <span class="match-status-badge ${escapeAttr(item.estado)}">${item.estado === 'visto' ? '✓ Visto' : item.estado === 'directo' ? '🔴 En Directo' : '📅 Programado'}</span>
               </div>
 
               <div class="match-card-teams">
@@ -2669,11 +2926,11 @@
 
               <div style="display: flex; gap: 8px; margin-top: 6px;">
                 ${item.reportId ? `
-                  <button class="btn btn-sm btn-open-report" data-repid="${item.reportId}" data-mid="${item.id}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                  <button class="btn btn-sm btn-open-report" data-repid="${escapeAttr(item.reportId)}" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                     <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Ver Informe
                   </button>
                 ` : `
-                  <button class="btn btn-sm btn-create-report-from-match" data-mid="${item.id}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
+                  <button class="btn btn-sm btn-create-report-from-match" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
                     <i data-lucide="plus" style="width: 14px; height: 14px;"></i> Crear Informe
                   </button>
                 `}
@@ -2686,10 +2943,10 @@
           const colorObj = getCategoryColor(item.categoria);
 
           return `
-            <div class="match-card agenda-card-item-click" data-agid="${item.id}" style="border-left: 5px solid ${colorObj.accent}; background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Ficha de Tarea / Evento">
+            <div class="match-card agenda-card-item-click" data-agid="${escapeAttr(item.id)}" style="border-left: 5px solid ${escapeAttr(colorObj.accent)}; background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Ficha de Tarea / Evento">
               <div class="match-card-header">
-                <span class="match-category-tag" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700;">📝 ${escapeHtml(catLabel)}</span>
-                <span class="match-status-badge ${item.completada ? 'visto' : 'programado'}">${item.completada ? '✓ Completada' : '📅 Pendiente'}</span>
+                <span class="match-category-tag" style="background: ${escapeAttr(colorObj.bg)}; color: ${escapeAttr(colorObj.text)}; border: 1px solid ${escapeAttr(colorObj.border)}; font-weight: 700;">📝 ${escapeHtml(catLabel)}</span>
+                <span class="match-status-badge ${escapeAttr(item.completada ? 'visto' : 'programado')}">${item.completada ? '✓ Completada' : '📅 Pendiente'}</span>
               </div>
               <div style="font-size: 16px; font-weight: 800; margin: 10px 0; color: var(--text-main);">
                 ${escapeHtml(item.titulo)}
@@ -2703,7 +2960,7 @@
           `;
         } else if (item._type === 'informe') {
           return `
-            <div class="match-card btn-open-report" data-repid="${item.id}" style="border-left: 5px solid var(--primary); background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Informe Técnico">
+            <div class="match-card btn-open-report" data-repid="${escapeAttr(item.id)}" style="border-left: 5px solid var(--primary); background: var(--bg-card); cursor: pointer;" title="Pulsar para abrir Informe Técnico">
               <div class="match-card-header">
                 <span class="match-category-tag" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700;">📊 Informe Técnico</span>
                 <span class="match-status-badge visto">✓ Guardado</span>
@@ -2799,20 +3056,20 @@
 
       const allEventsHTML = [
         ...dayMatches.map(m => `
-          <div class="day-match-pill ${m.estado}" draggable="true" data-type="match" data-mid="${m.id}" title="${escapeHtml(m.local)} vs ${escapeHtml(m.visitante)}">
+          <div class="day-match-pill ${escapeAttr(m.estado)}" draggable="true" data-type="match" data-mid="${escapeAttr(m.id)}" title="${escapeAttr(m.local)} vs ${escapeAttr(m.visitante)}">
             <span>⚽ ${escapeHtml(m.local.split(' ')[0])} v ${escapeHtml(m.visitante.split(' ')[0])}</span>
           </div>
         `),
         ...dayAgendaTasks.map(t => {
           const colorObj = getCategoryColor(t.categoria);
           return `
-            <div class="day-match-pill day-agenda-pill" draggable="true" data-type="agenda" data-agid="${t.id}" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeHtml(t.titulo)}">
+            <div class="day-match-pill day-agenda-pill" draggable="true" data-type="agenda" data-agid="${escapeAttr(t.id)}" style="background: ${escapeAttr(colorObj.bg)}; color: ${escapeAttr(colorObj.text)}; border: 1px solid ${escapeAttr(colorObj.border)}; font-weight: 700; cursor: pointer;" title="Pulsar para ver Ficha: ${escapeAttr(t.titulo)}">
               <span>📝 ${escapeHtml(t.titulo)}</span>
             </div>
           `;
         }),
         ...dayReports.map(r => `
-            <div class="day-match-pill day-informe-pill" data-repid="${r.id}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
+            <div class="day-match-pill day-informe-pill" data-repid="${escapeAttr(r.id)}" style="background: rgba(43, 108, 176, 0.1); color: var(--primary); border: 1px solid var(--primary); font-weight: 700; cursor: pointer;" title="Pulsar para ver Informe Técnico">
               <span>📊 ${escapeHtml(r.localTeam ? `${r.localTeam}-${r.visitanteTeam} (${r.competicion || ''})` : (r.titulo || 'Informe sin título'))}</span>
             </div>
         `)
@@ -2822,7 +3079,7 @@
       if (allEventsHTML.length > 3) {
         displayedHTML = allEventsHTML.slice(0, 2).join('');
         displayedHTML += `
-          <div class="day-match-pill more-events-pill" data-date="${dateStr}" style="background: var(--bg-surface); color: var(--text-main); border: 1px dashed var(--border-light); justify-content: center; text-align: center;">
+          <div class="day-match-pill more-events-pill" data-date="${escapeAttr(dateStr)}" style="background: var(--bg-surface); color: var(--text-main); border: 1px dashed var(--border-light); justify-content: center; text-align: center;">
             <span>+ ${allEventsHTML.length - 2} más...</span>
           </div>
         `;
@@ -2831,7 +3088,7 @@
       }
 
       cellsHTML += `
-        <div class="month-day-cell ${isToday ? 'today' : ''}" data-date="${dateStr}">
+        <div class="month-day-cell ${escapeAttr(isToday ? 'today' : '')}" data-date="${escapeAttr(dateStr)}">
           <span class="day-number">${day}</span>
           <div class="day-matches-list" style="overflow: hidden; max-height: none;">
             ${displayedHTML}
@@ -3043,7 +3300,7 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
           <div class="form-group">
             <label class="form-label">Fecha</label>
-            <input type="date" id="mFecha" class="form-control" value="${initialDate}" required>
+            <input type="date" id="mFecha" class="form-control" value="${escapeAttr(initialDate)}" required>
           </div>
           <div class="form-group">
             <label class="form-label">Hora</label>
@@ -3157,7 +3414,7 @@
     const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     reports.forEach(r => {
-      const cat = (r.competicion || '').trim();
+      const cat = String(r.competicion || '').trim();
       if (cat) {
         catMap[cat] = (catMap[cat] || 0) + 1;
       }
@@ -3249,7 +3506,7 @@
               <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
               ${categories.map(cat => {
       const count = catMap[cat];
-      return `<option value="${escapeHtml(cat)}" ${currentPartidosCategoryTab === cat ? 'selected' : ''}>${escapeHtml(cat).toUpperCase()} (${count})</option>`;
+      return `<option value="${escapeAttr(cat)}" ${currentPartidosCategoryTab === cat ? 'selected' : ''}>${escapeHtml(cat).toUpperCase()} (${count})</option>`;
     }).join('')}
             </select>
           </div>
@@ -3262,7 +3519,7 @@
       const count = monthMap[monthKey];
       const [y, m] = monthKey.split('-');
       const monthLabel = `${monthNames[parseInt(m) - 1]} ${y}`;
-      return `<option value="${monthKey}" ${currentPartidosMonthTab === monthKey ? 'selected' : ''}>${monthLabel} (${count})</option>`;
+      return `<option value="${escapeAttr(monthKey)}" ${currentPartidosMonthTab === monthKey ? 'selected' : ''}>${monthLabel} (${count})</option>`;
     }).join('')}
             </select>
           </div>
@@ -3273,7 +3530,7 @@
               <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
               ${weeks.map(weekKey => {
       const count = weekMap[weekKey];
-      return `<option value="${escapeHtml(weekKey)}" ${currentPartidosWeekTab === weekKey ? 'selected' : ''}>${escapeHtml(weekKey)} (${count})</option>`;
+      return `<option value="${escapeAttr(weekKey)}" ${currentPartidosWeekTab === weekKey ? 'selected' : ''}>${escapeHtml(weekKey)} (${count})</option>`;
     }).join('')}
             </select>
           </div>
@@ -3284,7 +3541,7 @@
               <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
               ${days.map(dayKey => {
       const count = dayMap[dayKey];
-      return `<option value="${escapeHtml(dayKey)}" ${currentPartidosDayTab === dayKey ? 'selected' : ''}>${escapeHtml(dayKey)} (${count})</option>`;
+      return `<option value="${escapeAttr(dayKey)}" ${currentPartidosDayTab === dayKey ? 'selected' : ''}>${escapeHtml(dayKey)} (${count})</option>`;
     }).join('')}
             </select>
           </div>
@@ -3376,7 +3633,7 @@
 
     const searchVal = document.getElementById('reportsSearchInput')?.value.toLowerCase() || '';
     const filtered = state.reports.filter(r => {
-      const cat = (r.competicion || '').trim();
+      const cat = String(r.competicion || '').trim();
       const matchesCat = (currentPartidosCategoryTab === 'all') || (cat === currentPartidosCategoryTab);
 
       let matchesMonth = true;
@@ -3519,10 +3776,10 @@
         const wIconTrans = isWeekCollapsed ? 'transform: rotate(180deg);' : '';
 
         const headerHTML = `
-          <div class="week-group-header" data-group-id="${groupId}" style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px; cursor: pointer; user-select: none;">
+          <div class="week-group-header" data-group-id="${escapeAttr(groupId)}" style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 8px; cursor: pointer; user-select: none;">
             <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--border-light); padding-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
               <span>${g.label}</span>
-              <i data-lucide="chevron-up" class="week-group-icon" style="width: 18px; color: var(--text-muted); transition: transform 0.2s; ${wIconTrans}"></i>
+              <i data-lucide="chevron-up" class="week-group-icon" style="width: 18px; color: var(--text-muted); transition: transform 0.2s; ${escapeAttr(wIconTrans)}"></i>
             </h3>
           </div>
         `;
@@ -3561,12 +3818,12 @@
           }
 
           const dayHeaderHTML = `
-            <div class="day-group-header" data-day-group-id="${dayGroupId}" data-parent-group="${groupId}" style="grid-column: 1 / -1; margin-top: 12px; margin-bottom: 8px; cursor: pointer; user-select: none; ${dDisp} align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-light); padding-bottom: 4px;">
+            <div class="day-group-header" data-day-group-id="${escapeAttr(dayGroupId)}" data-parent-group="${escapeAttr(groupId)}" style="grid-column: 1 / -1; margin-top: 12px; margin-bottom: 8px; cursor: pointer; user-select: none; ${escapeAttr(dDisp)} align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-light); padding-bottom: 4px;">
               <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                 <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);"></i>
                 <span>${formattedDate}</span>
               </h4>
-              <i data-lucide="chevron-up" class="day-group-icon" style="width: 16px; color: var(--text-muted); transition: transform 0.2s; ${dIconTrans}"></i>
+              <i data-lucide="chevron-up" class="day-group-icon" style="width: 16px; color: var(--text-muted); transition: transform 0.2s; ${escapeAttr(dIconTrans)}"></i>
             </div>
           `;
 
@@ -3591,11 +3848,11 @@
 
               const sel = (state.directory.selecciones || []).find(s => s.nombre && s.nombre.toLowerCase() === teamName.toLowerCase());
               if (sel && sel.federacion) {
-                const fed = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
+                const fed = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === sel.federacion.toLowerCase());
                 if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
               }
 
-              const fed = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === teamName.toLowerCase());
+              const fed = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === teamName.toLowerCase());
               if (fed && (fed.logo || fed.escudo)) return fed.logo || fed.escudo;
 
               const fallbackClub = (state.directory.clubes || []).find(c => c.nombre && teamName.toLowerCase().includes(c.nombre.toLowerCase()));
@@ -3618,23 +3875,23 @@
             const cardDisp = (isWeekCollapsed || isDayCollapsed) ? 'display: none;' : 'display: flex;';
 
             return `
-            <div class="match-card" data-group-id="${groupId}" data-day-group-id="${dayGroupId}" style="${cardDisp} flex-direction: column; gap: 8px; transition: opacity 0.2s;">
+            <div class="match-card" data-group-id="${escapeAttr(groupId)}" data-day-group-id="${escapeAttr(dayGroupId)}" style="${escapeAttr(cardDisp)} flex-direction: column; gap: 8px; transition: opacity 0.2s;">
               <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
                 ${r.visionado ? `<span class="match-category-tag" style="background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-light);">${escapeHtml(r.visionado)}</span>` : ''}
-                <span class="match-category-tag" style="background: ${r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(99, 102, 241, 0.1)'}; color: ${r.tipoInforme === 'MS (Personal)' ? '#0d9488' : '#4f46e5'}; border: 1px solid ${r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(99, 102, 241, 0.2)'}; font-weight: 800;">${r.tipoInforme === 'MS (Personal)' ? 'MS' : 'RS'}</span>
+                <span class="match-category-tag" style="background: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(99, 102, 241, 0.1)')}; color: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? '#0d9488' : '#4f46e5')}; border: 1px solid ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(99, 102, 241, 0.2)')}; font-weight: 800;">${r.tipoInforme === 'MS (Personal)' ? 'MS' : 'RS'}</span>
               </div>
 
               <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
               <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  ${lLogo ? `<img src="${lLogo}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
+                  ${lLogo ? `<img src="${escapeAttr(lLogo)}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.localTeam ? escapeHtml(r.localTeam.charAt(0)) : ''}</div>`}
                   <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.localTeam)}</span>
                   <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.localScore}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  ${vLogo ? `<img src="${vLogo}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
+                  ${vLogo ? `<img src="${escapeAttr(vLogo)}" style="width: 36px; height: 36px; object-fit: contain;">` : `<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-subtle); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--text-muted);">${r.visitanteTeam ? escapeHtml(r.visitanteTeam.charAt(0)) : ''}</div>`}
                   <span style="font-weight: 800; font-size: 15px; color: var(--text-main);">${escapeHtml(r.visitanteTeam)}</span>
                   <span style="margin-left: auto; font-size: 18px; font-weight: 900; color: var(--primary-blue); background: var(--primary-blue-light); padding: 2px 10px; border-radius: var(--radius-sm);">${r.visitanteScore}</span>
                 </div>
@@ -3648,29 +3905,29 @@
               </div>
 
               <div style="display: flex; gap: 4px; margin-top: 12px;">
-                <button class="btn btn-sm btn-edit-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
+                <button class="btn btn-sm btn-edit-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(37,99,235,0.08); color: var(--primary-blue); border: 1px solid rgba(37,99,235,0.2); box-shadow: none;">
                   <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Abrir
                 </button>
                 ${!r.completado ? `
-                <button class="btn btn-sm btn-complete-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                <button class="btn btn-sm btn-complete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                   <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Completar
                 </button>
                 ` : `
-                <button class="btn btn-sm btn-uncomplete-report" data-repid="${r.id}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light); box-shadow: none;">
+                <button class="btn btn-sm btn-uncomplete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-light); box-shadow: none;">
                   <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Reabrir
                 </button>
                 `}
                 ${(r.visionado === 'VÍDEO' || r.visionado === 'VIDEO' || r.visionado === 'En vídeo') && r.videoLink ? `
-                <a href="${escapeHtml(r.videoLink)}" target="_blank" class="btn btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.2); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: none;">
+                <a href="${urlSegura(r.videoLink)}" target="_blank" class="btn btn-sm" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(234,88,12,0.1); color: #ea580c; border: 1px solid rgba(234,88,12,0.2); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: none;">
                   <i data-lucide="play" style="width: 12px; height: 12px;"></i> Vídeo
                 </a>
                 ` : ''}
-                <button class="btn btn-sm btn-delete-report" data-repid="${r.id}" style="padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(239,68,68,0.08); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); box-shadow: none; display: flex; align-items: center; justify-content: center;">
+                <button class="btn btn-sm btn-delete-report" data-repid="${escapeAttr(r.id)}" style="padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(239,68,68,0.08); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.2); box-shadow: none; display: flex; align-items: center; justify-content: center;">
                   <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
                 </button>
               </div>
               <div style="margin-top: 8px;">
-                <select class="form-control select-incidencia" data-repid="${r.id}" style="font-size: 11px; padding: 4px; height: 26px; border-radius: 6px; border: 1px solid ${r.incidencia && r.incidencia !== '' ? '#ef4444' : 'var(--border-medium)'}; background: ${r.incidencia && r.incidencia !== '' ? '#fef2f2' : 'transparent'}; color: ${r.incidencia && r.incidencia !== '' ? '#dc2626' : 'var(--text-muted)'}; font-weight: 700; width: 100%; transition: all 0.2s; cursor: pointer;">
+                <select class="form-control select-incidencia" data-repid="${escapeAttr(r.id)}" style="font-size: 11px; padding: 4px; height: 26px; border-radius: 6px; border: 1px solid ${escapeAttr(r.incidencia && r.incidencia !== '' ? '#ef4444' : 'var(--border-medium)')}; background: ${escapeAttr(r.incidencia && r.incidencia !== '' ? '#fef2f2' : 'transparent')}; color: ${escapeAttr(r.incidencia && r.incidencia !== '' ? '#dc2626' : 'var(--text-muted)')}; font-weight: 700; width: 100%; transition: all 0.2s; cursor: pointer;">
                   <option value="">✅ Sin incidencias (Informe realizable)</option>
                   <option value="Falta acta en Federación" ${r.incidencia === 'Falta acta en Federación' ? 'selected' : ''}>⚠️ Falta acta en Federación</option>
                   <option value="Equipo no creado en app" ${r.incidencia === 'Equipo no creado en app' ? 'selected' : ''}>⚠️ Equipo no creado en app de la RS</option>
@@ -3843,6 +4100,19 @@
   function openMatchReportEditor(reportId = null, prefillMatch = null) {
     currentEditingReportId = reportId;
 
+    // Mientras un informe no se guarda, sus valoraciones viven bajo claves «temp_local_9» que
+    // dependen solo del equipo y del dorsal, no del partido. Si alguien abre un informe nuevo,
+    // evalúa a un dorsal y lo abandona, al abrir el SIGUIENTE informe nuevo esas valoraciones
+    // seguían ahí y se le atribuían a otro partido y a otro jugador. Un informe nuevo empieza
+    // limpio; lo escrito y no guardado queda en el borrador de recuperación.
+    if (!reportId && state.matchPlayerEvaluations) {
+      const sobrantes = Object.keys(state.matchPlayerEvaluations).filter(k => k.indexOf('temp_') === 0);
+      if (sobrantes.length) {
+        sobrantes.forEach(k => { delete state.matchPlayerEvaluations[k]; });
+        console.log('Informe nuevo: se descartan', sobrantes.length, 'valoraciones de un intento anterior sin guardar.');
+      }
+    }
+
     // Switch active view tab to 'partidos' so the editor is visible on screen
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
@@ -3925,8 +4195,8 @@
     // Populate Datalists for Match Technical Report
     const equiposListOptions = document.getElementById('reportEquiposSeleccionesDatalistOptions');
     if (equiposListOptions) {
-      const eqOpts = (state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`);
-      const selOpts = (state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`);
+      const eqOpts = (state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`);
+      const selOpts = (state.directory.selecciones || []).map(s => `<option value="${escapeAttr(s.nombre || s.seleccion)}"></option>`);
       equiposListOptions.innerHTML = [...eqOpts, ...selOpts].join('');
     }
 
@@ -3937,7 +4207,7 @@
       (state.directory.clubes || []).forEach(c => { if (c.estadio) allStadiums.add(c.estadio); if (c.estadioVinculado) allStadiums.add(c.estadioVinculado); });
       (state.directory.equipos || []).forEach(eq => { if (eq.estadio) allStadiums.add(eq.estadio); if (eq.estadioVinculado) allStadiums.add(eq.estadioVinculado); });
 
-      estadiosListOptions.innerHTML = Array.from(allStadiums).filter(Boolean).map(est => `<option value="${escapeHtml(est)}"></option>`).join('');
+      estadiosListOptions.innerHTML = Array.from(allStadiums).filter(Boolean).map(est => `<option value="${escapeAttr(est)}"></option>`).join('');
     }
 
     const competicionesListOptions = document.getElementById('reportCompeticionesDatalistOptions');
@@ -3946,7 +4216,7 @@
       ['Amistoso', 'Liga', 'Copa del Rey', 'Champions League', 'Europa League', 'Supercopa', 'Tercera RFEF', 'Segunda RFEF', 'Primera RFEF', 'División de Honor', 'Liga Nacional'].forEach(c => compSet.add(c));
       (state.directory.equipos || []).forEach(e => { if (e.liga) compSet.add(e.liga); if (e.competicion) compSet.add(e.competicion); });
       (state.directory.torneos || []).forEach(t => { if (t.nombre) compSet.add(t.nombre); if (t.torneo) compSet.add(t.torneo); });
-      competicionesListOptions.innerHTML = Array.from(compSet).map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+      competicionesListOptions.innerHTML = Array.from(compSet).map(c => `<option value="${escapeAttr(c)}"></option>`).join('');
     }
 
     // Restore matchPlayerEvaluations from report data if it exists
@@ -3959,14 +4229,14 @@
     if (categoriasListOptions) {
       const catSet = new Set(['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8', 'Senior', 'Juvenil', 'Cadete', 'Infantil', 'Alevín', 'Benjamín', 'Prebenjamín']);
       (state.directory.equipos || []).forEach(e => { if (e.categoria) catSet.add(e.categoria); });
-      categoriasListOptions.innerHTML = Array.from(catSet).map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+      categoriasListOptions.innerHTML = Array.from(catSet).map(c => `<option value="${escapeAttr(c)}"></option>`).join('');
     }
 
     const federacionesListOptions = document.getElementById('reportFederacionesDatalistOptions');
     if (federacionesListOptions) {
       const fedSet = new Set(['RFEF', 'Real Federación Española de Fútbol', 'Real Federación de Fútbol de Madrid', 'Federació Catalana de Futbol', 'Federación Andaluza de Fútbol', 'Federación de Fútbol de la Comunidad Valenciana']);
       (state.directory.federaciones || []).forEach(f => { if (f.nombre) fedSet.add(f.nombre); });
-      federacionesListOptions.innerHTML = Array.from(fedSet).map(f => `<option value="${escapeHtml(f)}"></option>`).join('');
+      federacionesListOptions.innerHTML = Array.from(fedSet).map(f => `<option value="${escapeAttr(f)}"></option>`).join('');
     }
 
     // Restore "Incluir Filial" checkboxes state per report
@@ -4187,28 +4457,28 @@
 
     // 1. Exact match in equipos
     let found = equipos.find(e => {
-      const n = (e.nombre || e.equipo || '').toLowerCase();
+      const n = String(e.nombre || e.equipo || '').toLowerCase();
       return n && n === query;
     });
     if (found) return found;
 
     // 2. Exact match in selecciones
     found = selecciones.find(s => {
-      const n = (s.nombre || s.seleccion || '').toLowerCase();
+      const n = String(s.nombre || s.seleccion || '').toLowerCase();
       return n && n === query;
     });
     if (found) return found;
 
     // 3. Substring / Partial match in equipos
     found = equipos.find(e => {
-      const n = (e.nombre || e.equipo || '').toLowerCase();
+      const n = String(e.nombre || e.equipo || '').toLowerCase();
       return n && (query.includes(n) || n.includes(query));
     });
     if (found) return found;
 
     // 4. Substring / Partial match in selecciones
     found = selecciones.find(s => {
-      const n = (s.nombre || s.seleccion || '').toLowerCase();
+      const n = String(s.nombre || s.seleccion || '').toLowerCase();
       return n && (query.includes(n) || n.includes(query));
     });
     if (found) return found;
@@ -4269,7 +4539,7 @@
     slotPositions.forEach((posCode, idx) => {
       squadPlayers.forEach(p => {
         if (assignedPlayerIds.has(p.id)) return;
-        const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+        const pPrimary = String(p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
         if (posMatchesSlot(pPrimary, posCode)) {
           slotMap[idx].push(p);
           assignedPlayerIds.add(p.id);
@@ -4283,7 +4553,7 @@
       const codeUpper = posCode.toUpperCase().trim();
       squadPlayers.forEach(p => {
         if (assignedPlayerIds.has(p.id)) return;
-        const pPrimary = (p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
+        const pPrimary = String(p.posicionPrincipal || p.posicion || '').toUpperCase().trim();
         if (pPrimary && (pPrimary.includes(codeUpper) || codeUpper.includes(pPrimary))) {
           slotMap[idx].push(p);
           assignedPlayerIds.add(p.id);
@@ -4306,7 +4576,7 @@
           let moved = false;
           for (let pi = slotMap[idx].length - 1; pi >= 0; pi--) {
             const player = slotMap[idx][pi];
-            const secPos = (player.posicionSecundaria || '').toUpperCase().trim();
+            const secPos = String(player.posicionSecundaria || '').toUpperCase().trim();
             if (!secPos) continue;
 
             // Find a target slot that matches the secondary position and has fewer players
@@ -4328,7 +4598,7 @@
           if (!moved) {
             for (let pi = slotMap[idx].length - 1; pi >= 0; pi--) {
               const player = slotMap[idx][pi];
-              const secPos = (player.posicionSecundaria || '').toUpperCase().trim();
+              const secPos = String(player.posicionSecundaria || '').toUpperCase().trim();
               if (!secPos) continue;
               for (let targetIdx = 0; targetIdx < slotPositions.length; targetIdx++) {
                 if (targetIdx === idx) continue;
@@ -4352,7 +4622,7 @@
     // PASS 4: Assign remaining unassigned players via their secondary position
     squadPlayers.forEach(p => {
       if (assignedPlayerIds.has(p.id)) return;
-      const secPos = (p.posicionSecundaria || '').toUpperCase().trim();
+      const secPos = String(p.posicionSecundaria || '').toUpperCase().trim();
       if (!secPos) return;
       for (let idx = 0; idx < slotPositions.length; idx++) {
         const slotCode = slotPositions[idx].toUpperCase().trim();
@@ -4399,10 +4669,10 @@
     if (!teamName || !state.directory) return '';
     if (state.directory.staff && Array.isArray(state.directory.staff)) {
       const foundStaff = state.directory.staff.find(s => {
-        const t = (s.equipo || s.team || '').trim().toLowerCase();
+        const t = String(s.equipo || s.team || '').trim().toLowerCase();
         const tn = teamName.trim().toLowerCase();
         const teamMatch = t && tn && (t === tn || (t.length > 3 && tn.includes(t)) || (tn.length > 3 && t.includes(tn)));
-        const cargo = (s.cargo || s.puesto || '').toUpperCase();
+        const cargo = String(s.cargo || s.puesto || '').toUpperCase();
         const isCoach = !cargo || cargo.includes('ENTRENADOR') || cargo.includes('TÉCNICO') || cargo.includes('COACH');
         return teamMatch && isCoach;
       });
@@ -4420,10 +4690,10 @@
     let coaches = [];
     if (state.directory.staff && Array.isArray(state.directory.staff)) {
       coaches = state.directory.staff.filter(s => {
-        const t = (s.equipo || s.team || '').trim().toLowerCase();
+        const t = String(s.equipo || s.team || '').trim().toLowerCase();
         const tn = teamName.trim().toLowerCase();
         const teamMatch = t && tn && (t === tn || (t.length > 3 && tn.includes(t)) || (tn.length > 3 && t.includes(tn)));
-        const cargo = (s.cargo || s.puesto || '').toUpperCase();
+        const cargo = String(s.cargo || s.puesto || '').toUpperCase();
         const isCoach = !cargo || cargo.includes('ENTRENADOR') || cargo.includes('TÉCNICO') || cargo.includes('COACH');
         return teamMatch && isCoach;
       }).map(s => s.nombre || s.staff || '').filter(Boolean);
@@ -4463,7 +4733,7 @@
       const datalist = document.getElementById(`${team}CoachDatalist`);
       if (datalist) {
         const coaches = findAllCoachesForTeam(teamName);
-        datalist.innerHTML = coaches.map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
+        datalist.innerHTML = coaches.map(c => `<option value="${escapeAttr(c)}"></option>`).join('');
       }
     }
 
@@ -4482,7 +4752,7 @@
 
         let estVal = teamObj.estadio || teamObj.estadioVinculado || '';
         if (!estVal && teamObj.club) {
-          const clubObj = (state.directory.clubes || []).find(c => (c.nombre || c.club || '').toLowerCase() === teamObj.club.toLowerCase());
+          const clubObj = (state.directory.clubes || []).find(c => String(c.nombre || c.club || '').toLowerCase() === teamObj.club.toLowerCase());
           if (clubObj) estVal = clubObj.estadio || clubObj.estadioVinculado || '';
         }
 
@@ -4501,7 +4771,7 @@
     }
 
     if (badgeSrc) {
-      badgeLabel.innerHTML = `<img src="${badgeSrc}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">`;
+      badgeLabel.innerHTML = `<img src="${escapeAttr(badgeSrc)}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">`;
     } else {
       badgeLabel.innerHTML = `<i data-lucide="shield" style="width: 24px; height: 24px;"></i>`;
       if (window.lucide) window.lucide.createIcons();
@@ -4554,8 +4824,8 @@
   const updateReportEquiposDatalist = () => {
     const equiposListOptions = document.getElementById('reportEquiposSeleccionesDatalistOptions');
     if (equiposListOptions) {
-      const eqOpts = (state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`);
-      const selOpts = (state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`);
+      const eqOpts = (state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`);
+      const selOpts = (state.directory.selecciones || []).map(s => `<option value="${escapeAttr(s.nombre || s.seleccion)}"></option>`);
       equiposListOptions.innerHTML = [...eqOpts, ...selOpts].join('');
     }
   };
@@ -4995,10 +5265,10 @@
 
     let match = jugadores.find(p => {
       const pTeams = [
-        (p.equipo || '').toLowerCase().trim(),
-        (p.equipoVinculado || '').toLowerCase().trim(),
-        (p.club || '').toLowerCase().trim(),
-        (p.seleccion || '').toLowerCase().trim()
+        String(p.equipo || '').toLowerCase().trim(),
+        String(p.equipoVinculado || '').toLowerCase().trim(),
+        String(p.club || '').toLowerCase().trim(),
+        String(p.seleccion || '').toLowerCase().trim()
       ].filter(Boolean);
 
       let matchDorsal = false;
@@ -5048,7 +5318,7 @@
       }
 
       if (!matchesTeam && targetTeam && targetTeam.plantilla) {
-        const pName = (p.nombre || p.jugador || p.name || '').toLowerCase();
+        const pName = String(p.nombre || p.jugador || p.name || '').toLowerCase();
         matchesTeam = targetTeam.plantilla.some(item => {
           const itemName = (typeof item === 'string' ? item : (item.nombre || item.jugador || '')).toLowerCase();
           return itemName === pName || window.flexibleMatch(itemName, pName);
@@ -5109,7 +5379,7 @@
       if (name && !enteredNames.includes(name.toLowerCase()) && !teamPlayersSet.has(name.toLowerCase())) {
         if (!filterText || name.toLowerCase().includes(filterText)) {
           teamPlayersSet.add(name.toLowerCase());
-          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeHtml(name)}" title="${escapeHtml(name)}">${escapeHtml(name)}</div>`;
+          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}" title="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }
       }
     };
@@ -5117,10 +5387,10 @@
     if (teamName) {
       jugadores.forEach(p => {
         const pTeams = [
-          (p.equipo || '').toLowerCase().trim(),
-          (p.equipoVinculado || '').toLowerCase().trim(),
-          (p.club || '').toLowerCase().trim(),
-          (p.seleccion || '').toLowerCase().trim()
+          String(p.equipo || '').toLowerCase().trim(),
+          String(p.equipoVinculado || '').toLowerCase().trim(),
+          String(p.club || '').toLowerCase().trim(),
+          String(p.seleccion || '').toLowerCase().trim()
         ].filter(Boolean);
 
         let matchesTeam = false;
@@ -5236,19 +5506,19 @@
 
       titHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#" style="${inputBgStyle}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeHtml(p.name)}" style="${inputBgStyle}">
-          <select class="form-control pos select-compact" style="${inputBgStyle}">
-            ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
+            ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
           <select class="form-control pos2 select-compact">
             <option value="" ${!currentPos2 ? 'selected' : ''}>-</option>
-            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeHtml(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
+            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeAttr(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
           <div class="row-controls titular-controls" style="display: flex; align-items: center; padding-left: 2px;">
-            <button type="button" class="btn btn-outline-danger" style="padding: 0 4px; font-size: 10px; line-height: 1; height: 16px;" onclick="window.removePlayerRow('${team}', 'titular', ${i})" title="Eliminar jugador">-</button>
+            <button type="button" class="btn btn-outline-danger" style="padding: 0 4px; font-size: 10px; line-height: 1; height: 16px;" onclick="window.removePlayerRow('${escapeJsAttr(team)}', 'titular', ${escapeJsAttr(i)})" title="Eliminar jugador">-</button>
           </div>
         </div>
       `;
@@ -5287,16 +5557,16 @@
 
       supHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${numVal}" min="1" max="99" placeholder="#" style="${inputBgStyle}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeHtml(p.name)}" style="${inputBgStyle}">
-          <select class="form-control pos select-compact" style="${inputBgStyle}">
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
+          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
-            ${!hasCurrent && currentPos ? `<option value="${escapeHtml(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
+            ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
           <select class="form-control pos2 select-compact">
             <option value="" ${!currentPos2 ? 'selected' : ''}>-</option>
-            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeHtml(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
+            ${!hasCurrent2 && currentPos2 ? `<option value="${escapeAttr(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
         </div>
@@ -5369,12 +5639,12 @@
     const allEquipos = state.directory.equipos || [];
     const currentTeamName = document.getElementById(team === 'local' ? 'reportLocalTeam' : 'reportVisitanteTeam')?.value.trim();
     const currentTeamObj = allEquipos.find(eq => eq.nombre === currentTeamName);
-    const currentClub = (currentTeamObj?.club || '').toLowerCase().trim();
+    const currentClub = String(currentTeamObj?.club || '').toLowerCase().trim();
 
     let filteredEquipos = allEquipos.filter(eq => {
       if (!currentClub) return true;
-      const eqClub = (eq.club || '').toLowerCase().trim();
-      const eqName = (eq.nombre || '').toLowerCase().trim();
+      const eqClub = String(eq.club || '').toLowerCase().trim();
+      const eqName = String(eq.nombre || '').toLowerCase().trim();
 
       if (eqClub === currentClub) return true;
 
@@ -5387,7 +5657,7 @@
 
     if (filteredEquipos.length === 0) filteredEquipos = allEquipos;
 
-    let equiposOptions = filteredEquipos.map(eq => `<option value="${escapeHtml(eq.nombre || '')}"></option>`).join('');
+    let equiposOptions = filteredEquipos.map(eq => `<option value="${escapeAttr(eq.nombre || '')}"></option>`).join('');
 
     const finalHTML = `
       <div style="padding: 16px;">
@@ -5421,17 +5691,17 @@
     const btnShowAll = document.getElementById('btnShowAllTeamsModal');
 
     const renderAutocomplete = (query) => {
-      const lowerQuery = (query || '').trim().toLowerCase();
+      const lowerQuery = String(query || '').trim().toLowerCase();
       let matches = allEquipos;
       if (lowerQuery) {
-        matches = allEquipos.filter(eq => (eq.nombre || '').toLowerCase().includes(lowerQuery) || (eq.club || '').toLowerCase().includes(lowerQuery));
+        matches = allEquipos.filter(eq => String(eq.nombre || '').toLowerCase().includes(lowerQuery) || String(eq.club || '').toLowerCase().includes(lowerQuery));
       }
       if (matches.length === 0) {
         autocompleteDropdown.innerHTML = '<div style="padding: 10px; font-size: 13px; color: #94a3b8;">No se encontraron equipos</div>';
       } else {
         autocompleteDropdown.innerHTML = matches.map(eq => {
           const name = eq.nombre || '';
-          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeHtml(name)}">${escapeHtml(name)}</div>`;
+          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }).join('');
       }
       autocompleteDropdown.style.display = 'block';
@@ -5488,14 +5758,14 @@
 
       const addBtn = (pName, tName) => {
         return `
-          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeHtml(pName)}" data-team="${escapeHtml(tName)}">
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeAttr(pName)}" data-team="${escapeAttr(tName)}">
             ${escapeHtml(pName)}
           </button>
         `;
       };
 
       (state.directory.jugadores || []).forEach(p => {
-        const pTeam = (p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
+        const pTeam = String(p.equipo || p.equipoVinculado || p.club || '').toLowerCase().trim();
         let matches = false;
         if (pTeam) {
           matches = pTeam === selectedTeamName || pTeam.includes(selectedTeamName) || selectedTeamName.includes(pTeam);
@@ -5678,7 +5948,7 @@
       if (nameVal && state.directory && state.directory.jugadores) {
         const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
         if (foundP) {
-          const pierna = (foundP.pierna || '').toLowerCase();
+          const pierna = String(foundP.pierna || '').toLowerCase();
           if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
         }
       }
@@ -5690,10 +5960,10 @@
         const amarillas = stats.amarillas || 0;
         const rojas = stats.rojas || 0;
 
-        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${asistencias}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
         if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
       }
       if (isZurdo) {
         badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
@@ -5749,8 +6019,8 @@
         const borderStyle2 = isPos2 ? '2px dashed rgba(255,255,255,0.7)' : borderStyle;
 
         return `
-        <div class="pitch-player-token" data-team="${team}" data-type="${isTitular ? 'titular' : 'suplente'}" data-idx="${idx}" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + positionVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${offsetX}%; top: ${offsetY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${zIndex}; cursor: pointer; ${opcStyle}">
-          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${backgroundStyle} color: ${textColor}; ${textShadow} border: ${borderStyle2}; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
+        <div class="pitch-player-token" data-team="${escapeAttr(team)}" data-type="${escapeAttr(isTitular ? 'titular' : 'suplente')}" data-idx="${escapeAttr(idx)}" title="${escapeAttr((nameVal ? nameVal + ' | ' : '') + positionVal + (numVal ? ' #' + numVal : ''))}" style="position: absolute; left: ${escapeAttr(offsetX)}%; top: ${escapeAttr(offsetY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: ${escapeAttr(zIndex)}; cursor: pointer; ${escapeAttr(opcStyle)}">
+          <div class="pitch-pin" style="position: relative; transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.4); left: 0; top: 0; ${escapeAttr(backgroundStyle)} color: ${escapeAttr(textColor)}; ${escapeAttr(textShadow)} border: ${escapeAttr(borderStyle2)}; font-weight: 800; font-size: ${escapeAttr(displayText.length > 2 ? '9px' : '11px')}; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;">
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
@@ -5800,7 +6070,7 @@
         if (nameVal && state.directory && state.directory.jugadores) {
           const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
           if (foundP) {
-            const pierna = (foundP.pierna || '').toLowerCase();
+            const pierna = String(foundP.pierna || '').toLowerCase();
             if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
           }
         }
@@ -5812,18 +6082,18 @@
           const amarillas = stats.amarillas || 0;
           const rojas = stats.rojas || 0;
 
-          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${goles}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${asistencias}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
           if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${amarillas}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
         }
         if (isZurdo) {
           badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
         }
 
         return `
-          <div class="bench-pin-item" title="${escapeHtml((nameVal ? nameVal + ' | ' : '') + (posVal || 'Suplente') + (numVal ? ' #' + numVal : ''))}">
-            <div class="pitch-pin inline-pin" data-team="${team}" data-type="suplente" data-idx="${idx}" style="position: relative; ${backgroundStyle} color: ${textColor}; ${textShadow} border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${displayText.length > 2 ? '9px' : '11px'};">
+          <div class="bench-pin-item" title="${escapeAttr((nameVal ? nameVal + ' | ' : '') + (posVal || 'Suplente') + (numVal ? ' #' + numVal : ''))}">
+            <div class="pitch-pin inline-pin" data-team="${escapeAttr(team)}" data-type="suplente" data-idx="${escapeAttr(idx)}" style="position: relative; ${escapeAttr(backgroundStyle)} color: ${escapeAttr(textColor)}; ${escapeAttr(textShadow)} border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; font-weight: 800; font-size: ${escapeAttr(displayText.length > 2 ? '9px' : '11px')};">
               ${escapeHtml(displayText)}
               ${badgesHTML}
             </div>
@@ -5884,7 +6154,7 @@
   const getOptionsDescTecnica = (pos) => {
     let accionesPositivas = [];
     let accionesNegativas = [];
-    const p = (pos || '').toUpperCase();
+    const p = String(pos || '').toUpperCase();
 
     if (p === 'PO') {
       accionesPositivas = ['Blocajes', 'Buena gestión espacio defensivo', 'Bueno en el 1x1', 'Colocación', 'Comunicación', 'Despejes', 'Dominio área', 'Estiradas laterales', 'Inicio juego corto', 'Inicio juego largo', 'Juego aéreo', 'Juego pies', 'Lanzamiento mano', 'Movilidad', 'Penaltis', 'Presencia segura', 'Reducción ángulos', 'Reflejos bajo palos', 'Salidas balones largos', 'Salidas centros laterales', 'Seguridad en balones aéreos', 'Buena gestión balones a la espalda'];
@@ -5949,14 +6219,14 @@
   };
 
   function buildFilteredPerfilRSHTML(pPos) {
-    const normPos = (pPos || '').toUpperCase().trim();
+    const normPos = String(pPos || '').toUpperCase().trim();
     const groupKey = POSITION_TO_PERFIL_GROUP[normPos];
 
     if (groupKey && OPTIONS_PERFIL_RS[groupKey]) {
       let html = `<option value="">+ Añadir perfil RS (${groupKey})...</option>`;
-      html += `<optgroup label="${escapeHtml(groupKey)}">`;
+      html += `<optgroup label="${escapeAttr(groupKey)}">`;
       OPTIONS_PERFIL_RS[groupKey].forEach(item => {
-        html += `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`;
+        html += `<option value="${escapeAttr(item)}">${escapeHtml(item)}</option>`;
       });
       html += `</optgroup>`;
       return html;
@@ -5968,9 +6238,9 @@
   function buildOptgroupsHTML(optionsObj, placeholder) {
     let html = `<option value="">+ ${escapeHtml(placeholder)}</option>`;
     for (const [groupLabel, items] of Object.entries(optionsObj)) {
-      html += `<optgroup label="${escapeHtml(groupLabel)}">`;
+      html += `<optgroup label="${escapeAttr(groupLabel)}">`;
       items.forEach(item => {
-        html += `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`;
+        html += `<option value="${escapeAttr(item)}">${escapeHtml(item)}</option>`;
       });
       html += `</optgroup>`;
     }
@@ -5980,7 +6250,7 @@
   function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
     let html = `
     <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 0;">
-      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeHtml(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeHtml(placeholder).replace(/'/g, "\\'")}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
+      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeJsAttr(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeJsAttr(placeholder)}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
         <span>+ ${escapeHtml(placeholder)}</span>
         <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
       </div>
@@ -5988,7 +6258,7 @@
     `;
 
     // Opción para crear uno nuevo dinámicamente
-    html += `<div style="padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--primary-blue); font-weight: 700; border-bottom: 2px solid var(--border-light); background: #f0f9ff; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" onclick="event.stopPropagation(); const val = prompt('Introduce la nueva descripción:'); if(val && val.trim()){ const t = document.getElementById('${escapeHtml(targetId)}'); if(t){ const parts = t.value.split(',').map(s=>s.trim()).filter(Boolean); if(!parts.includes(val.trim())){ parts.push(val.trim()); t.value = parts.join(', '); t.dispatchEvent(new Event('input', { bubbles: true })); } } this.parentElement.classList.add('hidden'); }">+ Crear nuevo...</div>`;
+    html += `<div style="padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--primary-blue); font-weight: 700; border-bottom: 2px solid var(--border-light); background: #f0f9ff; display: flex; align-items: center; gap: 6px;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f0f9ff'" onclick="event.stopPropagation(); const val = prompt('Introduce la nueva descripción:'); if(val && val.trim()){ const t = document.getElementById('${escapeJsAttr(targetId)}'); if(t){ const parts = t.value.split(',').map(s=>s.trim()).filter(Boolean); if(!parts.includes(val.trim())){ parts.push(val.trim()); t.value = parts.join(', '); t.dispatchEvent(new Event('input', { bubbles: true })); } } this.parentElement.classList.add('hidden'); }">+ Crear nuevo...</div>`;
 
     for (const [groupLabel, items] of Object.entries(optionsObj)) {
       html += `<div style="padding: 6px 12px; font-weight: 800; font-size: 11px; background: var(--bg-subtle); color: var(--text-muted); text-transform: uppercase; position: sticky; top: 0; z-index: 1;">${escapeHtml(groupLabel)}</div>`;
@@ -5996,7 +6266,7 @@
       const sortedItems = [...items].sort((a, b) => a.localeCompare(b, 'es'));
 
       sortedItems.forEach(item => {
-        html += `<div class="custom-dropdown-item" data-val="${escapeHtml(item)}" data-target="${escapeHtml(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
+        html += `<div class="custom-dropdown-item" data-val="${escapeAttr(item)}" data-target="${escapeAttr(targetId)}" style="padding: 6px 16px; cursor: pointer; font-size: 12px; transition: background 0.2s; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='transparent'">${escapeHtml(item)}</div>`;
       });
     }
     html += `</div></div>`;
@@ -6005,7 +6275,7 @@
 
   function buildFilteredPerfilKeepOpenHTML(pos, targetId) {
     let filteredObj = {};
-    const normPos = (pos || '').toUpperCase().trim();
+    const normPos = String(pos || '').toUpperCase().trim();
     const groupKey = POSITION_TO_PERFIL_GROUP[normPos];
 
     if (groupKey && OPTIONS_PERFIL_RS[groupKey]) {
@@ -6028,7 +6298,7 @@
 
     // Find matching player in directory by name or dorsal+team
     const playerInDir = state.directory.jugadores.find(p => {
-      const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+      const normalize = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
       const pNorm = normalize(p.nombre);
       const nameNorm = normalize(pName);
 
@@ -6337,11 +6607,11 @@
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO</div>
               <div class="rs-pills-row" id="pmRendimientoGroup">
-                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimiento === 'E' ? 'active' : ''}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'C' ? 'active' : '')}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'D' ? 'active' : '')}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'E' ? 'active' : '')}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
               </div>
             </div>
 
@@ -6357,11 +6627,11 @@
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'A' ? 'active' : ''}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'B' ? 'active' : ''}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'C' ? 'active' : ''}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'D' ? 'active' : ''}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
-                <button type="button" class="rs-pill-btn ${pEval.rendimientoRS === 'E' ? 'active' : ''}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'C' ? 'active' : '')}" data-val="C" style="width: 38px; height: 38px; font-size: 14px;">C</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'D' ? 'active' : '')}" data-val="D" style="width: 38px; height: 38px; font-size: 14px;">D</button>
+                <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'E' ? 'active' : '')}" data-val="E" style="width: 38px; height: 38px; font-size: 14px;">E</button>
               </div>
             </div>
 
@@ -6376,7 +6646,7 @@
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
           <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
             ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
-              <button type="button" class="tag-control-btn ${mergedTagsArray.includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
+              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes(tag) ? 'active' : '')}" data-tag="${escapeAttr(tag)}">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -6386,23 +6656,23 @@
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: center;">
             <div>
               <label class="form-label" style="font-size: 10px; font-weight: 800; display: block; text-align: center;">MINUTOS JUGADOS</label>
-              <input type="number" id="pmMinutos" class="form-control" value="${pEval.minutos || 0}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
+              <input type="number" id="pmMinutos" class="form-control" value="${escapeAttr(pEval.minutos || 0)}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px; display: flex; gap: 4px;">
-              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO JUEGA') ? 'active' : ''}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
+              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO JUEGA') ? 'active' : '')}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
                 NO JUEGA
               </button>
-              <button type="button" class="tag-control-btn ${mergedTagsArray.includes('NO VISTO') ? 'active' : ''}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
+              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO VISTO') ? 'active' : '')}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
                 NO VISTO
               </button>
             </div>
             <div style="padding-top: 18px;">
-              <button type="button" class="btn-entra-toggle ${pEval.entra ? 'active' : ''}" id="pmBtnEntra" title="Marcar minuto de entrada" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
+              <button type="button" class="btn-entra-toggle ${escapeAttr(pEval.entra ? 'active' : '')}" id="pmBtnEntra" title="Marcar minuto de entrada" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
                 <i data-lucide="log-in" style="width: 14px;"></i> ${pEval.entra ? ('ENTRÓ (' + (pEval.minutoEntrada || 0) + ')') : 'ENTRA'}
               </button>
             </div>
             <div style="padding-top: 18px;">
-              <button type="button" class="btn-salir-toggle ${pEval.sustituido ? 'active' : ''}" id="pmBtnSalir" title="Marcar minuto de salida" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
+              <button type="button" class="btn-salir-toggle ${escapeAttr(pEval.sustituido ? 'active' : '')}" id="pmBtnSalir" title="Marcar minuto de salida" style="margin: 0; width: 100%; height: 38px; box-sizing: border-box; font-size: 11px;">
                 <i data-lucide="log-out" style="width: 14px;"></i> ${pEval.sustituido ? ('SUSTITUIDO (' + (pEval.minutoSalida || 0) + ')') : 'SALIR'}
               </button>
             </div>
@@ -6418,9 +6688,9 @@
               <label class="form-label" style="font-size: 10px; font-weight: 800;">POSICIÓN ALTERNATIVA</label>
               <select id="pmPosicionAlternativa" class="form-control" style="font-weight: 800; text-align: center; height: 38px; margin-bottom: 4px;">
                 <option value="">(Ninguna)</option>
-                ${Object.keys(POSITION_TO_PERFIL_GROUP).map(pos => `<option value="${escapeHtml(pos)}" ${(pPos2 || pEval.posicionAlternativa) === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`).join('')}
+                ${Object.keys(POSITION_TO_PERFIL_GROUP).map(pos => `<option value="${escapeAttr(pos)}" ${(pPos2 || pEval.posicionAlternativa) === pos ? 'selected' : ''}>${escapeHtml(pos)}</option>`).join('')}
               </select>
-              <input type="text" id="pmPosicionAlternativaNota" class="form-control" placeholder="Añadir nota sobre la posición..." value="${escapeHtml(pEval.posicionAlternativaNota || '')}" style="height: 38px; font-size: 11px; flex: 1;">
+              <input type="text" id="pmPosicionAlternativaNota" class="form-control" placeholder="Añadir nota sobre la posición..." value="${escapeAttr(pEval.posicionAlternativaNota || '')}" style="height: 38px; font-size: 11px; flex: 1;">
             </div>
           </div>
         </div>
@@ -6438,7 +6708,7 @@
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                     ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_FISICA[key] }, '+ Añadir...', `pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                    <textarea id="pmDescFisica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                    <textarea id="pmDescFisica_${escapeAttr(key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descFisica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
                   </div>
                 `).join('')}
               </div>
@@ -6452,7 +6722,7 @@
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                     ${buildKeepOpenDropdownHTML({ [key]: localOptionsDescTecnica[key] }, '+ Añadir...', `pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                    <textarea id="pmDescTecnica_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                    <textarea id="pmDescTecnica_${escapeAttr(key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descTecnica_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
                   </div>
                 `).join('')}
               </div>
@@ -6466,7 +6736,7 @@
                   <div class="desc-card-box" style="padding: 8px;">
                     <div class="desc-card-title" style="font-size: 11px;">${escapeHtml(key)}</div>
                     ${buildKeepOpenDropdownHTML({ [key]: OPTIONS_DESC_EMOCIONAL[key] }, '+ Añadir...', `pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`)}
-                    <textarea id="pmDescEmocional_${key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
+                    <textarea id="pmDescEmocional_${escapeAttr(key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="...">${escapeHtml(pEval['descEmocional_' + key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()] || '')}</textarea>
                   </div>
                 `).join('')}
               </div>
@@ -6490,13 +6760,13 @@
                     <span class="stat-counter-label">${escapeHtml(f.label)}</span>
                   </div>
                   <div class="stat-counter-controls">
-                    <button type="button" class="btn-counter-stepper minus" data-stat="${f.key}" data-action="minus">-</button>
-                    <span class="stat-counter-num" data-stat="${f.key}">${pStats[f.key] || 0}</span>
-                    <button type="button" class="btn-counter-stepper plus" data-stat="${f.key}" data-action="plus">+</button>
+                    <button type="button" class="btn-counter-stepper minus" data-stat="${escapeAttr(f.key)}" data-action="minus">-</button>
+                    <span class="stat-counter-num" data-stat="${escapeAttr(f.key)}">${pStats[f.key] || 0}</span>
+                    <button type="button" class="btn-counter-stepper plus" data-stat="${escapeAttr(f.key)}" data-action="plus">+</button>
                   </div>
                 </div>
                 ${['goles', 'asistencias', 'amarillas', 'rojas'].includes(f.key) ? `
-                  <div class="stat-counter-details" id="details-container-${f.key}" style="display: ${pStats[f.key] > 0 ? 'block' : 'none'}; margin-top: 8px;">
+                  <div class="stat-counter-details" id="details-container-${escapeAttr(f.key)}" style="display: ${escapeAttr(pStats[f.key] > 0 ? 'block' : 'none')}; margin-top: 8px;">
                     ${(() => {
           let html = '';
           const count = Math.max(0, parseInt(pStats[f.key]) || 0);
@@ -6680,15 +6950,15 @@
         <div class="stats-summary-banner">
           <div class="stats-summary-card">
             <div class="stats-summary-title">EFECTIVIDAD PASE</div>
-            <div class="stats-summary-value" style="color: ${pctPases >= 75 ? '#16a34a' : (pctPases >= 50 ? '#d97706' : '#dc2626')};">${pctPases}%</div>
+            <div class="stats-summary-value" style="color: ${escapeAttr(pctPases >= 75 ? '#16a34a' : (pctPases >= 50 ? '#d97706' : '#dc2626'))};">${pctPases}%</div>
           </div>
           <div class="stats-summary-card">
             <div class="stats-summary-title">ÉXITO REGATE</div>
-            <div class="stats-summary-value" style="color: ${pctRegates >= 60 ? '#16a34a' : (pctRegates >= 40 ? '#d97706' : '#dc2626')};">${pctRegates}%</div>
+            <div class="stats-summary-value" style="color: ${escapeAttr(pctRegates >= 60 ? '#16a34a' : (pctRegates >= 40 ? '#d97706' : '#dc2626'))};">${pctRegates}%</div>
           </div>
           <div class="stats-summary-card">
             <div class="stats-summary-title">DUELOS GANADOS</div>
-            <div class="stats-summary-value" style="color: ${pctDuelos >= 50 ? '#16a34a' : '#dc2626'};">${pctDuelos}%</div>
+            <div class="stats-summary-value" style="color: ${escapeAttr(pctDuelos >= 50 ? '#16a34a' : '#dc2626')};">${pctDuelos}%</div>
           </div>
           <div class="stats-summary-card">
             <div class="stats-summary-title">PARTICIPACIÓN GOL</div>
@@ -6696,7 +6966,7 @@
           </div>
           <div class="stats-summary-card">
             <div class="stats-summary-title">BALANCE REC/PÉR</div>
-            <div class="stats-summary-value" style="color: ${balanceRec >= 0 ? '#16a34a' : '#dc2626'};">${balanceRec >= 0 ? '+' : ''}${balanceRec}</div>
+            <div class="stats-summary-value" style="color: ${escapeAttr(balanceRec >= 0 ? '#16a34a' : '#dc2626')};">${balanceRec >= 0 ? '+' : ''}${balanceRec}</div>
           </div>
         </div>
       `;
@@ -6812,7 +7082,9 @@
 
       // Sync to player's directory profile
       syncPlayerMatchReportToDirectory(pName, pNum, teamName, evalObj);
-      saveToFirebase('directorio', state.directory); // Ensure persistence immediately
+      // Aquí había un saveToFirebase('directorio', …): «directorio» no es ninguna colección del
+      // servidor y el objeto que se le pasaba no tiene identificador, así que la llamada salía sin
+      // hacer nada. La ficha del jugador ya la guarda syncPlayerMatchReportToDirectory, arriba.
 
       // Persist the evaluation to the current Match Report in Firebase immediately
       if (targetRepId && targetRepId !== 'temp') {
@@ -6894,11 +7166,11 @@
 
     // Find coach in staff directory matching name or team+cargo
     let staffObj = state.directory.staff.find(s => {
-      const sName = (s.nombre || s.staff || '').trim().toLowerCase();
+      const sName = String(s.nombre || s.staff || '').trim().toLowerCase();
       const nMatch = sName === nameTrim.toLowerCase();
-      const sTeam = (s.equipo || s.club || '').trim();
+      const sTeam = String(s.equipo || s.club || '').trim();
       const tMatch = teamName && sTeam && window.flexibleMatch(teamName, sTeam);
-      const sCargo = (s.cargo || s.puesto || '').toUpperCase();
+      const sCargo = String(s.cargo || s.puesto || '').toUpperCase();
       const cMatch = !sCargo || sCargo.includes('ENTRENADOR') || sCargo.includes('TÉCNICO');
       return nMatch || (tMatch && cMatch);
     });
@@ -6960,7 +7232,7 @@
   }
   function isSamePlayerName(nameA, nameB, teamA, teamB) {
     if (!nameA || !nameB) return false;
-    const normalize = (s) => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+    const normalize = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
     const a = normalize(nameA);
     const b = normalize(nameB);
     if (a === b) return true;
@@ -7046,8 +7318,26 @@
       saveCurrentTacticalRoleState('visitante');
 
       const repId = currentEditingReportId || ('rep_' + Date.now());
+      const informeEsNuevo = !currentEditingReportId;
       currentEditingReportId = repId; // Update so subsequent saves overwrite the same report
       if (!state.matchPlayerEvaluations) state.matchPlayerEvaluations = {};
+
+      // Mientras el informe no se ha guardado nunca, las valoraciones de cada jugador se archivan
+      // bajo la clave 'temp_...'. Al guardar se inventa un identificador nuevo y el informe recogía
+      // solo las claves que empezaran por ÉL: ninguna 'temp_' encajaba, así que se guardaba un
+      // informe con las fichas en blanco y se perdía la valoración de los 22 jugadores del partido.
+      // Aquí se renombran esas claves al identificador definitivo antes de recogerlas.
+      if (informeEsNuevo) {
+        let renombradas = 0;
+        Object.keys(state.matchPlayerEvaluations).forEach(clave => {
+          if (clave.indexOf('temp_') !== 0) return;
+          const nueva = repId + clave.slice('temp'.length);
+          state.matchPlayerEvaluations[nueva] = state.matchPlayerEvaluations[clave];
+          delete state.matchPlayerEvaluations[clave];
+          renombradas++;
+        });
+        if (renombradas) console.log('Valoraciones asociadas al informe nuevo:', renombradas);
+      }
 
       ['local', 'visitante'].forEach(t => {
         ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
@@ -7057,7 +7347,7 @@
             (playersArr || []).forEach(p => {
               if (!p.num) return;
               const pNum = String(p.num).trim();
-              const pName = (p.name || '').replace(/\s*\[.*?\]$/, '').trim();
+              const pName = String(p.name || '').replace(/\s*\[.*?\]$/, '').trim();
               const evalKey = `${repId}_${t}_${pNum}`;
 
               if (!state.matchPlayerEvaluations[evalKey]) {
@@ -7210,7 +7500,7 @@
       if (state.directory && Array.isArray(state.directory.jugadores)) {
         [...reportObj.localTitulares, ...reportObj.visitanteTitulares].forEach(p => {
           if (p.name && !/^\d/.test(p.name.trim()) && !state.directory.jugadores.some(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase())) {
-            state.directory.jugadores.push({
+            const fichaNueva = {
               id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
               nombre: p.name,
               equipo: reportObj.localTitulares.includes(p) ? reportObj.localTeam : reportObj.visitanteTeam,
@@ -7218,7 +7508,11 @@
               ano: '2006',
               categoria: reportObj.categoria || 'Senior',
               nivel: 'Prospecto'
-            });
+            };
+            state.directory.jugadores.push(fichaNueva);
+            // Antes solo se añadía en memoria: al recargar, el Directorio volvía a estar sin
+            // estos jugadores y el informe quedaba apuntando a nombres sin ficha.
+            saveToFirebase('jugadores', fichaNueva);
           }
         });
       }
@@ -7253,6 +7547,17 @@
 
       saveToFirebase('informes', reportObj);
       saveState();
+
+      // El informe ya está guardado: el borrador de recuperación sobra. Si se queda ahí, días
+      // después al reabrir el informe la aplicación ofrece «tienes un informe a medio escribir» y,
+      // aceptando, machaca las correcciones con la versión antigua. Se descarta el del informe que
+      // se acaba de guardar y también el provisional, para que no se le ofrezca al siguiente.
+      try {
+        if (window.RSBorrador && typeof window.RSBorrador.descartar === 'function') {
+          window.RSBorrador.descartar(repId);
+          window.RSBorrador.descartar('nuevo');
+        }
+      } catch (e) { console.warn('No se pudo descartar el borrador:', e); }
 
       if (typeof showCustomAlertModal === 'function') {
         showCustomAlertModal('Aviso del Sistema', '¡Informe Técnico de Partido guardado con éxito!');
@@ -7325,7 +7630,7 @@
 
   function sortFederations(feds) {
     const getPriority = (name) => {
-      const lowerName = (name || '').toLowerCase();
+      const lowerName = String(name || '').toLowerCase();
       if (lowerName.includes('navarra')) return 1;
       if (lowerName.includes('aragón') || lowerName.includes('aragon')) return 2;
       if (lowerName.includes('rioja')) return 3;
@@ -7666,11 +7971,11 @@
         <div class="ficha-links-section">
           <h4 class="ficha-links-title">ENLACES DEL JUGADOR</h4>
           <div class="ficha-links-grid">
-            ${player.besoccer ? `<a href="${player.besoccer}" target="_blank" class="ficha-link-btn besoccer"><i data-lucide="external-link"></i> BeSoccer</a>` : ''}
-            ${player.transfermarkt ? `<a href="${player.transfermarkt}" target="_blank" class="ficha-link-btn transfermarkt"><i data-lucide="external-link"></i> Transfermarkt</a>` : ''}
-            ${player.instagram ? `<a href="${player.instagram}" target="_blank" class="ficha-link-btn instagram"><i data-lucide="external-link"></i> Instagram</a>` : ''}
-            ${player.video ? `<a href="${player.video}" target="_blank" class="ficha-link-btn video"><i data-lucide="external-link"></i> Video</a>` : ''}
-            ${player.enlace ? `<a href="${player.enlace}" target="_blank" class="ficha-link-btn generic"><i data-lucide="external-link"></i> Enlace Web</a>` : ''}
+            ${player.besoccer ? `<a href="${urlSegura(player.besoccer)}" target="_blank" class="ficha-link-btn besoccer"><i data-lucide="external-link"></i> BeSoccer</a>` : ''}
+            ${player.transfermarkt ? `<a href="${urlSegura(player.transfermarkt)}" target="_blank" class="ficha-link-btn transfermarkt"><i data-lucide="external-link"></i> Transfermarkt</a>` : ''}
+            ${player.instagram ? `<a href="${urlSegura(player.instagram)}" target="_blank" class="ficha-link-btn instagram"><i data-lucide="external-link"></i> Instagram</a>` : ''}
+            ${player.video ? `<a href="${urlSegura(player.video)}" target="_blank" class="ficha-link-btn video"><i data-lucide="external-link"></i> Video</a>` : ''}
+            ${player.enlace ? `<a href="${urlSegura(player.enlace)}" target="_blank" class="ficha-link-btn generic"><i data-lucide="external-link"></i> Enlace Web</a>` : ''}
           </div>
         </div>
       `;
@@ -7685,13 +7990,13 @@
 
     if (teamName) {
       const pTeamLower = teamName.toLowerCase().trim();
-      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const normStr = (s) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
       const pTeamNorm = normStr(teamName);
 
       // 1. Try exact match
       teamObj = (state.directory.equipos || []).find(eq => {
-        const eqName = (eq.nombre || '').toLowerCase().trim();
-        const eqAlt = (eq.equipo || '').toLowerCase().trim();
+        const eqName = String(eq.nombre || '').toLowerCase().trim();
+        const eqAlt = String(eq.equipo || '').toLowerCase().trim();
         return eqName === pTeamLower || eqAlt === pTeamLower || normStr(eq.nombre) === pTeamNorm || normStr(eq.equipo) === pTeamNorm;
       });
 
@@ -7711,7 +8016,7 @@
         // Build the shield
         const shieldSrc = teamObj.escudo || teamObj.logo;
         if (shieldSrc) {
-          teamShieldHTML = `<img src="${shieldSrc}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+          teamShieldHTML = `<img src="${escapeAttr(shieldSrc)}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
         }
         teamLinkClass = 'team-ficha-link';
         teamNameDisplay = `<span style="text-decoration: underline; cursor: pointer;">${escapeHtml(teamObj.nombre)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
@@ -7722,7 +8027,7 @@
     let seleccionName = player.seleccion;
     
     if (!seleccionName && state.directory.convocatorias) {
-      const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+      const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
       const pId = String(player.id || player.codigo);
       
       const convInvolucrada = state.directory.convocatorias.find(c => {
@@ -7746,11 +8051,11 @@
 
     if (seleccionName) {
       const pSelLower = seleccionName.toLowerCase().trim();
-      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const normStr = (s) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
       const pSelNorm = normStr(seleccionName);
 
       seleccionObj = (state.directory.selecciones || []).find(sel => {
-        return (sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || (sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
+        return String(sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || String(sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
       });
 
       if (!seleccionObj) {
@@ -7766,7 +8071,7 @@
       if (seleccionObj) {
         const shieldSrc = seleccionObj.escudo || seleccionObj.logo;
         if (shieldSrc) {
-          seleccionShieldHTML = `<img src="${shieldSrc}" alt="Escudo Selección" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+          seleccionShieldHTML = `<img src="${escapeAttr(shieldSrc)}" alt="Escudo Selección" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
         }
         seleccionLinkClass = 'seleccion-ficha-link';
         seleccionNameDisplay = `<span style="text-decoration: underline; cursor: pointer;">${escapeHtml(seleccionObj.nombre || seleccionObj.seleccion)}</span> <i data-lucide="external-link" style="width: 12px; height: 12px; vertical-align: middle;"></i>`;
@@ -7791,7 +8096,7 @@
     let partidosVistosCount = 0;
     let partidosNoJuegaCount = 0;
     let posicionesVistas = new Set();
-    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+    const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
 
     if (pNameLower) {
       (state.reports || []).forEach(rep => {
@@ -7926,9 +8231,9 @@
         themeColor = teamObj.color;
       } else {
         // Try finding the club
-        const clubName = (teamObj.clubVinculado || teamObj.club || '').toLowerCase().trim();
+        const clubName = String(teamObj.clubVinculado || teamObj.club || '').toLowerCase().trim();
         if (clubName) {
-          const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === clubName);
+          const c = (state.directory.clubes || []).find(c => String(c.nombre || '').toLowerCase().trim() === clubName);
           if (c && c.colorPrimary) {
             themeColor = c.colorPrimary;
           }
@@ -7939,7 +8244,7 @@
     // Fallback to player's direct club if they have one but the team didn't yield a color
     if (themeColor === 'var(--primary-blue)' && player.club) {
       const pClubName = player.club.toLowerCase().trim();
-      const c = (state.directory.clubes || []).find(c => (c.nombre || '').toLowerCase().trim() === pClubName);
+      const c = (state.directory.clubes || []).find(c => String(c.nombre || '').toLowerCase().trim() === pClubName);
       if (c && c.colorPrimary) {
         themeColor = c.colorPrimary;
       }
@@ -7947,7 +8252,7 @@
 
     // FINAL FALLBACK: Check if the player's team name contains any known club name
     if (themeColor === 'var(--primary-blue)' && teamName) {
-      const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+      const normStr = (s) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
       const pTeamNorm = normStr(teamName);
       const partialClubs = (state.directory.clubes || []).filter(c => {
         const cName = normStr(c.nombre);
@@ -7959,7 +8264,7 @@
           themeColor = bestClub.colorPrimary;
           // If we didn't have a team shield earlier, we can borrow the club's shield
           if (teamShieldHTML === '<i data-lucide="shield"></i>' && (bestClub.escudo || bestClub.logo)) {
-            teamShieldHTML = `<img src="${bestClub.escudo || bestClub.logo}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
+            teamShieldHTML = `<img src="${escapeAttr(bestClub.escudo || bestClub.logo)}" alt="Escudo" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;">`;
           }
         }
       }
@@ -8023,17 +8328,17 @@
     document.body.removeChild(tempCanvas);
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         
         <div class="ficha-content" style="padding: 30px;">
           
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${player.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
-                  ${teamShieldHTML} <span class="${teamLinkClass}" data-teamid="${teamObj ? teamObj.id : ''}">${teamNameDisplay}</span>
+                  ${teamShieldHTML} <span class="${escapeAttr(teamLinkClass)}" data-teamid="${escapeAttr(teamObj ? teamObj.id : '')}">${teamNameDisplay}</span>
                   ${seleccionName ? ` &nbsp;|&nbsp; ${seleccionShieldHTML} <span class="${seleccionLinkClass}" data-selid="${seleccionObj ? seleccionObj.id : ''}">${seleccionNameDisplay}</span>` : ''}
                   ${player.dorsal ? ` &nbsp;|&nbsp; Dorsal <strong style="color: var(--text-main);">${escapeHtml(player.dorsal)}</strong>` : ''}
                 </div>
@@ -8092,7 +8397,7 @@
             <div class="ficha-stat-box" id="btnAtributosCard" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
               <div class="ficha-stat-label">ATRIBUTOS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <img src="${miniChartImgSrc}" style="width: 50px; height: 50px; object-fit: contain;">
+                <img src="${escapeAttr(miniChartImgSrc)}" style="width: 50px; height: 50px; object-fit: contain;">
                 <div style="font-size: 9px; color: var(--primary-blue); font-weight: 800; margin-top: 6px;">VER / EDITAR <i data-lucide="edit-3" style="width:10px;height:10px;vertical-align:middle;"></i></div>
               </div>
             </div>
@@ -8151,7 +8456,7 @@
           if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
 
           return `
-          <div class="match-report-link-emergente" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+          <div class="match-report-link-emergente" data-repid="${escapeAttr(h.reportId)}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
             <div style="display: flex; flex-direction: column; gap: 2px;">
               <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${badges}</div>
               <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
@@ -8359,7 +8664,7 @@
     const comunidad = player.comunidad || 'Navarra';
     const localidad = player.localidad || 'Pamplona';
 
-    let _piernaRaw = (player.pierna || 'Derecha').toLowerCase();
+    let _piernaRaw = String(player.pierna || 'Derecha').toLowerCase();
     let pierna = 'Derecha';
     if (_piernaRaw.includes('izq') || _piernaRaw.includes('zur')) pierna = 'Izquierda';
     else if (_piernaRaw.includes('ambid')) pierna = 'Ambidiestro';
@@ -8370,7 +8675,7 @@
     const observacionesDeportivas = player.observacionesDeportivas || '';
 
     let posicionesVistas = new Set();
-    const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+    const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
     if (pNameLower) {
       (state.reports || []).forEach(rep => {
         if (!rep.completado) return;
@@ -8530,19 +8835,19 @@
         </div>
 
         <datalist id="equiposDatalistOptions">
-          ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
+          ${(state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`).join('')}
         </datalist>
 
         <datalist id="seleccionesDatalistOptions">
-          ${(state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`).join('')}
+          ${(state.directory.selecciones || []).map(s => `<option value="${escapeAttr(s.nombre || s.seleccion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="agenciasDatalistOptions">
-          ${(state.directory.agencias || []).map(a => `<option value="${escapeHtml(a.nombre || a.agencia)}"></option>`).join('')}
+          ${(state.directory.agencias || []).map(a => `<option value="${escapeAttr(a.nombre || a.agencia)}"></option>`).join('')}
         </datalist>
 
         <datalist id="agentesDatalistOptions">
-          ${(state.directory.agentes || []).map(a => `<option value="${escapeHtml(a.nombre || a.agente)}"></option>`).join('')}
+          ${(state.directory.agentes || []).map(a => `<option value="${escapeAttr(a.nombre || a.agente)}"></option>`).join('')}
         </datalist>
 
         <datalist id="trayAnoDatalistOptions">
@@ -8556,12 +8861,12 @@
         </datalist>
 
         <datalist id="trayClubDatalistOptions">
-          ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+          ${(state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre)}"></option>`).join('')}
         </datalist>
 
         <datalist id="staffDatalistOptions">
-          ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
+          ${(state.directory.staff || []).map(s => `<option value="${escapeAttr(s.nombre || s.staff)}"></option>`).join('')}
         </datalist>
 
         <form id="playerForm">
@@ -8570,7 +8875,7 @@
             <div class="player-profile-grid">
               <div>
                 <div class="photo-upload-box" id="btnUploadPhoto">
-                  ${photoData ? `<img src="${photoData}" class="photo-upload-preview">` : `
+                  ${photoData ? `<img src="${escapeAttr(photoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR FOTO</span>
                   `}
@@ -8582,38 +8887,38 @@
                 <div style="display: grid; grid-template-columns: 1fr 100px; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">NOMBRE COMPLETO DEL JUGADOR</label>
-                    <input type="text" id="pfNombre" class="form-control" placeholder="Ej: Lionel Messi" value="${escapeHtml(nombre)}" required>
+                    <input type="text" id="pfNombre" class="form-control" placeholder="Ej: Lionel Messi" value="${escapeAttr(nombre)}" required>
                   </div>
                   <div class="form-group">
                     <label class="form-label">DORSAL</label>
-                    <input type="text" id="pfDorsal" class="form-control" placeholder="00" value="${escapeHtml(dorsal)}">
+                    <input type="text" id="pfDorsal" class="form-control" placeholder="00" value="${escapeAttr(dorsal)}">
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">ESTADO JUGADOR (TEMPORADA 2026/2027)</label>
                   <div class="status-pill-group" id="pfEstadoGroup">
-                    <button type="button" class="status-pill-btn ${estado === 'ALTA' ? 'active' : ''}" data-val="ALTA">ALTA</button>
-                    <button type="button" class="status-pill-btn ${estado === 'RENOVACIÓN' ? 'active' : ''}" data-val="RENOVACIÓN">RENOVACIÓN</button>
-                    <button type="button" class="status-pill-btn ${estado === 'BAJA' ? 'active' : ''}" data-val="BAJA">BAJA</button>
-                    <button type="button" class="status-pill-btn ${estado === 'SUBE DE EQUIPO INFERIOR' ? 'active' : ''}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'ALTA' ? 'active' : '')}" data-val="ALTA">ALTA</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'RENOVACIÓN' ? 'active' : '')}" data-val="RENOVACIÓN">RENOVACIÓN</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'BAJA' ? 'active' : '')}" data-val="BAJA">BAJA</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'SUBE DE EQUIPO INFERIOR' ? 'active' : '')}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">EQUIPO PRINCIPAL</label>
-                    <input type="text" id="pfEquipo" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar o elegir equipo..." value="${escapeHtml(equipo)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
+                    <input type="text" id="pfEquipo" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar o elegir equipo..." value="${escapeAttr(equipo)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
                   </div>
                   <div class="form-group">
                     <label class="form-label">EQUIPO SECUNDARIO (CAMBIO)</label>
-                    <input type="text" id="pfEquipoSecundario" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Segundo equipo..." value="${escapeHtml(equipoSecundario)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
+                    <input type="text" id="pfEquipoSecundario" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Segundo equipo..." value="${escapeAttr(equipoSecundario)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">SELECCIÓN</label>
-                  <input type="text" id="pfSeleccion" list="seleccionesDatalistOptions" class="form-control" placeholder="Buscar o elegir selección..." value="${escapeHtml(seleccion)}">
+                  <input type="text" id="pfSeleccion" list="seleccionesDatalistOptions" class="form-control" placeholder="Buscar o elegir selección..." value="${escapeAttr(seleccion)}">
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
@@ -8622,11 +8927,11 @@
                       <label class="form-label" style="margin: 0;">AÑO NAC.</label>
                       <span id="pfSubCategoryBadge" class="match-category-tag" style="background-color: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 11px;">${subCat ? escapeHtml(subCat) : 'Sub...'}</span>
                     </div>
-                    <input type="text" id="pfAnoNac" class="form-control" placeholder="YYYY (ej: 2015)" value="${escapeHtml(anoNac)}">
+                    <input type="text" id="pfAnoNac" class="form-control" placeholder="YYYY (ej: 2015)" value="${escapeAttr(anoNac)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">FECHA NAC.</label>
-                    <input type="date" id="pfFechaNac" class="form-control" value="${escapeHtml(fechaNac)}">
+                    <input type="date" id="pfFechaNac" class="form-control" value="${escapeAttr(fechaNac)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">SEXO</label>
@@ -8643,7 +8948,7 @@
                     <div id="pfPaisesTagsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-surface); min-height: 42px; align-items: center;" class="mb-2"></div>
                     <select id="pfPaisSelect" class="form-control">
                       <option value="">+ Añadir país / nacionalidad...</option>
-                      ${(state.customPaises || LISTA_PAISES).map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+                      ${(state.customPaises || LISTA_PAISES).map(p => `<option value="${escapeAttr(p)}">${escapeHtml(p)}</option>`).join('')}
                       <option value="__NEW_PAIS__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo país...</option>
                     </select>
                   </div>
@@ -8651,16 +8956,16 @@
                     <label class="form-label">COMUNIDAD</label>
                     <select id="pfComunidad" class="form-control">
                       <option value="">Seleccionar...</option>
-                      ${LISTA_COMUNIDADES.map(c => `<option value="${escapeHtml(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${!LISTA_COMUNIDADES.includes(comunidad) && comunidad ? `<option value="${escapeHtml(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
+                      ${LISTA_COMUNIDADES.map(c => `<option value="${escapeAttr(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${!LISTA_COMUNIDADES.includes(comunidad) && comunidad ? `<option value="${escapeAttr(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">LOCALIDAD</label>
                     <select id="pfLocalidad" class="form-control">
                       <option value="">Seleccionar...</option>
-                      ${getAvailableLocalidades().map(l => `<option value="${escapeHtml(l)}" ${localidad === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
-                      ${!getAvailableLocalidades().includes(localidad) && localidad ? `<option value="${escapeHtml(localidad)}" selected>${escapeHtml(localidad)}</option>` : ''}
+                      ${getAvailableLocalidades().map(l => `<option value="${escapeAttr(l)}" ${localidad === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+                      ${!getAvailableLocalidades().includes(localidad) && localidad ? `<option value="${escapeAttr(localidad)}" selected>${escapeHtml(localidad)}</option>` : ''}
                       <option value="__NEW_LOCALIDAD__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva localidad...</option>
                     </select>
                   </div>
@@ -8687,7 +8992,7 @@
                   <option value="CEDIDO CA OSASUNA" ${disponibilidad === 'CEDIDO CA OSASUNA' ? 'selected' : ''}>CEDIDO CA OSASUNA</option>
                   <option value="CEDIDO CLUB PROFESIONAL" ${disponibilidad === 'CEDIDO CLUB PROFESIONAL' ? 'selected' : ''}>CEDIDO CLUB PROFESIONAL</option>
                   <option value="CON CONTRATO" ${disponibilidad === 'CON CONTRATO' ? 'selected' : ''}>CON CONTRATO</option>
-                  ${disponibilidad && !['CEDIDO CA OSASUNA', 'CEDIDO CLUB PROFESIONAL', 'CON CONTRATO'].includes(disponibilidad) ? `<option value="${escapeHtml(disponibilidad)}" selected>${escapeHtml(disponibilidad)}</option>` : ''}
+                  ${disponibilidad && !['CEDIDO CA OSASUNA', 'CEDIDO CLUB PROFESIONAL', 'CON CONTRATO'].includes(disponibilidad) ? `<option value="${escapeAttr(disponibilidad)}" selected>${escapeHtml(disponibilidad)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
@@ -8701,7 +9006,7 @@
                   <option value="JUGADOR 3 RFEF" ${proyeccion === 'JUGADOR 3 RFEF' ? 'selected' : ''}>JUGADOR 3 RFEF</option>
                   <option value="JUGADOR AUTONOMICO" ${proyeccion === 'JUGADOR AUTONOMICO' ? 'selected' : ''}>JUGADOR AUTONOMICO</option>
                   <option value="JUGADOR REGIONAL" ${proyeccion === 'JUGADOR REGIONAL' ? 'selected' : ''}>JUGADOR REGIONAL</option>
-                  ${proyeccion && !['CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL'].includes(proyeccion) ? `<option value="${escapeHtml(proyeccion)}" selected>${escapeHtml(proyeccion)}</option>` : ''}
+                  ${proyeccion && !['CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL'].includes(proyeccion) ? `<option value="${escapeAttr(proyeccion)}" selected>${escapeHtml(proyeccion)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -8712,7 +9017,7 @@
                 <select id="pfPosicion" class="form-control">
                   <option value="">Seleccionar...</option>
                   ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeHtml(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
+                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeAttr(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
@@ -8720,7 +9025,7 @@
                 <select id="pfPosicionSecundaria" class="form-control">
                   <option value="">Seleccionar...</option>
                   ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeHtml(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
+                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeAttr(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -8737,7 +9042,7 @@
               <div id="pfLesionesTagsContainer" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-surface); min-height: 42px; align-items: center;" class="mb-2"></div>
               <select id="pfLesionesSelect" class="form-control">
                 <option value="">+ Añadir lesión al historial...</option>
-                ${(state.customLesiones || ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis', 'Contusión / Golpe', 'Sobrecarga muscular']).map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('')}
+                ${(state.customLesiones || ['Esguince de tobillo', 'Rotura fibrilar', 'Rotura de ligamento cruzado', 'Menisco', 'Pubalgia', 'Tendinitis', 'Contusión / Golpe', 'Sobrecarga muscular']).map(l => `<option value="${escapeAttr(l)}">${escapeHtml(l)}</option>`).join('')}
                 <option value="__NEW_LESION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva lesión...</option>
               </select>
             </div>
@@ -8753,44 +9058,44 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">FIN CONTRATO</label>
-                <input type="text" id="pfFinContrato" class="form-control" placeholder="Ej: 2027" value="${escapeHtml(finContrato)}">
+                <input type="text" id="pfFinContrato" class="form-control" placeholder="Ej: 2027" value="${escapeAttr(finContrato)}">
               </div>
               <div class="form-group">
                 <label class="form-label">AGENCIA REPRESENTACIÓN</label>
-                <input type="text" id="pfAgencia" list="agenciasDatalistOptions" class="form-control" placeholder="Buscar o elegir agencia..." value="${escapeHtml(agencia)}">
+                <input type="text" id="pfAgencia" list="agenciasDatalistOptions" class="form-control" placeholder="Buscar o elegir agencia..." value="${escapeAttr(agencia)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">AGENTE / REPRESENTANTE</label>
-                <input type="text" id="pfAgente" list="agentesDatalistOptions" class="form-control" placeholder="Buscar o elegir agente..." value="${escapeHtml(agente)}">
+                <input type="text" id="pfAgente" list="agentesDatalistOptions" class="form-control" placeholder="Buscar o elegir agente..." value="${escapeAttr(agente)}">
               </div>
               <div class="form-group">
                 <label class="form-label">TELÉFONO / CONTACTO</label>
-                <input type="text" id="pfTelefono" class="form-control" placeholder="Ej: +34 600..." value="${escapeHtml(telefono)}">
+                <input type="text" id="pfTelefono" class="form-control" placeholder="Ej: +34 600..." value="${escapeAttr(telefono)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">INSTAGRAM</label>
-                <input type="text" id="pfInstagram" class="form-control" placeholder="Ej: @usuario" value="${escapeHtml(instagram)}">
+                <input type="text" id="pfInstagram" class="form-control" placeholder="Ej: @usuario" value="${escapeAttr(instagram)}">
               </div>
               <div class="form-group">
                 <label class="form-label">TWITTER / X</label>
-                <input type="text" id="pfTwitter" class="form-control" placeholder="Ej: @usuario" value="${escapeHtml(twitter)}">
+                <input type="text" id="pfTwitter" class="form-control" placeholder="Ej: @usuario" value="${escapeAttr(twitter)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">TRANSFERMARKT (URL)</label>
-                <input type="url" id="pfTransfermarkt" class="form-control" placeholder="https://transfermarkt..." value="${escapeHtml(transfermarkt)}">
+                <input type="url" id="pfTransfermarkt" class="form-control" placeholder="https://transfermarkt..." value="${escapeAttr(transfermarkt)}">
               </div>
               <div class="form-group">
                 <label class="form-label">BESOCCER (URL)</label>
-                <input type="url" id="pfBesoccer" class="form-control" placeholder="https://besoccer..." value="${escapeHtml(besoccer)}">
+                <input type="url" id="pfBesoccer" class="form-control" placeholder="https://besoccer..." value="${escapeAttr(besoccer)}">
               </div>
             </div>
           </div>
@@ -8803,7 +9108,7 @@
             <div class="checkbox-grid-pills mb-4" id="pfControlGroup">
               ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
                 <label class="checkbox-pill-item">
-                  <input type="checkbox" value="${tag}" ${controlSeguimiento.includes(tag) ? 'checked' : ''}>
+                  <input type="checkbox" value="${escapeAttr(tag)}" ${controlSeguimiento.includes(tag) ? 'checked' : ''}>
                   <span>${tag}</span>
                 </label>
               `).join('')}
@@ -8844,11 +9149,11 @@
         ? Object.entries(minutosPorComp).map(([c, m]) => `<div style="display:flex; justify-content:space-between; font-size:13px;"><span>${escapeHtml(c)}:</span> <strong>${m} min</strong></div>`).join('')
         : `<div style="color: var(--text-muted); font-size:13px;">Sin minutos registrados</div>`}
                 </div>
-                <input type="hidden" id="pfMinutos" value="${escapeHtml(minutos)}">
+                <input type="hidden" id="pfMinutos" value="${escapeAttr(minutos)}">
               </div>
               <div class="form-group">
                 <label class="form-label">RENDIMIENTO RS ${rendimientoRSNum}</label>
-                <input type="text" id="pfRendRS" class="form-control" value="${escapeHtml(rendimientoRS)}" readonly style="background: var(--bg-body);">
+                <input type="text" id="pfRendRS" class="form-control" value="${escapeAttr(rendimientoRS)}" readonly style="background: var(--bg-body);">
               </div>
             </div>
 
@@ -8912,7 +9217,7 @@
           if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR (Informe sin guardar)</span>`;
 
           return `
-                <div class="match-report-link" data-repid="${h.reportId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+                <div class="match-report-link" data-repid="${escapeAttr(h.reportId)}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
                   <div style="display: flex; flex-direction: column; gap: 2px;">
                     <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || 'Sin Especificar')} ${badges}</div>
                     <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.equipo || 'Sin Equipo')} (Dorsal ${h.dorsal || '-'}) • Rendimiento: ${h.rendimiento || '-'} (Dificultad: ${h.dificultadPartido || '-'})</div>
@@ -8945,71 +9250,71 @@
               <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Emocional</span> <span id="valAtrEmocional" style="font-weight: 700; color: ${getColorForAttribute(player.atrEmocional || 3)};">${player.atrEmocional || 3}</span>
+                    <span>Emocional</span> <span id="valAtrEmocional" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrEmocional || 3))};">${player.atrEmocional || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="5" step="0.5" value="${player.atrEmocional || 3}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; document.getElementById('valAtrEmocional').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrEmocional" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrEmocional || 3)}" oninput="document.getElementById('valAtrEmocional').textContent=this.value; document.getElementById('valAtrEmocional').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Físico</span> <span id="valAtrFisico" style="font-weight: 700; color: ${getColorForAttribute(player.atrFisico || 3)};">${player.atrFisico || 3}</span>
+                    <span>Físico</span> <span id="valAtrFisico" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrFisico || 3))};">${player.atrFisico || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="5" step="0.5" value="${player.atrFisico || 3}" oninput="document.getElementById('valAtrFisico').textContent=this.value; document.getElementById('valAtrFisico').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrFisico" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrFisico || 3)}" oninput="document.getElementById('valAtrFisico').textContent=this.value; document.getElementById('valAtrFisico').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Técnica Individual</span> <span id="valAtrTecnica" style="font-weight: 700; color: ${getColorForAttribute(player.atrTecnica || 3)};">${player.atrTecnica || 3}</span>
+                    <span>Técnica Individual</span> <span id="valAtrTecnica" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrTecnica || 3))};">${player.atrTecnica || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrTecnica" class="form-range" min="1" max="5" step="0.5" value="${player.atrTecnica || 3}" oninput="document.getElementById('valAtrTecnica').textContent=this.value; document.getElementById('valAtrTecnica').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrTecnica" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrTecnica || 3)}" oninput="document.getElementById('valAtrTecnica').textContent=this.value; document.getElementById('valAtrTecnica').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Acciones Defensivas</span> <span id="valAtrDefensa" style="font-weight: 700; color: ${getColorForAttribute(player.atrDefensa || 3)};">${player.atrDefensa || 3}</span>
+                    <span>Acciones Defensivas</span> <span id="valAtrDefensa" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrDefensa || 3))};">${player.atrDefensa || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="5" step="0.5" value="${player.atrDefensa || 3}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; document.getElementById('valAtrDefensa').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrDefensa" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrDefensa || 3)}" oninput="document.getElementById('valAtrDefensa').textContent=this.value; document.getElementById('valAtrDefensa').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Acciones Ofensivas</span> <span id="valAtrAtaque" style="font-weight: 700; color: ${getColorForAttribute(player.atrAtaque || 3)};">${player.atrAtaque || 3}</span>
+                    <span>Acciones Ofensivas</span> <span id="valAtrAtaque" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrAtaque || 3))};">${player.atrAtaque || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="5" step="0.5" value="${player.atrAtaque || 3}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; document.getElementById('valAtrAtaque').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrAtaque" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrAtaque || 3)}" oninput="document.getElementById('valAtrAtaque').textContent=this.value; document.getElementById('valAtrAtaque').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Capacidad Puesto Específico</span> <span id="valAtrPuesto" style="font-weight: 700; color: ${getColorForAttribute(player.atrPuesto || 3)};">${player.atrPuesto || 3}</span>
+                    <span>Capacidad Puesto Específico</span> <span id="valAtrPuesto" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrPuesto || 3))};">${player.atrPuesto || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="5" step="0.5" value="${player.atrPuesto || 3}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; document.getElementById('valAtrPuesto').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrPuesto" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrPuesto || 3)}" oninput="document.getElementById('valAtrPuesto').textContent=this.value; document.getElementById('valAtrPuesto').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Toma de Decisiones</span> <span id="valAtrDecisiones" style="font-weight: 700; color: ${getColorForAttribute(player.atrDecisiones || 3)};">${player.atrDecisiones || 3}</span>
+                    <span>Toma de Decisiones</span> <span id="valAtrDecisiones" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrDecisiones || 3))};">${player.atrDecisiones || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrDecisiones" class="form-range" min="1" max="5" step="0.5" value="${player.atrDecisiones || 3}" oninput="document.getElementById('valAtrDecisiones').textContent=this.value; document.getElementById('valAtrDecisiones').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrDecisiones" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrDecisiones || 3)}" oninput="document.getElementById('valAtrDecisiones').textContent=this.value; document.getElementById('valAtrDecisiones').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
                 <div class="form-group">
                   <label class="form-label" style="display: flex; justify-content: space-between;">
-                    <span>Inteligencia Táctica</span> <span id="valAtrInteligencia" style="font-weight: 700; color: ${getColorForAttribute(player.atrInteligencia || 3)};">${player.atrInteligencia || 3}</span>
+                    <span>Inteligencia Táctica</span> <span id="valAtrInteligencia" style="font-weight: 700; color: ${escapeAttr(getColorForAttribute(player.atrInteligencia || 3))};">${player.atrInteligencia || 3}</span>
                   </label>
-                  <input type="range" id="pfAtrInteligencia" class="form-range" min="1" max="5" step="0.5" value="${player.atrInteligencia || 3}" oninput="document.getElementById('valAtrInteligencia').textContent=this.value; document.getElementById('valAtrInteligencia').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
+                  <input type="range" id="pfAtrInteligencia" class="form-range" min="1" max="5" step="0.5" value="${escapeAttr(player.atrInteligencia || 3)}" oninput="document.getElementById('valAtrInteligencia').textContent=this.value; document.getElementById('valAtrInteligencia').style.color=getColorForAttribute(this.value); updatePlayerAtributosChart();">
                 </div>
 
                 <!-- Nuevos Atributos Calculados (Solo Lectura) -->
                 <div class="form-group" style="opacity: 0.9; margin-top: 10px;">
                   <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span>Rendimiento (Promedio)</span> <span style="font-weight: 700; color: ${player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)'};">${player.rendimientoAcumuladoAvgNum || '-'}</span>
+                    <span>Rendimiento (Promedio)</span> <span style="font-weight: 700; color: ${escapeAttr(player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)')};">${player.rendimientoAcumuladoAvgNum || '-'}</span>
                   </label>
-                  <progress id="pfRendimientoAvg" value="${player.rendimientoAcumuladoAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)'}"></progress>
+                  <progress id="pfRendimientoAvg" value="${escapeAttr(player.rendimientoAcumuladoAvgNum || 0)}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${escapeAttr(player.rendimientoAcumuladoAvgNum ? getColorForAttribute(player.rendimientoAcumuladoAvgNum) : 'var(--success)')}"></progress>
                 </div>
                 <div class="form-group" style="opacity: 0.9;">
                   <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span>Potencial (Promedio)</span> <span style="font-weight: 700; color: ${player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899'};">${player.potencialAvgNum || '-'}</span>
+                    <span>Potencial (Promedio)</span> <span style="font-weight: 700; color: ${escapeAttr(player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899')};">${player.potencialAvgNum || '-'}</span>
                   </label>
-                  <progress id="pfPotencialAvg" value="${player.potencialAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899'}"></progress>
+                  <progress id="pfPotencialAvg" value="${escapeAttr(player.potencialAvgNum || 0)}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${escapeAttr(player.potencialAvgNum ? getColorForAttribute(player.potencialAvgNum) : '#ec4899')}"></progress>
                 </div>
                 <div class="form-group" style="opacity: 0.9;">
                   <label class="form-label" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span>Rendimiento RS (Promedio)</span> <span style="font-weight: 700; color: ${player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)'};">${player.rendimientoRSAvgNum || '-'}</span>
+                    <span>Rendimiento RS (Promedio)</span> <span style="font-weight: 700; color: ${escapeAttr(player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)')};">${player.rendimientoRSAvgNum || '-'}</span>
                   </label>
-                  <progress id="pfRendimientoRSAvg" value="${player.rendimientoRSAvgNum || 0}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)'}"></progress>
+                  <progress id="pfRendimientoRSAvg" value="${escapeAttr(player.rendimientoRSAvgNum || 0)}" max="5" style="width: 100%; height: 8px; border-radius: 4px; overflow: hidden; accent-color: ${escapeAttr(player.rendimientoRSAvgNum ? getColorForAttribute(player.rendimientoRSAvgNum) : 'var(--primary-dark)')}"></progress>
                 </div>
               </div>
               
@@ -9301,11 +9606,11 @@
     // Add logic for 'Ver Comentarios Partidos' button
     document.getElementById('btnVerComentariosPartidos')?.addEventListener('click', () => {
       const matchComments = [];
-      const pNameLower = (player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+      const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
       (state.reports || []).forEach(rep => {
         if (!rep.playerEvaluations) return;
         Object.entries(rep.playerEvaluations).forEach(([evalKey, evalObj]) => {
-          let evalName = (evalObj.name || '').toLowerCase().trim();
+          let evalName = String(evalObj.name || '').toLowerCase().trim();
 
           // If name is not in evalObj, try to find it from the evalKey and lineups
           if (!evalName && evalKey) {
@@ -9445,7 +9750,7 @@
               (s.staff && s.staff.toLowerCase() === coachName.toLowerCase())
             );
             if (foundStaff) {
-              coachHTML = `<a href="javascript:void(0)" class="coach-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(coachName)}</a>`;
+              coachHTML = `<a href="javascript:void(0)" class="coach-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(coachName)}</a>`;
             } else {
               coachHTML = `<span style="font-weight: 600; color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px; color: var(--text-muted);"></i> ${escapeHtml(coachName)}</span>`;
             }
@@ -9457,7 +9762,7 @@
               <td style="padding: 8px 12px; font-weight: 600;">${escapeHtml(t.club)}</td>
               <td style="padding: 8px 12px;">${coachHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-tray" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-tray" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -9508,10 +9813,11 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          photoData = await compressImage(file);
-          document.getElementById('btnUploadPhoto').innerHTML = `<img src="${photoData}" class="photo-upload-preview">`;
+          photoData = (await compressImage(file)) || photoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadPhoto').innerHTML = `<img src="${escapeAttr(photoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir foto:', err);
+          if (typeof showToast === 'function') showToast('No se ha podido usar esa imagen. Prueba con una foto en JPG o PNG.', 'danger', 6000);
         }
       }
     });
@@ -9526,10 +9832,10 @@
       let optionsHTML = '<option value="">Seleccionar...</option>';
       locList.forEach(l => {
         const isSel = currentLocalidadVal === l ? 'selected' : '';
-        optionsHTML += `<option value="${escapeHtml(l)}" ${isSel}>${escapeHtml(l)}</option>`;
+        optionsHTML += `<option value="${escapeAttr(l)}" ${isSel}>${escapeHtml(l)}</option>`;
       });
       if (currentLocalidadVal && !locList.includes(currentLocalidadVal)) {
-        optionsHTML += `<option value="${escapeHtml(currentLocalidadVal)}" selected>${escapeHtml(currentLocalidadVal)}</option>`;
+        optionsHTML += `<option value="${escapeAttr(currentLocalidadVal)}" selected>${escapeHtml(currentLocalidadVal)}</option>`;
       }
       optionsHTML += '<option value="__NEW_LOCALIDAD__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva localidad...</option>';
       locSelect.innerHTML = optionsHTML;
@@ -9577,7 +9883,7 @@
       container.innerHTML = localLesiones.map((l, idx) => `
         <span class="match-category-tag" style="background: var(--bg-subtle); color: var(--text-dark); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-light);">
           💉 ${escapeHtml(l)}
-          <i data-lucide="x" class="btn-remove-lesion cursor-pointer" data-idx="${idx}" style="width: 14px; height: 14px; color: var(--accent-red, #ef4444);"></i>
+          <i data-lucide="x" class="btn-remove-lesion cursor-pointer" data-idx="${escapeAttr(idx)}" style="width: 14px; height: 14px; color: var(--accent-red, #ef4444);"></i>
         </span>
       `).join('');
       if (window.lucide) window.lucide.createIcons();
@@ -9602,7 +9908,7 @@
       container.innerHTML = localPaises.map((p, idx) => `
         <span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--primary-blue); font-weight: 700;">
           🌍 ${escapeHtml(p)}
-          <i data-lucide="x" class="btn-remove-pais cursor-pointer" data-idx="${idx}" style="width: 14px; height: 14px; color: var(--primary-blue);"></i>
+          <i data-lucide="x" class="btn-remove-pais cursor-pointer" data-idx="${escapeAttr(idx)}" style="width: 14px; height: 14px; color: var(--primary-blue);"></i>
         </span>
       `).join('');
       if (window.lucide) window.lucide.createIcons();
@@ -9759,15 +10065,15 @@
         </div>
 
         <datalist id="federacionesDatalistOptions">
-          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeAttr(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="estadiosDatalistOptions">
-          ${(state.directory.estadios || []).map(e => `<option value="${escapeHtml(e.nombre || e.estadio)}"></option>`).join('')}
+          ${(state.directory.estadios || []).map(e => `<option value="${escapeAttr(e.nombre || e.estadio)}"></option>`).join('')}
         </datalist>
 
         <datalist id="clubesDatalistOptions">
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre || c.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre || c.equipo)}"></option>`).join('')}
         </datalist>
 
         <form id="clubForm">
@@ -9776,7 +10082,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadClubLogo">
-                  ${logoData ? `<img src="${logoData}" class="photo-upload-preview">` : `
+                  ${logoData ? `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR ESCUDO</span>
                   `}
@@ -9785,8 +10091,8 @@
                 <div style="width: 100%; text-align: center;">
                   <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">1ª EQUIPACIÓN</div>
                   <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
-                    <input type="color" id="cfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                    <input type="color" id="cfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                    <input type="color" id="cfColorPrimary" value="${escapeAttr(colorPrimary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                    <input type="color" id="cfColorSecondary" value="${escapeAttr(colorSecondary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
                   </div>
                   <div style="width: 100%; margin-bottom: 12px;">
                     <select id="cfPatronCamiseta" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (1ª Eq)">
@@ -9799,8 +10105,8 @@
                   
                   <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">2ª EQUIPACIÓN</div>
                   <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
-                    <input type="color" id="cfColorPrimary2" value="${club.colorPrimary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
-                    <input type="color" id="cfColorSecondary2" value="${club.colorSecondary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
+                    <input type="color" id="cfColorPrimary2" value="${escapeAttr(club.colorPrimary2 || '#ffffff')}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
+                    <input type="color" id="cfColorSecondary2" value="${escapeAttr(club.colorSecondary2 || '#ffffff')}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
                   </div>
                   <div style="width: 100%;">
                     <select id="cfPatronCamiseta2" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (2ª Eq)">
@@ -9816,7 +10122,7 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE COMPLETO</label>
-                  <input type="text" id="cfNombre" class="form-control" placeholder="Ej: Real Madrid CF..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="cfNombre" class="form-control" placeholder="Ej: Real Madrid CF..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
@@ -9831,17 +10137,17 @@
                     <div style="display: flex; gap: 8px; align-items: center;">
                       <select id="selectClubTypeAdd" class="form-control" style="flex: 1;">
                         <option value="">+ Añadir tipo de club...</option>
-                        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+                        ${state.customClubTypes.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
                         <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
                       </select>
                     </div>
 
-                    <input type="hidden" id="cfTipo" value="${escapeHtml(tipoStr)}">
+                    <input type="hidden" id="cfTipo" value="${escapeAttr(tipoStr)}">
                   </div>
 
                   <div class="form-group">
                     <label class="form-label">AÑO FUNDACIÓN</label>
-                    <input type="text" id="cfAnoFundacion" class="form-control" placeholder="Ej: 1902" value="${escapeHtml(anoFundacion)}">
+                    <input type="text" id="cfAnoFundacion" class="form-control" placeholder="Ej: 1902" value="${escapeAttr(anoFundacion)}">
                   </div>
                 </div>
 
@@ -9850,8 +10156,8 @@
                     <label class="form-label">PAÍS</label>
                     <select id="cfPais" class="form-control">
                       <option value="">Seleccionar...</option>
-                      ${[...new Set([...LISTA_PAISES, ...(state.customPaises || [])])].map(p => `<option value="${escapeHtml(p)}" ${pais === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
-                      ${![...LISTA_PAISES, ...(state.customPaises || [])].includes(pais) && pais ? `<option value="${escapeHtml(pais)}" selected>${escapeHtml(pais)}</option>` : ''}
+                      ${[...new Set([...LISTA_PAISES, ...(state.customPaises || [])])].map(p => `<option value="${escapeAttr(p)}" ${pais === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                      ${![...LISTA_PAISES, ...(state.customPaises || [])].includes(pais) && pais ? `<option value="${escapeAttr(pais)}" selected>${escapeHtml(pais)}</option>` : ''}
                       <option value="__NEW_PAIS__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo país...</option>
                     </select>
                   </div>
@@ -9859,16 +10165,16 @@
                     <label class="form-label">PROVINCIA / COMUNIDAD</label>
                     <select id="cfComunidad" class="form-control">
                       <option value="">Seleccionar...</option>
-                      ${LISTA_COMUNIDADES.map(c => `<option value="${escapeHtml(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${!LISTA_COMUNIDADES.includes(comunidad) && comunidad ? `<option value="${escapeHtml(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
+                      ${LISTA_COMUNIDADES.map(c => `<option value="${escapeAttr(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${!LISTA_COMUNIDADES.includes(comunidad) && comunidad ? `<option value="${escapeAttr(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">LOCALIDAD</label>
                     <select id="cfLocalidad" class="form-control">
                       <option value="">Seleccionar...</option>
-                      ${getAvailableLocalidades(comunidad).map(l => `<option value="${escapeHtml(l)}" ${localidad === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
-                      ${!getAvailableLocalidades(comunidad).includes(localidad) && localidad ? `<option value="${escapeHtml(localidad)}" selected>${escapeHtml(localidad)}</option>` : ''}
+                      ${getAvailableLocalidades(comunidad).map(l => `<option value="${escapeAttr(l)}" ${localidad === l ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}
+                      ${!getAvailableLocalidades(comunidad).includes(localidad) && localidad ? `<option value="${escapeAttr(localidad)}" selected>${escapeHtml(localidad)}</option>` : ''}
                       <option value="__NEW_LOCALIDAD__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva localidad...</option>
                     </select>
                   </div>
@@ -9877,40 +10183,40 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">FEDERACIÓN</label>
-                    <input type="text" id="cfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeHtml(federacion)}">
+                    <input type="text" id="cfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeAttr(federacion)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">ESTADIO</label>
-                    <input type="text" id="cfEstadio" list="estadiosDatalistOptions" class="form-control" placeholder="Buscar estadio..." value="${escapeHtml(estadio)}">
+                    <input type="text" id="cfEstadio" list="estadiosDatalistOptions" class="form-control" placeholder="Buscar estadio..." value="${escapeAttr(estadio)}">
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">SITIO WEB</label>
-                    <input type="url" id="cfWeb" class="form-control" placeholder="https://www.club.com" value="${escapeHtml(web)}">
+                    <input type="url" id="cfWeb" class="form-control" placeholder="https://www.club.com" value="${escapeAttr(web)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">INSTAGRAM</label>
-                    <input type="text" id="cfInstagram" class="form-control" placeholder="@usuario" value="${escapeHtml(instagram)}">
+                    <input type="text" id="cfInstagram" class="form-control" placeholder="@usuario" value="${escapeAttr(instagram)}">
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">LINKEDIN</label>
-                    <input type="text" id="cfLinkedin" class="form-control" placeholder="LinkedIn URL" value="${escapeHtml(linkedin)}">
+                    <input type="text" id="cfLinkedin" class="form-control" placeholder="LinkedIn URL" value="${escapeAttr(linkedin)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">FACEBOOK</label>
-                    <input type="text" id="cfFacebook" class="form-control" placeholder="Facebook URL" value="${escapeHtml(facebook)}">
+                    <input type="text" id="cfFacebook" class="form-control" placeholder="Facebook URL" value="${escapeAttr(facebook)}">
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-3">
                   <div class="form-group">
                     <label class="form-label">ES CLUB CONVENIDO DE...</label>
-                    <input type="text" id="cfConvenidoDe" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeHtml(convenidoDe)}">
+                    <input type="text" id="cfConvenidoDe" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeAttr(convenidoDe)}">
                   </div>
                   <div class="form-group">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -9923,17 +10229,17 @@
         return '';
       })()}
                     </div>
-                    <input type="text" id="cfConvenidosVinculados" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeHtml(convenidosVinculados)}">
+                    <input type="text" id="cfConvenidosVinculados" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeAttr(convenidosVinculados)}">
                   </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                   <div class="form-group">
                     <label class="form-label">PATROCINADOR DE</label>
-                    <input type="text" id="cfPatrocinadorDe" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeHtml(patrocinadorDe)}">
+                    <input type="text" id="cfPatrocinadorDe" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club..." value="${escapeAttr(patrocinadorDe)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">PATROCINADO POR:</label>
-                    <input type="text" id="cfPatrocinadoPor" list="clubesDatalistOptions" class="form-control" placeholder="Buscar o ingresar patrocinador..." value="${escapeHtml(patrocinadoPor)}">
+                    <input type="text" id="cfPatrocinadoPor" list="clubesDatalistOptions" class="form-control" placeholder="Buscar o ingresar patrocinador..." value="${escapeAttr(patrocinadoPor)}">
                   </div>
                 </div>
               </div>
@@ -9948,34 +10254,34 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">CÓDIGO DEL CLUB</label>
-                <input type="text" id="cfCodigo" class="form-control" placeholder="Ej: 1027" value="${escapeHtml(codigo)}">
+                <input type="text" id="cfCodigo" class="form-control" placeholder="Ej: 1027" value="${escapeAttr(codigo)}">
               </div>
               <div class="form-group">
                 <label class="form-label">FEDERACIÓN</label>
-                <input type="text" id="cfDelegacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeHtml(delegacion || federacion)}">
+                <input type="text" id="cfDelegacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeAttr(delegacion || federacion)}">
               </div>
               <div class="form-group">
                 <label class="form-label">CIF</label>
-                <input type="text" id="cfCif" class="form-control" placeholder="CIF..." value="${escapeHtml(cif)}">
+                <input type="text" id="cfCif" class="form-control" placeholder="CIF..." value="${escapeAttr(cif)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-6">
               <div class="form-group">
                 <label class="form-label">DOMICILIO</label>
-                <input type="text" id="cfDomicilio" class="form-control" placeholder="Calle, número, piso..." value="${escapeHtml(domicilio)}">
+                <input type="text" id="cfDomicilio" class="form-control" placeholder="Calle, número, piso..." value="${escapeAttr(domicilio)}">
               </div>
               <div class="form-group">
                 <label class="form-label">PROVINCIA / COMUNIDAD</label>
                 <select id="cfProvincia" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${LISTA_COMUNIDADES.map(c => `<option value="${escapeHtml(c)}" ${provincia === c || comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                  ${!LISTA_COMUNIDADES.includes(provincia) && provincia ? `<option value="${escapeHtml(provincia)}" selected>${escapeHtml(provincia)}</option>` : ''}
+                  ${LISTA_COMUNIDADES.map(c => `<option value="${escapeAttr(c)}" ${provincia === c || comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                  ${!LISTA_COMUNIDADES.includes(provincia) && provincia ? `<option value="${escapeAttr(provincia)}" selected>${escapeHtml(provincia)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">C.P.</label>
-                <input type="text" id="cfCp" class="form-control" placeholder="Código Postal..." value="${escapeHtml(cp)}">
+                <input type="text" id="cfCp" class="form-control" placeholder="Código Postal..." value="${escapeAttr(cp)}">
               </div>
             </div>
 
@@ -9986,21 +10292,21 @@
               <div class="form-group">
                 <label class="form-label">CAMISETA (COLOR)</label>
                 <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                  <input type="color" id="cfColorCamiseta" value="${colorCamiseta.startsWith('#') ? colorCamiseta : colorPrimary}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
+                  <input type="color" id="cfColorCamiseta" value="${escapeAttr(colorCamiseta.startsWith('#') ? colorCamiseta : colorPrimary)}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
                   <span id="cfColorCamisetaHex" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${escapeHtml(colorCamiseta || colorPrimary)}</span>
                 </div>
               </div>
               <div class="form-group">
                 <label class="form-label">PANTALÓN (COLOR)</label>
                 <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                  <input type="color" id="cfColorPantalon" value="${colorPantalon.startsWith('#') ? colorPantalon : colorSecondary}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
+                  <input type="color" id="cfColorPantalon" value="${escapeAttr(colorPantalon.startsWith('#') ? colorPantalon : colorSecondary)}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
                   <span id="cfColorPantalonHex" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${escapeHtml(colorPantalon || colorSecondary)}</span>
                 </div>
               </div>
               <div class="form-group">
                 <label class="form-label">MEDIAS (COLOR)</label>
                 <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
-                  <input type="color" id="cfColorMedias" value="${colorMedias.startsWith('#') ? colorMedias : '#2563eb'}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
+                  <input type="color" id="cfColorMedias" value="${escapeAttr(colorMedias.startsWith('#') ? colorMedias : '#2563eb')}" style="width: 38px; height: 32px; border: none; cursor: pointer; border-radius: 4px; padding: 0;">
                   <span id="cfColorMediasHex" style="font-size: 11px; font-weight: 700; color: var(--text-muted);">${escapeHtml(colorMedias || '#2563eb')}</span>
                 </div>
               </div>
@@ -10011,7 +10317,7 @@
             </div>
             <div class="form-group mb-6">
               <label class="form-label">EMAIL</label>
-              <input type="email" id="cfEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeHtml(email)}">
+              <input type="email" id="cfEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeAttr(email)}">
             </div>
 
             <div class="player-section-title mb-2">
@@ -10020,11 +10326,11 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="form-group">
                 <label class="form-label">TELÉFONOS</label>
-                <input type="text" id="cfTelefonos" class="form-control" placeholder="Ej: 696207773 - 609452755" value="${escapeHtml(telefonos)}">
+                <input type="text" id="cfTelefonos" class="form-control" placeholder="Ej: 696207773 - 609452755" value="${escapeAttr(telefonos)}">
               </div>
               <div class="form-group">
                 <label class="form-label">FAX</label>
-                <input type="text" id="cfFax" class="form-control" placeholder="Fax..." value="${escapeHtml(fax)}">
+                <input type="text" id="cfFax" class="form-control" placeholder="Fax..." value="${escapeAttr(fax)}">
               </div>
             </div>
           </div>
@@ -10114,7 +10420,7 @@
         container.innerHTML = state.customClubTypes.map(t => {
           const isSelected = selectedClubTypes.includes(t);
           return `
-            <span class="club-type-chip ${isSelected ? 'selected' : ''}" data-type="${escapeHtml(t)}" style="padding: 2px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; user-select: none;">
+            <span class="club-type-chip ${escapeAttr(isSelected ? 'selected' : '')}" data-type="${escapeAttr(t)}" style="padding: 2px 8px; font-size: 11px; border-radius: 12px; cursor: pointer; user-select: none;">
               ${isSelected ? '✓ ' : ''}${escapeHtml(t)}
             </span>
           `;
@@ -10173,7 +10479,7 @@
         }
         const datalist = document.getElementById('clubTypeDatalistOptions');
         if (datalist) {
-          datalist.innerHTML = state.customClubTypes.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+          datalist.innerHTML = state.customClubTypes.map(t => `<option value="${escapeAttr(t)}"></option>`).join('');
         }
         if (inputNewType) inputNewType.value = '';
         if (inputRow) inputRow.style.display = 'none';
@@ -10263,8 +10569,8 @@
       // Auto-sync logo/escudo and colors to all linked teams in state.directory.equipos
       if (state.directory.equipos && Array.isArray(state.directory.equipos)) {
         state.directory.equipos.forEach(eq => {
-          const eqClubName = (eq.clubVinculado || eq.club || '').trim().toLowerCase();
-          const clubNameLower = (nameVal || nombre || '').trim().toLowerCase();
+          const eqClubName = String(eq.clubVinculado || eq.club || '').trim().toLowerCase();
+          const clubNameLower = String(nameVal || nombre || '').trim().toLowerCase();
           const isLinked = (eqClubName && eqClubName === clubNameLower) || (eq.nombre && clubNameLower && eq.nombre.toLowerCase().startsWith(clubNameLower));
           if (isLinked) {
             if (logoData) {
@@ -10452,7 +10758,7 @@
       if (!selectAdd) return;
       selectAdd.innerHTML = `
         <option value="">+ Añadir tipo de club...</option>
-        ${state.customClubTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+        ${state.customClubTypes.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
         <option value="__CREATE_NEW_TYPE__" style="font-weight: bold; color: var(--primary-blue, #2563eb);">➕ + Crear nuevo tipo...</option>
       `;
     };
@@ -10465,7 +10771,7 @@
         badgesContainer.innerHTML = selectedClubTypes.map(t => `
           <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
             ${escapeHtml(t)}
-            <button type="button" class="btn-remove-club-type" data-type="${escapeHtml(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
+            <button type="button" class="btn-remove-club-type" data-type="${escapeAttr(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
           </span>
         `).join('');
       }
@@ -10541,14 +10847,14 @@
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
           if (foundStaff) {
-            nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
           }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-staff" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-staff" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -10604,14 +10910,14 @@
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
           if (foundTeam) {
-            nameHTML = `<a href="javascript:void(0)" class="team-modal-link" data-teamid="${foundTeam.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="shield" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            nameHTML = `<a href="javascript:void(0)" class="team-modal-link" data-teamid="${escapeAttr(foundTeam.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="shield" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
           }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-equipo" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-equipo" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -10664,8 +10970,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          logoData = await compressImage(file);
-          document.getElementById('btnUploadClubLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
+          logoData = (await compressImage(file)) || logoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadClubLogo').innerHTML = `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
         }
@@ -10723,10 +11029,10 @@
       let optionsHTML = '<option value="">Seleccionar...</option>';
       locList.forEach(l => {
         const isSel = currentLocalidadVal === l ? 'selected' : '';
-        optionsHTML += `<option value="${escapeHtml(l)}" ${isSel}>${escapeHtml(l)}</option>`;
+        optionsHTML += `<option value="${escapeAttr(l)}" ${isSel}>${escapeHtml(l)}</option>`;
       });
       if (currentLocalidadVal && !locList.includes(currentLocalidadVal)) {
-        optionsHTML += `<option value="${escapeHtml(currentLocalidadVal)}" selected>${escapeHtml(currentLocalidadVal)}</option>`;
+        optionsHTML += `<option value="${escapeAttr(currentLocalidadVal)}" selected>${escapeHtml(currentLocalidadVal)}</option>`;
       }
       optionsHTML += '<option value="__NEW_LOCALIDAD__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva localidad...</option>';
       clubLocSelect.innerHTML = optionsHTML;
@@ -10791,7 +11097,7 @@
   // Helper to flexibly match a team to its parent club even with spelling typos (e.g. Obereno / Oberena)
   function syncClubDataToLinkedTeams(clubObj) {
     if (!clubObj || !state.directory || !Array.isArray(state.directory.equipos)) return;
-    const clubNameLower = (clubObj.nombre || clubObj.equipo || '').trim().toLowerCase();
+    const clubNameLower = String(clubObj.nombre || clubObj.equipo || '').trim().toLowerCase();
     if (!clubNameLower) return;
 
     state.directory.equipos.forEach(eq => {
@@ -10830,10 +11136,10 @@
 
   function findParentClub(teamObj) {
     if (!teamObj || !state.directory.clubes || !state.directory.clubes.length) return null;
-    const clubName = (teamObj.clubVinculado || teamObj.club || '').trim();
-    const teamName = (teamObj.nombre || teamObj.equipo || '').trim();
+    const clubName = String(teamObj.clubVinculado || teamObj.club || '').trim();
+    const teamName = String(teamObj.nombre || teamObj.equipo || '').trim();
 
-    const clean = (str) => (str || '').toLowerCase()
+    const clean = (str) => String(str || '').toLowerCase()
       .replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/gi, '')
       .replace(/[^a-z0-9]/gi, '');
 
@@ -10892,7 +11198,7 @@
 
     let themeColor = team.colorPrimary || team.colorPrimario || team.color1 || team.color || 'var(--primary-blue)';
     if (themeColor === 'var(--primary-blue)' && team.clubVinculado) {
-      const parentClub = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === team.clubVinculado.toLowerCase());
+      const parentClub = state.directory.clubes.find(c => String(c.nombre || '').toLowerCase() === team.clubVinculado.toLowerCase());
       if (parentClub && parentClub.colorPrimary) themeColor = parentClub.colorPrimary;
     }
 
@@ -10949,7 +11255,7 @@
         if (player) {
           plantillaHTML += `
             <tr style="border-bottom: 1px solid var(--border-light);">
-              <td style="padding: 10px; font-weight: 600;"><a href="javascript:void(0)" class="player-modal-link" data-playerid="${player.id}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${player.foto || 'Foto Jugador General.png'}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(pName)}</a></td>
+              <td style="padding: 10px; font-weight: 600;"><a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(player.id)}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(pName)}</a></td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.dorsal || '-')}</td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}</td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</td>
@@ -11002,7 +11308,7 @@
         }
         let nameHTML = `<span style="font-weight: 600;">${escapeHtml(sName)}</span>`;
         if (foundStaff) {
-          nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${foundStaff.foto || 'Foto Jugador General.png'}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(sName)}</a>`;
+          nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${escapeAttr(foundStaff.foto || 'Foto Jugador General.png')}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(sName)}</a>`;
         }
 
         let sRol = item.cargo;
@@ -11020,12 +11326,12 @@
 
     const squadPlayers = localPlantillaList.map(item => {
       const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-      return allPlayersList.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+      return allPlayersList.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
     }).filter(Boolean);
 
     // Jugadores Destacados
     const destacados = squadPlayers.filter(p => {
-      return (p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
+      return String(p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
     });
 
     let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
@@ -11034,8 +11340,8 @@
     } else {
       destacados.forEach(p => {
         destacadosHTML += `
-          <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${p.id}')">
-            <img src="${p.foto || 'Foto Jugador General.png'}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${themeColor};">
+          <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${escapeJsAttr(p.id)}')">
+            <img src="${escapeAttr(p.foto || 'Foto Jugador General.png')}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${escapeAttr(themeColor)};">
             <div>
               <div style="font-weight: 800; color: var(--text-dark); font-size: 14px; margin-bottom: 2px;">${escapeHtml(p.nombre || p.jugador || 'Sin Nombre')}</div>
               <div style="font-size: 12px; font-weight: 600; color: var(--text-muted);">
@@ -11066,7 +11372,7 @@
       if (matchingPlayers.length > 0) {
         playersHTML = matchingPlayers.map(p => {
           let isZurdo = false;
-          if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+          if (String(p.pierna || '').toLowerCase().includes('izq') || String(p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
 
           let pBg = 'rgba(15, 23, 42, 0.92)';
@@ -11074,7 +11380,7 @@
           let pBorder = 'rgba(255,255,255,0.3)';
 
           return `
-          <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+          <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -11088,8 +11394,8 @@
       const renderX = 100 - posCoords.y;
       const renderY = posCoords.x;
       return `
-        <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
-          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${themeColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+        <div style="position: absolute; left: ${escapeAttr(renderX)}%; top: ${escapeAttr(renderY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(themeColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
             ${escapeHtml(posCode)}
           </div>
           <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
@@ -11102,7 +11408,7 @@
     campogramaHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div style="font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-           <i data-lucide="layout-template" style="width: 18px; height: 18px; color: ${themeColor};"></i> 
+           <i data-lucide="layout-template" style="width: 18px; height: 18px; color: ${escapeAttr(themeColor)};"></i> 
            Sistema: ${escapeHtml(formation)}
         </div>
         <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); background: rgba(0,0,0,0.05); padding: 4px 10px; border-radius: 12px; display: flex; align-items: center; gap: 4px;">
@@ -11115,12 +11421,12 @@
     `;
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(team.nombre || 'Sin Nombre')}</h2>
@@ -11165,7 +11471,7 @@
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
-                <div class="ficha-stat-value">${escapeHtml((team.federacion || '').split(' - ')[0] || '-')}</div>
+                <div class="ficha-stat-value">${escapeHtml(String(team.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PLANTILLA</div>
@@ -11255,7 +11561,7 @@
     if (!club) return;
 
     let themeColor = club.colorPrimary || 'var(--primary-blue)';
-    const equiposDelClub = (state.directory.equipos || []).filter(e => (e.clubVinculado || e.club || '').toLowerCase() === (club.nombre || club.equipo || '').toLowerCase());
+    const equiposDelClub = (state.directory.equipos || []).filter(e => String(e.clubVinculado || e.club || '').toLowerCase() === String(club.nombre || club.equipo || '').toLowerCase());
     const numEquipos = equiposDelClub.length;
 
     let tiposStr = '';
@@ -11272,9 +11578,9 @@
     } else {
       equiposDelClub.forEach(eq => {
         equiposHTML += `
-           <a href="javascript:void(0)" class="equipo-modal-link" data-teamid="${eq.id}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-light); border-radius: 8px; text-decoration: none; color: var(--text-main); transition: all 0.2s;">
+           <a href="javascript:void(0)" class="equipo-modal-link" data-teamid="${escapeAttr(eq.id)}" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-light); border-radius: 8px; text-decoration: none; color: var(--text-main); transition: all 0.2s;">
              <div style="width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;">
-               ${eq.escudo || eq.logo || club.escudo || club.logo ? `<img src="${eq.escudo || eq.logo || club.escudo || club.logo}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 24px; height: 24px; color: var(--text-muted);"></i>`}
+               ${eq.escudo || eq.logo || club.escudo || club.logo ? `<img src="${escapeAttr(eq.escudo || eq.logo || club.escudo || club.logo)}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 24px; height: 24px; color: var(--text-muted);"></i>`}
              </div>
              <span style="font-weight: 600; text-align: center; font-size: 13px;">${escapeHtml(eq.nombre || eq.equipo)}</span>
              <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(eq.categoria || '-')}</span>
@@ -11285,12 +11591,12 @@
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${club.escudo || club.logo ? `<img src="${club.escudo || club.logo}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${club.escudo || club.logo ? `<img src="${escapeAttr(club.escudo || club.logo)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(club.nombre || club.equipo || 'Sin Nombre')}</h2>
@@ -11332,7 +11638,7 @@
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
-                <div class="ficha-stat-value">${escapeHtml((club.federacion || '').split(' - ')[0] || '-')}</div>
+                <div class="ficha-stat-value">${escapeHtml(String(club.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
               <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">ESTADIO</div>
@@ -11344,7 +11650,7 @@
               </div>
             </div>
 
-            ${club.web ? `<div style="margin-top: 10px;"><a href="${club.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
+            ${club.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(club.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
             
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
                <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos e infraestructura del club.</p>
@@ -11404,29 +11710,29 @@
 
     // Color and Shield from linked Team or Club
     if (staff.equipo) {
-      const eq = (state.directory.equipos || []).find(e => (e.nombre || '').toLowerCase() === staff.equipo.toLowerCase());
+      const eq = (state.directory.equipos || []).find(e => String(e.nombre || '').toLowerCase() === staff.equipo.toLowerCase());
       if (eq) {
         themeColor = eq.color || themeColor;
         shieldSrc = shieldSrc || eq.escudo || eq.logo || '';
         if (themeColor === 'var(--primary-blue)' && eq.clubVinculado) {
-          const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
+          const pc = state.directory.clubes.find(c => String(c.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
           if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
           if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
         }
       }
     }
     if (themeColor === 'var(--primary-blue)' && staff.clubVinculado) {
-      const pc = state.directory.clubes.find(c => (c.nombre || '').toLowerCase() === staff.clubVinculado.toLowerCase());
+      const pc = state.directory.clubes.find(c => String(c.nombre || '').toLowerCase() === staff.clubVinculado.toLowerCase());
       if (pc && pc.colorPrimary) themeColor = pc.colorPrimary;
       if (pc && !shieldSrc) shieldSrc = pc.escudo || pc.logo || '';
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${staff.foto || shieldSrc || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(staff.foto || shieldSrc || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -11597,11 +11903,11 @@
     const titleText = isEdit ? `👥 Ficha de ${escapeHtml(nombre)}` : '👥 Nuevo Equipo';
 
     const modalHTML = `
-      <div class="team-modal-wrapper" style="border-top: 6px solid ${colorPrimary}; box-shadow: 0 -3px 12px ${colorPrimary}33;">
-        <div id="teamModalHeaderBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, ${colorPrimary}22 0%, ${colorSecondary}22 100%); border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid ${colorPrimary}40;">
+      <div class="team-modal-wrapper" style="border-top: 6px solid ${escapeAttr(colorPrimary)}; box-shadow: 0 -3px 12px ${escapeAttr(colorPrimary)}33;">
+        <div id="teamModalHeaderBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, ${escapeAttr(colorPrimary)}22 0%, ${escapeAttr(colorSecondary)}22 100%); border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid ${escapeAttr(colorPrimary)}40;">
           <div style="display: flex; align-items: center; gap: 12px;">
             <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              ${escudoData ? `<img src="${escudoData}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
+              ${escudoData ? `<img src="${escapeAttr(escudoData)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
             </div>
             <div>
               <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">${escapeHtml(nombre || 'Equipo')}</h2>
@@ -11610,8 +11916,8 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-light);">
-              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${colorPrimary}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${colorPrimary}"></span>
-              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${colorSecondary}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${colorSecondary}"></span>
+              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorPrimary)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(colorPrimary)}"></span>
+              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorSecondary)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(colorSecondary)}"></span>
             </div>
           </div>
         </div>
@@ -11625,19 +11931,19 @@
         </div>
 
         <datalist id="clubesDatalistOptions">
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre || c.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre || c.equipo)}"></option>`).join('')}
         </datalist>
 
         <datalist id="federacionesDatalistOptions">
-          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${sortFederations(state.directory.federaciones || []).map(f => `<option value="${escapeAttr(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="staffDatalistOptions">
-          ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
+          ${(state.directory.staff || []).map(s => `<option value="${escapeAttr(s.nombre || s.staff)}"></option>`).join('')}
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${allPlayersList.map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${allPlayersList.map(p => `<option value="${escapeAttr(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="teamForm">
@@ -11646,7 +11952,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadTeamEscudo">
-                  ${escudoData ? `<img src="${escudoData}" class="photo-upload-preview">` : `
+                  ${escudoData ? `<img src="${escapeAttr(escudoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR ESCUDO</span>
                   `}
@@ -11655,8 +11961,8 @@
                 <div style="width: 100%; text-align: center;">
                   <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">1ª EQUIPACIÓN</div>
                   <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
-                    <input type="color" id="tfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                    <input type="color" id="tfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                    <input type="color" id="tfColorPrimary" value="${escapeAttr(colorPrimary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                    <input type="color" id="tfColorSecondary" value="${escapeAttr(colorSecondary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
                   </div>
                   <div style="width: 100%; margin-bottom: 12px;">
                     <select id="tfPatronCamiseta" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (1ª Eq)">
@@ -11669,8 +11975,8 @@
                   
                   <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px;">2ª EQUIPACIÓN</div>
                   <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center; margin-bottom: 4px;">
-                    <input type="color" id="tfColorPrimary2" value="${team.colorPrimary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
-                    <input type="color" id="tfColorSecondary2" value="${team.colorSecondary2 || '#ffffff'}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
+                    <input type="color" id="tfColorPrimary2" value="${escapeAttr(team.colorPrimary2 || '#ffffff')}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal 2ª Eq.">
+                    <input type="color" id="tfColorSecondary2" value="${escapeAttr(team.colorSecondary2 || '#ffffff')}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario 2ª Eq.">
                   </div>
                   <div style="width: 100%;">
                     <select id="tfPatronCamiseta2" class="form-control" style="font-size: 11px; text-align: center; font-weight: 600; padding: 2px 4px; height: 26px;" title="Patrón del Campograma (2ª Eq)">
@@ -11689,12 +11995,12 @@
                     <span>NOMBRE DEL EQUIPO</span>
                     <span style="font-size: 10px; color: var(--primary-blue); font-weight: 600;">✨ Auto-generado</span>
                   </label>
-                  <input type="text" id="tfNombre" class="form-control" placeholder="Se genera al seleccionar Club, Categoría y Temporada..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="tfNombre" class="form-control" placeholder="Se genera al seleccionar Club, Categoría y Temporada..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">CLUB VINCULADO</label>
-                  <input type="text" id="tfClubVinculado" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club del directorio..." value="${escapeHtml(clubVinculado)}">
+                  <input type="text" id="tfClubVinculado" list="clubesDatalistOptions" class="form-control" placeholder="Buscar club del directorio..." value="${escapeAttr(clubVinculado)}">
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
@@ -11702,8 +12008,8 @@
                     <label class="form-label">CATEGORÍA</label>
                     <select id="tfCategoria" class="form-control">
                       <option value="">Seleccionar categoría...</option>
-                      ${LISTA_CATEGORIAS_EQUIPO.map(cat => `<option value="${escapeHtml(cat)}" ${categoria === cat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
-                      ${categoria && !LISTA_CATEGORIAS_EQUIPO.includes(categoria) ? `<option value="${escapeHtml(categoria)}" selected>${escapeHtml(categoria)}</option>` : ''}
+                      ${LISTA_CATEGORIAS_EQUIPO.map(cat => `<option value="${escapeAttr(cat)}" ${categoria === cat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
+                      ${categoria && !LISTA_CATEGORIAS_EQUIPO.includes(categoria) ? `<option value="${escapeAttr(categoria)}" selected>${escapeHtml(categoria)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
@@ -11713,17 +12019,17 @@
                       ${LISTA_TEMPORADAS_EQUIPO.map(t => {
       const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
       const isSelected = temporada === t || temporada === shortFormat;
-      return `<option value="${escapeHtml(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
+      return `<option value="${escapeAttr(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('')}
-                      ${temporada && !LISTA_TEMPORADAS_EQUIPO.some(t => t === temporada || (t.substring(2, 4) + '/' + t.substring(7, 9)) === temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
+                      ${temporada && !LISTA_TEMPORADAS_EQUIPO.some(t => t === temporada || (t.substring(2, 4) + '/' + t.substring(7, 9)) === temporada) ? `<option value="${escapeAttr(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">TORNEO</label>
                     <select id="tfTorneo" class="form-control">
                       <option value="">Seleccionar torneo...</option>
-                      ${(state.customTorneos || ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico']).map(t => `<option value="${escapeHtml(t)}" ${torneoVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
-                      ${torneoVal && !(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeHtml(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
+                      ${(state.customTorneos || ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico']).map(t => `<option value="${escapeAttr(t)}" ${torneoVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                      ${torneoVal && !String(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeAttr(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
                       <option value="__NEW_TORNEO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo torneo...</option>
                     </select>
                   </div>
@@ -11734,8 +12040,8 @@
                     <label class="form-label">COMPETICIÓN</label>
                     <select id="tfCompeticion" class="form-control">
                       <option value="">Seleccionar competición...</option>
-                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeHtml(c)}" ${competicionVal === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${competicionVal && !(state.customCompeticiones || []).includes(competicionVal) ? `<option value="${escapeHtml(competicionVal)}" selected>${escapeHtml(competicionVal)}</option>` : ''}
+                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeAttr(c)}" ${competicionVal === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${competicionVal && !String(state.customCompeticiones || []).includes(competicionVal) ? `<option value="${escapeAttr(competicionVal)}" selected>${escapeHtml(competicionVal)}</option>` : ''}
                       <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
                     </select>
                   </div>
@@ -11743,8 +12049,8 @@
                     <label class="form-label">GRUPO</label>
                     <select id="tfGrupo" class="form-control">
                       <option value="">Seleccionar grupo...</option>
-                      ${getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}" ${grupoVal === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                      ${grupoVal && !getAllGroupsArray().includes(grupoVal) ? `<option value="${escapeHtml(grupoVal)}" selected>${escapeHtml(grupoVal)}</option>` : ''}
+                      ${getAllGroupsArray().map(g => `<option value="${escapeAttr(g)}" ${grupoVal === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal && !getAllGroupsArray().includes(grupoVal) ? `<option value="${escapeAttr(grupoVal)}" selected>${escapeHtml(grupoVal)}</option>` : ''}
                       <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
                     </select>
                   </div>
@@ -11755,8 +12061,8 @@
                     <label class="form-label">COMPETICIÓN 2 (Opcional)</label>
                     <select id="tfCompeticion2" class="form-control">
                       <option value="">Añadir segunda competición...</option>
-                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeHtml(c)}" ${competicionVal2 === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${competicionVal2 && !(state.customCompeticiones || []).includes(competicionVal2) ? `<option value="${escapeHtml(competicionVal2)}" selected>${escapeHtml(competicionVal2)}</option>` : ''}
+                      ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeAttr(c)}" ${competicionVal2 === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${competicionVal2 && !String(state.customCompeticiones || []).includes(competicionVal2) ? `<option value="${escapeAttr(competicionVal2)}" selected>${escapeHtml(competicionVal2)}</option>` : ''}
                       <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
                     </select>
                   </div>
@@ -11764,8 +12070,8 @@
                     <label class="form-label">GRUPO 2 (Opcional)</label>
                     <select id="tfGrupo2" class="form-control">
                       <option value="">Añadir segundo grupo...</option>
-                      ${getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}" ${grupoVal2 === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
-                      ${grupoVal2 && !getAllGroupsArray().includes(grupoVal2) ? `<option value="${escapeHtml(grupoVal2)}" selected>${escapeHtml(grupoVal2)}</option>` : ''}
+                      ${getAllGroupsArray().map(g => `<option value="${escapeAttr(g)}" ${grupoVal2 === g ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                      ${grupoVal2 && !getAllGroupsArray().includes(grupoVal2) ? `<option value="${escapeAttr(grupoVal2)}" selected>${escapeHtml(grupoVal2)}</option>` : ''}
                       <option value="__NEW_GRUPO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo grupo...</option>
                     </select>
                   </div>
@@ -11773,7 +12079,7 @@
 
                 <div class="form-group mb-4">
                   <label class="form-label">FEDERACIÓN</label>
-                  <input type="text" id="tfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeHtml(federacion)}">
+                  <input type="text" id="tfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar federación..." value="${escapeAttr(federacion)}">
                 </div>
               </div>
             </div>
@@ -11815,13 +12121,13 @@
               </div>
               <div class="form-group">
                 <label class="form-label">SISTEMA HABITUAL</label>
-                <input type="text" id="tfSistemaHabitual" class="form-control" placeholder="Ej: 1-4-3-3" value="${escapeHtml(sistemaHabitual)}">
+                <input type="text" id="tfSistemaHabitual" class="form-control" placeholder="Ej: 1-4-3-3" value="${escapeAttr(sistemaHabitual)}">
               </div>
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">NIVEL DE COMPETITIVIDAD</label>
-              <input type="text" id="tfNivelCompetitividad" class="form-control" placeholder="Ej: Alto / Regional" value="${escapeHtml(nivelCompetitividad)}">
+              <input type="text" id="tfNivelCompetitividad" class="form-control" placeholder="Ej: Alto / Regional" value="${escapeAttr(nivelCompetitividad)}">
             </div>
 
             <div class="form-group">
@@ -11898,7 +12204,7 @@
 
       const targetClubName = document.getElementById('tfClubVinculado').value.trim();
       let parentClub = (targetClubName || nameVal) && state.directory.clubes ? state.directory.clubes.find(c =>
-        (c.nombre && c.nombre.toLowerCase() === (targetClubName || nameVal).toLowerCase()) ||
+        (c.nombre && c.nombre.toLowerCase() === String(targetClubName || nameVal).toLowerCase()) ||
         (c.nombre && nameVal && nameVal.toLowerCase().startsWith(c.nombre.toLowerCase()))
       ) : null;
 
@@ -12127,11 +12433,11 @@
         if (clubLogo) {
           escudoData = clubLogo;
           if (boxEscudo) {
-            boxEscudo.innerHTML = `<img src="${clubLogo}" class="photo-upload-preview"><input type="file" id="inputTeamEscudo" accept="image/*" class="hidden">`;
+            boxEscudo.innerHTML = `<img src="${escapeAttr(clubLogo)}" class="photo-upload-preview"><input type="file" id="inputTeamEscudo" accept="image/*" class="hidden">`;
           }
           const headerBox = document.getElementById('teamHeaderEscudoBox');
           if (headerBox) {
-            headerBox.innerHTML = `<img src="${clubLogo}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">`;
+            headerBox.innerHTML = `<img src="${escapeAttr(clubLogo)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">`;
           }
         }
         const clubPri = foundClub.colorPrimary || foundClub.colorPrimario || foundClub.color1 || foundClub.colorCamiseta;
@@ -12356,14 +12662,14 @@
 
           let nameHTML = `<span style="font-weight: 700; color: var(--text-main);">${escapeHtml(nameStr)}</span>`;
           if (foundStaff) {
-            nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
+            nameHTML = `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(nameStr)}</a>`;
           }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-tecnico" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-tecnico" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -12427,8 +12733,8 @@
           const isChecked = localPlantillaList.some(item => (typeof item === 'string' ? item : item.nombre).toLowerCase() === pName.toLowerCase());
 
           return `
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 4px; background: ${isChecked ? 'rgba(37, 99, 235, 0.08)' : 'transparent'}; border: 1px solid ${isChecked ? 'var(--primary-blue)' : 'var(--border-light)'}; cursor: pointer; transition: all 0.15s ease;">
-              <input type="checkbox" class="chk-plantilla-player" data-name="${escapeHtml(pName)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; accent-color: var(--primary-blue);">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 4px; background: ${escapeAttr(isChecked ? 'rgba(37, 99, 235, 0.08)' : 'transparent')}; border: 1px solid ${escapeAttr(isChecked ? 'var(--primary-blue)' : 'var(--border-light)')}; cursor: pointer; transition: all 0.15s ease;">
+              <input type="checkbox" class="chk-plantilla-player" data-name="${escapeAttr(pName)}" ${isChecked ? 'checked' : ''} style="cursor: pointer; accent-color: var(--primary-blue);">
               <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(pName)} ${pPos ? `<small style="color: var(--text-muted); font-weight: 500;">(${escapeHtml(pPos)})</small>` : ''}</span>
             </label>
           `;
@@ -12487,19 +12793,19 @@
           let rendRSHTML = '-';
 
           if (foundPlayer) {
-            nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundPlayer.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-              <img src="${foundPlayer.foto || 'Foto Jugador General.png'}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light); flex-shrink: 0;">
+            nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundPlayer.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+              <img src="${escapeAttr(foundPlayer.foto || 'Foto Jugador General.png')}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light); flex-shrink: 0;">
               <span style="text-decoration: underline;">${escapeHtml(nameStr)}</span>
             </a>`;
             const dorsalVal = foundPlayer.dorsal || '';
-            dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${foundPlayer.id}" value="${escapeHtml(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
+            dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
-            anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${foundPlayer.id}" value="${escapeHtml(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
+            anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             let posSec = foundPlayer.posicionSecundaria || '';
 
             if (!posPri || !posSec) {
-              const pNameLower = (foundPlayer.nombre || foundPlayer.jugador || foundPlayer.name || '').toLowerCase().trim();
+              const pNameLower = String(foundPlayer.nombre || foundPlayer.jugador || foundPlayer.name || '').toLowerCase().trim();
               let posicionesVistas = new Set();
               if (pNameLower) {
                 (state.reports || []).forEach(rep => {
@@ -12578,7 +12884,7 @@
               }
             }
 
-            let _pRaw = (foundPlayer.pierna || '').toLowerCase();
+            let _pRaw = String(foundPlayer.pierna || '').toLowerCase();
             let pierna = _pRaw ? 'Derecha' : '';
             if (_pRaw.includes('izq') || _pRaw.includes('zur')) pierna = 'Izquierda';
             else if (_pRaw.includes('ambid')) pierna = 'Ambidiestro';
@@ -12588,38 +12894,38 @@
             const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
             const generatePosOptions = (selected) => {
               let opts = `<option value="">--</option>`;
-              opts += posicionesOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
-              if (selected && !posicionesOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              opts += posicionesOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !posicionesOpts.includes(selected)) opts += `<option value="${escapeAttr(selected)}" selected>${escapeHtml(selected)}</option>`;
               return opts;
             };
 
             const piernaOpts = ['Derecha', 'Izquierda', 'Ambidiestro'];
             const generatePiernaOptions = (selected) => {
               let opts = `<option value="">--</option>`;
-              opts += piernaOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              opts += piernaOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
               return opts;
             };
 
             const proyOpts = ['CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
             const generateProyOptions = (selected) => {
               let opts = `<option value="">--</option>`;
-              opts += proyOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
-              if (selected && !proyOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              opts += proyOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !proyOpts.includes(selected)) opts += `<option value="${escapeAttr(selected)}" selected>${escapeHtml(selected)}</option>`;
               return opts;
             };
 
             const estadoOpts = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
             const generateEstadoOptions = (selected) => {
               let opts = `<option value="">--</option>`;
-              opts += estadoOpts.map(p => `<option value="${p}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
-              if (selected && !estadoOpts.includes(selected)) opts += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+              opts += estadoOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
+              if (selected && !estadoOpts.includes(selected)) opts += `<option value="${escapeAttr(selected)}" selected>${escapeHtml(selected)}</option>`;
               return opts;
             };
 
-            posPriHTML = `<select class="form-control inline-edit-select" data-field="posicionPrincipal" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posPri)}</select>`;
-            posSecHTML = `<select class="form-control inline-edit-select" data-field="posicionSecundaria" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posSec)}</select>`;
-            lateralidadHTML = `<select class="form-control inline-edit-select" data-field="pierna" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePiernaOptions(pierna)}</select>`;
-            estadoHTML = `<select class="form-control inline-edit-select" data-field="estado" data-pid="${foundPlayer.id}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateEstadoOptions(estado)}</select>`;
+            posPriHTML = `<select class="form-control inline-edit-select" data-field="posicionPrincipal" data-pid="${escapeAttr(foundPlayer.id)}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posPri)}</select>`;
+            posSecHTML = `<select class="form-control inline-edit-select" data-field="posicionSecundaria" data-pid="${escapeAttr(foundPlayer.id)}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePosOptions(posSec)}</select>`;
+            lateralidadHTML = `<select class="form-control inline-edit-select" data-field="pierna" data-pid="${escapeAttr(foundPlayer.id)}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generatePiernaOptions(pierna)}</select>`;
+            estadoHTML = `<select class="form-control inline-edit-select" data-field="estado" data-pid="${escapeAttr(foundPlayer.id)}" style="font-size: 10px; padding: 2px 4px; height: 24px;">${generateEstadoOptions(estado)}</select>`;
           }
 
           let rowBgStyle = '';
@@ -12628,7 +12934,7 @@
             else if (foundPlayer.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
           }
           return `
-            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
+            <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(rowBgStyle)}">
               <td style="padding: 6px 12px;">${nameHTML}</td>
               <td style="padding: 6px 4px;">${dorsalHTML}</td>
               <td style="padding: 6px 4px;">${anoHTML}</td>
@@ -12637,7 +12943,7 @@
               <td style="padding: 6px 4px;">${lateralidadHTML}</td>
               <td style="padding: 6px 4px;">${estadoHTML}</td>
               <td style="padding: 6px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${idx}" style="width: 24px; height: 24px; padding: 0;">
+                <button type="button" class="btn-action-icon danger btn-del-jugador" data-idx="${escapeAttr(idx)}" style="width: 24px; height: 24px; padding: 0;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -12706,7 +13012,7 @@
               totalAge += (currentYear - anoVal);
               countAge++;
             }
-            const estado = (foundPlayer.estado || '').toUpperCase();
+            const estado = String(foundPlayer.estado || '').toUpperCase();
             if (estado === 'ALTA') altas++;
             else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
             else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
@@ -12752,7 +13058,7 @@
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-        return playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        return playersPool.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
       }).filter(Boolean);
 
       const curPrimaryColor = document.getElementById('tfColorPrimary')?.value || colorPrimary || '#2563eb';
@@ -12776,13 +13082,13 @@
         if (matchingPlayers.length > 0) {
           playersHTML = matchingPlayers.map(p => {
             let isZurdo = false;
-            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            if (String(p.pierna || '').toLowerCase().includes('izq') || String(p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
 
             let pBg = 'rgba(15, 23, 42, 0.92)';
             let pColor = '#ffffff';
             let pBorder = 'rgba(255,255,255,0.3)';
-            const est = (p.estado || '').trim().toUpperCase();
+            const est = String(p.estado || '').trim().toUpperCase();
             if (est === 'ALTA') {
               pBg = '#2563eb';
             } else if (est === 'RENOVACIÓN' || est === 'RENOVACION') {
@@ -12794,7 +13100,7 @@
             }
 
             return `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -12808,9 +13114,9 @@
         const renderX = 100 - posCoords.y;
         const renderY = posCoords.x;
         return `
-          <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <div style="position: absolute; left: ${escapeAttr(renderX)}%; top: ${escapeAttr(renderY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
             <!-- Position Badge/Card (e.g. DBD, DBZ, PO, etc.) -->
-            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
               ${escapeHtml(posCode)}
             </div>
             <!-- Player Names Below Card -->
@@ -12867,7 +13173,7 @@
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-        return playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        return playersPool.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
       }).filter(Boolean);
 
       const printWin = window.open('', '_blank');
@@ -12884,8 +13190,8 @@
         const txtColor = getContrastColor(curPrimaryColor);
 
         return `
-          <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
-            <div style="min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${txtColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">
+          <div style="position: absolute; left: ${escapeAttr(posCoords.x)}%; top: ${escapeAttr(posCoords.y)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(txtColor)}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">
               ${escapeHtml(posCode)}
             </div>
             <div style="background: rgba(15, 23, 42, 0.9); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3);">
@@ -12898,7 +13204,7 @@
       const squadTableRowsHTML = squadPlayers.map((p) => `
         <tr>
           <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
-          <td style="font-weight: 700; text-align: center; color: ${curPrimaryColor};">${escapeHtml(p.dorsal || '-')}</td>
+          <td style="font-weight: 700; text-align: center; color: ${escapeAttr(curPrimaryColor)};">${escapeHtml(p.dorsal || '-')}</td>
           <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
           <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
           <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
@@ -13007,8 +13313,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          escudoData = await compressImage(file);
-          document.getElementById('btnUploadTeamEscudo').innerHTML = `<img src="${escudoData}" class="photo-upload-preview">`;
+          escudoData = (await compressImage(file)) || escudoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadTeamEscudo').innerHTML = `<img src="${escapeAttr(escudoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir escudo:', err);
         }
@@ -13087,12 +13393,12 @@
     let shieldSrc = fed.escudo || fed.logo || 'Escudo Blanco.png';
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(fed.nombre || fed.federacion || 'Sin Nombre')}</h2>
@@ -13127,7 +13433,7 @@
             </div>
           </div>
           
-          ${fed.web ? `<div style="margin-top: 10px;"><a href="${fed.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${fed.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(fed.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y las observaciones.</p>
@@ -13167,7 +13473,7 @@
         const cDate = escapeHtml(c.fechaInicio || c.fecha || '');
         const cAct = escapeHtml(c.tipoActividad || '');
         listHtml += `
-          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="window.openConvocatoriaFichaReadOnly('${c.id || c.codigo}')">
+          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="window.openConvocatoriaFichaReadOnly('${escapeJsAttr(c.id || c.codigo)}')">
             <div>
               <div style="font-weight: 700; color: var(--primary-blue); font-size: 14px;">${cName}</div>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${cDate ? `<strong>Fechas:</strong> ${cDate} ` : ''}${cAct ? `&nbsp;|&nbsp; <strong>Tipo:</strong> ${cAct}` : ''}</div>
@@ -13193,7 +13499,7 @@
 
     // Attempt to get color/shield from Federation
     if (federacionNombre) {
-      const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === federacionNombre.toLowerCase());
+      const fedObj = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === federacionNombre.toLowerCase());
       if (fedObj) {
         if (!sel.escudo && !sel.logo) shieldSrc = fedObj.escudo || fedObj.logo || 'Escudo Blanco.png';
         if (!sel.colorPrincipal && !sel.color) themeColor = fedObj.colorPrincipal || fedObj.color || themeColor;
@@ -13203,7 +13509,7 @@
     // Buscar Primer Entrenador en el directorio
     let primerEntrenador = sel.seleccionador || '-';
     if (state.directory.staff && Array.isArray(state.directory.staff)) {
-      const selName = (sel.nombre || sel.seleccion || '').toLowerCase();
+      const selName = String(sel.nombre || sel.seleccion || '').toLowerCase();
       const headCoach = state.directory.staff.find(s => {
         if (!s) return false;
         const sSel = s.seleccion ? String(s.seleccion).toLowerCase() : '';
@@ -13221,7 +13527,7 @@
     // Obtener convocatorias de esta selección
     let selConvocatorias = [];
     if (state.directory.convocatorias && Array.isArray(state.directory.convocatorias)) {
-      const selName = (sel.nombre || sel.seleccion || '').toLowerCase();
+      const selName = String(sel.nombre || sel.seleccion || '').toLowerCase();
       selConvocatorias = state.directory.convocatorias.filter(c => {
         if (!c) return false;
         const cSel = c.seleccionVinculada || c.seleccion || '';
@@ -13230,12 +13536,12 @@
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(sel.nombre || sel.seleccion || 'Sin Nombre')}</h2>
@@ -13259,17 +13565,17 @@
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); display: grid;">
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">FEDERACIÓN</div>
-              <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml((federacionNombre || '').split(' - ')[0] || '-')}</div>
+              <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(String(federacionNombre || '').split(' - ')[0] || '-')}</div>
             </div>
             <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">SELECCIONADOR</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(primerEntrenador)}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeHtml(sel.nombre || sel.seleccion || '')}')">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeJsAttr(sel.nombre || sel.seleccion || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CONVOCATORIAS</div>
               <div class="ficha-stat-value" style="font-size: 18px; font-weight: 800; color: var(--primary-blue);">${selConvocatorias.length}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeHtml(sel.id || sel.codigo || '')}')">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeJsAttr(sel.id || sel.codigo || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CAMPOGRAMAS</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 800; color: var(--primary-blue); margin-top: 4px;"><i data-lucide="layout-template" style="width: 16px; height: 16px; vertical-align: middle;"></i> Ver Táctica</div>
             </div>
@@ -13298,7 +13604,7 @@
     if (!selObj) return;
 
     const allConvocatorias = state.directory.convocatorias || [];
-    const currentSelName = (selObj.nombre || selObj.seleccion || '').toLowerCase().trim();
+    const currentSelName = String(selObj.nombre || selObj.seleccion || '').toLowerCase().trim();
 
     const selectionConvocatorias = allConvocatorias.filter(c => {
       if (!c) return false;
@@ -13313,7 +13619,7 @@
     }
 
     const optionsHtml = selectionConvocatorias.map(c => `
-      <option value="${c.id}">${escapeHtml(c.nombre || c.titulo || c.convocatoria || ('Convocatoria ' + (c.fecha || '')))}</option>
+      <option value="${escapeAttr(c.id)}">${escapeHtml(c.nombre || c.titulo || c.convocatoria || ('Convocatoria ' + (c.fecha || '')))}</option>
     `).join('');
 
     const html = `
@@ -13358,7 +13664,7 @@
 
     // Attempt to get shield and color from Selection
     if (conv.seleccion) {
-      const selObj = (state.directory.selecciones || []).find(s => (s.nombre || s.seleccion || '').toLowerCase() === conv.seleccion.toLowerCase());
+      const selObj = (state.directory.selecciones || []).find(s => String(s.nombre || s.seleccion || '').toLowerCase() === conv.seleccion.toLowerCase());
       if (selObj) {
         if (!conv.escudo && !conv.logo) {
           shieldSrc = selObj.escudo || selObj.logo || 'Escudo Blanco.png';
@@ -13368,12 +13674,12 @@
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 100%; max-height: 100%; object-fit: contain;">` : `<i data-lucide="clipboard-list" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(conv.titulo || conv.nombre || 'Convocatoria')}</h2>
@@ -13426,7 +13732,7 @@
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">FECHA</span><span>${escapeHtml(p.fecha || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">HORA</span><span>${escapeHtml(p.hora || '-')}</span></div>
                     <div><span style="color: var(--text-muted); font-size: 10px; display: block;">ESTADIO</span><span>${escapeHtml(p.estadio || '-')}</span></div>
-                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">TV</span><span style="font-weight: 600; color: ${p.hasTv ? 'var(--primary-color)' : 'inherit'};">${p.hasTv ? escapeHtml(p.tvChannel || 'Sí') : 'No'}</span></div>
+                    <div><span style="color: var(--text-muted); font-size: 10px; display: block;">TV</span><span style="font-weight: 600; color: ${escapeAttr(p.hasTv ? 'var(--primary-color)' : 'inherit')};">${p.hasTv ? escapeHtml(p.tvChannel || 'Sí') : 'No'}</span></div>
                   </div>
                 `).join('')}
               </div>
@@ -13488,8 +13794,8 @@
     const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
     const squadPlayers = parsedJugadores.map(item => {
       if (item.baja) return null;
-      const pName = (item.nombre || item.jugador || item.name || '').trim();
-      const pObj = playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+      const pName = String(item.nombre || item.jugador || item.name || '').trim();
+      const pObj = playersPool.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
       if (pObj) return pObj;
       return { nombre: pName, demarcacion: item.pos1 || 'MC', id: null };
     }).filter(Boolean);
@@ -13498,16 +13804,16 @@
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
 
     let resolvedColor = '#2563eb';
-    const selName = (conv.seleccion || conv.seleccionVinculada || conv.nombreSeleccion || conv.equipo || '').toLowerCase().trim();
+    const selName = String(conv.seleccion || conv.seleccionVinculada || conv.nombreSeleccion || conv.equipo || '').toLowerCase().trim();
     const selId = conv.seleccionId || conv.seleccion_id;
     if (state.directory && state.directory.selecciones) {
-      const selObj = state.directory.selecciones.find(s => s && ((selId && String(s.id) === String(selId)) || (selName && (s.nombre || s.seleccion || '').toLowerCase().trim() === selName)));
+      const selObj = state.directory.selecciones.find(s => s && ((selId && String(s.id) === String(selId)) || (selName && String(s.nombre || s.seleccion || '').toLowerCase().trim() === selName)));
       if (selObj) {
         resolvedColor = selObj.colorPrimary || selObj.colorPrincipal || selObj.color || resolvedColor;
 
         // Federation fallback if no explicit selection color
         if (!selObj.colorPrimary && !selObj.colorPrincipal && !selObj.color && selObj.federacion) {
-          const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
+          const fedObj = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
           if (fedObj) {
             resolvedColor = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || resolvedColor;
           }
@@ -13526,7 +13832,7 @@
       if (matchingPlayers.length > 0) {
         playersHTML = matchingPlayers.map(p => {
           let isZurdo = false;
-          if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+          if (String(p.pierna || '').toLowerCase().includes('izq') || String(p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
           const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
 
           let pBg = 'rgba(15, 23, 42, 0.92)';
@@ -13534,7 +13840,7 @@
           let pBorder = 'rgba(255,255,255,0.3)';
 
           return `
-          <div class="campograma-player-link" data-playerid="${p.id || p.codigo || ''}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+          <div class="campograma-player-link" data-playerid="${escapeAttr(p.id || p.codigo || '')}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -13548,9 +13854,9 @@
       const renderX = 100 - posCoords.y;
       const renderY = posCoords.x;
       return `
-        <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+        <div style="position: absolute; left: ${escapeAttr(renderX)}%; top: ${escapeAttr(renderY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
           <!-- Position Badge/Card (e.g. DBD, DBZ, PO, etc.) -->
-          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
             ${escapeHtml(posCode)}
           </div>
           <!-- Player Names Below Card -->
@@ -13600,10 +13906,10 @@
       if (activePlayers.length === 0) listHtml += '<p style="font-size: 12px; color: var(--text-muted);">Ninguno</p>';
       activePlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
-        const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pObj = (state.directory.jugadores || []).find(pl => String(pl.nombre || pl.jugador || '').toLowerCase() === String(p.nombre || p.jugador || '').trim().toLowerCase());
         const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
         const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(${escapeHtml(pTeam)})</span>` : '';
-        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed var(--border-light); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-blue)';" onmouseout="this.style.color='inherit';">${pName}</a>` : pName;
+        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${escapeJsAttr(pObj.id || pObj.codigo)}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed var(--border-light); transition: color 0.2s;" onmouseover="this.style.color='var(--primary-blue)';" onmouseout="this.style.color='inherit';">${pName}</a>` : pName;
 
         listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;"><i data-lucide="user" style="width: 14px; height: 14px; color: var(--primary-blue);"></i> <span>${linkHtml}${teamHtml}</span></div>`;
       });
@@ -13616,10 +13922,10 @@
       if (bajaPlayers.length === 0) listHtml += '<p style="font-size: 12px; color: var(--text-muted);">Ninguno</p>';
       bajaPlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
-        const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pObj = (state.directory.jugadores || []).find(pl => String(pl.nombre || pl.jugador || '').toLowerCase() === String(p.nombre || p.jugador || '').trim().toLowerCase());
         const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
         const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: inherit; opacity: 0.7;">(${escapeHtml(pTeam)})</span>` : '';
-        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #ef4444;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
+        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${escapeJsAttr(pObj.id || pObj.codigo)}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #ef4444;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
 
         listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #ef4444; opacity: 0.8; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-minus" style="width: 14px; height: 14px;"></i> <span style="text-decoration: line-through;">${linkHtml}</span>${teamHtml}</div>`;
         if (p.motivo) {
@@ -13632,10 +13938,10 @@
       if (altaPlayers.length === 0) listHtml += '<p style="font-size: 12px; color: var(--text-muted);">Ninguno</p>';
       altaPlayers.forEach(p => {
         const pName = escapeHtml(p.nombre || p.jugador || '');
-        const pObj = (state.directory.jugadores || []).find(pl => (pl.nombre || pl.jugador || '').toLowerCase() === (p.nombre || p.jugador || '').trim().toLowerCase());
+        const pObj = (state.directory.jugadores || []).find(pl => String(pl.nombre || pl.jugador || '').toLowerCase() === String(p.nombre || p.jugador || '').trim().toLowerCase());
         const pTeam = pObj ? (pObj.equipo || pObj.equipoVinculado || pObj.club || '') : '';
         const teamHtml = pTeam ? ` <span style="font-size: 11px; font-weight: normal; color: inherit; opacity: 0.7;">(${escapeHtml(pTeam)})</span>` : '';
-        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${pObj.id || pObj.codigo}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #22c55e;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
+        const linkHtml = pObj ? `<a href="#" onclick="openJugadorFichaReadOnly('${escapeJsAttr(pObj.id || pObj.codigo)}'); return false;" style="color: inherit; text-decoration: none; border-bottom: 1px dashed #22c55e;" onmouseover="this.style.opacity='0.6';" onmouseout="this.style.opacity='1';">${pName}</a>` : pName;
 
         listHtml += `<div style="padding: 6px 0; font-size: 13px; font-weight: 500; color: #22c55e; display: flex; align-items: center; gap: 6px;"><i data-lucide="user-plus" style="width: 14px; height: 14px;"></i> <span>${linkHtml}${teamHtml}</span></div>`;
         if (p.motivo) {
@@ -13658,12 +13964,12 @@
     let shieldSrc = t.logo || 'Escudo Blanco.png';
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(t.nombre || t.torneo || 'Torneo')}</h2>
@@ -13727,16 +14033,16 @@
 
     let themeColor = 'var(--primary-blue)';
     let shieldSrc = ag.logo || 'Escudo Blanco.png';
-    const agentesDeAgencia = (state.directory.agentes || []).filter(a => (a.agencia || '').toLowerCase() === (ag.nombre || '').toLowerCase());
+    const agentesDeAgencia = (state.directory.agentes || []).filter(a => String(a.agencia || '').toLowerCase() === String(ag.nombre || '').toLowerCase());
     const numAgentes = agentesDeAgencia.length;
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
-                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${shieldSrc}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
+                ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(ag.nombre || ag.agencia || 'Agencia')}</h2>
@@ -13775,7 +14081,7 @@
             </div>
           </div>
           
-          ${ag.web ? `<div style="margin-top: 10px;"><a href="${ag.web}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${ag.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(ag.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su descripción y datos de contacto extra.</p>
@@ -13803,16 +14109,16 @@
 
     // Attempt color from agency
     if (agt.agencia) {
-      const parentAgency = (state.directory.agencias || []).find(a => (a.nombre || '').toLowerCase() === agt.agencia.toLowerCase());
+      const parentAgency = (state.directory.agencias || []).find(a => String(a.nombre || '').toLowerCase() === agt.agencia.toLowerCase());
       if (parentAgency && parentAgency.logo) themeColor = 'var(--primary-blue)'; // Keep it blue for now, agencies don't have custom color yet
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${agt.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(agt.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -13877,21 +14183,21 @@
 
     // Attempt color from local team
     if (est.equipoLocal) {
-      const eq = (state.directory.equipos || []).find(x => (x.nombre || '').toLowerCase() === est.equipoLocal.toLowerCase());
+      const eq = (state.directory.equipos || []).find(x => String(x.nombre || '').toLowerCase() === est.equipoLocal.toLowerCase());
       if (eq && eq.color) themeColor = eq.color;
       else if (eq && eq.clubVinculado) {
-        const cl = state.directory.clubes.find(x => (x.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
+        const cl = state.directory.clubes.find(x => String(x.nombre || '').toLowerCase() === eq.clubVinculado.toLowerCase());
         if (cl && cl.colorPrimary) themeColor = cl.colorPrimary;
       }
     }
 
     const html = `
-      <div class="ficha-jugador-container" style="--ficha-theme: ${themeColor}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
+      <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               ${est.foto ? `
-                <img src="${est.foto}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <img src="${escapeAttr(est.foto)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
               ` : `
                 <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                   <i data-lucide="map-pin" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
@@ -13971,7 +14277,7 @@
 
     // Auto-vincular selecciones desde el directorio
     if (state.directory.selecciones && Array.isArray(state.directory.selecciones)) {
-      const fedNameLower = (fed.nombre || fed.federacion || '').toLowerCase().trim();
+      const fedNameLower = String(fed.nombre || fed.federacion || '').toLowerCase().trim();
       if (fedNameLower) {
         state.directory.selecciones.forEach(s => {
           if (s.federacion && s.federacion.toLowerCase().trim() === fedNameLower) {
@@ -14005,11 +14311,11 @@
         </div>
 
         <datalist id="staffDatalistOptions">
-          ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
+          ${(state.directory.staff || []).map(s => `<option value="${escapeAttr(s.nombre || s.staff)}"></option>`).join('')}
         </datalist>
 
         <datalist id="clubesDatalistOptions">
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre || c.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre || c.equipo)}"></option>`).join('')}
         </datalist>
 
         <form id="federationForm">
@@ -14018,22 +14324,22 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadFedLogo">
-                  ${logoData ? `<img src="${logoData}" class="photo-upload-preview">` : `
+                  ${logoData ? `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR ESCUDO</span>
                   `}
                   <input type="file" id="inputFedLogo" accept="image/*" class="hidden">
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center;">
-                  <input type="color" id="ffColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                  <input type="color" id="ffColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                  <input type="color" id="ffColorPrimary" value="${escapeAttr(colorPrimary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                  <input type="color" id="ffColorSecondary" value="${escapeAttr(colorSecondary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
                 </div>
               </div>
 
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE DE LA FEDERACIÓN</label>
-                  <input type="text" id="ffNombre" class="form-control" placeholder="Ej: Real Federación Española de Fútbol..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="ffNombre" class="form-control" placeholder="Ej: Real Federación Española de Fútbol..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
@@ -14041,14 +14347,14 @@
                     <label class="form-label">ÁMBITO / TIPO</label>
                     <select id="ffAmbito" class="form-control">
                       <option value="">Seleccionar ámbito...</option>
-                      <option value="NACIONAL" ${['NACIONAL', 'NACIONALES'].includes((ambito || '').toUpperCase()) ? 'selected' : ''}>NACIONAL</option>
-                      <option value="AUTONÓMICO" ${['AUTONOMICO', 'AUTONÓMICO', 'REGIONAL', 'TERRITORIAL'].includes((ambito || '').toUpperCase()) ? 'selected' : ''}>AUTONÓMICO</option>
-                      ${ambito && !['NACIONAL', 'AUTONOMICO', 'AUTONÓMICO', 'REGIONAL', 'TERRITORIAL'].includes((ambito || '').toUpperCase()) ? `<option value="${escapeHtml(ambito)}" selected>${escapeHtml(ambito)}</option>` : ''}
+                      <option value="NACIONAL" ${['NACIONAL', 'NACIONALES'].includes(String(ambito || '').toUpperCase()) ? 'selected' : ''}>NACIONAL</option>
+                      <option value="AUTONÓMICO" ${['AUTONOMICO', 'AUTONÓMICO', 'REGIONAL', 'TERRITORIAL'].includes(String(ambito || '').toUpperCase()) ? 'selected' : ''}>AUTONÓMICO</option>
+                      ${ambito && !['NACIONAL', 'AUTONOMICO', 'AUTONÓMICO', 'REGIONAL', 'TERRITORIAL'].includes(String(ambito || '').toUpperCase()) ? `<option value="${escapeAttr(ambito)}" selected>${escapeHtml(ambito)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">UBICACIÓN / SEDE</label>
-                    <input type="text" id="ffSede" class="form-control" placeholder="Ciudad, País" value="${escapeHtml(sede)}">
+                    <input type="text" id="ffSede" class="form-control" placeholder="Ciudad, País" value="${escapeAttr(sede)}">
                   </div>
                 </div>
               </div>
@@ -14081,17 +14387,17 @@
           <div class="fed-tab-pane hidden" id="ftab-contacto">
             <div class="form-group mb-4">
               <label class="form-label">CORREO ELECTRÓNICO</label>
-              <input type="email" id="ffEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeHtml(email)}">
+              <input type="email" id="ffEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeAttr(email)}">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">PÁGINA WEB</label>
-              <input type="url" id="ffWeb" class="form-control" placeholder="https://..." value="${escapeHtml(web)}">
+              <input type="url" id="ffWeb" class="form-control" placeholder="https://..." value="${escapeAttr(web)}">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">TELÉFONO</label>
-              <input type="text" id="ffTelefono" class="form-control" placeholder="+34..." value="${escapeHtml(telefono)}">
+              <input type="text" id="ffTelefono" class="form-control" placeholder="+34..." value="${escapeAttr(telefono)}">
             </div>
           </div>
 
@@ -14321,12 +14627,12 @@
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
           const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
-          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
+          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-fed-staff" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-fed-staff" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -14375,12 +14681,12 @@
         tbody.innerHTML = localClubesList.map((c, idx) => {
           const cName = typeof c === 'string' ? c : (c.nombre || c.equipo || '');
           const foundClub = state.directory.clubes?.find(cl => (cl.nombre && cl.nombre.toLowerCase() === cName.toLowerCase()) || (cl.equipo && cl.equipo.toLowerCase() === cName.toLowerCase()));
-          const nameHTML = foundClub ? `<a href="javascript:void(0)" class="club-modal-link" data-clubid="${foundClub.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="shield" style="width: 13px; height: 13px;"></i> ${escapeHtml(cName)}</a>` : escapeHtml(cName);
+          const nameHTML = foundClub ? `<a href="javascript:void(0)" class="club-modal-link" data-clubid="${escapeAttr(foundClub.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="shield" style="width: 13px; height: 13px;"></i> ${escapeHtml(cName)}</a>` : escapeHtml(cName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-fed-club" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-fed-club" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -14430,7 +14736,7 @@
           <tr style="border-bottom: 1px solid var(--border-light);">
             <td style="padding: 8px 12px; font-weight: 700;">${escapeHtml(s)}</td>
             <td style="padding: 8px 12px; text-align: right;">
-              <button type="button" class="btn-action-icon danger btn-del-fed-seleccion" data-idx="${idx}" style="width: 26px; height: 26px;">
+              <button type="button" class="btn-action-icon danger btn-del-fed-seleccion" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                 <i data-lucide="trash-2" style="width: 12px;"></i>
               </button>
             </td>
@@ -14469,8 +14775,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          logoData = await compressImage(file);
-          document.getElementById('btnUploadFedLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
+          logoData = (await compressImage(file)) || logoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadFedLogo').innerHTML = `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
         }
@@ -14505,7 +14811,7 @@
     let colorSecondary = sel.colorSecondary || sel.colorSecundario || '';
 
     if (federacion) {
-      const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === federacion.toLowerCase());
+      const fedObj = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === federacion.toLowerCase());
       if (fedObj) {
         if (!colorPrimary || colorPrimary === '#2563eb') colorPrimary = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || colorPrimary;
         if (!colorSecondary || colorSecondary === '#ffffff') colorSecondary = fedObj.colorSecondary || fedObj.colorSecundario || colorSecondary;
@@ -14531,15 +14837,15 @@
         </div>
 
         <datalist id="federacionesDatalistOptions">
-          ${(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${(state.directory.federaciones || []).map(f => `<option value="${escapeAttr(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="staffDatalistOptions">
-          ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
+          ${(state.directory.staff || []).map(s => `<option value="${escapeAttr(s.nombre || s.staff)}"></option>`).join('')}
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeAttr(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="selectionForm">
@@ -14548,15 +14854,15 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadSelLogo">
-                  ${logoData ? `<img src="${logoData}" class="photo-upload-preview">` : `
+                  ${logoData ? `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR ESCUDO</span>
                   `}
                   <input type="file" id="inputSelLogo" accept="image/*" class="hidden">
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center; width: 100%; justify-content: center;">
-                  <input type="color" id="sfColorPrimary" value="${colorPrimary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
-                  <input type="color" id="sfColorSecondary" value="${colorSecondary}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
+                  <input type="color" id="sfColorPrimary" value="${escapeAttr(colorPrimary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Principal">
+                  <input type="color" id="sfColorSecondary" value="${escapeAttr(colorSecondary)}" style="width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px;" title="Color Secundario">
                 </div>
               </div>
 
@@ -14566,12 +14872,12 @@
                     <span>NOMBRE DE LA SELECCIÓN</span>
                     <span style="font-size: 10px; color: var(--primary-blue); font-weight: 600;">✨ Auto-generado</span>
                   </label>
-                  <input type="text" id="sfNombre" class="form-control" placeholder="Se genera al seleccionar Federación, Categoría y Temporada..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="sfNombre" class="form-control" placeholder="Se genera al seleccionar Federación, Categoría y Temporada..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">FEDERACIÓN</label>
-                  <input type="text" id="sfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar Federación..." value="${escapeHtml(federacion)}">
+                  <input type="text" id="sfFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Buscar Federación..." value="${escapeAttr(federacion)}">
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
@@ -14606,9 +14912,9 @@
                     ${['2024/2025', '2025/2026', '2026/2027', '2027/2028', '2028/2029'].map(t => {
       const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
       const isSelected = temporada === t || temporada === shortFormat;
-      return `<option value="${escapeHtml(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
+      return `<option value="${escapeAttr(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('')}
-                    ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
+                    ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeAttr(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
                   </select>
                 </div>
 
@@ -14682,7 +14988,7 @@
               </div>
               <div class="form-group">
                 <label class="form-label">SISTEMA TÁCTICO HABITUAL</label>
-                <input type="text" id="sfSistemaTactico" class="form-control" placeholder="Ej: 1-4-3-3" value="${escapeHtml(sistemaTactico)}">
+                <input type="text" id="sfSistemaTactico" class="form-control" placeholder="Ej: 1-4-3-3" value="${escapeAttr(sistemaTactico)}">
               </div>
             </div>
 
@@ -14870,7 +15176,7 @@
         if (fedLogo) {
           logoData = fedLogo;
           if (boxEscudoSel) {
-            boxEscudoSel.innerHTML = `<img src="${fedLogo}" class="photo-upload-preview"><input type="file" id="inputSelLogo" accept="image/*" class="hidden">`;
+            boxEscudoSel.innerHTML = `<img src="${escapeAttr(fedLogo)}" class="photo-upload-preview"><input type="file" id="inputSelLogo" accept="image/*" class="hidden">`;
           }
         }
         if (foundFed.colorPrimary && inputColorPriSel) {
@@ -15003,11 +15309,11 @@
           let dispPos2 = j.pos2 || (foundP ? (foundP.posicionSecundaria || '') : '');
           let dispAno = j.ano || (foundP ? (foundP.ano || foundP.anoNacimiento || '') : '');
 
-          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
+          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundP.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
           const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
-          const pos1HTML = `<select class="form-control sel-jugador-pos1" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${dispPos1 === p || (!dispPos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
-          const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${idx}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${p === '-' ? '' : p}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
-          const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${idx}" value="${escapeHtml(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
+          const pos1HTML = `<select class="form-control sel-jugador-pos1" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos1 === p || (!dispPos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
+          const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${escapeAttr(idx)}" value="${escapeAttr(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
 
           let rowBgStyle = '';
           if (foundP) {
@@ -15015,13 +15321,13 @@
             else if (foundP.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
           }
           return `
-            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
+            <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(rowBgStyle)}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px;">${pos1HTML}</td>
               <td style="padding: 8px 12px;">${pos2HTML}</td>
               <td style="padding: 8px 12px;">${anoHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-sel-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-sel-jugador" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -15093,7 +15399,7 @@
             try {
               const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
               if (Array.isArray(lineup)) {
-                const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                const lp = lineup.find(player => String(player.name || player.nombre || '').toLowerCase().trim() === pLower);
                 if (lp) {
                   if (lp.pos) pos1 = lp.pos;
                   if (lp.pos2) pos2 = lp.pos2;
@@ -15123,12 +15429,12 @@
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
           const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
-          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
+          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-sel-staff" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-sel-staff" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -15180,8 +15486,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          logoData = await compressImage(file);
-          document.getElementById('btnUploadSelLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
+          logoData = (await compressImage(file)) || logoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadSelLogo').innerHTML = `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
         }
@@ -15220,7 +15526,7 @@
       convSelect.innerHTML = selectionConvocatorias.length === 0
         ? `<option value="">Sin Convocatorias para esta selección</option>`
         : selectionConvocatorias.map(c => `
-            <option value="${c.id}" ${currentConvVal === c.id || (!currentConvVal && selectionConvocatorias[0].id === c.id) ? 'selected' : ''}>
+            <option value="${escapeAttr(c.id)}" ${currentConvVal === c.id || (!currentConvVal && selectionConvocatorias[0].id === c.id) ? 'selected' : ''}>
               ${escapeHtml(c.nombre || c.titulo || c.convocatoria || ('Convocatoria ' + (c.fecha || '')))}
             </option>
           `).join('');
@@ -15239,7 +15545,7 @@
       const allPlayers = (state.directory && state.directory.jugadores) || [];
       const squadPlayers = convocadosList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-        const globalP = allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        const globalP = allPlayers.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
         if (!globalP) return null;
 
         // Overlay updated local positions if available
@@ -15281,7 +15587,7 @@
         if (matchingPlayers.length > 0) {
           playersHTML = matchingPlayers.map(p => {
             let isZurdo = false;
-            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            if (String(p.pierna || '').toLowerCase().includes('izq') || String(p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
 
             let pBg = 'rgba(15, 23, 42, 0.92)';
@@ -15289,7 +15595,7 @@
             let pBorder = 'rgba(255,255,255,0.3)';
 
             return `
-            <div class="campograma-player-link" data-playerid="${p.id}" style="background: ${pBg}; color: ${pColor}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${pBorder}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -15303,8 +15609,8 @@
         const renderX = 100 - posCoords.y;
         const renderY = posCoords.x;
         return `
-          <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
-            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+          <div style="position: absolute; left: ${escapeAttr(renderX)}%; top: ${escapeAttr(renderY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
               ${escapeHtml(posCode)}
             </div>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
@@ -15370,7 +15676,7 @@
       const allPlayers = (state.directory && state.directory.jugadores) || [];
       const squadPlayers = convocadosList.map(item => {
         const pName = typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '');
-        return allPlayers.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        return allPlayers.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
       }).filter(Boolean);
 
       const printWin = window.open('', '_blank');
@@ -15387,8 +15693,8 @@
         const txtColor = getContrastColor(curPrimaryColor);
 
         return `
-          <div style="position: absolute; left: ${posCoords.x}%; top: ${posCoords.y}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
-            <div style="min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${txtColor}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">
+          <div style="position: absolute; left: ${escapeAttr(posCoords.x)}%; top: ${escapeAttr(posCoords.y)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="min-width: 38px; height: 26px; padding: 0 6px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(txtColor)}; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">
               ${escapeHtml(posCode)}
             </div>
             <div style="background: rgba(15, 23, 42, 0.9); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; border: 1px solid rgba(255,255,255,0.3);">
@@ -15401,7 +15707,7 @@
       const squadTableRowsHTML = squadPlayers.map((p) => `
         <tr>
           <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
-          <td style="font-weight: 700; text-align: center; color: ${curPrimaryColor};">${escapeHtml(p.dorsal || '-')}</td>
+          <td style="font-weight: 700; text-align: center; color: ${escapeAttr(curPrimaryColor)};">${escapeHtml(p.dorsal || '-')}</td>
           <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
           <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
           <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
@@ -15440,7 +15746,7 @@
                 <div class="meta">Categoría: ${escapeHtml(curCat)} | Temporada: ${escapeHtml(curTemp)} ${convText ? '| Convocatoria: ' + escapeHtml(convText) : ''}</div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 13px; font-weight: 900; color: ${curPrimaryColor};">SISTEMA: ${escapeHtml(curSys)}</div>
+                <div style="font-size: 13px; font-weight: 900; color: ${escapeAttr(curPrimaryColor)};">SISTEMA: ${escapeHtml(curSys)}</div>
                 <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">MS Fútbol Scout Report</div>
               </div>
             </div>
@@ -15540,7 +15846,7 @@
     let docConvocatoriaName = conv.documentoNombre || '';
 
     // Initial filtered selecciones based on federacion (if editing)
-    const initialSels = (state.directory.selecciones || []).filter(s => !federacion || (s.federacion || '').toLowerCase() === federacion.toLowerCase());
+    const initialSels = (state.directory.selecciones || []).filter(s => !federacion || String(s.federacion || '').toLowerCase() === federacion.toLowerCase());
 
     const modalHTML = `
       <div class="convocatoria-modal-wrapper">
@@ -15560,17 +15866,17 @@
         </div>
 
         <datalist id="federacionesDatalistOptions">
-          ${(state.directory.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}"></option>`).join('')}
+          ${(state.directory.federaciones || []).map(f => `<option value="${escapeAttr(f.nombre || f.federacion)}"></option>`).join('')}
         </datalist>
 
 
 
         <datalist id="staffDatalistOptions">
-          ${(state.directory.staff || []).map(s => `<option value="${escapeHtml(s.nombre || s.staff)}"></option>`).join('')}
+          ${(state.directory.staff || []).map(s => `<option value="${escapeAttr(s.nombre || s.staff)}"></option>`).join('')}
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeAttr(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="convocatoriaForm">
@@ -15581,7 +15887,7 @@
                 <span>NOMBRE DE LA CONVOCATORIA</span>
                 <span style="font-size: 10px; color: var(--primary-blue); font-weight: 600;">✨ Auto-generado</span>
               </label>
-              <input type="text" id="cnNombre" class="form-control" placeholder="Se genera al seleccionar Selección, Fecha, Sesión y Temporada..." value="${escapeHtml(nombre)}" required>
+              <input type="text" id="cnNombre" class="form-control" placeholder="Se genera al seleccionar Selección, Fecha, Sesión y Temporada..." value="${escapeAttr(nombre)}" required>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
@@ -15597,7 +15903,7 @@
               </div>
               <div class="form-group">
                 <label class="form-label">FEDERACIÓN</label>
-                <input type="text" id="cnFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Escribe o selecciona..." value="${escapeHtml(federacion)}">
+                <input type="text" id="cnFederacion" list="federacionesDatalistOptions" class="form-control" placeholder="Escribe o selecciona..." value="${escapeAttr(federacion)}">
               </div>
               <div class="form-group">
                 <label class="form-label">SELECCIÓN VINCULADA</label>
@@ -15606,7 +15912,7 @@
                   ${initialSels.map(s => {
       const sName = escapeHtml(s.nombre || s.seleccion);
       const isSelected = (s.nombre === seleccion || s.seleccion === seleccion) ? 'selected' : '';
-      return `<option value="${sName}" ${isSelected}>${sName}</option>`;
+      return `<option value="${escapeAttr(sName)}" ${isSelected}>${sName}</option>`;
     }).join('')}
                 </select>
               </div>
@@ -15620,7 +15926,7 @@
                   ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
       const actName = tipoActividad || 'Actividad';
       const optVal = `${actName} ${n}`;
-      return `<option value="${escapeHtml(optVal)}" ${sesion === optVal ? 'selected' : ''}>${escapeHtml(optVal)}</option>`;
+      return `<option value="${escapeAttr(optVal)}" ${sesion === optVal ? 'selected' : ''}>${escapeHtml(optVal)}</option>`;
     }).join('')}
                 </select>
               </div>
@@ -15631,9 +15937,9 @@
                   ${['2024/2025', '2025/2026', '2026/2027', '2027/2028', '2028/2029'].map(t => {
       const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
       const isSelected = temporada === t || temporada === shortFormat;
-      return `<option value="${escapeHtml(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
+      return `<option value="${escapeAttr(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('')}
-                  ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
+                  ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeAttr(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -15641,26 +15947,26 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">COMPETICIÓN / MOTIVO</label>
-                <input type="text" id="cnCompeticion" class="form-control" placeholder="Ej: Campeonato de España..." value="${escapeHtml(competicion)}">
+                <input type="text" id="cnCompeticion" class="form-control" placeholder="Ej: Campeonato de España..." value="${escapeAttr(competicion)}">
               </div>
               <div class="form-group">
                 <label class="form-label">LUGAR</label>
-                <input type="text" id="cnLugar" class="form-control" placeholder="Ej: Las Rozas (Madrid)..." value="${escapeHtml(lugar)}">
+                <input type="text" id="cnLugar" class="form-control" placeholder="Ej: Las Rozas (Madrid)..." value="${escapeAttr(lugar)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">FECHA INICIO</label>
-                <input type="date" id="cnFechaInicio" class="form-control" value="${escapeHtml(fechaInicio)}">
+                <input type="date" id="cnFechaInicio" class="form-control" value="${escapeAttr(fechaInicio)}">
               </div>
               <div class="form-group">
                 <label class="form-label">FECHA FIN</label>
-                <input type="date" id="cnFechaFin" class="form-control" value="${escapeHtml(fechaFin)}">
+                <input type="date" id="cnFechaFin" class="form-control" value="${escapeAttr(fechaFin)}">
               </div>
               <div class="form-group">
                 <label class="form-label">HORA</label>
-                <input type="time" id="cnHora" class="form-control" value="${escapeHtml(hora)}">
+                <input type="time" id="cnHora" class="form-control" value="${escapeAttr(hora)}">
               </div>
             </div>
 
@@ -15897,32 +16203,32 @@
         <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1.5fr 1.5fr auto; gap: 8px; margin-bottom: 8px; align-items: end; background: var(--bg-subtle, #f8fafc); padding: 8px; border-radius: 6px; border: 1px solid var(--border-light);">
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Rival</label>
-            <input type="text" class="form-control cn-partido-rival" data-idx="${idx}" value="${escapeHtml(p.rival || '')}" placeholder="Ej: Francia" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+            <input type="text" class="form-control cn-partido-rival" data-idx="${escapeAttr(idx)}" value="${escapeAttr(p.rival || '')}" placeholder="Ej: Francia" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Fecha</label>
-            <input type="date" class="form-control cn-partido-fecha" data-idx="${idx}" value="${escapeHtml(p.fecha || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+            <input type="date" class="form-control cn-partido-fecha" data-idx="${escapeAttr(idx)}" value="${escapeAttr(p.fecha || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Hora</label>
-            <input type="time" class="form-control cn-partido-hora" data-idx="${idx}" value="${escapeHtml(p.hora || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+            <input type="time" class="form-control cn-partido-hora" data-idx="${escapeAttr(idx)}" value="${escapeAttr(p.hora || '')}" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">Estadio/Lugar</label>
-            <input type="text" class="form-control cn-partido-estadio" data-idx="${idx}" value="${escapeHtml(p.estadio || '')}" placeholder="Sede" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
+            <input type="text" class="form-control cn-partido-estadio" data-idx="${escapeAttr(idx)}" value="${escapeAttr(p.estadio || '')}" placeholder="Sede" style="padding: 4px 8px; font-size: 12px; min-height: 32px;">
           </div>
           <div>
             <label style="font-size: 10px; color: var(--text-muted); margin-bottom: 2px; display: block; font-weight: 700;">TV</label>
             <div style="display: flex; gap: 4px;">
-              <select class="form-control cn-partido-hastv select-compact" data-idx="${idx}" style="padding: 4px; font-size: 12px; min-height: 32px; width: 50px;">
+              <select class="form-control cn-partido-hastv select-compact" data-idx="${escapeAttr(idx)}" style="padding: 4px; font-size: 12px; min-height: 32px; width: 50px;">
                 <option value="false" ${!p.hasTv ? 'selected' : ''}>No</option>
                 <option value="true" ${p.hasTv ? 'selected' : ''}>Sí</option>
               </select>
-              <input type="text" class="form-control cn-partido-tvchannel" data-idx="${idx}" value="${escapeHtml(p.tvChannel || '')}" placeholder="Canal..." style="padding: 4px 8px; font-size: 12px; min-height: 32px; flex: 1; ${!p.hasTv ? 'display:none;' : ''}">
+              <input type="text" class="form-control cn-partido-tvchannel" data-idx="${escapeAttr(idx)}" value="${escapeAttr(p.tvChannel || '')}" placeholder="Canal..." style="padding: 4px 8px; font-size: 12px; min-height: 32px; flex: 1; ${escapeAttr(!p.hasTv ? 'display:none;' : '')}">
             </div>
           </div>
           <div>
-            <button type="button" class="btn btn-icon btn-remove-partido" data-idx="${idx}" style="color: #ef4444; background: none; border: none; padding: 4px; min-height: 32px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+            <button type="button" class="btn btn-icon btn-remove-partido" data-idx="${escapeAttr(idx)}" style="color: #ef4444; background: none; border: none; padding: 4px; min-height: 32px;"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
           </div>
         </div>
       `).join('');
@@ -15975,13 +16281,13 @@
 
         let filteredSels = state.directory.selecciones || [];
         if (fedVal) {
-          filteredSels = filteredSels.filter(s => (s.federacion || '').toLowerCase() === fedVal);
+          filteredSels = filteredSels.filter(s => String(s.federacion || '').toLowerCase() === fedVal);
         }
 
         selSelect.innerHTML = '<option value="">-- Selecciona --</option>' +
           filteredSels.map(s => {
             const sName = escapeHtml(s.nombre || s.seleccion);
-            return `<option value="${sName}">${sName}</option>`;
+            return `<option value="${escapeAttr(sName)}">${sName}</option>`;
           }).join('');
       });
     }
@@ -16175,7 +16481,7 @@
         for (let i = 1; i <= 10; i++) {
           const optVal = `${actName} ${i}`;
           const isSelected = currentNum === String(i) ? 'selected' : '';
-          newOptions += `<option value="${escapeHtml(optVal)}" ${isSelected}>${escapeHtml(optVal)}</option>`;
+          newOptions += `<option value="${escapeAttr(optVal)}" ${isSelected}>${escapeHtml(optVal)}</option>`;
         }
         inputSesionConv.innerHTML = newOptions;
         updateGeneratedConvName();
@@ -16234,7 +16540,7 @@
                   try {
                     const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
                     if (Array.isArray(lineup)) {
-                      const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                      const lp = lineup.find(player => String(player.name || player.nombre || '').toLowerCase().trim() === pLower);
                       if (lp) {
                         if (lp.pos) pos1 = lp.pos;
                         if (lp.pos2) pos2 = lp.pos2;
@@ -16280,7 +16586,7 @@
       `;
 
       if (localJugadoresList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${hasMatch ? 6 : 5}" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${escapeAttr(hasMatch ? 6 : 5)}" style="padding: 12px; text-align: center; color: var(--text-muted);">Ningún jugador convocado.</td></tr>`;
       } else {
         // Ordenar: Normal -> Baja -> Alta
         localJugadoresList.sort((a, b) => {
@@ -16313,7 +16619,7 @@
           }
 
           const nameStr = `<span style="display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</span>${badgeHTML}`;
-          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${foundP.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">${nameStr}</a>` : `<span style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">${nameStr}</span>`;
+          const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundP.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">${nameStr}</a>` : `<span style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700;">${nameStr}</span>`;
 
           let rowBgStyle = '';
           if (foundP) {
@@ -16323,23 +16629,23 @@
           if (j.baja) {
             rowBgStyle += ' opacity: 0.6;';
           }
-          const dorsalHTML = hasMatch ? `<td style="padding: 8px 12px;"><input type="text" class="form-control cn-jugador-dorsal" data-idx="${idx}" value="${escapeHtml(j.dorsal || '')}" placeholder="Dorsal" style="font-size: 11px; padding: 4px 8px; height: 26px;"></td>` : '';
+          const dorsalHTML = hasMatch ? `<td style="padding: 8px 12px;"><input type="text" class="form-control cn-jugador-dorsal" data-idx="${escapeAttr(idx)}" value="${escapeAttr(j.dorsal || '')}" placeholder="Dorsal" style="font-size: 11px; padding: 4px 8px; height: 26px;"></td>` : '';
 
           return `
-            <tr style="border-bottom: 1px solid var(--border-light); ${rowBgStyle}">
+            <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(rowBgStyle)}">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               ${dorsalHTML}
               <td style="padding: 8px 12px; text-align: center;">
-                <input type="checkbox" class="cn-jugador-alta" data-idx="${idx}" ${j.alta ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+                <input type="checkbox" class="cn-jugador-alta" data-idx="${escapeAttr(idx)}" ${j.alta ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
               </td>
               <td style="padding: 8px 12px; text-align: center;">
-                <input type="checkbox" class="cn-jugador-baja" data-idx="${idx}" ${j.baja ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+                <input type="checkbox" class="cn-jugador-baja" data-idx="${escapeAttr(idx)}" ${j.baja ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
               </td>
               <td style="padding: 8px 12px;">
-                <input type="text" class="form-control cn-jugador-motivo" data-idx="${idx}" value="${escapeHtml(j.motivo || '')}" placeholder="Motivo" ${ (j.baja || j.alta) ? '' : 'disabled' } style="font-size: 11px; padding: 4px 8px; height: 26px;">
+                <input type="text" class="form-control cn-jugador-motivo" data-idx="${escapeAttr(idx)}" value="${escapeAttr(j.motivo || '')}" placeholder="Motivo" ${ (j.baja || j.alta) ? '' : 'disabled' } style="font-size: 11px; padding: 4px 8px; height: 26px;">
               </td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-cn-jugador" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-cn-jugador" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -16434,7 +16740,7 @@
             try {
               const lineup = typeof lineupData === 'string' ? JSON.parse(lineupData) : lineupData;
               if (Array.isArray(lineup)) {
-                const lp = lineup.find(player => (player.name || player.nombre || '').toLowerCase().trim() === pLower);
+                const lp = lineup.find(player => String(player.name || player.nombre || '').toLowerCase().trim() === pLower);
                 if (lp) {
                   if (lp.pos) pos1 = lp.pos;
                   if (lp.pos2) pos2 = lp.pos2;
@@ -16464,12 +16770,12 @@
         tbody.innerHTML = localStaffList.map((s, idx) => {
           const sName = typeof s === 'string' ? s : (s.nombre || s.staff || '');
           const foundStaff = state.directory.staff?.find(st => st && ((st.nombre && st.nombre.toLowerCase() === sName.toLowerCase()) || (st.staff && st.staff.toLowerCase() === sName.toLowerCase())));
-          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${foundStaff.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
+          const nameHTML = foundStaff ? `<a href="javascript:void(0)" class="staff-modal-link" data-staffid="${escapeAttr(foundStaff.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user-check" style="width: 13px; height: 13px;"></i> ${escapeHtml(sName)}</a>` : escapeHtml(sName);
           return `
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 8px 12px; font-weight: 700;">${nameHTML}</td>
               <td style="padding: 8px 12px; text-align: right;">
-                <button type="button" class="btn-action-icon danger btn-del-cn-staff" data-idx="${idx}" style="width: 26px; height: 26px;">
+                <button type="button" class="btn-action-icon danger btn-del-cn-staff" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                   <i data-lucide="trash-2" style="width: 12px;"></i>
                 </button>
               </td>
@@ -16527,8 +16833,8 @@
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localJugadoresList.map(j => {
         if (j.baja) return null;
-        const pName = (j.nombre || j.jugador || j.name || '').trim();
-        const pObj = playersPool.find(p => p && (p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
+        const pName = String(j.nombre || j.jugador || j.name || '').trim();
+        const pObj = playersPool.find(p => p && String(p.nombre || p.jugador || p.name || '').toLowerCase() === pName.toLowerCase());
         if (pObj) return pObj;
         return { nombre: pName, demarcacion: j.pos1 || 'MC', id: null };
       }).filter(Boolean);
@@ -16541,11 +16847,11 @@
       let resolvedColor = '#2563eb';
       const selName = document.getElementById('cnSeleccion')?.value.trim().toLowerCase();
       if (selName && state.directory && state.directory.selecciones) {
-        const selObj = state.directory.selecciones.find(s => (s.nombre || s.seleccion || '').toLowerCase().trim() === selName);
+        const selObj = state.directory.selecciones.find(s => String(s.nombre || s.seleccion || '').toLowerCase().trim() === selName);
         if (selObj) {
           resolvedColor = selObj.colorPrimary || selObj.colorPrincipal || selObj.color || resolvedColor;
           if (!selObj.colorPrimary && !selObj.colorPrincipal && !selObj.color && selObj.federacion) {
-            const fedObj = (state.directory.federaciones || []).find(f => (f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
+            const fedObj = (state.directory.federaciones || []).find(f => String(f.nombre || f.federacion || '').toLowerCase() === selObj.federacion.toLowerCase());
             if (fedObj) {
               resolvedColor = fedObj.colorPrimary || fedObj.colorPrincipal || fedObj.color || resolvedColor;
             }
@@ -16563,10 +16869,10 @@
         if (matchingPlayers.length > 0) {
           playersHTML = matchingPlayers.map(p => {
             let isZurdo = false;
-            if ((p.pierna || '').toLowerCase().includes('izq') || (p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
+            if (String(p.pierna || '').toLowerCase().includes('izq') || String(p.pierna || '').toLowerCase().includes('zur')) isZurdo = true;
             const zBadge = isZurdo ? `<span style="display:inline-block; background: #3b82f6; color: white; border-radius: 50%; width: 12px; height: 12px; text-align: center; line-height: 12px; font-size: 8px; flex-shrink: 0;" title="Zurdo">Z</span>` : '';
             return `
-            <div class="campograma-player-link" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(p.nombre || p.jugador)}">
+            <div class="campograma-player-link" style="background: rgba(15, 23, 42, 0.92); color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid rgba(255,255,255,0.3); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
@@ -16580,9 +16886,9 @@
         const renderX = 100 - posCoords.y;
         const renderY = posCoords.x;
         return `
-          <div style="position: absolute; left: ${renderX}%; top: ${renderY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <div style="position: absolute; left: ${escapeAttr(renderX)}%; top: ${escapeAttr(renderY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
             <!-- Position Badge/Card (e.g. DBD, DBZ, PO, etc.) -->
-            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+            <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
               ${escapeHtml(posCode)}
             </div>
             <!-- Player Names Below Card -->
@@ -16630,9 +16936,9 @@
         </div>
 
         <datalist id="participantesDatalistOptions">
-          ${(state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`).join('')}
-          ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+          ${(state.directory.selecciones || []).map(s => `<option value="${escapeAttr(s.nombre || s.seleccion)}"></option>`).join('')}
+          ${(state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre)}"></option>`).join('')}
         </datalist>
 
         <form id="tournamentForm">
@@ -16641,7 +16947,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadTrnLogo">
-                  ${logoData ? `<img src="${logoData}" class="photo-upload-preview">` : `
+                  ${logoData ? `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>AÑADIR LOGO</span>
                   `}
@@ -16652,7 +16958,7 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE DEL TORNEO</label>
-                  <input type="text" id="trnNombre" class="form-control" placeholder="Ej: Torneo Internacional Madrid" value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="trnNombre" class="form-control" placeholder="Ej: Torneo Internacional Madrid" value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
@@ -16660,8 +16966,8 @@
                     <label class="form-label">CATEGORÍA</label>
                     <select id="trnCategoria" class="form-control">
                       <option value="">-- Seleccionar Categoría --</option>
-                      ${['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8'].map(c => `<option value="${escapeHtml(c)}" ${categoria === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${categoria && !['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8'].includes(categoria) ? `<option value="${escapeHtml(categoria)}" selected>${escapeHtml(categoria)}</option>` : ''}
+                      ${['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8'].map(c => `<option value="${escapeAttr(c)}" ${categoria === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                      ${categoria && !['Absoluta', 'Sub21', 'Sub20', 'Sub19', 'Sub18', 'Sub17', 'Sub16', 'Sub15', 'Sub14', 'Sub13', 'Sub12', 'Sub11', 'Sub10', 'Sub9', 'Sub8'].includes(categoria) ? `<option value="${escapeAttr(categoria)}" selected>${escapeHtml(categoria)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
@@ -16677,16 +16983,16 @@
                       ${['2024/2025', '2025/2026', '2026/2027', '2027/2028', '2028/2029'].map(t => {
       const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
       const isSelected = temporada === t || temporada === shortFormat;
-      return `<option value="${escapeHtml(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
+      return `<option value="${escapeAttr(shortFormat)}" ${isSelected ? 'selected' : ''}>${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('')}
-                      ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeHtml(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
+                      ${temporada && !['24/25', '25/26', '26/27', '27/28', '28/29'].includes(temporada) ? `<option value="${escapeAttr(temporada)}" selected>${escapeHtml(temporada)}</option>` : ''}
                     </select>
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">LUGAR / SEDE</label>
-                  <input type="text" id="trnSede" class="form-control" placeholder="Ciudad / País" value="${escapeHtml(sede)}">
+                  <input type="text" id="trnSede" class="form-control" placeholder="Ciudad / País" value="${escapeAttr(sede)}">
                 </div>
               </div>
             </div>
@@ -16835,7 +17141,7 @@
           <tr style="border-bottom: 1px solid var(--border-light);">
             <td style="padding: 8px 12px; font-weight: 700;">${escapeHtml(typeof p === 'string' ? p : p.nombre)}</td>
             <td style="padding: 8px 12px; text-align: right;">
-              <button type="button" class="btn-action-icon danger btn-del-trn-participante" data-idx="${idx}" style="width: 26px; height: 26px;">
+              <button type="button" class="btn-action-icon danger btn-del-trn-participante" data-idx="${escapeAttr(idx)}" style="width: 26px; height: 26px;">
                 <i data-lucide="trash-2" style="width: 12px;"></i>
               </button>
             </td>
@@ -16875,8 +17181,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          logoData = await compressImage(file);
-          document.getElementById('btnUploadTrnLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
+          logoData = (await compressImage(file)) || logoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadTrnLogo').innerHTML = `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
         }
@@ -16923,15 +17229,15 @@
         </div>
 
         <datalist id="equiposDatalistOptions">
-          ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
+          ${(state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`).join('')}
         </datalist>
 
         <datalist id="seleccionesDatalistOptions">
-          ${(state.directory.selecciones || []).map(s => `<option value="${escapeHtml(s.nombre || s.seleccion)}"></option>`).join('')}
+          ${(state.directory.selecciones || []).map(s => `<option value="${escapeAttr(s.nombre || s.seleccion)}"></option>`).join('')}
         </datalist>
 
         <datalist id="clubesDatalistOptions">
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre)}"></option>`).join('')}
         </datalist>
 
         <form id="staffForm">
@@ -16940,7 +17246,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadStaffFoto">
-                  ${fotoData ? `<img src="${fotoData}" class="photo-upload-preview">` : `
+                  ${fotoData ? `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR FOTO</span>
                   `}
@@ -16951,23 +17257,23 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE COMPLETO</label>
-                  <input type="text" id="stNombre" class="form-control" placeholder="Ej: Juan Pérez" value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="stNombre" class="form-control" placeholder="Ej: Juan Pérez" value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">EMAIL</label>
-                    <input type="email" id="stEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeHtml(email)}">
+                    <input type="email" id="stEmail" class="form-control" placeholder="email@ejemplo.com" value="${escapeAttr(email)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">TELÉFONO</label>
-                    <input type="text" id="stTelefono" class="form-control" placeholder="+34 ..." value="${escapeHtml(telefono)}">
+                    <input type="text" id="stTelefono" class="form-control" placeholder="+34 ..." value="${escapeAttr(telefono)}">
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">REDES SOCIALES</label>
-                  <input type="text" id="stRedes" class="form-control" placeholder="Twitter / LinkedIn" value="${escapeHtml(redes)}">
+                  <input type="text" id="stRedes" class="form-control" placeholder="Twitter / LinkedIn" value="${escapeAttr(redes)}">
                 </div>
               </div>
             </div>
@@ -16979,23 +17285,23 @@
               <label class="form-label">CARGO</label>
               <select id="stCargo" class="form-control">
                 <option value="" ${!cargo ? 'selected' : ''}>- Seleccionar Cargo -</option>
-                ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}" ${c === cargo ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeAttr(c)}" ${c === cargo ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
               </select>
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">EQUIPO DEL DIRECTORIO</label>
-              <input type="text" id="stEquipo" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Busca o elige un equipo en el directorio..." value="${escapeHtml(equipo)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
+              <input type="text" id="stEquipo" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Busca o elige un equipo en el directorio..." value="${escapeAttr(equipo)}" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">SELECCIÓN VINCULADA</label>
-              <input type="text" id="stSeleccion" list="seleccionesDatalistOptions" class="form-control" placeholder="Busca o elige una selección en el directorio..." value="${escapeHtml(seleccion)}">
+              <input type="text" id="stSeleccion" list="seleccionesDatalistOptions" class="form-control" placeholder="Busca o elige una selección en el directorio..." value="${escapeAttr(seleccion)}">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">CLUB VINCULADO</label>
-              <input type="text" id="stClub" list="clubesDatalistOptions" class="form-control" placeholder="Busca o elige un club en el directorio..." value="${escapeHtml(club)}">
+              <input type="text" id="stClub" list="clubesDatalistOptions" class="form-control" placeholder="Busca o elige un club en el directorio..." value="${escapeAttr(club)}">
             </div>
           </div>
 
@@ -17166,7 +17472,7 @@
       ul.innerHTML = localAntEquipos.map((eq, idx) => `
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <span>${escapeHtml(eq)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-st-anteq" data-idx="${idx}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-st-anteq" data-idx="${escapeAttr(idx)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -17192,7 +17498,7 @@
       ul.innerHTML = localAntSelecciones.map((sel, idx) => `
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <span>${escapeHtml(sel)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-st-antsel" data-idx="${idx}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-st-antsel" data-idx="${escapeAttr(idx)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -17218,7 +17524,7 @@
       ul.innerHTML = localAntClubes.map((cl, idx) => `
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <span>${escapeHtml(cl)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-st-antclub" data-idx="${idx}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-st-antclub" data-idx="${escapeAttr(idx)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -17250,10 +17556,11 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          fotoData = await compressImage(file);
-          document.getElementById('btnUploadStaffFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
+          fotoData = (await compressImage(file)) || fotoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadStaffFoto').innerHTML = `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir foto:', err);
+          if (typeof showToast === 'function') showToast('No se ha podido usar esa imagen. Prueba con una foto en JPG o PNG.', 'danger', 6000);
         }
       }
     });
@@ -17298,11 +17605,11 @@
         </div>
 
         <datalist id="agentesDatalistOptions">
-          ${(state.directory.agentes || []).map(a => `<option value="${escapeHtml(a.nombre || a.agente)}"></option>`).join('')}
+          ${(state.directory.agentes || []).map(a => `<option value="${escapeAttr(a.nombre || a.agente)}"></option>`).join('')}
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeAttr(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="agencyForm">
@@ -17311,7 +17618,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadAgencyLogo">
-                  ${logoData ? `<img src="${logoData}" class="photo-upload-preview">` : `
+                  ${logoData ? `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR LOGO</span>
                   `}
@@ -17322,23 +17629,23 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE DE LA AGENCIA</label>
-                  <input type="text" id="agNombre" class="form-control" placeholder="Ej: Gestifute, Stellar Group..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="agNombre" class="form-control" placeholder="Ej: Gestifute, Stellar Group..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">LOCALIDAD</label>
-                    <input type="text" id="agLocalidad" class="form-control" placeholder="Ej: Londres, Madrid..." value="${escapeHtml(localidad)}">
+                    <input type="text" id="agLocalidad" class="form-control" placeholder="Ej: Londres, Madrid..." value="${escapeAttr(localidad)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">AÑO DE FUNDACIÓN</label>
-                    <input type="text" id="agAnioFundacion" class="form-control" placeholder="Ej: 1996" value="${escapeHtml(anioFundacion)}">
+                    <input type="text" id="agAnioFundacion" class="form-control" placeholder="Ej: 1996" value="${escapeAttr(anioFundacion)}">
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">SITIO WEB (URL)</label>
-                  <input type="url" id="agSitioWeb" class="form-control" placeholder="https://www.agencia.com" value="${escapeHtml(sitioWeb)}">
+                  <input type="url" id="agSitioWeb" class="form-control" placeholder="https://www.agencia.com" value="${escapeAttr(sitioWeb)}">
                 </div>
               </div>
             </div>
@@ -17349,28 +17656,28 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">TELÉFONO</label>
-                <input type="text" id="agTelefono" class="form-control" placeholder="Ej: +34 ..." value="${escapeHtml(telefono)}">
+                <input type="text" id="agTelefono" class="form-control" placeholder="Ej: +34 ..." value="${escapeAttr(telefono)}">
               </div>
               <div class="form-group">
                 <label class="form-label">EMAIL</label>
-                <input type="email" id="agEmail" class="form-control" placeholder="Ej: info@agencia.com" value="${escapeHtml(email)}">
+                <input type="email" id="agEmail" class="form-control" placeholder="Ej: info@agencia.com" value="${escapeAttr(email)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">INSTAGRAM</label>
-                <input type="text" id="agInstagram" class="form-control" placeholder="Ej: @agencia" value="${escapeHtml(instagram)}">
+                <input type="text" id="agInstagram" class="form-control" placeholder="Ej: @agencia" value="${escapeAttr(instagram)}">
               </div>
               <div class="form-group">
                 <label class="form-label">LINKEDIN</label>
-                <input type="text" id="agLinkedin" class="form-control" placeholder="Ej: URL LinkedIn" value="${escapeHtml(linkedin)}">
+                <input type="text" id="agLinkedin" class="form-control" placeholder="Ej: URL LinkedIn" value="${escapeAttr(linkedin)}">
               </div>
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">DIRECCIÓN FÍSICA</label>
-              <input type="text" id="agDireccion" class="form-control" placeholder="Calle, Número, Planta..." value="${escapeHtml(direccion)}">
+              <input type="text" id="agDireccion" class="form-control" placeholder="Calle, Número, Planta..." value="${escapeAttr(direccion)}">
             </div>
           </div>
 
@@ -17542,7 +17849,7 @@
       ul.innerHTML = localAgentesList.map((ag, idx) => `
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <span>${escapeHtml(typeof ag === 'string' ? ag : ag.nombre)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-ag-agente" data-idx="${idx}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-ag-agente" data-idx="${escapeAttr(idx)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -17566,7 +17873,7 @@
       const ul = document.getElementById('agJugadoresList');
       if (!ul) return;
 
-      const agNameLower = (nombre || ag.nombre || ag.agencia || '').trim().toLowerCase();
+      const agNameLower = String(nombre || ag.nombre || ag.agencia || '').trim().toLowerCase();
       const allLinkedPlayersMap = new Map();
 
       // 1. From localJugadoresList
@@ -17610,12 +17917,12 @@
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             ${j.posicion ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 10px; padding: 2px 6px;">${escapeHtml(j.posicion)}</span>` : ''}
-            <span class="btn-open-player-from-agency cursor-pointer" data-playerid="${j.id || ''}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
+            <span class="btn-open-player-from-agency cursor-pointer" data-playerid="${escapeAttr(j.id || '')}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
               ${escapeHtml(j.nombre)}
             </span>
             ${j.equipo ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.equipo)})</span>` : ''}
           </div>
-          <button type="button" class="btn-action-icon danger btn-del-ag-jugador" data-jname="${escapeHtml(j.nombre)}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-ag-jugador" data-jname="${escapeAttr(j.nombre)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -17665,8 +17972,8 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          logoData = await compressImage(file);
-          document.getElementById('btnUploadAgencyLogo').innerHTML = `<img src="${logoData}" class="photo-upload-preview">`;
+          logoData = (await compressImage(file)) || logoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadAgencyLogo').innerHTML = `<img src="${escapeAttr(logoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
         }
@@ -17715,11 +18022,11 @@
         </div>
 
         <datalist id="agenciasDatalistOptions">
-          ${(state.directory.agencias || []).map(a => `<option value="${escapeHtml(a.nombre || a.agencia)}"></option>`).join('')}
+          ${(state.directory.agencias || []).map(a => `<option value="${escapeAttr(a.nombre || a.agencia)}"></option>`).join('')}
         </datalist>
 
         <datalist id="jugadoresDatalistOptions">
-          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeHtml(p.nombre || p.jugador || p.name)}"></option>`).join('')}
+          ${((state.directory && state.directory.jugadores) || []).map(p => `<option value="${escapeAttr(p.nombre || p.jugador || p.name)}"></option>`).join('')}
         </datalist>
 
         <form id="agentForm">
@@ -17728,7 +18035,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadAgentFoto">
-                  ${fotoData ? `<img src="${fotoData}" class="photo-upload-preview">` : `
+                  ${fotoData ? `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR FOTO</span>
                   `}
@@ -17739,28 +18046,28 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE COMPLETO</label>
-                  <input type="text" id="agtNombre" class="form-control" placeholder="Nombre y Apellidos" value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="agtNombre" class="form-control" placeholder="Nombre y Apellidos" value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">NACIONALIDAD</label>
-                    <input type="text" id="agtNacionalidad" class="form-control" placeholder="Ej: Española" value="${escapeHtml(nacionalidad)}">
+                    <input type="text" id="agtNacionalidad" class="form-control" placeholder="Ej: Española" value="${escapeAttr(nacionalidad)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">LOCALIDAD</label>
-                    <input type="text" id="agtLocalidad" class="form-control" placeholder="Ej: Madrid" value="${escapeHtml(localidad)}">
+                    <input type="text" id="agtLocalidad" class="form-control" placeholder="Ej: Madrid" value="${escapeAttr(localidad)}">
                   </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
                   <div class="form-group">
                     <label class="form-label">IDIOMAS</label>
-                    <input type="text" id="agtIdiomas" class="form-control" placeholder="Ej: Español, Inglés..." value="${escapeHtml(idiomas)}">
+                    <input type="text" id="agtIdiomas" class="form-control" placeholder="Ej: Español, Inglés..." value="${escapeAttr(idiomas)}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">LICENCIA FIFA/RFEF</label>
-                    <input type="text" id="agtLicencia" class="form-control" placeholder="Nº de Licencia" value="${escapeHtml(licencia)}">
+                    <input type="text" id="agtLicencia" class="form-control" placeholder="Nº de Licencia" value="${escapeAttr(licencia)}">
                   </div>
                 </div>
               </div>
@@ -17772,28 +18079,28 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">TELÉFONO</label>
-                <input type="text" id="agtTelefono" class="form-control" placeholder="Ej: +34 ..." value="${escapeHtml(telefono)}">
+                <input type="text" id="agtTelefono" class="form-control" placeholder="Ej: +34 ..." value="${escapeAttr(telefono)}">
               </div>
               <div class="form-group">
                 <label class="form-label">EMAIL</label>
-                <input type="email" id="agtEmail" class="form-control" placeholder="Ej: email@agente.com" value="${escapeHtml(email)}">
+                <input type="email" id="agtEmail" class="form-control" placeholder="Ej: email@agente.com" value="${escapeAttr(email)}">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">INSTAGRAM</label>
-                <input type="text" id="agtInstagram" class="form-control" placeholder="Ej: @usuario" value="${escapeHtml(instagram)}">
+                <input type="text" id="agtInstagram" class="form-control" placeholder="Ej: @usuario" value="${escapeAttr(instagram)}">
               </div>
               <div class="form-group">
                 <label class="form-label">TWITTER / X</label>
-                <input type="text" id="agtTwitter" class="form-control" placeholder="Ej: @usuario" value="${escapeHtml(twitter)}">
+                <input type="text" id="agtTwitter" class="form-control" placeholder="Ej: @usuario" value="${escapeAttr(twitter)}">
               </div>
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">LINKEDIN (URL)</label>
-              <input type="url" id="agtLinkedin" class="form-control" placeholder="https://linkedin.com/in/..." value="${escapeHtml(linkedin)}">
+              <input type="url" id="agtLinkedin" class="form-control" placeholder="https://linkedin.com/in/..." value="${escapeAttr(linkedin)}">
             </div>
           </div>
 
@@ -17801,12 +18108,12 @@
           <div class="agt-tab-pane hidden" id="agttab-agencia">
             <div class="form-group mb-4">
               <label class="form-label">AGENCIA DE REPRESENTACIÓN</label>
-              <input type="text" id="agtAgencia" list="agenciasDatalistOptions" class="form-control" placeholder="Buscar agencia en el directorio..." value="${escapeHtml(agencia)}">
+              <input type="text" id="agtAgencia" list="agenciasDatalistOptions" class="form-control" placeholder="Buscar agencia en el directorio..." value="${escapeAttr(agencia)}">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">ZONAS DE ACTUACIÓN</label>
-              <input type="text" id="agtZonas" class="form-control" placeholder="Ej: España, Portugal, Alemania..." value="${escapeHtml(zonas)}">
+              <input type="text" id="agtZonas" class="form-control" placeholder="Ej: España, Portugal, Alemania..." value="${escapeAttr(zonas)}">
             </div>
 
             <div class="form-group mb-4">
@@ -17951,7 +18258,7 @@
       const ul = document.getElementById('agtJugadoresList');
       if (!ul) return;
 
-      const agtNameLower = (nombre || agt.nombre || agt.nombreCompleto || '').trim().toLowerCase();
+      const agtNameLower = String(nombre || agt.nombre || agt.nombreCompleto || '').trim().toLowerCase();
       const allLinkedPlayersMap = new Map();
 
       // 1. From localJugadoresList
@@ -17995,12 +18302,12 @@
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             ${j.posicion ? `<span class="match-category-tag" style="background: var(--primary-blue-light); color: var(--primary-blue); font-weight: 800; font-size: 10px; padding: 2px 6px;">${escapeHtml(j.posicion)}</span>` : ''}
-            <span class="btn-open-player-from-agent cursor-pointer" data-playerid="${j.id || ''}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
+            <span class="btn-open-player-from-agent cursor-pointer" data-playerid="${escapeAttr(j.id || '')}" style="font-weight: 700; color: var(--primary-blue); text-decoration: underline;">
               ${escapeHtml(j.nombre)}
             </span>
             ${j.equipo ? `<span style="font-size: 11px; color: var(--text-muted);">(${escapeHtml(j.equipo)})</span>` : ''}
           </div>
-          <button type="button" class="btn-action-icon danger btn-del-agt-jugador" data-jname="${escapeHtml(j.nombre)}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-agt-jugador" data-jname="${escapeAttr(j.nombre)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -18050,10 +18357,11 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          fotoData = await compressImage(file);
-          document.getElementById('btnUploadAgentFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
+          fotoData = (await compressImage(file)) || fotoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadAgentFoto').innerHTML = `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir foto:', err);
+          if (typeof showToast === 'function') showToast('No se ha podido usar esa imagen. Prueba con una foto en JPG o PNG.', 'danger', 6000);
         }
       }
     });
@@ -18096,8 +18404,8 @@
         </div>
 
         <datalist id="clubesEstadioDatalistOptions">
-          ${(state.directory.clubes || []).map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
-          ${(state.directory.equipos || []).map(e => `<option value="${escapeHtml(e.nombre || e.equipo)}"></option>`).join('')}
+          ${(state.directory.clubes || []).map(c => `<option value="${escapeAttr(c.nombre)}"></option>`).join('')}
+          ${(state.directory.equipos || []).map(e => `<option value="${escapeAttr(e.nombre || e.equipo)}"></option>`).join('')}
         </datalist>
 
         <form id="stadiumForm">
@@ -18106,7 +18414,7 @@
             <div class="player-profile-grid">
               <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
                 <div class="photo-upload-box" id="btnUploadStadiumFoto">
-                  ${fotoData ? `<img src="${fotoData}" class="photo-upload-preview">` : `
+                  ${fotoData ? `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">` : `
                     <i data-lucide="cloud-upload" style="width: 32px; height: 32px;"></i>
                     <span>SUBIR FOTO</span>
                   `}
@@ -18117,7 +18425,7 @@
               <div>
                 <div class="form-group mb-4">
                   <label class="form-label">NOMBRE DEL ESTADIO</label>
-                  <input type="text" id="estNombre" class="form-control" placeholder="Ej: Santiago Bernabéu..." value="${escapeHtml(nombre)}" required>
+                  <input type="text" id="estNombre" class="form-control" placeholder="Ej: Santiago Bernabéu..." value="${escapeAttr(nombre)}" required>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="mb-4">
@@ -18130,18 +18438,18 @@
                       <option value="Césped Híbrido" ${superficie === 'Césped Híbrido' ? 'selected' : ''}>Césped Híbrido</option>
                       <option value="Tierra" ${superficie === 'Tierra' ? 'selected' : ''}>Tierra</option>
                       <option value="Parqué / Pista" ${superficie === 'Parqué / Pista' ? 'selected' : ''}>Parqué / Pista</option>
-                      ${superficie && !['Césped Natural', 'Césped Artificial', 'Césped Híbrido', 'Tierra', 'Parqué / Pista'].includes(superficie) ? `<option value="${escapeHtml(superficie)}" selected>${escapeHtml(superficie)}</option>` : ''}
+                      ${superficie && !['Césped Natural', 'Césped Artificial', 'Césped Híbrido', 'Tierra', 'Parqué / Pista'].includes(superficie) ? `<option value="${escapeAttr(superficie)}" selected>${escapeHtml(superficie)}</option>` : ''}
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="form-label">CAPACIDAD</label>
-                    <input type="text" id="estCapacidad" class="form-control" placeholder="Ej: 80000" value="${escapeHtml(capacidad)}">
+                    <input type="text" id="estCapacidad" class="form-control" placeholder="Ej: 80000" value="${escapeAttr(capacidad)}">
                   </div>
                 </div>
 
                 <div class="form-group mb-4">
                   <label class="form-label">DIMENSIONES</label>
-                  <input type="text" id="estDimensiones" class="form-control" placeholder="Ej: 105x68 m" value="${escapeHtml(dimensiones)}">
+                  <input type="text" id="estDimensiones" class="form-control" placeholder="Ej: 105x68 m" value="${escapeAttr(dimensiones)}">
                 </div>
               </div>
             </div>
@@ -18152,30 +18460,30 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;" class="mb-4">
               <div class="form-group">
                 <label class="form-label">LOCALIDAD</label>
-                <input type="text" id="estLocalidad" class="form-control" placeholder="Ej: Madrid, Pamplona..." value="${escapeHtml(localidad)}">
+                <input type="text" id="estLocalidad" class="form-control" placeholder="Ej: Madrid, Pamplona..." value="${escapeAttr(localidad)}">
               </div>
               <div class="form-group">
                 <label class="form-label">COMUNIDAD AUTÓNOMA</label>
                 <select id="estComunidad" class="form-control">
                   <option value="">Seleccionar comunidad...</option>
-                  ${['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].map(c => `<option value="${escapeHtml(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                  ${comunidad && !['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].includes(comunidad) ? `<option value="${escapeHtml(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
+                  ${['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].map(c => `<option value="${escapeAttr(c)}" ${comunidad === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                  ${comunidad && !['Navarra', 'País Vasco', 'La Rioja', 'Aragón', 'Madrid', 'Cataluña', 'Andalucía', 'Galicia', 'Castilla y León', 'Comunidad Valenciana', 'Asturias', 'Cantabria', 'Extremadura', 'Murcia', 'Baleares', 'Canarias', 'Castilla-La Mancha'].includes(comunidad) ? `<option value="${escapeAttr(comunidad)}" selected>${escapeHtml(comunidad)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">TELÉFONO CONTACTO</label>
-                <input type="text" id="estTelefono" class="form-control" placeholder="Teléfono del recinto..." value="${escapeHtml(telefono)}">
+                <input type="text" id="estTelefono" class="form-control" placeholder="Teléfono del recinto..." value="${escapeAttr(telefono)}">
               </div>
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">GOOGLE MAPS (LINK)</label>
-              <input type="url" id="estGmaps" class="form-control" placeholder="https://goo.gl/maps/..." value="${escapeHtml(gmaps)}">
+              <input type="url" id="estGmaps" class="form-control" placeholder="https://goo.gl/maps/..." value="${escapeAttr(gmaps)}">
             </div>
 
             <div class="form-group mb-4">
               <label class="form-label">DIRECCIÓN COMPLETA</label>
-              <input type="text" id="estDireccion" class="form-control" placeholder="Calle, Número, Ciudad..." value="${escapeHtml(direccion)}">
+              <input type="text" id="estDireccion" class="form-control" placeholder="Calle, Número, Ciudad..." value="${escapeAttr(direccion)}">
             </div>
           </div>
 
@@ -18312,7 +18620,7 @@
       ul.innerHTML = localClubesList.map((c, idx) => `
         <li style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); margin-bottom: 4px;">
           <span>${escapeHtml(typeof c === 'string' ? c : c.nombre)}</span>
-          <button type="button" class="btn-action-icon danger btn-del-est-club" data-idx="${idx}" style="width: 22px; height: 22px;">
+          <button type="button" class="btn-action-icon danger btn-del-est-club" data-idx="${escapeAttr(idx)}" style="width: 22px; height: 22px;">
             <i data-lucide="trash-2" style="width: 12px;"></i>
           </button>
         </li>
@@ -18344,10 +18652,11 @@
       const file = e.target.files[0];
       if (file) {
         try {
-          fotoData = await compressImage(file);
-          document.getElementById('btnUploadStadiumFoto').innerHTML = `<img src="${fotoData}" class="photo-upload-preview">`;
+          fotoData = (await compressImage(file)) || fotoData; // si no se puede comprimir, se conserva la anterior
+          document.getElementById('btnUploadStadiumFoto').innerHTML = `<img src="${escapeAttr(fotoData)}" class="photo-upload-preview">`;
         } catch (err) {
           console.error('Error al comprimir foto:', err);
+          if (typeof showToast === 'function') showToast('No se ha podido usar esa imagen. Prueba con una foto en JPG o PNG.', 'danger', 6000);
         }
       }
     });
@@ -18575,13 +18884,13 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; max-height: 480px; overflow-y: auto; padding-right: 4px;">
           ${convenidosClubs.map(c => {
       const clubPriColor = c.colorPrimary || '#2563eb';
-      const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${c.codigo}.png` : `./escudos/${(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
+      const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${escapeJsAttr(c.codigo)}.png` : `./escudos/${String(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
 
       return `
-              <div class="convenido-item-card" data-club-name="${escapeHtml(c.nombre)}" data-club-id="${c.id || ''}" style="background: #ffffff; border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${clubPriColor}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
+              <div class="convenido-item-card" data-club-name="${escapeAttr(c.nombre)}" data-club-id="${escapeAttr(c.id || '')}" style="background: #ffffff; border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${escapeAttr(clubPriColor)}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${clubPriColor}; padding: 2px; flex-shrink: 0;">
-                    <img src="${clubLogo}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: contain;">
+                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${escapeAttr(clubPriColor)}; padding: 2px; flex-shrink: 0;">
+                    <img src="${escapeAttr(clubLogo)}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: contain;">
                   </div>
                   <div style="flex: 1; overflow: hidden;">
                     <h4 style="margin: 0; font-size: 13px; font-weight: 800; color: var(--text-dark, #1e293b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(c.nombre)}</h4>
@@ -18617,7 +18926,7 @@
             targetClub = { id: cId || ('c_' + Date.now()), nombre: cName, equipo: cName, convenidoDe: clubObj.nombre };
           }
 
-          closeModal();
+          hideModal(); // antes se llamaba a una funcion closeModal que no existe en ninguna parte
           setTimeout(() => {
             openClubModal(targetClub);
           }, 150);
@@ -18635,24 +18944,42 @@
   // LISTA DE EQUIPOS Y JUGADORES DE LAS 10 COMPETICIONES DE LA FEDERACIÓN ARAGONESA DE FÚTBOL
 
 
+  // Retira de las plantillas los jugadores que ya no existen en el directorio. Se ejecuta sola al
+  // abrir el Directorio y escribe en el servidor, así que tiene que fallar SIEMPRE hacia el lado
+  // seguro: antes, si la lista de jugadores llegaba vacía (un fallo de red, o el orden en que
+  // llegan las colecciones), vaciaba la plantilla de todos los equipos y subía el estrago. Las
+  // plantillas de los rivales se teclean a mano y no tienen ficha propia: recuperarlas es rehacerlas.
   function cleanOrphanPlayersFromAllTeams() {
     if (!state || !state.directory || !Array.isArray(state.directory.equipos)) return 0;
     const validPlayers = state.directory.jugadores || [];
-    const validNamesSet = new Set(validPlayers.map(p => (p.nombre || p.jugador || p.name || '').toLowerCase().trim()).filter(Boolean));
+
+    // Sin jugadores cargados no se limpia nada: no se distingue «no hay» de «aún no han llegado».
+    if (!validPlayers.length) return 0;
+    // Se comparan los nombres sin tildes ni dobles espacios: corregir «Jose» por «José» no puede
+    // hacer que el jugador desaparezca de la plantilla de sus equipos.
+    const normalizar = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+    const validNamesSet = new Set(validPlayers.map(p => normalizar(p.nombre || p.jugador || p.name)).filter(Boolean));
 
     let cleanedCount = 0;
     state.directory.equipos.forEach(eq => {
       let modified = false;
-      const eqNameLower = (eq.nombre || '').toLowerCase().trim();
+      const eqNameLower = String(eq.nombre || '').toLowerCase().trim();
 
       if (Array.isArray(eq.plantilla)) {
         const origLen = eq.plantilla.length;
-        eq.plantilla = eq.plantilla.filter(item => {
-          const nameStr = (typeof item === 'string' ? item : (item.nombre || item.jugador || item.name || '')).toLowerCase().trim();
+        const quedan = eq.plantilla.filter(item => {
+          const nameStr = normalizar(typeof item === 'string' ? item : (item.nombre || item.jugador || item.name));
           return validNamesSet.has(nameStr);
         });
-        if (eq.plantilla.length < origLen) {
-          modified = true;
+        // Segunda red: si la limpieza se llevaría más de la mitad de una plantilla, algo va mal
+        // (datos a medio cargar). Se deja la plantilla como está y se avisa en la consola.
+        const seLlevaria = origLen - quedan.length;
+        if (origLen >= 4 && seLlevaria > origLen / 2) {
+          console.warn('Limpieza de plantilla cancelada en', eq.nombre, ': se llevaría', seLlevaria, 'de', origLen);
+        } else {
+          eq.plantilla = quedan;
+          if (eq.plantilla.length < origLen) modified = true;
         }
       } else {
         eq.plantilla = [];
@@ -18660,10 +18987,10 @@
 
       if (eqNameLower && validPlayers.length) {
         validPlayers.forEach(p => {
-          const pEq = (p.equipoPrincipal || p.equipo || '').toLowerCase().trim();
+          const pEq = String(p.equipoPrincipal || p.equipo || '').toLowerCase().trim();
           if (pEq === eqNameLower) {
             const pName = p.nombre || p.jugador || p.name || '';
-            if (pName && !eq.plantilla.some(item => (typeof item === 'string' ? item : (item.nombre || '')).toLowerCase().trim() === pName.toLowerCase().trim())) {
+            if (pName && !eq.plantilla.some(item => normalizar(typeof item === 'string' ? item : item.nombre) === normalizar(pName))) {
               eq.plantilla.push(pName);
               modified = true;
             }
@@ -18782,11 +19109,11 @@
         const selFullNameClean = selFullName.toLowerCase().trim();
 
         const exists = state.directory.selecciones.some(s =>
-          s && ((s.nombre || s.seleccion || '').toLowerCase().trim() === selFullNameClean ||
-            ((s.federacion || '').toLowerCase().trim() === fedFullName.toLowerCase().trim() &&
-              (s.categoria || '').toLowerCase().trim() === req.cat.toLowerCase() &&
-              (s.sexo || '').toLowerCase().trim() === req.sexo.toLowerCase() &&
-              (s.temporada || '').includes('26/27')))
+          s && (String(s.nombre || s.seleccion || '').toLowerCase().trim() === selFullNameClean ||
+            (String(s.federacion || '').toLowerCase().trim() === fedFullName.toLowerCase().trim() &&
+              String(s.categoria || '').toLowerCase().trim() === req.cat.toLowerCase() &&
+              String(s.sexo || '').toLowerCase().trim() === req.sexo.toLowerCase() &&
+              String(s.temporada || '').includes('26/27')))
         );
 
         if (!exists) {
@@ -18991,8 +19318,8 @@
 
     state.directory.clubes.forEach(club => {
       if (!club) return;
-      const com = (club.comunidad || '').toLowerCase().trim();
-      const fed = (club.federacion || '').toLowerCase().trim();
+      const com = String(club.comunidad || '').toLowerCase().trim();
+      const fed = String(club.federacion || '').toLowerCase().trim();
 
       if (com === 'aragón' || com === 'aragon' || fed.includes('aragon') || fed.includes('fargf') || (club.id && club.id.startsWith('c_fa_'))) {
         if (club.federacion !== FAF) {
@@ -19147,7 +19474,7 @@
       // Usually team names for the senior team don't have "Juvenil" in them.
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === 'tercera rfef'
+        String(e.competicion || '').toLowerCase() === 'tercera rfef'
       );
 
       if (!teamMatch) {
@@ -19231,7 +19558,7 @@
       // Check if team already exists (exactly this name + Primera Autonomica Navarra + Group Único, to avoid collision with LNJ or Tercera team if they have the exact same name)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === 'primera autonomica navarra'
+        String(e.competicion || '').toLowerCase() === 'primera autonomica navarra'
       );
 
       if (!teamMatch) {
@@ -19321,7 +19648,7 @@
       // Check if team already exists (matches teamName + Primera Autonómica Juvenil Navarra)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
 
       if (!teamMatch) {
@@ -19411,7 +19738,7 @@
       // Check if team already exists (matches teamName + Regional Preferente Navarra)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
 
       if (!teamMatch) {
@@ -19501,7 +19828,7 @@
       // Check if team already exists (matches teamName + Regional Preferente Navarra + Grupo 2)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
 
@@ -19592,7 +19919,7 @@
       // Check if team already exists (matches teamName + Liga Cadete Navarra)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
 
       if (!teamMatch) {
@@ -19682,7 +20009,7 @@
       // Check if team already exists (matches teamName + Primera Autonómica Cadete Navarra)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase()
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase()
       );
 
       if (!teamMatch) {
@@ -19769,7 +20096,7 @@
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 1)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '1'
       );
 
@@ -19859,7 +20186,7 @@
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 2)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
 
@@ -19949,7 +20276,7 @@
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 3)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
       );
 
@@ -20039,7 +20366,7 @@
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 4)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '4'
       );
 
@@ -20129,7 +20456,7 @@
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 5)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '5'
       );
 
@@ -20207,7 +20534,7 @@
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 3)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '3'
       );
 
@@ -20287,7 +20614,7 @@
       // Check if team already exists (matches teamName + División Honor Juvenil + Grupo 2)
       let teamMatch = (state.directory.equipos || []).find(e =>
         e && e.nombre && e.nombre.toLowerCase().startsWith(teamName.toLowerCase()) &&
-        (e.competicion || '').toLowerCase() === compName.toLowerCase() &&
+        String(e.competicion || '').toLowerCase() === compName.toLowerCase() &&
         (e.grupo || '') === '2'
       );
 
@@ -20480,8 +20807,8 @@
         // Populate options
         const datalistEl = document.getElementById('dirTeamFilterDatalist');
         if (datalistEl && state.directory && state.directory.jugadores) {
-          const uniqueTeams = [...new Set(state.directory.jugadores.map(j => (j.equipo || j.equipoVinculado || '').trim()).filter(t => t))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-          datalistEl.innerHTML = `<option value="Sin equipo"></option>` + uniqueTeams.map(t => `<option value="${escapeHtml(t)}"></option>`).join('');
+          const uniqueTeams = [...new Set(state.directory.jugadores.map(j => String(j.equipo || j.equipoVinculado || '').trim()).filter(t => t))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+          datalistEl.innerHTML = `<option value="Sin equipo"></option>` + uniqueTeams.map(t => `<option value="${escapeAttr(t)}"></option>`).join('');
         }
       }
       if (cargoContainer) cargoContainer.style.display = 'none';
@@ -20529,8 +20856,8 @@
       rawItems.sort((a, b) => (a.orderIndex || 999) - (b.orderIndex || 999));
     } else {
       rawItems.sort((a, b) => {
-        const nameA = (a.nombre || a.equipo || a.jugador || a.titulo || a.agencia || a.agente || a.federacion || '').toLowerCase().trim();
-        const nameB = (b.nombre || b.equipo || b.jugador || b.titulo || b.agencia || b.agente || b.federacion || '').toLowerCase().trim();
+        const nameA = String(a.nombre || a.equipo || a.jugador || a.titulo || a.agencia || a.agente || a.federacion || '').toLowerCase().trim();
+        const nameB = String(b.nombre || b.equipo || b.jugador || b.titulo || b.agencia || b.agente || b.federacion || '').toLowerCase().trim();
         return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
       });
     }
@@ -20551,16 +20878,16 @@
 
     if (currentDirectoryTab === 'equipos') {
       if (currentSubCategoryFilter !== 'TODOS') {
-        subFilteredItems = subFilteredItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
+        subFilteredItems = subFilteredItems.filter(eq => String(eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
       }
       if (currentSubGroupFilter !== 'TODOS') {
-        subFilteredItems = subFilteredItems.filter(eq => (eq.grupo || 'Sin Grupo').toUpperCase().trim() === currentSubGroupFilter.toUpperCase().trim());
+        subFilteredItems = subFilteredItems.filter(eq => String(eq.grupo || 'Sin Grupo').toUpperCase().trim() === currentSubGroupFilter.toUpperCase().trim());
       }
     } else if (currentDirectoryTab === 'estadios' && currentComunidadFilter !== 'TODAS') {
-      subFilteredItems = subFilteredItems.filter(est => (est.comunidad || 'Sin Comunidad').toUpperCase().trim() === currentComunidadFilter.toUpperCase().trim());
+      subFilteredItems = subFilteredItems.filter(est => String(est.comunidad || 'Sin Comunidad').toUpperCase().trim() === currentComunidadFilter.toUpperCase().trim());
     } else if (['clubes', 'selecciones', 'convocatorias'].includes(currentDirectoryTab) && currentFederationFilter !== 'TODAS') {
       subFilteredItems = subFilteredItems.filter(item => {
-        const itemFed = (item.federacion || item.federacionVinculada || item.ambito || '').trim();
+        const itemFed = String(item.federacion || item.federacionVinculada || item.ambito || '').trim();
         const itemCom = getFederationSelectionBaseName(itemFed);
         const filterCom = currentFederationFilter.trim();
         return window.flexibleMatch(filterCom, itemCom) ||
@@ -20571,7 +20898,7 @@
 
     if (currentDirectoryTab === 'selecciones' && currentGenderFilter !== 'TODOS') {
       subFilteredItems = subFilteredItems.filter(item => {
-        const selName = (item.nombre || item.seleccion || '').toLowerCase();
+        const selName = String(item.nombre || item.seleccion || '').toLowerCase();
         if (currentGenderFilter === 'Masculino') return selName.includes('masculin');
         if (currentGenderFilter === 'Femenino') return selName.includes('femenin');
         return true;
@@ -20582,7 +20909,7 @@
     if (currentDirectoryTab === 'jugadores' && window.showOnlyDuplicatePlayers) {
       const nameCounts = {};
       subFilteredItems.forEach(i => {
-        const n = (i.nombre || i.jugador || i.name || '').toLowerCase().trim();
+        const n = String(i.nombre || i.jugador || i.name || '').toLowerCase().trim();
         if (n) {
           nameCounts[n] = (nameCounts[n] || 0) + 1;
         }
@@ -20594,7 +20921,7 @@
     const filtered = subFilteredItems.filter(item => {
       if (currentDirectoryTab === 'jugadores') {
         if (duplicatesSet) {
-          const n = (item.nombre || item.jugador || item.name || '').toLowerCase().trim();
+          const n = String(item.nombre || item.jugador || item.name || '').toLowerCase().trim();
           if (!duplicatesSet.has(n)) return false;
         }
         if (window.showOnlyDestacadosPlayers) {
@@ -20647,7 +20974,7 @@
     // 4. Sub-filter Pills Bar Generation
     let subFilterBarHTML = '';
     if (currentDirectoryTab === 'equipos') {
-      const categoriesSet = new Set(rawItems.map(eq => (eq.categoria || 'Sin Categoría').trim()).filter(Boolean));
+      const categoriesSet = new Set(rawItems.map(eq => String(eq.categoria || 'Sin Categoría').trim()).filter(Boolean));
       const categories = Array.from(categoriesSet);
 
       if (!state.directoryCategoriesOrder) state.directoryCategoriesOrder = [];
@@ -20663,8 +20990,8 @@
 
       const allCats = ['TODOS', ...categories];
 
-      const teamsForGroups = currentSubCategoryFilter === 'TODOS' ? rawItems : rawItems.filter(eq => (eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
-      const groupsSet = new Set(teamsForGroups.map(eq => (eq.grupo || 'Sin Grupo').trim()).filter(Boolean));
+      const teamsForGroups = currentSubCategoryFilter === 'TODOS' ? rawItems : rawItems.filter(eq => String(eq.categoria || 'Sin Categoría').toUpperCase().trim() === currentSubCategoryFilter.toUpperCase().trim());
+      const groupsSet = new Set(teamsForGroups.map(eq => String(eq.grupo || 'Sin Grupo').trim()).filter(Boolean));
       const groups = Array.from(groupsSet).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
       const allGroups = ['TODOS', ...groups];
 
@@ -20679,12 +21006,12 @@
         const isActive = currentSubCategoryFilter === cat;
         return `
                 <button type="button" 
-                        class="btn-dir-subfilter btn-cat-draggable ${isActive ? 'active' : ''}" 
+                        class="btn-dir-subfilter btn-cat-draggable ${escapeAttr(isActive ? 'active' : '')}" 
                         data-type="categoria" 
-                        data-val="${escapeHtml(cat)}" 
-                        draggable="${isDraggable}" 
-                        title="${escapeHtml(cat)}${isDraggable ? ' (Arrastra para reordenar)' : ''}" 
-                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+                        data-val="${escapeAttr(cat)}" 
+                        draggable="${escapeAttr(isDraggable)}" 
+                        title="${escapeAttr(cat)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" 
+                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
                   ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(cat)}
                 </button>
               `;
@@ -20697,7 +21024,7 @@
             </span>
             <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: #ffffff; color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
               ${allGroups.map(grp => `
-                <option value="${escapeHtml(grp)}" ${currentSubGroupFilter === grp ? 'selected' : ''}>${escapeHtml(grp)}</option>
+                <option value="${escapeAttr(grp)}" ${currentSubGroupFilter === grp ? 'selected' : ''}>${escapeHtml(grp)}</option>
               `).join('')}
             </select>
           </div>
@@ -20708,7 +21035,7 @@
 
       if (state.directory.federaciones && state.directory.federaciones.length) {
         state.directory.federaciones.forEach(f => {
-          const fName = (f.nombre || f.federacion || '').trim();
+          const fName = String(f.nombre || f.federacion || '').trim();
           if (fName) {
             const comName = getFederationSelectionBaseName(fName);
             if (comName && comName !== 'TODAS' && !comToFedMap.has(comName)) {
@@ -20720,7 +21047,7 @@
 
       const activeComs = new Set();
       rawItems.forEach(item => {
-        const fName = (item.federacion || item.federacionVinculada || '').trim();
+        const fName = String(item.federacion || item.federacionVinculada || '').trim();
         if (fName) {
           const comName = getFederationSelectionBaseName(fName);
           if (comName && comName !== 'TODAS') {
@@ -20755,7 +21082,7 @@
           ${['TODOS', 'Masculino', 'Femenino'].map(gender => {
         const isActive = currentGenderFilter === gender;
         return `
-            <button type="button" class="btn-dir-subfilter ${isActive ? 'active' : ''}" data-type="genero" data-val="${escapeHtml(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="genero" data-val="${escapeAttr(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${escapeHtml(gender)}
             </button>
             `;
@@ -20775,12 +21102,12 @@
         const isActive = currentFederationFilter === comName || currentFederationFilter === fullName;
         return `
             <button type="button" 
-                    class="btn-dir-subfilter btn-fed-draggable ${isActive ? 'active' : ''}" 
+                    class="btn-dir-subfilter btn-fed-draggable ${escapeAttr(isActive ? 'active' : '')}" 
                     data-type="federacion" 
-                    data-val="${escapeHtml(comName)}" 
-                    draggable="${isDraggable}" 
-                    title="${escapeHtml(comName)} (Arrastra para reordenar)" 
-                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+                    data-val="${escapeAttr(comName)}" 
+                    draggable="${escapeAttr(isDraggable)}" 
+                    title="${escapeAttr(comName)} (Arrastra para reordenar)" 
+                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(comName)}
             </button>
           `;
@@ -20788,7 +21115,7 @@
         </div>
       `;
     } else if (currentDirectoryTab === 'estadios') {
-      const comunidadesSet = new Set(rawItems.map(est => (est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
+      const comunidadesSet = new Set(rawItems.map(est => String(est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
       const comunidades = Array.from(comunidadesSet);
       if (!state.directoryEstadiosComunidadOrder) state.directoryEstadiosComunidadOrder = [];
       comunidades.sort((a, b) => {
@@ -20811,12 +21138,12 @@
             const isActive = currentComunidadFilter === com;
             return `
             <button type="button" 
-                    class="btn-dir-subfilter btn-est-com-draggable ${isActive ? 'active' : ''}" 
+                    class="btn-dir-subfilter btn-est-com-draggable ${escapeAttr(isActive ? 'active' : '')}" 
                     data-type="comunidad" 
-                    data-val="${escapeHtml(com)}" 
-                    draggable="${isDraggable}" 
-                    title="${escapeHtml(com)} (Arrastra para reordenar)"
-                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; user-select: none;">
+                    data-val="${escapeAttr(com)}" 
+                    draggable="${escapeAttr(isDraggable)}" 
+                    title="${escapeAttr(com)} (Arrastra para reordenar)"
+                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(com)}
             </button>
             `;
@@ -20824,7 +21151,7 @@
         </div>
       `;
     } else if (currentDirectoryTab === 'staff') {
-      const cargoSet = new Set(rawItems.map(s => (s.cargo || 'Sin Cargo').trim()).filter(Boolean));
+      const cargoSet = new Set(rawItems.map(s => String(s.cargo || 'Sin Cargo').trim()).filter(Boolean));
       const cargos = Array.from(cargoSet);
       if (!state.directoryStaffCargoOrder) state.directoryStaffCargoOrder = [];
       cargos.sort((a, b) => {
@@ -20847,7 +21174,7 @@
             const label = cargo === 'all' ? 'Todos los Cargos' : cargo;
             const isDraggable = cargo !== 'all';
             return `
-              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${isActive ? 'active' : ''}" data-type="cargo" data-val="${escapeHtml(cargo)}" draggable="${isDraggable}" title="${escapeHtml(label)}${isDraggable ? ' (Arrastra para reordenar)' : ''}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${isDraggable ? 'grab' : 'pointer'}; border: 1px solid ${isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)'}; background: ${isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff'}; color: ${isActive ? '#ffffff' : 'var(--text-dark, #1e293b)'}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
+              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${escapeAttr(isActive ? 'active' : '')}" data-type="cargo" data-val="${escapeAttr(cargo)}" draggable="${escapeAttr(isDraggable)}" title="${escapeAttr(label)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
                 ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(label)}
               </button>
             `;
@@ -20906,7 +21233,7 @@
           
           <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-subtle, #f8fafc); padding: 3px 8px; border-radius: 8px; border: 1px solid var(--border-light);">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Pág.</span>
-            <input type="number" class="dir-page-jump-input" min="1" max="${totalPages}" value="${currentDirectoryPage}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: #ffffff;">
+            <input type="number" class="dir-page-jump-input" min="1" max="${escapeAttr(totalPages)}" value="${escapeAttr(currentDirectoryPage)}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: #ffffff;">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">de ${totalPages}</span>
             <button type="button" class="btn btn-primary btn-dir-jump-go" style="padding: 4px 8px; font-size: 11px; font-weight: 800; border-radius: 6px;">Ir</button>
           </div>
@@ -20952,7 +21279,7 @@
             <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
-                  <th style="padding: 12px 8px; width: 4%; display: ${isBulkSelectActive ? 'table-cell' : 'none'};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
+                  <th style="padding: 12px 8px; width: 4%; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
                   <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
                   <th style="padding: 12px 16px; width: 5%;">DORSAL</th>
                   <th style="padding: 12px 16px; width: 8%;">AÑO</th>
@@ -20969,22 +21296,22 @@
           if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
           else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
           return `
-                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${rowBgStyle}" class="dir-table-row">
-                    <td style="padding: 10px 8px; text-align: center; display: ${isBulkSelectActive ? 'table-cell' : 'none'};">
-                      <input type="checkbox" class="dir-item-checkbox" data-id="${j.id}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
+                  <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${escapeAttr(rowBgStyle)}" class="dir-table-row">
+                    <td style="padding: 10px 8px; text-align: center; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};">
+                      <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(j.id)}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
                     </td>
                     <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="player-name-link" data-id="${j.id}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
-                        <img src="${j.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${escapeAttr(j.id)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                        <img src="${escapeAttr(j.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(j.nombre)}</span>
                       </a>
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-year" data-id="${j.id}" value="${escapeHtml(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-team" data-id="${j.id}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeHtml(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
@@ -21075,35 +21402,35 @@
           <div class="directory-cards-grid">
             ${pageItems.map(c => {
           const clubPriColor = c.colorPrimary || c.colorPrincipal || c.color1 || '#2563eb';
-          const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${c.codigo}.png` : `./escudos/${(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
+          const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${escapeJsAttr(c.codigo)}.png` : `./escudos/${String(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${clubPriColor} !important; background: linear-gradient(180deg, ${clubPriColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(clubPriColor)} !important; background: linear-gradient(180deg, ${escapeAttr(clubPriColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id || c.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${clubPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
-                      <img src="${clubLogo}" data-tried="0" onerror="
-                        if (this.dataset.tried === '0' && '${c.codigo}') {
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(clubPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                      <img src="${escapeAttr(clubLogo)}" data-tried="0" onerror="
+                        if (this.dataset.tried === '0' && '${escapeJsAttr(c.codigo)}') {
                           this.dataset.tried = '1';
-                          this.src = 'https://www.futnavarra.es/images/escudos/${c.codigo}.png';
+                          this.src = 'https://www.futnavarra.es/images/escudos/${escapeJsAttr(c.codigo)}.png';
                         } else {
                           this.style.display = 'none';
                           if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                         }
                       " style="width: 100%; height: 100%; object-fit: contain;">
-                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${clubPriColor}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
+                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(clubPriColor)}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id || c.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL CLUB EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${c.id || c.codigo}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title club-name-link cursor-pointer" data-id="${escapeAttr(c.id || c.codigo)}" title="${escapeAttr(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21116,21 +21443,21 @@
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Estadio:</strong> ${escapeHtml(c.estadio || 'N/A')}</div>
                   <div><strong>Federación:</strong> ${escapeHtml(c.federacion || 'N/A')}</div>
-                  ${c.web ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${escapeHtml(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeHtml(c.web)}">${escapeHtml(c.web)}</a></div>` : ''}
+                  ${c.web ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${urlSegura(c.web)}" target="_blank" style="color: ${clubPriColor}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeAttr(c.web)}">${escapeHtml(c.web)}</a></div>` : ''}
                 </div>
 
                 ${(() => {
               const convList = getConvenidosListForClub(c);
               if (convList.length > 0) {
                 return `
-                      <button type="button" class="btn-convenidos-trigger" data-id="${c.id || c.codigo}" style="width: 100%; padding: 5px 10px; font-size: 11px; font-weight: 800; border-radius: 8px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                      <button type="button" class="btn-convenidos-trigger" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 100%; padding: 5px 10px; font-size: 11px; font-weight: 800; border-radius: 8px; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
                         <i data-lucide="building-2" style="width: 14px;"></i> Clubes Convenidos (${convList.length})
                       </button>
                     `;
               }
               return '';
             })()}
-                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${c.id || c.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${clubPriColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-club-modal" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(clubPriColor)}40;">
                   <i data-lucide="shield-check"></i> Ver / Editar Ficha de Club
                 </button>
               </div>
@@ -21202,19 +21529,19 @@
           const eqLogo = eq.escudo || eq.logo || (parentC ? parentC.logo || parentC.escudo : '');
           const clubCodigo = parentC ? (parentC.codigo || '') : (eq.codigo || '');
           const targetNameForEscudo = parentC ? (parentC.nombre || parentC.equipo || eq.nombre) : (eq.clubVinculado || eq.nombre);
-          const cleanName = (targetNameForEscudo || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_');
+          const cleanName = String(targetNameForEscudo || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_');
           const localEscudoPath = `./escudos/${cleanName}.png`;
           const finalImgSrc = eqLogo || (clubCodigo ? `./escudos/${clubCodigo}.png` : localEscudoPath);
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${eqPriColor} !important; background: linear-gradient(180deg, ${eqPriColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(eqPriColor)} !important; background: linear-gradient(180deg, ${escapeAttr(eqPriColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${eq.id || eq.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${eqPriColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
-                      ${eqLogo ? `<img src="${eqLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `
-                        <img src="${finalImgSrc}" data-tried="0" onerror="
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(eq.id || eq.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(eqPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                      ${eqLogo ? `<img src="${escapeAttr(eqLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `
+                        <img src="${escapeAttr(finalImgSrc)}" data-tried="0" onerror="
                           if (this.dataset.tried === '0' && '${clubCodigo}') {
                             this.dataset.tried = '1';
                             this.src = 'https://www.futnavarra.es/images/escudos/${clubCodigo}.png';
@@ -21226,7 +21553,7 @@
                             if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                           }
                         " style="width: 100%; height: 100%; object-fit: contain;">
-                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${eqPriColor}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
+                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(eqPriColor)}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
                       `}
                     </div>
                   </div>
@@ -21235,7 +21562,7 @@
                       <i data-lucide="users" style="width: 16px; height: 16px;"></i>
                       ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
                     </span>
-                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${eq.id || eq.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                       <i data-lucide="trash-2" style="width: 14px;"></i>
                     </button>
                   </div>
@@ -21243,7 +21570,7 @@
 
                 <!-- LÍNEA 2: NOMBRE DEL EQUIPO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${eq.id || eq.codigo}" title="${escapeHtml(eq.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title team-name-link cursor-pointer" data-id="${escapeAttr(eq.id || eq.codigo)}" title="${escapeAttr(eq.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(eq.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21252,8 +21579,8 @@
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
                   ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
                   <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqPriColor}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${eqPriColor}"></span>
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${eqSecColor}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${eqSecColor}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqPriColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(eqPriColor)}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqSecColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(eqSecColor)}"></span>
                   </span>
                 </div>
 
@@ -21292,7 +21619,7 @@
                   (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
                 );
                 if (foundPlayer) {
-                  const estado = (foundPlayer.estado || '').toUpperCase();
+                  const estado = String(foundPlayer.estado || '').toUpperCase();
                   if (estado === 'ALTA') altas++;
                   else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
                   else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
@@ -21302,7 +21629,7 @@
             })()}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${eq.id || eq.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${eqPriColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-team-modal" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(eqPriColor)}40;">
                   <i data-lucide="users"></i> Ver / Editar Ficha de Equipo
                 </button>
               </div>
@@ -21347,26 +21674,26 @@
           const fedLogo = f.logo || f.escudo || f.imagen;
 
           return `
-              <div class="entity-card fed-drag-card" draggable="true" data-id="${f.id || f.codigo}" style="border-top: 5px solid ${fedColorPrimary} !important; background: linear-gradient(180deg, ${fedColorPrimary}12 0%, var(--bg-card, #ffffff) 35%); cursor: grab; padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card fed-drag-card" draggable="true" data-id="${escapeAttr(f.id || f.codigo)}" style="border-top: 5px solid ${escapeAttr(fedColorPrimary)} !important; background: linear-gradient(180deg, ${escapeAttr(fedColorPrimary)}12 0%, var(--bg-card, #ffffff) 35%); cursor: grab; padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Grip + Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${f.id || f.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(f.id || f.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
                     <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
                       <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${fedColorPrimary}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${fedLogo ? `<img src="${escapeHtml(fedLogo)}" alt="${escapeHtml(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${f.id || f.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(f.id || f.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA FEDERACIÓN EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${f.id || f.codigo}" title="${escapeHtml(f.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title fed-name-link cursor-pointer" data-id="${escapeAttr(f.id || f.codigo)}" title="${escapeAttr(f.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(f.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21379,10 +21706,10 @@
                 <div style="font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;" class="mb-2 mt-1">
                   <div><strong>Email:</strong> ${escapeHtml(f.email || f.correo || 'N/A')}</div>
                   <div><strong>Teléfono:</strong> ${escapeHtml(f.telefono || 'N/A')}</div>
-                  ${f.web || f.paginaWeb ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${escapeHtml(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeHtml(f.web || f.paginaWeb)}">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
+                  ${f.web || f.paginaWeb ? `<div style="display: flex; gap: 4px; overflow: hidden; align-items: baseline;"><strong>Web:</strong> <a href="${urlSegura(f.web || f.paginaWeb)}" target="_blank" style="color: ${fedColorPrimary}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1;" title="${escapeAttr(f.web || f.paginaWeb)}">${escapeHtml(f.web || f.paginaWeb)}</a></div>` : ''}
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${f.id || f.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${fedColorPrimary}40;">
+                <button type="button" class="btn btn-secondary btn-open-fed-modal" data-id="${escapeAttr(f.id || f.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(fedColorPrimary)}40;">
                   <i data-lucide="globe"></i> Ver / Editar Ficha de Federación
                 </button>
               </div>
@@ -21477,23 +21804,23 @@
           const selLogo = s.logo || s.escudo;
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${selColor} !important; background: linear-gradient(180deg, ${selColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(selColor)} !important; background: linear-gradient(180deg, ${escapeAttr(selColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Logo/Escudo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${s.id || s.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${selColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${selLogo ? `<img src="${selLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(s.id || s.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${s.id || s.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(s.id || s.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA SELECCIÓN EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title selection-name-link cursor-pointer" data-id="${s.id || s.codigo}" title="${escapeHtml(s.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title selection-name-link cursor-pointer" data-id="${escapeAttr(s.id || s.codigo)}" title="${escapeAttr(s.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(s.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21509,7 +21836,7 @@
                   <div><strong>Convocados:</strong> ${(s.jugadores && s.jugadores.length) ? s.jugadores.length + ' jugador(es)' : 'Sin convocados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-selection-modal" data-id="${s.id || s.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${selColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-selection-modal" data-id="${escapeAttr(s.id || s.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(selColor)}40;">
                   <i data-lucide="flag"></i> Ver / Editar Ficha de Selección
                 </button>
               </div>
@@ -21563,26 +21890,26 @@
           }
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${convColor} !important; background: linear-gradient(180deg, ${convColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(convColor)} !important; background: linear-gradient(180deg, ${escapeAttr(convColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Icono/Escudo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${c.id || c.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${convColor}; padding: 3px; flex-shrink: 0; color: ${convColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(convColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(convColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${badgeSrc
-              ? `<img src="${badgeSrc}" style="width: 100%; height: 100%; object-fit: contain;">`
+              ? `<img src="${escapeAttr(badgeSrc)}" style="width: 100%; height: 100%; object-fit: contain;">`
               : `<i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>`
             }
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${c.id || c.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA CONVOCATORIA EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title conv-name-link cursor-pointer" data-id="${c.id || c.codigo}" title="${escapeHtml(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title conv-name-link cursor-pointer" data-id="${escapeAttr(c.id || c.codigo)}" title="${escapeAttr(c.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(c.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21598,7 +21925,7 @@
                   <div><strong>Convocados:</strong> ${(c.jugadores && c.jugadores.length) ? c.jugadores.length + ' jugador(es)' : 'Sin convocados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-conv-modal" data-id="${c.id || c.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${convColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-conv-modal" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(convColor)}40;">
                   <i data-lucide="megaphone"></i> Ver / Editar Convocatoria
                 </button>
               </div>
@@ -21643,23 +21970,23 @@
           const trnLogo = t.logo || t.escudo;
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${trnColor} !important; background: linear-gradient(180deg, ${trnColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(trnColor)} !important; background: linear-gradient(180deg, ${escapeAttr(trnColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Logo/Icono Trofeo amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${t.id || t.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${trnColor}; padding: 3px; flex-shrink: 0; color: ${trnColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${trnLogo ? `<img src="${trnLogo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(t.id || t.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(trnColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(trnColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${trnLogo ? `<img src="${escapeAttr(trnLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${t.id || t.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(t.id || t.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL TORNEO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title trn-name-link cursor-pointer" data-id="${t.id || t.codigo}" title="${escapeHtml(t.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title trn-name-link cursor-pointer" data-id="${escapeAttr(t.id || t.codigo)}" title="${escapeAttr(t.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(t.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21674,7 +22001,7 @@
                   <div><strong>Participantes:</strong> ${(t.participantes && t.participantes.length) ? t.participantes.length + ' equipo(s)' : 'Sin inscritos'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-trn-modal" data-id="${t.id || t.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${trnColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-trn-modal" data-id="${escapeAttr(t.id || t.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(trnColor)}40;">
                   <i data-lucide="trophy"></i> Ver / Editar Ficha de Torneo
                 </button>
               </div>
@@ -21718,7 +22045,7 @@
             <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
-                  <th style="padding: 12px 8px; width: 4%; display: ${isBulkSelectActive ? 'table-cell' : 'none'};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
+                  <th style="padding: 12px 8px; width: 4%; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
                   <th style="padding: 12px 16px; width: 25%;">NOMBRE</th>
                   <th style="padding: 12px 16px; width: 20%;">CARGO</th>
                   <th style="padding: 12px 16px; width: 20%;">EQUIPO / ENTIDAD</th>
@@ -21729,29 +22056,29 @@
               <tbody>
                 ${pageItems.map(s => `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" class="dir-table-row">
-                    <td style="padding: 10px 8px; text-align: center; display: ${isBulkSelectActive ? 'table-cell' : 'none'};">
-                      <input type="checkbox" class="dir-item-checkbox" data-id="${s.id || s.codigo}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
+                    <td style="padding: 10px 8px; text-align: center; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};">
+                      <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(s.id || s.codigo)}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
                     </td>
                     <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="staff-name-link" data-id="${s.id || s.codigo}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
-                        <img src="${s.foto || 'Foto Jugador General.png'}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
+                      <a href="javascript:void(0)" class="staff-name-link" data-id="${escapeAttr(s.id || s.codigo)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                        <img src="${escapeAttr(s.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(s.nombre)}</span>
                       </a>
                     </td>
                     <td style="padding: 6px 16px;">
-                      <select class="inline-edit-input" data-id="${s.id || s.codigo}" data-field="cargo" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s; -webkit-appearance: none; appearance: none; cursor: pointer;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
+                      <select class="inline-edit-input" data-id="${escapeAttr(s.id || s.codigo)}" data-field="cargo" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s; -webkit-appearance: none; appearance: none; cursor: pointer;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
                         <option value="" ${!s.cargo ? 'selected' : ''}>-</option>
-                        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}" ${c === (s.cargo || '') ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+                        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeAttr(c)}" ${c === (s.cargo || '') ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
                       </select>
                     </td>
                     <td style="padding: 6px 16px;">
-                      <input type="text" class="inline-edit-input" data-id="${s.id || s.codigo}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeHtml(s.equipo || s.club || s.seleccion || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.background='transparent'">
+                      <input type="text" class="inline-edit-input" data-id="${escapeAttr(s.id || s.codigo)}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(s.equipo || s.club || s.seleccion || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.background='transparent'">
                     </td>
                     <td style="padding: 6px 16px;">
-                      <input type="text" class="inline-edit-input" data-id="${s.id || s.codigo}" data-field="email" value="${escapeHtml(s.email || s.correo || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
+                      <input type="text" class="inline-edit-input" data-id="${escapeAttr(s.id || s.codigo)}" data-field="email" value="${escapeAttr(s.email || s.correo || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
                     </td>
                     <td style="padding: 6px 16px;">
-                      <input type="text" class="inline-edit-input" data-id="${s.id || s.codigo}" data-field="telefono" value="${escapeHtml(s.telefono || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
+                      <input type="text" class="inline-edit-input" data-id="${escapeAttr(s.id || s.codigo)}" data-field="telefono" value="${escapeAttr(s.telefono || '')}" style="width: 100%; border: none; background: transparent; font-family: inherit; font-size: inherit; color: inherit; outline: none; padding: 4px; border-radius: 4px; transition: background 0.2s;" onfocus="this.style.background='var(--bg-subtle)'" onblur="this.style.background='transparent'">
                     </td>
                   </tr>
                 `).join('')}
@@ -21820,7 +22147,7 @@
           <div class="directory-cards-grid">
             ${pageItems.map(ag => {
           const agColor = '#4f46e5';
-          const agNameLower = (ag.nombre || ag.agencia || '').trim().toLowerCase();
+          const agNameLower = String(ag.nombre || ag.agencia || '').trim().toLowerCase();
           const linkedCountMap = new Set();
           (ag.jugadoresRepresentados || []).forEach(j => linkedCountMap.add((typeof j === 'object' ? j.nombre : j).toLowerCase()));
           (state.directory.jugadores || []).forEach(p => {
@@ -21831,23 +22158,23 @@
           const totalCount = linkedCountMap.size;
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${agColor} !important; background: linear-gradient(180deg, ${agColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(agColor)} !important; background: linear-gradient(180deg, ${escapeAttr(agColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Logo/Icono Maletín 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${ag.id || ag.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${agColor}; padding: 3px; flex-shrink: 0; color: ${agColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${ag.logo || ag.escudo ? `<img src="${ag.logo || ag.escudo}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(ag.id || ag.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(agColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${ag.logo || ag.escudo ? `<img src="${escapeAttr(ag.logo || ag.escudo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${ag.id || ag.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(ag.id || ag.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DE LA AGENCIA EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title agency-name-link cursor-pointer" data-id="${ag.id || ag.codigo}" title="${escapeHtml(ag.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title agency-name-link cursor-pointer" data-id="${escapeAttr(ag.id || ag.codigo)}" title="${escapeAttr(ag.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(ag.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21863,7 +22190,7 @@
                   <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: ${agColor}1A; color: ${agColor}; font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-agency-modal" data-id="${ag.id || ag.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-agency-modal" data-id="${escapeAttr(ag.id || ag.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(agColor)}40;">
                   <i data-lucide="briefcase"></i> Ver / Editar Ficha de Agencia
                 </button>
               </div>
@@ -21905,7 +22232,7 @@
           <div class="directory-cards-grid">
             ${pageItems.map(agt => {
           const agtColor = '#0891b2';
-          const agtNameLower = (agt.nombre || agt.agente || '').trim().toLowerCase();
+          const agtNameLower = String(agt.nombre || agt.agente || '').trim().toLowerCase();
           const linkedCountMap = new Set();
           (agt.jugadoresRepresentados || []).forEach(j => linkedCountMap.add((typeof j === 'object' ? j.nombre : j).toLowerCase()));
           (state.directory.jugadores || []).forEach(p => {
@@ -21916,23 +22243,23 @@
           const totalCount = linkedCountMap.size;
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${agtColor} !important; background: linear-gradient(180deg, ${agtColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(agtColor)} !important; background: linear-gradient(180deg, ${escapeAttr(agtColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Foto/Avatar 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${agt.id || agt.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${agtColor}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${agt.foto || agt.imagen ? `<img src="${agt.foto || agt.imagen}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<img src="Foto Jugador General.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`}
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(agt.id || agt.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agtColor)}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${agt.foto || agt.imagen ? `<img src="${escapeAttr(agt.foto || agt.imagen)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<img src="Foto Jugador General.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${agt.id || agt.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(agt.id || agt.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL AGENTE EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title agent-name-link cursor-pointer" data-id="${agt.id || agt.codigo}" title="${escapeHtml(agt.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title agent-name-link cursor-pointer" data-id="${escapeAttr(agt.id || agt.codigo)}" title="${escapeAttr(agt.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(agt.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -21948,7 +22275,7 @@
                   <div><strong>Representados:</strong> ${totalCount > 0 ? `<span class="match-category-tag" style="background: ${agtColor}1A; color: ${agtColor}; font-weight: 800;">${totalCount} jugador(es)</span>` : 'Sin representados'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-agent-modal" data-id="${agt.id || agt.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${agtColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-agent-modal" data-id="${escapeAttr(agt.id || agt.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(agtColor)}40;">
                   <i data-lucide="user-cog"></i> Ver / Editar Ficha de Agente
                 </button>
               </div>
@@ -21993,23 +22320,23 @@
           const estColor = '#16a34a';
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${estColor} !important; background: linear-gradient(180deg, ${estColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(estColor)} !important; background: linear-gradient(180deg, ${escapeAttr(estColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Foto/Icono Mapa amplio 48px (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${est.id || est.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${estColor}; padding: 3px; flex-shrink: 0; color: ${estColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${est.foto || est.imagen ? `<img src="${est.foto || est.imagen}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(est.id || est.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(estColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(estColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${est.foto || est.imagen ? `<img src="${escapeAttr(est.foto || est.imagen)}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${est.id || est.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(est.id || est.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
 
                 <!-- LÍNEA 2: NOMBRE DEL ESTADIO EN UNA SOLA LÍNEA -->
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title stadium-name-link cursor-pointer" data-id="${est.id || est.codigo}" title="${escapeHtml(est.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title stadium-name-link cursor-pointer" data-id="${escapeAttr(est.id || est.codigo)}" title="${escapeAttr(est.nombre)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(est.nombre)} <i data-lucide="external-link" style="width: 12px; height: 12px; opacity: 0.7; vertical-align: middle;"></i>
                   </h3>
                 </div>
@@ -22025,7 +22352,7 @@
                   <div><strong>Clubes:</strong> ${(est.clubes && est.clubes.length) ? est.clubes.length + ' club(es)' : 'Sin clubes'}</div>
                 </div>
 
-                <button type="button" class="btn btn-secondary btn-open-stadium-modal" data-id="${est.id || est.codigo}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${estColor}40;">
+                <button type="button" class="btn btn-secondary btn-open-stadium-modal" data-id="${escapeAttr(est.id || est.codigo)}" style="width: 100%; padding: 6px 12px; font-size: 12px; font-weight: 700; border-color: ${escapeAttr(estColor)}40;">
                   <i data-lucide="map-pin"></i> Ver / Editar Ficha de Estadio
                 </button>
               </div>
@@ -22047,20 +22374,20 @@
           const itemName = item.nombre || item.titulo || item.equipo || 'Registro';
 
           return `
-              <div class="entity-card" style="border-top: 5px solid ${itemColor} !important; background: linear-gradient(180deg, ${itemColor}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
+              <div class="entity-card" style="border-top: 5px solid ${escapeAttr(itemColor)} !important; background: linear-gradient(180deg, ${escapeAttr(itemColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" class="dir-item-checkbox" data-id="${item.id || item.codigo}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${isBulkSelectActive ? 'block' : 'none'};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${itemColor}; padding: 3px; flex-shrink: 0; color: ${itemColor}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(item.id || item.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(itemColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(itemColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       <span style="font-weight: 800; font-size: 16px;">${itemName.charAt(0)}</span>
                     </div>
                   </div>
-                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${item.id || item.codigo}" style="width: 28px; height: 28px;" title="Eliminar">
+                  <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(item.id || item.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
                 <div style="width: 100%; overflow: hidden; margin-top: 4px;">
-                  <h3 class="entity-card-title" title="${escapeHtml(itemName)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+                  <h3 class="entity-card-title" title="${escapeAttr(itemName)}" style="margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
                     ${escapeHtml(itemName)}
                   </h3>
                 </div>
@@ -22703,7 +23030,7 @@
         let html = `<option value="">-- Seleccionar de los Equipos del Directorio (${allTeams.length} equipos) --</option>`;
         allTeams.forEach(t => {
           const isSelected = currentVal && currentVal === t.name ? 'selected' : '';
-          html += `<option value="${escapeHtml(t.name)}" ${isSelected}>${escapeHtml(t.name + t.meta)}</option>`;
+          html += `<option value="${escapeAttr(t.name)}" ${isSelected}>${escapeHtml(t.name + t.meta)}</option>`;
         });
         select.innerHTML = html;
       }
@@ -22728,7 +23055,7 @@
       }
 
       dropdown.innerHTML = matches.map(t => `
-        <div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-name="${escapeHtml(t.name)}">
+        <div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-name="${escapeAttr(t.name)}">
           <strong>${escapeHtml(t.name)}</strong> <span style="color: var(--text-muted); font-size: 12px;">${escapeHtml(t.meta)}</span>
         </div>
       `).join('');
@@ -22795,7 +23122,7 @@
 
     // Search in equipos
     const eq = (state.directory.equipos || []).find(e =>
-      e && ((e.nombre || '').toLowerCase().trim() === nameClean || (e.equipo || '').toLowerCase().trim() === nameClean)
+      e && (String(e.nombre || '').toLowerCase().trim() === nameClean || String(e.equipo || '').toLowerCase().trim() === nameClean)
     );
 
     if (eq) {
@@ -22814,7 +23141,7 @@
       }
       if (eq.club) {
         const clubMatch = (state.directory.clubes || []).find(c =>
-          c && (c.nombre || '').toLowerCase().trim() === eq.club.toLowerCase().trim()
+          c && String(c.nombre || '').toLowerCase().trim() === eq.club.toLowerCase().trim()
         );
         if (clubMatch && clubMatch.comunidad) return clubMatch.comunidad;
       }
@@ -22822,7 +23149,7 @@
 
     // Search directly in clubes
     const clubDirect = (state.directory.clubes || []).find(c =>
-      c && ((c.nombre || '').toLowerCase().trim() === nameClean || (c.club || '').toLowerCase().trim() === nameClean)
+      c && (String(c.nombre || '').toLowerCase().trim() === nameClean || String(c.club || '').toLowerCase().trim() === nameClean)
     );
     if (clubDirect && clubDirect.comunidad) return clubDirect.comunidad;
 
@@ -23072,7 +23399,7 @@
     let html = `
       <datalist id="importerCargoList">
         <option value="+ Crear nuevo..."></option>
-        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}
+        ${OPTIONS_CARGOS_STAFF.map(c => `<option value="${escapeAttr(c)}"></option>`).join('')}
       </datalist>
     `;
     stagedExcelRows.forEach((row, idx) => {
@@ -23088,9 +23415,9 @@
       const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : '#ffffff');
 
       html += `
-        <tr data-idx="${idx}" style="border-bottom: 1px solid #e2e8f0; background: ${rowBg}; transition: background 0.15s ease;">
+        <tr data-idx="${escapeAttr(idx)}" style="border-bottom: 1px solid #e2e8f0; background: ${escapeAttr(rowBg)}; transition: background 0.15s ease;">
           <td style="padding: 6px; text-align: center; border-right: 1px solid #f1f5f9;">
-            <input type="checkbox" class="excel-row-cb" data-idx="${idx}" ${row.checked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
+            <input type="checkbox" class="excel-row-cb" data-idx="${escapeAttr(idx)}" ${row.checked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
           </td>
 
           <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid #f1f5f9;">
@@ -23098,7 +23425,7 @@
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="tipo" style="font-size: 11px; font-weight: 800; padding: 3px 6px; height: 28px; background: ${isStaff ? '#fef3c7' : '#dbeafe'}; color: ${isStaff ? '#92400e' : '#1e40af'}; border-radius: 6px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="tipo" style="font-size: 11px; font-weight: 800; padding: 3px 6px; height: 28px; background: ${escapeAttr(isStaff ? '#fef3c7' : '#dbeafe')}; color: ${escapeAttr(isStaff ? '#92400e' : '#1e40af')}; border-radius: 6px;">
               <option value="JUGADOR" ${row.tipo === 'JUGADOR' ? 'selected' : ''}>🏃 JUGADOR</option>
               <option value="STAFF" ${row.tipo === 'STAFF' ? 'selected' : ''}>👔 STAFF</option>
             </select>
@@ -23106,76 +23433,76 @@
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             ${isStaff ? `
-              <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="cargo" list="importerCargoList" value="${escapeHtml(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
+              <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="cargo" list="importerCargoList" value="${escapeAttr(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
             ` : `
               <span style="display: block; text-align: center; color: #cbd5e1; font-weight: bold; font-size: 11px;">-</span>
             `}
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="nombre" value="${escapeHtml(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px; border: ${alreadyExists ? '1px solid #ef4444' : ''};" placeholder="Nombre...">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="nombre" value="${escapeAttr(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px; border: ${escapeAttr(alreadyExists ? '1px solid #ef4444' : '')};" placeholder="Nombre...">
             ${alreadyExists ? `<div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-top: 2px; text-align: center;">⚠️ YA REGISTRADO</div>` : ''}
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="ano" value="${escapeHtml(row.ano)}" style="font-size: 11px; font-weight: 700; text-align: center; padding: 3px 4px; height: 28px; width: 60px;" placeholder="Año">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="ano" value="${escapeAttr(row.ano)}" style="font-size: 11px; font-weight: 700; text-align: center; padding: 3px 4px; height: 28px; width: 60px;" placeholder="Año">
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="pais" value="${escapeHtml(row.pais)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="País">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pais" value="${escapeAttr(row.pais)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="País">
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="sexo" style="font-size: 11px; padding: 3px 6px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="sexo" style="font-size: 11px; padding: 3px 6px; height: 28px;">
               <option value="MASCULINO" ${row.sexo === 'MASCULINO' ? 'selected' : ''}>Masculino</option>
               <option value="FEMENINO" ${row.sexo === 'FEMENINO' ? 'selected' : ''}>Femenino</option>
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeHtml(row.equipo)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Equipo principal" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(row.equipo)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Equipo principal" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="estado" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="estado" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${estadoOptions.map(e => `<option value="${e}" ${row.estado === e ? 'selected' : ''}>${e}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="comunidad" value="${escapeHtml(row.comunidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Comunidad">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="comunidad" value="${escapeAttr(row.comunidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Comunidad">
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <input type="text" class="form-control excel-cell-field" data-idx="${idx}" data-field="localidad" value="${escapeHtml(row.localidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Localidad">
+            <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="localidad" value="${escapeAttr(row.localidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Localidad">
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="pierna" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pierna" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${piernaOptions.map(p => `<option value="${p}" ${row.pierna === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
-            <select class="form-control excel-cell-field" data-idx="${idx}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
+            <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p || '(Ninguna)'}</option>`).join('')}
             </select>
           </td>
 
           <td style="padding: 4px; text-align: center;">
-            <button type="button" class="btn-action-icon danger btn-delete-excel-row" data-idx="${idx}" style="width: 24px; height: 24px;" title="Eliminar fila">
+            <button type="button" class="btn-action-icon danger btn-delete-excel-row" data-idx="${escapeAttr(idx)}" style="width: 24px; height: 24px;" title="Eliminar fila">
               <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
             </button>
           </td>
@@ -23358,7 +23685,7 @@
 
         // Sincronizar jugador con la plantilla del equipo si el equipo existe
         if (playerObj.equipo && state.directory.equipos) {
-          const teamToUpdate = state.directory.equipos.find(eq => (eq.nombre || '').toLowerCase() === playerObj.equipo.toLowerCase());
+          const teamToUpdate = state.directory.equipos.find(eq => String(eq.nombre || '').toLowerCase() === playerObj.equipo.toLowerCase());
           if (teamToUpdate) {
             if (!teamToUpdate.plantilla) teamToUpdate.plantilla = [];
             const playerAlreadyInPlantilla = teamToUpdate.plantilla.some(j => {
@@ -23620,8 +23947,8 @@
             : '<span style="font-size: 9px; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-weight: 800; margin-left: 8px;">COMPLETADA</span>';
 
           return `
-          <div class="notif-item ${n.read ? '' : 'unread'}" data-notifid="${n.id}" data-taskid="${n.taskId}">
-            <i data-lucide="clock" style="width: 16px; height: 16px; color: ${isPending ? '#f59e0b' : '#22c55e'}; flex-shrink: 0; margin-top: 2px;"></i>
+          <div class="notif-item ${escapeAttr(n.read ? '' : 'unread')}" data-notifid="${escapeAttr(n.id)}" data-taskid="${escapeAttr(n.taskId)}">
+            <i data-lucide="clock" style="width: 16px; height: 16px; color: ${escapeAttr(isPending ? '#f59e0b' : '#22c55e')}; flex-shrink: 0; margin-top: 2px;"></i>
             <div style="flex: 1;">
               <h5 style="font-size: 13px; font-weight: 700; margin: 0 0 2px 0; color: var(--text-main); display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">
                 ${escapeHtml(n.titulo)}
@@ -23908,7 +24235,7 @@
         } else {
           migratedAny = true;
           (state.directory.equipos || []).forEach(e => {
-            const eName = (e.nombre || e.equipo || '').toLowerCase().trim();
+            const eName = String(e.nombre || e.equipo || '').toLowerCase().trim();
             if (eName === t.toLowerCase().trim()) {
               const cat = e.categoria || e.competicion || e.liga;
               if (cat) {
@@ -24071,7 +24398,7 @@
     sorted.forEach(p => {
       const teamStr = p.equipo ? ` (${p.equipo})` : '';
       const label = `${escapeHtml(p.nombre)}${escapeHtml(teamStr)}`;
-      html += `<option value="${label}" data-id="${escapeHtml(p.id)}"></option>`;
+      html += `<option value="${escapeAttr(label)}" data-id="${escapeAttr(p.id)}"></option>`;
     });
     return html;
   }
@@ -24091,7 +24418,7 @@
     sorted.forEach(p => {
       const isSelected = String(p.id) === String(selectedId) ? 'selected' : '';
       const teamStr = p.equipo ? ` (${p.equipo})` : '';
-      html += `<option value="${escapeHtml(p.id)}" ${isSelected}>${escapeHtml(p.nombre)}${escapeHtml(teamStr)}</option>`;
+      html += `<option value="${escapeAttr(p.id)}" ${isSelected}>${escapeHtml(p.nombre)}${escapeHtml(teamStr)}</option>`;
     });
     return html;
   }
@@ -24138,7 +24465,7 @@
             <div style="flex: 1; min-width: 300px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px;">
                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
                   <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--primary-blue, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
-                    ${(stats.nombre || 'J').charAt(0).toUpperCase()}
+                    ${String(stats.nombre || 'J').charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main, #1e293b);">${escapeHtml(stats.nombre)}</h2>
@@ -24223,7 +24550,7 @@
       container.innerHTML = `
         <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
           <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar y Seleccionar Jugador</label>
-          <input type="text" id="compIndividualSelect" list="jugadoresDatalistOptions" class="form-control" style="max-width: 400px; font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.individualPlayerId))}">
+          <input type="text" id="compIndividualSelect" list="jugadoresDatalistOptions" class="form-control" style="max-width: 400px; font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeAttr(getPlayerNameLabel(comparativaState.individualPlayerId))}">
         </div>
         ${profileHTML}
       `;
@@ -24257,7 +24584,7 @@
         selectorsHTML += `
           <div style="flex: 1; min-width: 200px;">
             <label style="font-weight: 700; color: var(--text-dark); margin-bottom: 8px; display: block; font-size: 13px;">Buscar Jugador ${i + 1}</label>
-            <input type="text" class="form-control comp-multi-select" data-index="${i}" list="jugadoresDatalistOptions" style="font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeHtml(getPlayerNameLabel(comparativaState.multiplePlayerIds[i]))}">
+            <input type="text" class="form-control comp-multi-select" data-index="${escapeAttr(i)}" list="jugadoresDatalistOptions" style="font-weight: 600;" placeholder="Escribe para buscar..." value="${escapeAttr(getPlayerNameLabel(comparativaState.multiplePlayerIds[i]))}">
           </div>
         `;
       }
@@ -24281,7 +24608,7 @@
           for (let i = 0; i < maxSlots; i++) {
             const p = selectedPlayers[i];
             const textColor = label === 'Jugador' ? multiColorsBorder[i] : 'var(--text-main)';
-            row += `<div style="flex: 1; text-align: center; font-weight: ${label === 'Jugador' ? '800' : '600'}; color: ${textColor}; font-size: 14px; display: flex; align-items: center; justify-content: center;">`;
+            row += `<div style="flex: 1; text-align: center; font-weight: ${escapeAttr(label === 'Jugador' ? '800' : '600')}; color: ${escapeAttr(textColor)}; font-size: 14px; display: flex; align-items: center; justify-content: center;">`;
             if (p) {
               row += propFn(p);
             } else {
@@ -24311,7 +24638,7 @@
               row += `
                  <div style="font-size: 18px; font-weight: 900; color: var(--text-dark);">${p[propName] || 0}</div>
                  <div style="width: 80%; height: 8px; background: var(--bg-subtle, #f8fafc); border-radius: 4px; overflow: hidden; position: relative;">
-                   <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${pct}%; background: ${barColor}; border-radius: 4px; transition: width 0.5s ease-out;"></div>
+                   <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${escapeAttr(pct)}%; background: ${escapeAttr(barColor)}; border-radius: 4px; transition: width 0.5s ease-out;"></div>
                  </div>
                `;
             } else {
@@ -24607,13 +24934,13 @@
     // Obtener Escudos si existen
     let teamName = player.equipo || player.equipoPrincipal || 'Sin Equipo';
     let teamShieldSrc = '';
-    const normStr = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+    const normStr = (s) => String(s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
     const pTeamNorm = normStr(teamName);
     const pTeamLower = teamName.toLowerCase().trim();
 
     let teamObj = (state.directory.equipos || []).find(eq => {
-      const eqName = (eq.nombre || '').toLowerCase().trim();
-      const eqAlt = (eq.equipo || '').toLowerCase().trim();
+      const eqName = String(eq.nombre || '').toLowerCase().trim();
+      const eqAlt = String(eq.equipo || '').toLowerCase().trim();
       return eqName === pTeamLower || eqAlt === pTeamLower || normStr(eq.nombre) === pTeamNorm || normStr(eq.equipo) === pTeamNorm;
     });
     if (!teamObj) {
@@ -24635,7 +24962,7 @@
       const pSelNorm = normStr(seleccionName);
       const pSelLower = seleccionName.toLowerCase().trim();
       let seleccionObj = (state.directory.selecciones || []).find(sel => {
-        return (sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || (sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
+        return String(sel.nombre || '').toLowerCase().trim() === pSelLower || normStr(sel.nombre) === pSelNorm || String(sel.seleccion || '').toLowerCase().trim() === pSelLower || normStr(sel.seleccion) === pSelNorm;
       });
       if (!seleccionObj) {
         const partialMatches = (state.directory.selecciones || []).filter(sel => {
@@ -24668,7 +24995,7 @@
       </div>`;
     };
 
-    let teamHtmlStr = teamShieldSrc ? `<img src="${teamShieldSrc}" class="shield">` : '';
+    let teamHtmlStr = teamShieldSrc ? `<img src="${escapeAttr(teamShieldSrc)}" class="shield">` : '';
     let selHtmlStr = seleccionName ? `<div class="team-badge" style="margin-top: 4px;">${selShieldSrc ? '<img src="' + selShieldSrc + '" class="shield">' : '🏳️'} ${escapeHtml(seleccionName)}</div>` : '';
 
     const printWin = window.open('', '', 'width=1000,height=900');
@@ -24806,7 +25133,7 @@
           <div class="page">
             <!-- HEADER -->
             <div class="header-banner">
-              <img src="${player.foto || 'Foto Jugador General.png'}" class="avatar" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" class="avatar" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h1 class="title">${escapeHtml(player.nombre || 'Sin Nombre')}</h1>
                 <div class="team-badge">
@@ -24865,7 +25192,7 @@
                 
                 <div class="metric-card" style="padding: 16px;">
                    <div class="subsection-title" style="text-align: center;">Gráfico de Atributos</div>
-                   <img src="${chartImgSrc}" class="radar-img">
+                   <img src="${escapeAttr(chartImgSrc)}" class="radar-img">
                    <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
                       <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">EMO: <span style="color:var(--text)">${valEmo}</span></span>
                       <span style="font-size: 11px; font-weight: 700; color:var(--text-light)">FÍS: <span style="color:var(--text)">${valFis}</span></span>
@@ -25062,7 +25389,7 @@
       }
 
       const lowerName = teamName.toLowerCase().trim();
-      const dirTeam = (state.directory.equipos || []).find(e => (e.nombre || e.equipo || '').toLowerCase().trim() === lowerName && (cat === 'all' || e.categoria === cat || e.competicion === cat || e.liga === cat));
+      const dirTeam = (state.directory.equipos || []).find(e => String(e.nombre || e.equipo || '').toLowerCase().trim() === lowerName && (cat === 'all' || e.categoria === cat || e.competicion === cat || e.liga === cat));
 
       const displayCat = cat !== 'all' ? cat : (dirTeam?.categoria || dirTeam?.competicion || dirTeam?.liga || 'General / Todas');
       const fed = dirTeam?.federacion || 'Sin Federación';
@@ -25097,9 +25424,9 @@
         const icon = isPriority ? '⭐' : '👁️';
         const removeColor = isPriority ? '#b45309' : '#7e22ce';
         return `
-              <span class="badge" style="${badgeStyle} font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              <span class="badge" style="${escapeAttr(badgeStyle)} font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 ${icon} ${escapeHtml(t.display)}
-                <button type="button" class="btn-remove-team-modal" data-team="${escapeHtml(t.rawValue)}" style="background: none; border: none; padding: 0; cursor: pointer; color: ${removeColor}; opacity: 0.7;" title="Eliminar equipo">
+                <button type="button" class="btn-remove-team-modal" data-team="${escapeAttr(t.rawValue)}" style="background: none; border: none; padding: 0; cursor: pointer; color: ${escapeAttr(removeColor)}; opacity: 0.7;" title="Eliminar equipo">
                   <i data-lucide="x" style="width: 12px; height: 12px;"></i>
                 </button>
               </span>
@@ -25241,7 +25568,7 @@
           let html = '';
           arr.forEach(val => {
             const label = formatLabel(val);
-            html += `<option value="${escapeHtml(label)}" data-val="${escapeHtml(val)}"></option>`;
+            html += `<option value="${escapeAttr(label)}" data-val="${escapeAttr(val)}"></option>`;
           });
           el.list.innerHTML = html;
 
@@ -25254,7 +25581,7 @@
           let html = `<option value="all">${defaultLabel}</option>`;
           arr.forEach(val => {
             const label = formatLabel(val);
-            html += `<option value="${escapeHtml(val)}" ${selectedValue === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            html += `<option value="${escapeAttr(val)}" ${selectedValue === val ? 'selected' : ''}>${escapeHtml(label)}</option>`;
           });
           el.innerHTML = html;
         }
@@ -25285,11 +25612,11 @@
         updateJorLabel();
 
         const renderJorDropdown = () => {
-          let html = `<div class="jor-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${selectedCarteleraJornadas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">Todas</div>`;
+          let html = `<div class="jor-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${escapeAttr(selectedCarteleraJornadas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent')};">Todas</div>`;
           arrJor.forEach(j => {
             const displayLabel = String(j).replace(/jornada\s*/i, '');
             const isChecked = selectedCarteleraJornadas.includes(j);
-            html += `<div class="jor-item" data-val="${escapeHtml(j)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">
+            html += `<div class="jor-item" data-val="${escapeAttr(j)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${escapeAttr(isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent')};">
                 <input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer; pointer-events: none;">
                 <span>${escapeHtml(displayLabel)}</span>
               </div>`;
@@ -25336,11 +25663,7 @@
               renderJorDropdown();
             }
           });
-          document.addEventListener('click', (e) => {
-            if (!jorTrigger.contains(e.target) && !jorDropdown.contains(e.target)) {
-              jorDropdown.classList.add('hidden');
-            }
-          });
+          cerrarAlPulsarFuera('carteleraFilterJornadaTrigger', 'carteleraFilterJornadaDropdown');
         }
       }
       
@@ -25362,12 +25685,12 @@
         updateFechaLabel();
 
         const renderFechaDropdown = () => {
-          let html = `<div class="fecha-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${selectedCarteleraFechas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">Todas</div>`;
+          let html = `<div class="fecha-item-all" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; font-weight: bold; background: ${escapeAttr(selectedCarteleraFechas.length === 0 ? 'var(--bg-subtle, #f8fafc)' : 'transparent')};">Todas</div>`;
           arrFechas.forEach(f => {
             const parts = f.split('-');
             const displayLabel = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : f;
             const isChecked = selectedCarteleraFechas.includes(f);
-            html += `<div class="fecha-item" data-val="${escapeHtml(f)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent'};">
+            html += `<div class="fecha-item" data-val="${escapeAttr(f)}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px; display: flex; align-items: center; gap: 8px; background: ${escapeAttr(isChecked ? 'var(--bg-subtle, #f8fafc)' : 'transparent')};">
                 <input type="checkbox" ${isChecked ? 'checked' : ''} style="cursor: pointer; pointer-events: none;">
                 <span>${escapeHtml(displayLabel)}</span>
               </div>`;
@@ -25412,11 +25735,7 @@
               renderFechaDropdown();
             }
           });
-          document.addEventListener('click', (e) => {
-            if (!fechaTrigger.contains(e.target) && !fechaDropdown.contains(e.target)) {
-              fechaDropdown.classList.add('hidden');
-            }
-          });
+          cerrarAlPulsarFuera('carteleraFilterFechaTrigger', 'carteleraFilterFechaDropdown');
         }
       }
 
@@ -25438,7 +25757,7 @@
               eqDropdown.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 13px;">No hay coincidencias...</div>';
               return;
             }
-            eqDropdown.innerHTML = matches.map(t => `<div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-val="${escapeHtml(t)}">${escapeHtml(t)}</div>`).join('');
+            eqDropdown.innerHTML = matches.map(t => `<div class="autocomplete-item" style="padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 14px;" data-val="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
 
             eqDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
               item.addEventListener('click', () => {
@@ -25466,11 +25785,7 @@
             }
           });
 
-          document.addEventListener('click', (e) => {
-            if (!eqInput.contains(e.target) && !eqDropdown.contains(e.target)) {
-              eqDropdown.classList.add('hidden');
-            }
-          });
+          cerrarAlPulsarFuera('carteleraFilterEquipo', 'carteleraFilterEquipoDropdown');
         }
       }
 
@@ -25489,7 +25804,7 @@
     try {
       if (!container) return;
 
-      const priorityClubsLower = (state.directory?.clubes || []).filter(c => c.esPrioritario).map(c => (c.nombre || c.club || '').toLowerCase().trim());
+      const priorityClubsLower = (state.directory?.clubes || []).filter(c => c.esPrioritario).map(c => String(c.nombre || c.club || '').toLowerCase().trim());
       const priorityTeamsLower = [...new Set([...(state.cartelera.priorityTeams || []).map(t => String(t || '').toLowerCase().trim()), ...priorityClubsLower])];
       const interestingTeamsLower = (state.cartelera.interestingTeams || []).map(t => String(t || '').toLowerCase().trim());
       const calendarios = state.cartelera.calendarios || [];
@@ -25570,7 +25885,7 @@
              // 2. Check club priority level
              for (const club of (state.directory?.clubes || [])) {
                 if (!club.esPrioritario || !club.prioridadNivel) continue;
-                const clubNameLower = (club.nombre || club.club || '').toLowerCase();
+                const clubNameLower = String(club.nombre || club.club || '').toLowerCase();
                 const normClub = normalizeTeamName(clubNameLower);
                 const normTeam = normalizeTeamName(teamLower);
                 if (normClub && normTeam && (normClub === normTeam || normTeam.includes(normClub) || normClub.includes(normTeam))) return club.prioridadNivel;
@@ -25635,7 +25950,7 @@
       }
       // Apply Tecnico filter
       if (selectedCarteleraTecnico !== 'all') {
-        allMatches = allMatches.filter(m => (m.tecnico || '').trim() === selectedCarteleraTecnico);
+        allMatches = allMatches.filter(m => String(m.tecnico || '').trim() === selectedCarteleraTecnico);
       }
       // Apply Buscador Rápido search filter
       if (searchVal) {
@@ -25679,7 +25994,9 @@
 
       // IF SUBVIEW IS JORNADAS, group and display matches by Jornada 1, Jornada 2...
       if (selectedCarteleraSubview === 'jornadas') {
-        renderCarteleraJornadasGrid(allMatches);
+        // Esta vista no llegó a implementarse: la llamada queda protegida para que, si algún
+        // día se activa la subvista, no rompa la pantalla entera.
+        if (typeof renderCarteleraJornadasGrid === 'function') renderCarteleraJornadasGrid(allMatches);
         return;
       }
 
@@ -25687,14 +26004,14 @@
 
       // Sort: if filterCarteleraThisWeekend is active, sort by date/time directly. Otherwise by Jornada then date/time.
       allMatches.sort((a, b) => {
-        let dateAStr = (a.fecha || '9999-12-31').trim();
+        let dateAStr = String(a.fecha || '9999-12-31').trim();
         if (dateAStr.includes('/')) dateAStr = dateAStr.split('/').reverse().join('-');
-        let dateBStr = (b.fecha || '9999-12-31').trim();
+        let dateBStr = String(b.fecha || '9999-12-31').trim();
         if (dateBStr.includes('/')) dateBStr = dateBStr.split('/').reverse().join('-');
 
-        let horaA = (a.hora || '00:00').trim();
+        let horaA = String(a.hora || '00:00').trim();
         if (horaA.length === 4) horaA = '0' + horaA; // e.g. 9:30 -> 09:30
-        let horaB = (b.hora || '00:00').trim();
+        let horaB = String(b.hora || '00:00').trim();
         if (horaB.length === 4) horaB = '0' + horaB;
 
         const dateA = new Date(dateAStr + 'T' + horaA).getTime();
@@ -25763,11 +26080,11 @@
       });
 
       const getTecnicoSelect = (matchId, selectedValue) => {
-        let selHtml = `<select class="form-control form-control-sm cartelera-match-tecnico" data-matchid="${matchId}" style="font-size: 11px; height: 26px; padding: 2px 4px; width: 100%;">`;
+        let selHtml = `<select class="form-control form-control-sm cartelera-match-tecnico" data-matchid="${escapeAttr(matchId)}" style="font-size: 11px; height: 26px; padding: 2px 4px; width: 100%;">`;
         selHtml += `<option value="">Técnico...</option>`;
         currentTecnicos.forEach(t => {
           const sel = (t === selectedValue) ? 'selected' : '';
-          selHtml += `<option value="${escapeHtml(t)}" ${sel}>${escapeHtml(t)}</option>`;
+          selHtml += `<option value="${escapeAttr(t)}" ${sel}>${escapeHtml(t)}</option>`;
         });
         selHtml += `<option value="NUEVO_TECNICO">+ Nuevo...</option>`;
         selHtml += `</select>`;
@@ -25843,22 +26160,22 @@ const formatTeamName = (str) => {
           };
 
           return `
-                    <tr style="border-bottom: 1px solid var(--border-light); ${bgStyle}">
-                      <td style="padding: 8px 12px; ${borderLeft} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
-                      <td style="padding: 8px 12px; ${locStyle}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
-                      <td style="padding: 8px 12px; ${visStyle}">${escapeHtml(formatTeamName(m.visitante))}</td>
+                    <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(bgStyle)}">
+                      <td style="padding: 8px 12px; ${escapeAttr(borderLeft)} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
+                      <td style="padding: 8px 12px; ${escapeAttr(locStyle)}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
+                      <td style="padding: 8px 12px; ${escapeAttr(visStyle)}">${escapeHtml(formatTeamName(m.visitante))}</td>
                       <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
                       <td style="padding: 8px 12px;">
-                        <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${m.id}" value="${m.fecha || ''}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                        <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${escapeAttr(m.id)}" value="${escapeAttr(m.fecha || '')}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
                       </td>
                       <td style="padding: 8px 12px;">
-                        <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${m.id}" value="${m.hora || '00:00'}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
+                        <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${escapeAttr(m.id)}" value="${escapeAttr(m.hora || '00:00')}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
                       </td>
                       <td style="padding: 8px 12px;">
                         ${getTecnicoSelect(m.id, m.tecnico)}
                       </td>
                       <td style="padding: 8px 12px; text-align: center;">
-                        <button type="button" class="btn btn-sm btn-cartelera-to-live" data-matchid="${m.id}" style="font-weight: 700; font-size: 10px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); box-shadow: none; white-space: nowrap;">
+                        <button type="button" class="btn btn-sm btn-cartelera-to-live" data-matchid="${escapeAttr(m.id)}" style="font-weight: 700; font-size: 10px; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); box-shadow: none; white-space: nowrap;">
                           <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Crear Informe
                         </button>
                       </td>
@@ -26049,9 +26366,9 @@ const formatTeamName = (str) => {
     const federations = sortFederations(state.directory?.federaciones || []).map(f => f.nombre || f.federacion).filter(Boolean);
     const groups = getAllGroupsArray();
 
-    const catOptions = `<option value="all">-- Todas las Competiciones --</option>` + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-    const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
-    const groupOptions = `<option value="Todos los Grupos">Todos los Grupos</option>` + groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+    const catOptions = `<option value="all">-- Todas las Competiciones --</option>` + categories.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+    const fedOptions = `<option value="all">-- Todas las Federaciones --</option>` + federations.map(f => `<option value="${escapeAttr(f)}">${escapeHtml(f)}</option>`).join('');
+    const groupOptions = `<option value="Todos los Grupos">Todos los Grupos</option>` + groups.map(g => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join('');
 
     const modalTitle = isPriority ? '⭐ Gestor de Equipos Prioritarios' : '👁️ Gestor de Equipos Interesantes';
     const mainColor = isPriority ? '#2563eb' : '#9333ea';
@@ -26132,8 +26449,8 @@ const formatTeamName = (str) => {
 
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
           <button type="button" class="btn btn-secondary" id="btnCancelAddTeamModal">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: ${mainColor};">
-            <i data-lucide="${icon}"></i> ${btnLabel}
+          <button type="submit" class="btn btn-primary" style="font-weight: 800; background: ${escapeAttr(mainColor)};">
+            <i data-lucide="${escapeAttr(icon)}"></i> ${btnLabel}
           </button>
         </div>
       </form>
@@ -26220,7 +26537,7 @@ const formatTeamName = (str) => {
 
         return `
           <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-main);">
-            <input type="checkbox" class="chk-priority-team" value="${escapeHtml(key)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: ${mainColor};">
+            <input type="checkbox" class="chk-priority-team" value="${escapeAttr(key)}" ${isChecked ? 'checked' : ''} style="width: 14px; height: 14px; accent-color: ${escapeAttr(mainColor)};">
             <span>${displayName}</span>
           </label>
         `;
@@ -26359,8 +26676,8 @@ const formatTeamName = (str) => {
           if (matchDate >= fromDate && matchDate <= toDate) {
 
             // Recompute priority specifically for this match
-            const locLower = (m.local || '').toLowerCase();
-            const visLower = (m.visitante || '').toLowerCase();
+            const locLower = String(m.local || '').toLowerCase();
+            const visLower = String(m.visitante || '').toLowerCase();
             const comp = m.competicion || cal.nombre || 'General';
 
             const isPriority = (teamLower, matchComp) => priorityTeamsLower.some(pt => {
@@ -26430,8 +26747,8 @@ const formatTeamName = (str) => {
 
     // Sort chronologically by date and time
     matchesList.sort((a, b) => {
-      const jorA = parseInt((a.jornada || '').match(/\d+/) || [999]);
-      const jorB = parseInt((b.jornada || '').match(/\d+/) || [999]);
+      const jorA = parseInt(String(a.jornada || '').match(/\d+/) || [999]);
+      const jorB = parseInt(String(b.jornada || '').match(/\d+/) || [999]);
       if (jorA !== jorB) return jorA - jorB;
 
       const dateA = new Date((a.fecha || '9999-12-31') + 'T' + (a.hora || '00:00'));
@@ -26450,7 +26767,7 @@ const formatTeamName = (str) => {
     };
 
     const rowsHtml = matchesList.map((m, idx) => `
-      <tr style="${(m.isHighInterest || m.isPriority) ? 'background-color: #f0fdf4;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;')}">
+      <tr style="${escapeAttr((m.isHighInterest || m.isPriority) ? 'background-color: #f0fdf4;' : (idx % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8fafc;'))}">
         <td style="padding: 12px 16px; font-weight: 600; white-space: nowrap; border-bottom: 1px solid #e2e8f0; color: #334155;">
           ${fmtDate(m.fecha)}<br>
           <span style="font-size: 11px; color: #2563eb; font-weight: 700;">${m.hora || '00:00'} hs</span>
@@ -26705,7 +27022,7 @@ const formatTeamName = (str) => {
         if (isSinEval) badges += `<span style="background: #fef3c7; color: #d97706; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">SIN EVALUAR</span>`;
 
         return `
-        <div class="match-report-link-emergente" data-repid="${h.reportId || h.id}" data-playerid="${h.playerId}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
+        <div class="match-report-link-emergente" data-repid="${escapeAttr(h.reportId || h.id)}" data-playerid="${escapeAttr(h.playerId)}" style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-blue)'; this.style.background='#f0f9ff';" onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-surface)';">
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(h.localTeam || h.equipoLocal || h.local || 'Local')} <span style="color: var(--text-muted); font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(h.visitanteTeam || h.equipoVisitante || h.visitante || 'Visitante')} ${badges}</div>
             <div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.date || h.fecha || 'Sin fecha')} - ${escapeHtml(h.competicion || h.categoria || 'Sin Especificar')}</div>
@@ -26740,14 +27057,14 @@ const formatTeamName = (str) => {
             }
 
             informesHtml += `<div style="margin-bottom: 8px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden;">`;
-            informesHtml += `<div onclick="const content = document.getElementById('${id}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
+            informesHtml += `<div onclick="const content = document.getElementById('${escapeJsAttr(id)}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
               ${escapeHtml(td.teamName)}
               <div style="display: flex; align-items: center; gap: 8px;">
-                 <span style="font-size: 11px; color: ${badgeText}; font-weight: 700; background: ${badgeBg}; padding: 2px 8px; border-radius: 12px;">${badgeContent}</span>
+                 <span style="font-size: 11px; color: ${escapeAttr(badgeText)}; font-weight: 700; background: ${escapeAttr(badgeBg)}; padding: 2px 8px; border-radius: 12px;">${badgeContent}</span>
                  <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s;"></i>
               </div>
             </div>`;
-            informesHtml += `<div id="${id}" style="display: none; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
+            informesHtml += `<div id="${escapeAttr(id)}" style="display: none; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
             if (td.reports.length > 0) {
               informesHtml += td.reports.map(renderReportItem).join('');
             } else {
@@ -26822,9 +27139,9 @@ const formatTeamName = (str) => {
     });
 
     // Get all clubs and sort alphabetically
-    const allClubs = (state.directory?.clubes || []).slice().sort((a, b) => {
-      const nameA = (a.nombre || a.club || '').toLowerCase();
-      const nameB = (b.nombre || b.club || '').toLowerCase();
+    const allClubs = String(state.directory?.clubes || []).slice().sort((a, b) => {
+      const nameA = String(a.nombre || a.club || '').toLowerCase();
+      const nameB = String(b.nombre || b.club || '').toLowerCase();
       return nameA.localeCompare(nameB);
     });
 
@@ -26835,7 +27152,7 @@ const formatTeamName = (str) => {
       let filteredClubs = [];
       if (q) {
         filteredClubs = allClubs.filter(c => {
-          const name = (c.nombre || c.club || '').toLowerCase();
+          const name = String(c.nombre || c.club || '').toLowerCase();
           return name.includes(q);
         });
       } else {
@@ -26895,11 +27212,11 @@ const formatTeamName = (str) => {
         const rotateStyle = isSearching ? 'rotate(180deg)' : 'rotate(0deg)';
 
         html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden; flex-shrink: 0;">`;
-        html += `<div onclick="const content = document.getElementById('${fedId}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
+        html += `<div onclick="const content = document.getElementById('${escapeJsAttr(fedId)}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'block'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 12px 16px; font-size: 14px; font-weight: 800; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); transition: background 0.2s;" onmouseover="this.style.background='var(--bg-subtle)'" onmouseout="this.style.background='var(--bg-card)'">
           <div>${escapeHtml(fed)} <span style="font-size: 12px; color: var(--text-muted); font-weight: normal; margin-left: 8px;">(${clubs.length} clubes)</span></div>
-          <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: ${rotateStyle};"></i>
+          <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: ${escapeAttr(rotateStyle)};"></i>
         </div>`;
-        html += `<div id="${fedId}" style="display: ${displayStyle}; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
+        html += `<div id="${escapeAttr(fedId)}" style="display: ${escapeAttr(displayStyle)}; padding: 12px; border-top: 1px solid var(--border-light); background: var(--bg-surface);">`;
         html += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
 
         // Sort clubs by priority A > B > C > None, then name
@@ -26914,8 +27231,8 @@ const formatTeamName = (str) => {
           const valA = getPrioVal(a);
           const valB = getPrioVal(b);
           if (valA !== valB) return valA - valB;
-          const nameA = (a.nombre || a.club || '').toLowerCase();
-          const nameB = (b.nombre || b.club || '').toLowerCase();
+          const nameA = String(a.nombre || a.club || '').toLowerCase();
+          const nameB = String(b.nombre || b.club || '').toLowerCase();
           return nameA.localeCompare(nameB);
         });
 
@@ -26933,22 +27250,22 @@ const formatTeamName = (str) => {
           // Count vistos
           const vistosObj = getInformesVistos(club.nombre || club.club || '', true);
           const vistosBadge = vistosObj.seenTeams > 0 
-            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistosObj.seenTeams} / ${vistosObj.totalTeams} equipos vistos</span>` 
-            : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${clubName}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
+            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeJsAttr(clubName)}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistosObj.seenTeams} / ${vistosObj.totalTeams} equipos vistos</span>` 
+            : `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeJsAttr(clubName)}', ${escapeHtml(JSON.stringify(vistosObj))})" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: pointer;">0 / ${vistosObj.totalTeams} equipos vistos</span>`;
           
           html += `
-            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: ${bgColor}; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+            <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: ${escapeAttr(bgColor)}; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
               <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
+                <i data-lucide="${escapeAttr(isPriority ? 'star' : 'circle')}" style="width: 14px; color: ${escapeAttr(starColor)};"></i>
                 ${clubName}
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 ${vistosBadge}
                 <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
-                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
-                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
-                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
-                  <button type="button" class="club-priority-btn" data-id="${club.id}" data-level="" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                  <button type="button" class="club-priority-btn" data-id="${escapeAttr(club.id)}" data-level="A" style="padding: 4px 8px; border: none; background: ${escapeAttr(prioLevel === 'A' ? '#10b981' : 'transparent')}; color: ${escapeAttr(prioLevel === 'A' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                  <button type="button" class="club-priority-btn" data-id="${escapeAttr(club.id)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'B' ? '#eab308' : 'transparent')}; color: ${escapeAttr(prioLevel === 'B' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                  <button type="button" class="club-priority-btn" data-id="${escapeAttr(club.id)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'C' ? '#3b82f6' : 'transparent')}; color: ${escapeAttr(prioLevel === 'C' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                  <button type="button" class="club-priority-btn" data-id="${escapeAttr(club.id)}" data-level="" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
                 </div>
               </div>
             </div>
@@ -27070,22 +27387,22 @@ const formatTeamName = (str) => {
 
           const vistos = getInformesVistos(team, false);
           const vistosBadge = vistos.length > 0 
-            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
+            ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeJsAttr(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
             : `<span class="badge-vistos" style="background: var(--bg-subtle); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border-color); margin-left: 8px; cursor: default;">0 vistos</span>`;
 
           html += `
             <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-light); flex-shrink: 0; margin-bottom: 8px;">
               <div style="font-weight: 600; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
+                <i data-lucide="${escapeAttr(isPriority ? 'star' : 'circle')}" style="width: 14px; color: ${escapeAttr(starColor)};"></i>
                 ${escapeHtml(team)}
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 ${vistosBadge}
                 <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
-                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
-                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
-                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
-                  <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'X' ? 'var(--bg-card)' : 'transparent'}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${escapeAttr(prioLevel === 'A' ? '#10b981' : 'transparent')}; color: ${escapeAttr(prioLevel === 'A' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'B' ? '#eab308' : 'transparent')}; color: ${escapeAttr(prioLevel === 'B' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'C' ? '#3b82f6' : 'transparent')}; color: ${escapeAttr(prioLevel === 'C' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                  <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'X' ? 'var(--bg-card)' : 'transparent')}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
                 </div>
               </div>
             </div>
@@ -27138,13 +27455,13 @@ const formatTeamName = (str) => {
           if (clubTeams.length > 0) {
             const clubId = 'club-teams-' + clubName.replace(/[^a-zA-Z0-9]/g, '');
             html += `<div style="margin-bottom: 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-surface); overflow: hidden; flex-shrink: 0;">`;
-            html += `<div onclick="const content = document.getElementById('${clubId}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'flex'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 10px 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-light); font-weight: 800; font-size: 13px; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-subtle)'">
+            html += `<div onclick="const content = document.getElementById('${escapeJsAttr(clubId)}'); const icon = this.querySelector('.acc-icon'); if(content.style.display === 'none') { content.style.display = 'flex'; icon.style.transform = 'rotate(180deg)'; } else { content.style.display = 'none'; icon.style.transform = 'rotate(0deg)'; }" style="padding: 10px 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-light); font-weight: 800; font-size: 13px; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='var(--bg-subtle)'">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <i data-lucide="shield" style="width: 14px; color: ${color};"></i> ${clubName} (Nivel ${clubLevel})
+                  <i data-lucide="shield" style="width: 14px; color: ${escapeAttr(color)};"></i> ${clubName} (Nivel ${clubLevel})
                 </div>
                 <i data-lucide="chevron-down" class="acc-icon" style="width: 16px; height: 16px; color: var(--text-muted); transition: transform 0.2s; transform: rotate(180deg);"></i>
               </div>`;
-            html += `<div id="${clubId}" style="display: flex; flex-direction: column; gap: 0;">`;
+            html += `<div id="${escapeAttr(clubId)}" style="display: flex; flex-direction: column; gap: 0;">`;
             
             clubTeams.forEach(team => {
               const explicitLevel = (state.cartelera.priorityTeamsLevels || {})[team];
@@ -27160,22 +27477,22 @@ const formatTeamName = (str) => {
 
               const vistos = getInformesVistos(team, false);
               const vistosBadge = vistos.length > 0 
-                ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeHtml(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
+                ? `<span class="badge-vistos" onclick="window.openInformesVistosModal('${escapeJsAttr(team)}', ${escapeHtml(JSON.stringify(vistos))})" style="background: var(--primary-blue-light); color: var(--primary-blue); font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: 1px solid var(--primary-blue); margin-left: 8px;">${vistos.length} vistos</span>` 
                 : `<span class="badge-vistos" style="background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; margin-left: 8px; cursor: default;">0 vistos</span>`;
 
               html += `
-                <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${bgColor}; border-bottom: 1px solid var(--border-light);">
+                <div class="priority-club-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: ${escapeAttr(bgColor)}; border-bottom: 1px solid var(--border-light);">
                   <div style="font-weight: 600; font-size: 13px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="${isPriority ? 'star' : 'circle'}" style="width: 14px; color: ${starColor};"></i>
+                    <i data-lucide="${escapeAttr(isPriority ? 'star' : 'circle')}" style="width: 14px; color: ${escapeAttr(starColor)};"></i>
                     ${escapeHtml(team)}
                   </div>
                   <div style="display: flex; align-items: center; gap: 12px;">
                     ${vistosBadge}
                     <div style="display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; background: var(--bg-surface);">
-                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${prioLevel === 'A' ? '#10b981' : 'transparent'}; color: ${prioLevel === 'A' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
-                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'B' ? '#eab308' : 'transparent'}; color: ${prioLevel === 'B' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
-                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'C' ? '#3b82f6' : 'transparent'}; color: ${prioLevel === 'C' ? 'white' : 'var(--text-muted)'}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
-                      <button type="button" class="specific-team-priority-btn" data-team="${escapeHtml(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${prioLevel === 'X' ? 'var(--bg-card)' : 'transparent'}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="A" style="padding: 4px 8px; border: none; background: ${escapeAttr(prioLevel === 'A' ? '#10b981' : 'transparent')}; color: ${escapeAttr(prioLevel === 'A' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">A</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="B" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'B' ? '#eab308' : 'transparent')}; color: ${escapeAttr(prioLevel === 'B' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">B</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="C" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'C' ? '#3b82f6' : 'transparent')}; color: ${escapeAttr(prioLevel === 'C' ? 'white' : 'var(--text-muted)')}; font-size: 12px; font-weight: 700; cursor: pointer;">C</button>
+                      <button type="button" class="specific-team-priority-btn" data-team="${escapeAttr(team)}" data-level="X" style="padding: 4px 8px; border: none; border-left: 1px solid var(--border-light); background: ${escapeAttr(prioLevel === 'X' ? 'var(--bg-card)' : 'transparent')}; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer;"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button>
                     </div>
                   </div>
                 </div>
@@ -27214,7 +27531,7 @@ const formatTeamName = (str) => {
             if (idx > -1) state.cartelera.priorityTeams.splice(idx, 1);
           }
           
-          saveSettingsToFirebase(); // save to app_settings
+          saveState(); // guarda en configuracion/app_settings (antes: saveSettingsToFirebase, que no existe)
           
           // Re-render immediately to sort, preserving accordions
           const listContainer = document.getElementById('prioritySpecificTeamsList');
@@ -27363,13 +27680,13 @@ const formatTeamName = (str) => {
   function openImportTextCalendarModal() {
     ensureCarteleraState();
 
-    const catOptions = (typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : []).map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+    const catOptions = (typeof LISTA_CATEGORIAS_EQUIPO !== 'undefined' ? LISTA_CATEGORIAS_EQUIPO : []).map(cat => `<option value="${escapeAttr(cat)}">${escapeHtml(cat)}</option>`).join('');
     const tempOptions = (typeof LISTA_TEMPORADAS_EQUIPO !== 'undefined' ? LISTA_TEMPORADAS_EQUIPO : []).map(t => {
       const shortFormat = t.substring(2, 4) + '/' + t.substring(7, 9);
-      return `<option value="${escapeHtml(shortFormat)}">${escapeHtml(t)} (${shortFormat})</option>`;
+      return `<option value="${escapeAttr(shortFormat)}">${escapeHtml(t)} (${shortFormat})</option>`;
     }).join('');
-    const fedOptions = sortFederations(state.directory?.federaciones || []).map(f => `<option value="${escapeHtml(f.nombre || f.federacion)}">${escapeHtml(f.nombre || f.federacion)}</option>`).join('');
-    const groupOptions = getAllGroupsArray().map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
+    const fedOptions = sortFederations(state.directory?.federaciones || []).map(f => `<option value="${escapeAttr(f.nombre || f.federacion)}">${escapeHtml(f.nombre || f.federacion)}</option>`).join('');
+    const groupOptions = getAllGroupsArray().map(g => `<option value="${escapeAttr(g)}">${escapeHtml(g)}</option>`).join('');
 
     const card = document.getElementById('generalModalCard');
     if (card) card.classList.add('xlarge');
@@ -27670,19 +27987,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const catName = catObj ? catObj.label : (t.categoria || 'General');
         const colorObj = getCategoryColor(t.categoria);
         return `
-              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-left: 4px solid ${colorObj.accent}; border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
+              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-left: 4px solid ${escapeAttr(colorObj.accent)}; border-radius: var(--radius-md); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
                 <div>
                   <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 4px 0; color: var(--text-main); text-decoration: line-through; opacity: 0.7;">${escapeHtml(t.titulo)}</h4>
                   <div style="display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); align-items: center;">
                     <span>📅 ${escapeHtml(t.fecha || 'Sin fecha')}</span>
-                    <span style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; padding: 1px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
+                    <span style="background: ${escapeAttr(colorObj.bg)}; color: ${escapeAttr(colorObj.text)}; border: 1px solid ${escapeAttr(colorObj.border)}; padding: 1px 6px; border-radius: 4px; font-weight: 700;">🏷️ ${escapeHtml(catName)}</span>
                   </div>
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
-                  <button class="btn btn-sm btn-secondary btn-unarchive-task" data-id="${t.id || t.codigo}" title="Restaurar a En proceso">
+                  <button class="btn btn-sm btn-secondary btn-unarchive-task" data-id="${escapeAttr(t.id || t.codigo)}" title="Restaurar a En proceso">
                     <i data-lucide="rotate-ccw" style="width: 13px;"></i> Restaurar
                   </button>
-                  <button class="btn-action-icon danger btn-delete-archived-task" data-id="${t.id || t.codigo}" title="Eliminar permanentemente">
+                  <button class="btn-action-icon danger btn-delete-archived-task" data-id="${escapeAttr(t.id || t.codigo)}" title="Eliminar permanentemente">
                     <i data-lucide="trash-2" style="width: 14px;"></i>
                   </button>
                 </div>
@@ -27770,7 +28087,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
 
       let filtersHtml = `
-        <li class="${currentAgendaCat === 'all' ? 'active' : ''}" data-cat="all">
+        <li class="${escapeAttr(currentAgendaCat === 'all' ? 'active' : '')}" data-cat="all">
           <i data-lucide="layers"></i> Todos
           <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts.all}</span>
         </li>
@@ -27779,14 +28096,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       state.agendaCategories.forEach(cat => {
         const colorObj = getCategoryColor(cat.id);
         filtersHtml += `
-          <li class="${currentAgendaCat === cat.id ? 'active' : ''}" data-cat="${cat.id}">
+          <li class="${escapeAttr(currentAgendaCat === cat.id ? 'active' : '')}" data-cat="${escapeAttr(cat.id)}">
             <label style="cursor: pointer; margin: 0; padding: 0; display: flex; align-items: center;" title="Cambiar color" onclick="event.stopPropagation()">
-              <input type="color" value="${colorObj.accent}" onchange="updateAgendaCategoryColor(event, '${cat.id}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
-              <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${colorObj.accent}; flex-shrink: 0; display: inline-block;"></span>
+              <input type="color" value="${escapeAttr(colorObj.accent)}" onchange="updateAgendaCategoryColor(event, '${escapeJsAttr(cat.id)}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background-color: ${escapeAttr(colorObj.accent)}; flex-shrink: 0; display: inline-block;"></span>
             </label>
-            <i data-lucide="${cat.icon || 'bookmark'}"></i> ${escapeHtml(cat.label)}
+            <i data-lucide="${escapeAttr(cat.icon || 'bookmark')}"></i> ${escapeHtml(cat.label)}
             <span style="margin-left: auto; font-size: 11px; opacity: 0.8; font-weight: 700;">${counts[cat.id] || 0}</span>
-            <button class="btn-action-icon danger btn-delete-agenda-cat" data-id="${cat.id}" title="Eliminar categoría" style="margin-left: 6px; padding: 2px;">
+            <button class="btn-action-icon danger btn-delete-agenda-cat" data-id="${escapeAttr(cat.id)}" title="Eliminar categoría" style="margin-left: 6px; padding: 2px;">
               <i data-lucide="x" style="width: 12px; height: 12px;"></i>
             </button>
           </li>
@@ -27811,6 +28128,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             state.agendaCategories = state.agendaCategories.filter(c => c.id !== catId);
             if (currentAgendaCat === catId) currentAgendaCat = 'all';
             saveState();
+            // Las categorías viven en su propia colección además de en los ajustes, y al cargar
+            // manda la colección. Sin este borrado la categoría reaparecía al recargar.
+            if (typeof deleteFromFirebase === 'function') deleteFromFirebase('agendaCategories', catId);
             renderAgenda();
           });
         });
@@ -27825,13 +28145,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           if (name && name.trim()) {
             const cleanName = name.trim();
             const newId = 'cat_' + Date.now();
-            state.agendaCategories.push({
-              id: newId,
-              label: cleanName,
-              icon: 'bookmark'
-            });
+            const nuevaCat = { id: newId, label: cleanName, icon: 'bookmark' };
+            state.agendaCategories.push(nuevaCat);
             currentAgendaCat = newId;
             saveState();
+            // Sin esto la categoría solo iba a los ajustes; al recargar, la colección del servidor
+            // sustituía la lista entera y la categoría nueva desaparecía, dejando huérfanas las
+            // tareas que ya la usaban.
+            saveToFirebase('agendaCategories', nuevaCat);
             renderAgenda();
           }
         });
@@ -27866,24 +28187,24 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const mainColor = getCategoryColor(primaryCat).accent;
 
       return `
-        <div class="agenda-card-item ${isDone ? 'is-done' : ''}" data-id="${t.id || t.codigo}" draggable="true" style="border-left: 4px solid ${mainColor}; border-radius: var(--radius-md); padding: 12px; background: var(--bg-card); box-shadow: var(--shadow-sm); margin-bottom: 12px; transition: all 0.2s ease;">
+        <div class="agenda-card-item ${escapeAttr(isDone ? 'is-done' : '')}" data-id="${escapeAttr(t.id || t.codigo)}" draggable="true" style="border-left: 4px solid ${escapeAttr(mainColor)}; border-radius: var(--radius-md); padding: 12px; background: var(--bg-card); box-shadow: var(--shadow-sm); margin-bottom: 12px; transition: all 0.2s ease;">
           <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
             <div style="display: flex; align-items: flex-start; gap: 6px;">
               <div class="task-drag-handle" style="cursor: grab; color: var(--text-muted); margin-top: 2px;" title="Mantener y arrastrar entre estados">
                 <i data-lucide="grip-vertical" style="width: 14px; height: 14px;"></i>
               </div>
               <div>
-                <h4 style="font-size: 13px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main); line-height: 1.3; ${isDone ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(t.titulo)}</h4>
+                <h4 style="font-size: 13px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main); line-height: 1.3; ${escapeAttr(isDone ? 'text-decoration: line-through; opacity: 0.6;' : '')}">${escapeHtml(t.titulo)}</h4>
                 <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 10px; color: var(--text-muted);">
                   <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-subtle); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-light);">
-                    <i data-lucide="${isEvento ? 'calendar' : 'clipboard-list'}" style="width: 10px; height: 10px;"></i>
+                    <i data-lucide="${escapeAttr(isEvento ? 'calendar' : 'clipboard-list')}" style="width: 10px; height: 10px;"></i>
                     <span>${escapeHtml(t.fecha || 'Sin fecha')}</span>
                   </div>
                   ${(t.categorias || (t.categoria ? [t.categoria] : [])).map(catId => {
         const catObj = (state.agendaCategories || []).find(c => c.id === catId);
         const label = catObj ? catObj.label : catId;
         const cColor = getCategoryColor(catId);
-        return `<div style="background: ${cColor.bg}; color: ${cColor.text}; border: 1px solid ${cColor.border}; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bookmark" style="width: 10px; height: 10px;"></i> ${escapeHtml(label)}</div>`;
+        return `<div style="background: ${escapeAttr(cColor.bg)}; color: ${escapeAttr(cColor.text)}; border: 1px solid ${escapeAttr(cColor.border)}; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: flex; align-items: center; gap: 4px;"><i data-lucide="bookmark" style="width: 10px; height: 10px;"></i> ${escapeHtml(label)}</div>`;
       }).join('')}
                   ${hasDesc ? `<div style="display:flex; align-items:center; gap:2px; color: var(--primary-blue);" title="Tiene descripción"><i data-lucide="align-left" style="width:12px; height:12px;"></i></div>` : ''}
                   ${subtasks.length > 0 ? `<div style="display:flex; align-items:center; gap:4px; font-weight: 600;"><i data-lucide="check-square" style="width:10px;height:10px;"></i> ${completedSubtasks}/${subtasks.length}</div>` : ''}
@@ -27891,25 +28212,25 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               </div>
             </div>
             <div style="display: flex; flex-direction: row; gap: 4px; flex-shrink: 0;">
-              <button class="btn-action-icon btn-edit-agenda-task" data-id="${t.id || t.codigo}" title="Editar" style="padding: 4px;">
+              <button class="btn-action-icon btn-edit-agenda-task" data-id="${escapeAttr(t.id || t.codigo)}" title="Editar" style="padding: 4px;">
                 <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
               </button>
-              <button class="btn-action-icon btn-duplicate-agenda-task" data-id="${t.id || t.codigo}" title="Duplicar" style="padding: 4px; color: var(--primary-blue);">
+              <button class="btn-action-icon btn-duplicate-agenda-task" data-id="${escapeAttr(t.id || t.codigo)}" title="Duplicar" style="padding: 4px; color: var(--primary-blue);">
                 <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
               </button>
-              <button class="btn-action-icon danger btn-delete-task" data-id="${t.id || t.codigo}" title="Eliminar" style="padding: 4px;">
+              <button class="btn-action-icon danger btn-delete-task" data-id="${escapeAttr(t.id || t.codigo)}" title="Eliminar" style="padding: 4px;">
                 <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
               </button>
             </div>
           </div>
           
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--border-light); margin-left: 20px;">
-            <select class="form-control form-control-sm agenda-status-select" data-id="${t.id || t.codigo}" style="font-size: 11px; font-weight: 700; padding: 2px 24px 2px 8px; height: 24px; border-radius: 4px; background-color: var(--bg-subtle); border-color: var(--border-light); width: 130px; cursor: pointer;">
+            <select class="form-control form-control-sm agenda-status-select" data-id="${escapeAttr(t.id || t.codigo)}" style="font-size: 11px; font-weight: 700; padding: 2px 24px 2px 8px; height: 24px; border-radius: 4px; background-color: var(--bg-subtle); border-color: var(--border-light); width: 130px; cursor: pointer;">
               <option value="todo" ${t.estado === 'todo' ? 'selected' : ''}>🔴 Sin hacer</option>
               <option value="in_progress" ${t.estado === 'in_progress' ? 'selected' : ''}>🟡 En proceso</option>
               <option value="done" ${t.estado === 'done' ? 'selected' : ''}>🟢 Completada</option>
             </select>
-            <span style="font-size: 10px; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: ${prioBg}; color: ${prioColor}; border: 1px solid ${prioColor}40;">${escapeHtml(t.prioridad)}</span>
+            <span style="font-size: 10px; font-weight: 800; padding: 3px 6px; border-radius: 4px; background: ${escapeAttr(prioBg)}; color: ${escapeAttr(prioColor)}; border: 1px solid ${escapeAttr(prioColor)}40;">${escapeHtml(t.prioridad)}</span>
           </div>
         </div>
       `;
@@ -28130,13 +28451,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
           <div>
             <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 6px 0; color: var(--text-main);">${escapeHtml(task.titulo)}</h2>
-            <span class="match-category-tag" style="background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight: 700;">🏷️ Categoría: ${escapeHtml(catName)}</span>
+            <span class="match-category-tag" style="background: ${escapeAttr(colorObj.bg)}; color: ${escapeAttr(colorObj.text)}; border: 1px solid ${escapeAttr(colorObj.border)}; font-weight: 700;">🏷️ Categoría: ${escapeHtml(catName)}</span>
           </div>
-          <span class="match-status-badge ${statusBadgeClass}" style="font-size: 12px; padding: 4px 10px;">${statusLabel}</span>
+          <span class="match-status-badge ${escapeAttr(statusBadgeClass)}" style="font-size: 12px; padding: 4px 10px;">${statusLabel}</span>
         </div>
 
         <div style="background: var(--bg-subtle); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 20px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px; margin-bottom: ${task.descripcion ? '14px' : '0'};">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px; margin-bottom: ${escapeAttr(task.descripcion ? '14px' : '0')};">
             <div>
               <strong style="color: var(--text-muted); display: block; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">📅 FECHA Y HORA</strong>
               <span style="font-weight: 700; color: var(--text-main);">${escapeHtml(task.fecha || 'Sin fecha')} | ${escapeHtml(task.hora || '12:00')} hs</span>
@@ -28202,10 +28523,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         container.innerHTML = '<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">No hay subtareas.</span>';
       } else {
         container.innerHTML = task.subtasks.map((st, idx) => `
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px; border-radius: 4px; background: ${st.completed ? 'var(--bg-subtle)' : 'var(--bg-card)'}; border: 1px solid var(--border-light);">
-            <input type="checkbox" class="subtask-checkbox" data-idx="${idx}" ${st.completed ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
-            <span style="flex: 1; ${st.completed ? 'text-decoration: line-through; color: var(--text-muted);' : 'color: var(--text-main);'}">${escapeHtml(st.text)}</span>
-            <button class="btn-action-icon danger btn-delete-subtask" data-idx="${idx}" style="padding: 2px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px; border-radius: 4px; background: ${escapeAttr(st.completed ? 'var(--bg-subtle)' : 'var(--bg-card)')}; border: 1px solid var(--border-light);">
+            <input type="checkbox" class="subtask-checkbox" data-idx="${escapeAttr(idx)}" ${st.completed ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;">
+            <span style="flex: 1; ${escapeAttr(st.completed ? 'text-decoration: line-through; color: var(--text-muted);' : 'color: var(--text-main);')}">${escapeHtml(st.text)}</span>
+            <button class="btn-action-icon danger btn-delete-subtask" data-idx="${escapeAttr(idx)}" style="padding: 2px;">
               <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
             </button>
           </div>
@@ -28302,7 +28623,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (!task) return;
     normalizeAgendaCategories();
     const taskCats = task.categorias || (task.categoria ? [task.categoria] : []);
-    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill ${taskCats.includes(c.id) ? 'active' : ''} ${task.categoria === c.id ? 'main' : ''}" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
+    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill ${escapeAttr(taskCats.includes(c.id) ? 'active' : '')} ${escapeAttr(task.categoria === c.id ? 'main' : '')}" data-val="${escapeAttr(c.id)}">${escapeHtml(c.label)}</div>`).join('');
 
     const card = document.getElementById('generalModalCard');
     if (card) card.className = 'modal-card xlarge';
@@ -28313,7 +28634,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 16px;">
             <div class="form-group mb-0">
               <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="edit-3" style="width: 14px; color: var(--primary-blue);"></i> Título</label>
-              <input type="text" id="agTitleEdit" class="form-control" value="${escapeHtml(task.titulo)}" required>
+              <input type="text" id="agTitleEdit" class="form-control" value="${escapeAttr(task.titulo)}" required>
             </div>
             <div class="form-group mb-0">
               <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="tag" style="width: 14px; color: var(--primary-blue);"></i> Tipo</label>
@@ -28334,15 +28655,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
-                <input type="date" id="agDateEdit" class="form-control" value="${task.fecha || ''}">
+                <input type="date" id="agDateEdit" class="form-control" value="${escapeAttr(task.fecha || '')}">
               </div>
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Inicio</label>
-                <input type="time" id="agTimeEdit" class="form-control" value="${task.hora || '12:00'}">
+                <input type="time" id="agTimeEdit" class="form-control" value="${escapeAttr(task.hora || '12:00')}">
               </div>
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Fin</label>
-                <input type="time" id="agTimeEndEdit" class="form-control" value="${task.horaFin || ''}">
+                <input type="time" id="agTimeEndEdit" class="form-control" value="${escapeAttr(task.horaFin || '')}">
               </div>
             </div>
           </div>
@@ -28402,7 +28723,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           if (!catValues.includes(existing.id)) catValues.push(existing.id);
         } else {
           const newId = 'cat_' + Date.now();
-          state.agendaCategories.push({ id: newId, label: customValue, icon: 'bookmark' });
+          const catCreada = { id: newId, label: customValue, icon: 'bookmark' };
+          state.agendaCategories.push(catCreada);
+          saveToFirebase('agendaCategories', catCreada);   // también a su colección, no solo a los ajustes
           catValues.push(newId);
         }
       }
@@ -28506,7 +28829,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   function openNewAgendaTaskModal(defaultDate = null, defaultType = null) {
     normalizeAgendaCategories();
     const initialDate = defaultDate || new Date().toISOString().split('T')[0];
-    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill" data-val="${c.id}">${escapeHtml(c.label)}</div>`).join('');
+    const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill" data-val="${escapeAttr(c.id)}">${escapeHtml(c.label)}</div>`).join('');
     const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
 
     const card = document.getElementById('generalModalCard');
@@ -28539,7 +28862,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
-                <input type="date" id="agDate" class="form-control" value="${initialDate}">
+                <input type="date" id="agDate" class="form-control" value="${escapeAttr(initialDate)}">
               </div>
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="clock" style="width: 14px; color: var(--primary-blue);"></i> Hora Inicio</label>
@@ -28785,7 +29108,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (l.logo && (l.logo.startsWith('http') || l.logo.startsWith('data:image'))) {
       const domain = getLinkDomain(l.url);
       const fallbackFavicon = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64` : '';
-      return `<img src="${escapeHtml(l.logo)}" alt="${escapeHtml(l.titulo)}" onerror="if('${fallbackFavicon}'){this.src='${fallbackFavicon}'; this.onerror=null;} else {this.outerHTML='<span>🔗</span>';}">`;
+      return `<img src="${escapeAttr(l.logo)}" alt="${escapeAttr(l.titulo)}" onerror="if('${escapeJsAttr(fallbackFavicon)}'){this.src='${escapeJsAttr(fallbackFavicon)}'; this.onerror=null;} else {this.outerHTML='<span>🔗</span>';}">`;
     }
     if (l.logo && l.logo.trim() !== '') {
       return `<span>${escapeHtml(l.logo)}</span>`;
@@ -28793,7 +29116,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const domain = getLinkDomain(l.url);
     if (domain) {
       const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-      return `<img src="${faviconUrl}" alt="${escapeHtml(l.titulo)}" onerror="this.outerHTML='<span>⚽</span>'">`;
+      return `<img src="${escapeAttr(faviconUrl)}" alt="${escapeAttr(l.titulo)}" onerror="this.outerHTML='<span>⚽</span>'">`;
     }
     return `<span>⚽</span>`;
   }
@@ -28848,15 +29171,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     const activeCategoryTags = state.customTabOrder.filter(tag => tag === '⭐ Favoritos' || currentUniqueTags.includes(tag));
 
     let tabsHtml = `
-      <button class="link-tab-btn fav-tab ${currentLinkTab === 'favorites' ? 'active' : ''}" data-tab="favorites">
-        <i data-lucide="star" style="width: 14px; fill: ${currentLinkTab === 'favorites' ? '#ffffff' : '#f59e0b'}; color: #f59e0b;"></i> Favoritos
+      <button class="link-tab-btn fav-tab ${escapeAttr(currentLinkTab === 'favorites' ? 'active' : '')}" data-tab="favorites">
+        <i data-lucide="star" style="width: 14px; fill: ${escapeAttr(currentLinkTab === 'favorites' ? '#ffffff' : '#f59e0b')}; color: #f59e0b;"></i> Favoritos
         <span class="tab-count">${favCount}</span>
       </button>
     `;
 
     activeCategoryTags.filter(t => t !== '⭐ Favoritos').forEach(tag => {
       tabsHtml += `
-        <button class="link-tab-btn category-tab ${currentLinkTab === tag ? 'active' : ''}" data-tab="${escapeHtml(tag)}" draggable="true" title="Mantener y arrastrar para reordenar pestaña">
+        <button class="link-tab-btn category-tab ${escapeAttr(currentLinkTab === tag ? 'active' : '')}" data-tab="${escapeAttr(tag)}" draggable="true" title="Mantener y arrastrar para reordenar pestaña">
           <i data-lucide="tag" style="width: 13px;"></i> ${escapeHtml(tag)}
           <span class="tab-count">${tagsMap[tag] || 0}</span>
         </button>
@@ -28864,7 +29187,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
 
     tabsHtml += `
-      <button class="link-tab-btn ${currentLinkTab === 'all' ? 'active' : ''}" data-tab="all">
+      <button class="link-tab-btn ${escapeAttr(currentLinkTab === 'all' ? 'active' : '')}" data-tab="all">
         <i data-lucide="globe" style="width: 14px;"></i> Todos
         <span class="tab-count">${totalCount}</span>
       </button>
@@ -28988,7 +29311,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const count = colLinks.length;
 
       boardHtml += `
-        <div class="link-board-column" data-tag-col="${escapeHtml(colName)}">
+        <div class="link-board-column" data-tag-col="${escapeAttr(colName)}">
           <div class="column-header">
             <div class="column-header-title">
               <i data-lucide="tag" style="width: 15px; color: var(--primary-blue);"></i>
@@ -28996,18 +29319,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               <span class="column-count">${count}</span>
             </div>
           </div>
-          <div class="column-cards-list" data-tag-col="${escapeHtml(colName)}">
+          <div class="column-cards-list" data-tag-col="${escapeAttr(colName)}">
             ${colLinks.length === 0 ? `
               <div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">
                 Sin enlaces en esta categoría
               </div>
             ` : colLinks.map(l => `
-              <div class="link-card ${l.favorito ? 'is-favorite' : ''}" data-id="${l.id}" draggable="true">
+              <div class="link-card ${escapeAttr(l.favorito ? 'is-favorite' : '')}" data-id="${escapeAttr(l.id)}" draggable="true">
                 <div class="link-drag-handle" title="Mantener y arrastrar entre categorías">
                   <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
                 </div>
                 <div class="link-card-left">
-                  <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
+                  <div class="link-logo-box btn-logo-click" data-url="${escapeAttr(l.url)}" title="Pulsar para abrir web directamente">
                     ${renderLinkLogo(l)}
                   </div>
                   <div class="link-info">
@@ -29017,7 +29340,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     </div>
                   </div>
                 </div>
-                <button class="btn-star-fav ${l.favorito ? 'active' : ''} btn-toggle-fav" data-id="${l.id}" title="${l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}">
+                <button class="btn-star-fav ${escapeAttr(l.favorito ? 'active' : '')} btn-toggle-fav" data-id="${escapeAttr(l.id)}" title="${escapeAttr(l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito')}">
                   <i data-lucide="star" style="width: 18px; height: 18px;"></i>
                 </button>
               </div>
@@ -29060,8 +29383,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       logoBox.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const url = logoBox.dataset.url;
-        if (url) window.open(url, '_blank');
+        // La dirección viene de la base: un «javascript:» guardado ahí se ejecutaría al pulsar.
+        const url = destinoSeguro(logoBox.dataset.url);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
       });
     });
 
@@ -29152,36 +29476,36 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const count = colLinks.length;
 
       boardHtml += `
-        <div class="link-board-column" data-fav-col="${escapeHtml(colName)}">
+        <div class="link-board-column" data-fav-col="${escapeAttr(colName)}">
           <div class="column-header">
             <div class="column-header-title">
               <i data-lucide="star" style="width: 16px; color: #f59e0b; fill: #f59e0b;"></i>
-              <h3 class="fav-col-title" data-fav-col="${escapeHtml(colName)}" style="cursor: pointer;" title="Doble clic para cambiar nombre">${escapeHtml(colName)}</h3>
-              <button class="btn-action-icon btn-edit-fav-col" data-fav-col="${escapeHtml(colName)}" title="Cambiar nombre a la columna">
+              <h3 class="fav-col-title" data-fav-col="${escapeAttr(colName)}" style="cursor: pointer;" title="Doble clic para cambiar nombre">${escapeHtml(colName)}</h3>
+              <button class="btn-action-icon btn-edit-fav-col" data-fav-col="${escapeAttr(colName)}" title="Cambiar nombre a la columna">
                 <i data-lucide="edit-2" style="width: 13px;"></i>
               </button>
               <span class="column-count">${count}</span>
             </div>
             <div class="column-actions">
               ${state.favColumns.length > 1 ? `
-                <button class="btn-action-icon danger btn-delete-fav-col" data-fav-col="${escapeHtml(colName)}" title="Eliminar columna">
+                <button class="btn-action-icon danger btn-delete-fav-col" data-fav-col="${escapeAttr(colName)}" title="Eliminar columna">
                   <i data-lucide="trash-2" style="width: 14px;"></i>
                 </button>
               ` : ''}
             </div>
           </div>
-          <div class="column-cards-list" data-fav-col="${escapeHtml(colName)}">
+          <div class="column-cards-list" data-fav-col="${escapeAttr(colName)}">
             ${colLinks.length === 0 ? `
               <div style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 12px; border: 1px dashed var(--border-light); border-radius: var(--radius-md);">
                 Arrastra enlaces favoritos aquí
               </div>
             ` : colLinks.map(l => `
-              <div class="link-card is-favorite" data-id="${l.id}" draggable="true">
+              <div class="link-card is-favorite" data-id="${escapeAttr(l.id)}" draggable="true">
                 <div class="link-drag-handle" title="Mantener y arrastrar entre columnas de favoritos">
                   <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
                 </div>
                 <div class="link-card-left">
-                  <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
+                  <div class="link-logo-box btn-logo-click" data-url="${escapeAttr(l.url)}" title="Pulsar para abrir web directamente">
                     ${renderLinkLogo(l)}
                   </div>
                   <div class="link-info">
@@ -29191,7 +29515,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                     </div>
                   </div>
                 </div>
-                <button class="btn-star-fav active btn-toggle-fav" data-id="${l.id}" title="Quitar de favoritos">
+                <button class="btn-star-fav active btn-toggle-fav" data-id="${escapeAttr(l.id)}" title="Quitar de favoritos">
                   <i data-lucide="star" style="width: 18px; height: 18px;"></i>
                 </button>
               </div>
@@ -29217,8 +29541,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       logoBox.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const url = logoBox.dataset.url;
-        if (url) window.open(url, '_blank');
+        // La dirección viene de la base: un «javascript:» guardado ahí se ejecutaría al pulsar.
+        const url = destinoSeguro(logoBox.dataset.url);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
       });
     });
 
@@ -29359,12 +29684,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
 
     container.innerHTML = filtered.map(l => `
-      <div class="link-card ${l.favorito ? 'is-favorite' : ''}" data-id="${l.id}" draggable="true">
+      <div class="link-card ${escapeAttr(l.favorito ? 'is-favorite' : '')}" data-id="${escapeAttr(l.id)}" draggable="true">
         <div class="link-drag-handle" title="Mantener y arrastrar para reordenar">
           <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
         </div>
         <div class="link-card-left">
-          <div class="link-logo-box btn-logo-click" data-url="${escapeHtml(l.url)}" title="Pulsar para abrir web directamente">
+          <div class="link-logo-box btn-logo-click" data-url="${escapeAttr(l.url)}" title="Pulsar para abrir web directamente">
             ${renderLinkLogo(l)}
           </div>
           <div class="link-info">
@@ -29374,7 +29699,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             </div>
           </div>
         </div>
-        <button class="btn-star-fav ${l.favorito ? 'active' : ''} btn-toggle-fav" data-id="${l.id}" title="${l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}">
+        <button class="btn-star-fav ${escapeAttr(l.favorito ? 'active' : '')} btn-toggle-fav" data-id="${escapeAttr(l.id)}" title="${escapeAttr(l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito')}">
           <i data-lucide="star" style="width: 18px; height: 18px;"></i>
         </button>
       </div>
@@ -29385,8 +29710,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       logoBox.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const url = logoBox.dataset.url;
-        if (url) window.open(url, '_blank');
+        // La dirección viene de la base: un «javascript:» guardado ahí se ejecutaría al pulsar.
+        const url = destinoSeguro(logoBox.dataset.url);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
       });
     });
 
@@ -29478,17 +29804,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <span class="link-tag-badge" style="font-size: 11px; padding: 4px 12px;">${escapeHtml(link.etiqueta || 'Federaciones')}</span>
         </div>
         <div style="background: var(--bg-body); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light); display: inline-block; max-width: 100%; word-break: break-all; margin-bottom: 24px;">
-          <a href="${escapeHtml(link.url)}" target="_blank" style="color: var(--primary-blue); font-weight: 600; text-decoration: none; font-size: 13px;">
+          <a href="${urlSegura(link.url)}" target="_blank" style="color: var(--primary-blue); font-weight: 600; text-decoration: none; font-size: 13px;">
             <i data-lucide="link" style="width: 14px; vertical-align: middle; margin-right: 4px;"></i> ${escapeHtml(link.url)}
           </a>
         </div>
         
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px;">
-          <a href="${escapeHtml(link.url)}" target="_blank" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">
+          <a href="${urlSegura(link.url)}" target="_blank" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600; text-decoration: none;">
             <i data-lucide="external-link" style="width: 16px;"></i> Abrir Web
           </a>
-          <button id="btnModalToggleFav" class="btn btn-secondary" style="padding: 10px 16px; font-weight: 600; border-color: #f59e0b; color: ${link.favorito ? '#d97706' : 'var(--text-main)'};">
-            <i data-lucide="star" style="width: 16px; fill: ${link.favorito ? '#f59e0b' : 'none'}; color: #f59e0b;"></i> ${link.favorito ? 'Favorito' : 'Marcar Favorito'}
+          <button id="btnModalToggleFav" class="btn btn-secondary" style="padding: 10px 16px; font-weight: 600; border-color: #f59e0b; color: ${escapeAttr(link.favorito ? '#d97706' : 'var(--text-main)')};">
+            <i data-lucide="star" style="width: 16px; fill: ${escapeAttr(link.favorito ? '#f59e0b' : 'none')}; color: #f59e0b;"></i> ${link.favorito ? 'Favorito' : 'Marcar Favorito'}
           </button>
           <button id="btnModalEditLink" class="btn btn-secondary" style="padding: 10px 16px; font-weight: 600;">
             <i data-lucide="edit-3" style="width: 16px;"></i> Editar
@@ -29531,7 +29857,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   document.getElementById('btnAddNewLink')?.addEventListener('click', () => {
     const existingTags = getExistingTagsList();
-    const tagOptions = existingTags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    const tagOptions = existingTags.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
 
     const card = document.getElementById('generalModalCard');
     if (card) card.className = 'modal-card';
@@ -29635,6 +29961,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (file) {
         try {
           const comp = await compressImage(file);
+          if (!comp) return;   // no se pudo procesar: se conserva el logo anterior
           document.getElementById('lLogo').value = comp;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
@@ -29652,7 +29979,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       existingTags.push(link.etiqueta);
     }
     const tagOptions = existingTags.map(t =>
-      `<option value="${escapeHtml(t)}" ${t === link.etiqueta ? 'selected' : ''}>${escapeHtml(t)}</option>`
+      `<option value="${escapeAttr(t)}" ${t === link.etiqueta ? 'selected' : ''}>${escapeHtml(t)}</option>`
     ).join('');
 
     showModal('Editar Enlace', `
@@ -29665,12 +29992,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       <form id="editLinkForm" onsubmit="return false;">
         <div class="form-group mb-3">
           <label class="form-label">Nombre / Título del Sitio</label>
-          <input type="text" id="elTitle" class="form-control" value="${escapeHtml(link.titulo)}" required>
+          <input type="text" id="elTitle" class="form-control" value="${escapeAttr(link.titulo)}" required>
         </div>
         <div class="form-group mb-3">
           <label class="form-label">URL Completa</label>
           <div style="display: flex; gap: 8px;">
-            <input type="url" id="elUrl" class="form-control" value="${escapeHtml(link.url)}" required>
+            <input type="url" id="elUrl" class="form-control" value="${escapeAttr(link.url)}" required>
             <button type="button" id="btnEditAutoFavicon" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px;">
               ⚡ Auto Logo
             </button>
@@ -29687,7 +30014,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         <div class="form-group mb-3">
           <label class="form-label">Logo / Icono (URL, Emoji o Subir Archivo)</label>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" id="elLogo" class="form-control" value="${escapeHtml(link.logo || '')}">
+            <input type="text" id="elLogo" class="form-control" value="${escapeAttr(link.logo || '')}">
             <input type="file" id="elLogoFile" accept="image/*" class="hidden">
             <button type="button" id="btnEditUploadLogoFile" class="btn btn-secondary" style="white-space: nowrap; font-size: 12px; height: 38px;">
               📁 Subir Imagen
@@ -29761,6 +30088,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (file) {
         try {
           const comp = await compressImage(file);
+          if (!comp) return;   // no se pudo procesar: se conserva el logo anterior
           document.getElementById('elLogo').value = comp;
         } catch (err) {
           console.error('Error al comprimir logo:', err);
@@ -29791,7 +30119,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   });
 
   function setTheme(theme) {
-    document.body.className = theme === 'dark' ? 'theme-dark' : 'theme-light';
+    // Antes se asignaba className entero, lo que borraba cualquier otra clase del cuerpo: al
+    // cambiar de tema se perdía, entre otras, la marca de «sesión sin resolver» de la puerta de
+    // acceso. Se cambian solo las dos clases del tema.
+    document.body.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
     document.querySelectorAll('.btn-theme').forEach(b => {
       if (b.dataset.theme === theme) b.classList.add('active');
       else b.classList.remove('active');
@@ -29915,13 +30247,30 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       try {
         const imported = JSON.parse(event.target.result);
         if (imported && typeof imported === 'object') {
-          showCustomConfirmModal('Restaurar Copia de Seguridad', 'Se actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.', () => {
+          showCustomConfirmModal('Restaurar Copia de Seguridad', 'Se actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.', async () => {
             state = imported;
+            window.state = state;   // el importador de Excel y el resto usan esta referencia
             saveState();
             if (typeof renderAllViews === 'function') {
               renderAllViews();
             }
-            alert('📂 ¡Copia de seguridad restaurada correctamente y sincronizada con Firebase!');
+            // saveState() solo guarda los ajustes. Antes el aviso decía «sincronizada con Firebase»
+            // sin haber subido ni un jugador: al recargar volvían los datos viejos del servidor y
+            // la restauración se perdía entera. Ahora se sube de verdad y se espera el resultado.
+            try {
+              const r = await syncAllToFirebase(false);
+              if (r && r.falladas && r.falladas.length) {
+                alert('📂 Copia restaurada, pero NO se han podido subir estas colecciones: ' +
+                  r.falladas.join(', ') +
+                  '.\n\nNo cierres la aplicación y vuelve a pulsar «Sincronizar todo».');
+              } else {
+                alert('📂 ¡Copia de seguridad restaurada y subida al servidor correctamente!');
+              }
+            } catch (e) {
+              console.error('Restauración: fallo al subir', e);
+              alert('📂 La copia se ha cargado en pantalla, pero NO se ha podido subir al servidor.\n\n' +
+                'No cierres la aplicación: comprueba la conexión y pulsa «Sincronizar todo».');
+            }
           });
         } else {
           alert('El archivo JSON no tiene el formato adecuado.');
@@ -29939,9 +30288,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
 
   async function clearAllFirebaseData() {
-    if (!db) return;
+    if (!db) return { ok: false, motivo: 'sin conexion', falladas: [], borradas: 0 };
+    // Nombres REALES de las colecciones del servidor. Antes esta lista mezclaba nombres de
+    // variables internas ('matches', 'links', 'reports', 'scouting_data') que no existen como
+    // colección, y se dejaba fuera partidos, enlaces y cinco más: el borrado decía haber terminado
+    // y esos datos seguían en el servidor, reapareciendo al recargar.
     const collections = [
-      'scouting_data',
       'jugadores',
       'clubes',
       'equipos',
@@ -29953,36 +30305,56 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       'agencias',
       'agentes',
       'estadios',
+      'partidos',
       'informes',
-      'matches',
-      'reports',
       'agenda',
-      'links'
+      'agendaCategories',
+      'enlaces',
+      'cartelera_calendarios',
+      'notas_categorias',
+      'notas_fichas'
     ];
 
-    try {
-      for (const colName of collections) {
+    // Antes: un solo try/catch alrededor del bucle entero. Si fallaba la segunda coleccion, las
+    // quince restantes NI SE INTENTABAN, el error moria en la consola y el usuario leia
+    // «El sistema esta 100% limpio». Ahora cada coleccion va por su cuenta y se informa de la verdad.
+    const falladas = [];
+    let borradas = 0;
+    for (const colName of collections) {
+      try {
         const snap = await db.collection(colName).get();
         if (!snap.empty) {
-          const batch = db.batch();
-          snap.forEach(doc => {
-            batch.delete(doc.ref);
-          });
-          await batch.commit();
+          // En lotes de 450: el servidor rechaza cualquier lote de mas de 500 operaciones,
+          // y con eso la coleccion mas grande no se borraba nunca.
+          const docs = [];
+          snap.forEach(doc => { docs.push(doc.ref); });
+          for (let i = 0; i < docs.length; i += 450) {
+            const batch = db.batch();
+            docs.slice(i, i + 450).forEach(ref => { batch.delete(ref); });
+            await batch.commit();
+          }
+          borradas += snap.size;
         }
+      } catch (err) {
+        console.error(`Error al vaciar la coleccion '${colName}':`, err);
+        falladas.push({ coleccion: colName, codigo: (err && err.code) || 'desconocido' });
       }
-      console.log('🔥 Se han eliminado todas las colecciones de Firebase Firestore');
-    } catch (err) {
-      console.error('Error al vaciar colecciones en Firebase:', err);
     }
+    if (falladas.length) {
+      console.error('Colecciones que NO se han podido vaciar:', falladas);
+    } else {
+      console.log('🔥 Se han eliminado todas las colecciones de Firebase Firestore');
+    }
+    return { ok: falladas.length === 0, falladas, borradas, total: collections.length };
   }
 
   // Clear All Data
   document.getElementById('btnClearAllData')?.addEventListener('click', () => {
     showCustomConfirmModal('Borrar Todos los Datos', 'Esta acción eliminará de forma PERMANENTE todos los partidos, informes técnicos, jugadores, clubes, equipos, staff, estadios, agenda y enlaces. ¿Continuar?', async () => {
+      let resultadoBorrado = null;
       if (db) {
         try {
-          await clearAllFirebaseData();
+          resultadoBorrado = await clearAllFirebaseData();
         } catch (e) {
           console.error('Error durante la eliminación en Firebase:', e);
         }
@@ -30012,7 +30384,15 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         links: []
       };
       saveState();
-      alert('✓ Todos los datos han sido borrados de la aplicación y de Firebase Firestore. El sistema está 100% limpio.');
+      // El mensaje depende de lo que haya pasado de verdad, no de que se haya llegado hasta aqui.
+      if (resultadoBorrado && resultadoBorrado.falladas && resultadoBorrado.falladas.length) {
+        const nombres = resultadoBorrado.falladas.map(f => f.coleccion).join(', ');
+        alert('ATENCION: se han borrado los datos de la aplicacion, pero NO se han podido borrar del servidor ' +
+          resultadoBorrado.falladas.length + ' de ' + resultadoBorrado.total + ' colecciones (' + nombres + '). ' +
+          'Esos datos SIGUEN en el servidor. Avisa al administrador antes de dar por hecho el borrado.');
+      } else {
+        alert('Todos los datos han sido borrados de la aplicacion y del servidor.');
+      }
       window.location.reload();
     });
   });
@@ -30176,6 +30556,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   }
 
   function hideSubModal() {
+    // Cerrar el modal por cualquier vía retira siempre su atajo de teclado.
+    if (typeof retirarConfirmKeyHandler === 'function') retirarConfirmKeyHandler();
+    if (typeof retirarAlertKeyHandler === 'function') retirarAlertKeyHandler();
     const overlay = document.getElementById('subModalOverlay');
     if (overlay) {
       overlay.classList.add('hidden');
@@ -30193,7 +30576,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
         <h4 style="font-size: 17px; font-weight: 800; color: var(--text-main, #1e293b); margin: 0 0 16px 0;">${escapeHtml(title)}</h4>
         <div class="form-group mb-4" style="text-align: left;">
-          <input type="text" id="customPromptInput" class="form-control" value="${escapeHtml(defaultValue)}" placeholder="Escribe el nombre aquí..." style="font-size: 14px; padding: 10px 14px; font-weight: 600;" autofocus>
+          <input type="text" id="customPromptInput" class="form-control" value="${escapeAttr(defaultValue)}" placeholder="Escribe el nombre aquí..." style="font-size: 14px; padding: 10px 14px; font-weight: 600;" autofocus>
         </div>
         <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
           <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700; padding: 10px 20px;">
@@ -30246,6 +30629,23 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }, 50);
   }
 
+  // Un único atajo de teclado activo para el modal de confirmación, con su retirada centralizada.
+  let _alertKeyHandlerActivo = null;
+  function retirarAlertKeyHandler() {
+    if (_alertKeyHandlerActivo) {
+      document.removeEventListener('keydown', _alertKeyHandlerActivo);
+      _alertKeyHandlerActivo = null;
+    }
+  }
+
+  let _confirmKeyHandlerActivo = null;
+  function retirarConfirmKeyHandler() {
+    if (_confirmKeyHandlerActivo) {
+      document.removeEventListener('keydown', _confirmKeyHandlerActivo);
+      _confirmKeyHandlerActivo = null;
+    }
+  }
+
   window.showCustomConfirmModal = showCustomConfirmModal;
   function showCustomConfirmModal(title, message, onConfirm) {
     const overlay = ensureSubModalOverlay();
@@ -30278,8 +30678,31 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       confirmBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        retirarConfirmKeyHandler();
         hideSubModal();
-        if (onConfirm) onConfirm();
+        // Algunas respuestas son asíncronas (restaurar una copia sube al servidor y espera). Sin
+        // capturar el rechazo, un fallo dentro de ellas moría en silencio y el usuario se quedaba
+        // sin ningún aviso, ni de éxito ni de error.
+        if (onConfirm) {
+          try {
+            const r = onConfirm();
+            if (r && typeof r.catch === 'function') {
+              r.catch((err) => {
+                console.error('Error en la acción confirmada:', err);
+                if (typeof showToast === 'function') {
+                  showToast('La acción no se ha podido completar. Revisa la consola.', 'danger', 9000);
+                } else {
+                  alert('La acción no se ha podido completar.');
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Error en la acción confirmada:', err);
+            if (typeof showToast === 'function') {
+              showToast('La acción no se ha podido completar. Revisa la consola.', 'danger', 9000);
+            }
+          }
+        }
       };
     }
 
@@ -30287,22 +30710,50 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       cancelBtn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        retirarConfirmKeyHandler();
         hideSubModal();
       };
     }
 
-    const _confirmKeyHandler = (e) => {
+    // El atajo de Enter solo puede vivir mientras el modal esté abierto. Antes se retiraba
+    // únicamente dentro del propio manejador, así que cerrar con el ratón lo dejaba activo:
+    // cancelar tres veces y pulsar Enter ejecutaba tres borrados no confirmados.
+    retirarConfirmKeyHandler();
+    _confirmKeyHandlerActivo = (e) => {
+      if (overlay.classList.contains('hidden')) { retirarConfirmKeyHandler(); return; }
       if (e.key === 'Enter') {
         e.preventDefault();
-        document.removeEventListener('keydown', _confirmKeyHandler);
+        retirarConfirmKeyHandler();
         hideSubModal();
-        if (onConfirm) onConfirm();
+        // Algunas respuestas son asíncronas (restaurar una copia sube al servidor y espera). Sin
+        // capturar el rechazo, un fallo dentro de ellas moría en silencio y el usuario se quedaba
+        // sin ningún aviso, ni de éxito ni de error.
+        if (onConfirm) {
+          try {
+            const r = onConfirm();
+            if (r && typeof r.catch === 'function') {
+              r.catch((err) => {
+                console.error('Error en la acción confirmada:', err);
+                if (typeof showToast === 'function') {
+                  showToast('La acción no se ha podido completar. Revisa la consola.', 'danger', 9000);
+                } else {
+                  alert('La acción no se ha podido completar.');
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Error en la acción confirmada:', err);
+            if (typeof showToast === 'function') {
+              showToast('La acción no se ha podido completar. Revisa la consola.', 'danger', 9000);
+            }
+          }
+        }
       } else if (e.key === 'Escape') {
-        document.removeEventListener('keydown', _confirmKeyHandler);
+        retirarConfirmKeyHandler();
         hideSubModal();
       }
     };
-    document.addEventListener('keydown', _confirmKeyHandler);
+    document.addEventListener('keydown', _confirmKeyHandlerActivo);
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -30336,14 +30787,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       };
     }
 
-    const _alertKeyHandler = (e) => {
+    // Mismo tratamiento que el modal de confirmacion: un solo atajo activo, retirado por cualquier
+    // via de cierre y con guarda de visibilidad. Si no, cerrar con el raton lo dejaba vivo y el
+    // siguiente Enter lo consumia, cerrando el dialogo de confirmacion SIN ejecutar el borrado.
+    retirarAlertKeyHandler();
+    _alertKeyHandlerActivo = (e) => {
+      if (overlay.classList.contains('hidden')) { retirarAlertKeyHandler(); return; }
       if (e.key === 'Enter' || e.key === 'Escape') {
         e.preventDefault();
-        document.removeEventListener('keydown', _alertKeyHandler);
+        retirarAlertKeyHandler();
         hideSubModal();
       }
     };
-    document.addEventListener('keydown', _alertKeyHandler);
+    document.addEventListener('keydown', _alertKeyHandlerActivo);
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -30371,10 +30827,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       });
       const sortedTeams = Array.from(uniqueTeams).sort((a, b) => a.localeCompare(b));
       if (selEquipo.list) {
-        selEquipo.list.innerHTML = sortedTeams.map(t => `<option value="${escapeHtml(t)}" data-val="${escapeHtml(t)}"></option>`).join('');
+        selEquipo.list.innerHTML = sortedTeams.map(t => `<option value="${escapeAttr(t)}" data-val="${escapeAttr(t)}"></option>`).join('');
       } else {
         selEquipo.innerHTML = `<option value="">-- Todos los equipos --</option>` +
-          sortedTeams.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+          sortedTeams.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
       }
     }
 
@@ -30384,7 +30840,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (btnRSEquiposMulti && dropdownRSEquiposMulti) {
       const rsTeams = new Set();
       players.forEach(p => {
-        if ((p.controlSeguimiento || []).includes('MAPA RS') && p.equipo && String(p.equipo).trim() !== '') {
+        if (String(p.controlSeguimiento || []).includes('MAPA RS') && p.equipo && String(p.equipo).trim() !== '') {
           rsTeams.add(String(p.equipo).trim());
         }
       });
@@ -30395,7 +30851,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
                   </label>`;
       sortedRSTeams.forEach(t => {
         html += `<label style="display: block; padding: 4px; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                   <input type="checkbox" class="cb-mapa-rs-equipo" value="${escapeHtml(t)}" style="margin-right: 6px;"> ${escapeHtml(t)}
+                   <input type="checkbox" class="cb-mapa-rs-equipo" value="${escapeAttr(t)}" style="margin-right: 6px;"> ${escapeHtml(t)}
                  </label>`;
       });
       dropdownRSEquiposMulti.innerHTML = html;
@@ -30603,7 +31059,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
 
     const filteredPlayers = players.filter(p => {
-      const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
+      const isTagged = String(p.controlSeguimiento || []).includes(activeMapTag);
       if (!isTagged) return false;
       if (activeMapTag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
       if (activeMapTag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {
@@ -30624,7 +31080,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     toggleBtns.forEach(btn => {
       const tag = btn.dataset.tag;
       const countFiltered = players.filter(p => {
-        const isTagged = (p.controlSeguimiento || []).includes(tag);
+        const isTagged = String(p.controlSeguimiento || []).includes(tag);
         if (!isTagged) return false;
         if (tag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
         if (tag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {
@@ -30653,8 +31109,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     defaultPositions.forEach((_, idx) => { slotMap[idx] = []; });
 
     filteredPlayers.forEach(p => {
-      let pPrimary = (p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
-      let pSecondary = (p.posicionSecundaria || p.posicionSec || '').toUpperCase().trim();
+      let pPrimary = String(p.posicionPrincipal || p.posicion || p.pos || '').toUpperCase().trim();
+      let pSecondary = String(p.posicionSecundaria || p.posicionSec || '').toUpperCase().trim();
 
       // Regla específica: si tiene DCD y DC, el DC pasa a ser DCZ para el campograma
       if (pPrimary === 'DCD' && pSecondary === 'DC') {
@@ -30735,16 +31191,16 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const bLevel = b.rendimientoRSAvgNum ? parseFloat(b.rendimientoRSAvgNum) : ( { 'A':5, 'B':4, 'C':3, 'D':2, 'E':1 }[b.rendimientoRS] || 0 );
         if (aLevel !== bLevel) return bLevel - aLevel;
         
-        const posA = (a.posicionPrincipal || a.posicion || a.pos || '').toLowerCase();
-        const posB = (b.posicionPrincipal || b.posicion || b.pos || '').toLowerCase();
+        const posA = String(a.posicionPrincipal || a.posicion || a.pos || '').toLowerCase();
+        const posB = String(b.posicionPrincipal || b.posicion || b.pos || '').toLowerCase();
         if (posA !== posB) return posA.localeCompare(posB, 'es');
 
-        const secA = (a.posicionSecundaria || a.posicionSec || '').toLowerCase();
-        const secB = (b.posicionSecundaria || b.posicionSec || '').toLowerCase();
+        const secA = String(a.posicionSecundaria || a.posicionSec || '').toLowerCase();
+        const secB = String(b.posicionSecundaria || b.posicionSec || '').toLowerCase();
         if (secA !== secB) return secA.localeCompare(secB, 'es');
 
-        const nameA = (a.nombre || a.jugador || '').toLowerCase();
-        const nameB = (b.nombre || b.jugador || '').toLowerCase();
+        const nameA = String(a.nombre || a.jugador || '').toLowerCase();
+        const nameB = String(b.nombre || b.jugador || '').toLowerCase();
         return nameA.localeCompare(nameB);
       });
 
@@ -30778,10 +31234,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         tableRows += `
           <tr style="border-bottom: 1px solid var(--border-light); font-size: 13px;">
             <td style="padding: 12px 8px; text-align: center;">
-              <input type="checkbox" class="mapas-player-checkbox" value="${p.id}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary-blue);">
+              <input type="checkbox" class="mapas-player-checkbox" value="${escapeAttr(p.id)}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary-blue);">
             </td>
             <td style="padding: 12px 8px;">
-              <a href="#" class="mapas-table-link" data-playerid="${p.id}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none;">${nameEscaped}</a>
+              <a href="#" class="mapas-table-link" data-playerid="${escapeAttr(p.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none;">${nameEscaped}</a>
             </td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${yearEscaped}</td>
             <td style="padding: 12px 8px; font-weight: 600; color: var(--text-main);">${teamEscaped}</td>
@@ -30874,7 +31330,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           }
 
           return `
-          <div class="mapas-player-link" data-playerid="${p.id}" style="${bgStyle} font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeHtml(tooltipText)}">
+          <div class="mapas-player-link" data-playerid="${escapeAttr(p.id)}" style="${escapeAttr(bgStyle)} font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(tooltipText)}">
             ${escapeHtml(shortName)}
           </div>
           `;
@@ -30887,8 +31343,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const mapY = posCoords.x;
 
       return `
-        <div style="position: absolute; left: ${mapX}%; top: ${mapY}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
-          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${curPrimaryColor}; color: ${curTextColor}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+        <div style="position: absolute; left: ${escapeAttr(mapX)}%; top: ${escapeAttr(mapY)}%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 10;">
+          <div style="min-width: 40px; height: 26px; padding: 0 8px; border-radius: 6px; background-color: ${escapeAttr(curPrimaryColor)}; color: ${escapeAttr(curTextColor)}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
             ${escapeHtml(posCode)}
           </div>
           <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
@@ -31120,6 +31576,37 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       .replace(/'/g, "&#039;");
   }
 
+  /**
+   * Escapa un valor para meterlo en un ATRIBUTO HTML.
+   * Se diferencia de escapeHtml en una cosa importante: el número 0 y el valor false se escriben
+   * tal cual ("0", "false") en vez de convertirse en cadena vacía. En un atributo eso importa,
+   * porque data-idx="0" identifica la primera fila de una lista y data-idx="" no identifica nada.
+   */
+  function escapeAttr(valor) {
+    if (valor === null || valor === undefined) return '';
+    return escapeHtml(String(valor));
+  }
+
+
+  /**
+   * Escapa un valor que va DENTRO de comillas en un atributo con código JavaScript
+   * (onclick, onchange, onmouseover...). Primero para JavaScript y después para HTML, en ese
+   * orden, porque el navegador deshace el escape HTML antes de compilar el código.
+   * Para texto normal usa escapeHtml; esta es solo para atributos de eventos.
+   */
+  function escapeJsAttr(valor) {
+    var s = (valor === null || valor === undefined) ? '' : String(valor);
+    s = s.replace(/\\/g, '\\\\')
+         .replace(/'/g, "\\'")
+         .replace(/"/g, '\\"')
+         .replace(/\r/g, '\\r')
+         .replace(/\n/g, '\\n')
+         .replace(/\u2028/g, '\\u2028')
+         .replace(/\u2029/g, '\\u2029');
+    return escapeHtml(s);
+  }
+
+
   // --------------------------------------------------------------------------
   // Global Smart Option-Search & Datalist Auto-Select Handler
   // --------------------------------------------------------------------------
@@ -31205,8 +31692,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const type = inputEl.type || 'text';
       if (['hidden', 'checkbox', 'radio', 'color', 'file', 'submit', 'button', 'date'].includes(type)) return;
 
-      const idLower = (inputEl.id || '').toLowerCase();
-      const phLower = (inputEl.placeholder || '').toLowerCase();
+      const idLower = String(inputEl.id || '').toLowerCase();
+      const phLower = String(inputEl.placeholder || '').toLowerCase();
       const isSearchOrDatalist = inputEl.hasAttribute('list') || idLower.includes('search') || phLower.includes('buscar') || type === 'search' || inputEl.classList.contains('form-control');
 
       if (!isSearchOrDatalist) return;
@@ -31318,11 +31805,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const div = document.createElement('div');
         div.className = 'nota-tag-item' + (cat.id === currentCategoryId ? ' active' : '');
         div.innerHTML = `<label style="cursor: pointer; margin: 0; padding: 0; display: flex; align-items: center;" title="Cambiar color" onclick="event.stopPropagation()">
-                           <input type="color" value="${cat.color}" onchange="updateCategoryColor(event, '${cat.id}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
-                           <i data-lucide="tag" style="color: ${cat.color};"></i>
+                           <input type="color" value="${escapeAttr(cat.color)}" onchange="updateCategoryColor(event, '${escapeJsAttr(cat.id)}')" style="opacity: 0; position: absolute; width: 0; height: 0;">
+                           <i data-lucide="tag" style="color: ${escapeAttr(cat.color)};"></i>
                          </label>
                          <span style="flex:1; margin-left: 8px;">${escapeHtml(cat.name)}</span>
-                         <button class="btn-ficha-action text-danger" style="width:20px; height:20px; padding:0" onclick="deleteCategory(event, '${cat.id}')" title="Eliminar Etiqueta">
+                         <button class="btn-ficha-action text-danger" style="width:20px; height:20px; padding:0" onclick="deleteCategory(event, '${escapeJsAttr(cat.id)}')" title="Eliminar Etiqueta">
                            <i data-lucide="x" style="width:12px; height:12px"></i>
                          </button>`;
         div.onclick = () => selectCategoryFn(cat.id);
@@ -31410,8 +31897,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <!-- LÍNEA 1: Escudo (icono) y Eliminar -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${cardColor}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
-                <i data-lucide="file-text" style="width: 24px; height: 24px; color: ${cardColor};"></i>
+              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                <i data-lucide="file-text" style="width: 24px; height: 24px; color: ${escapeAttr(cardColor)};"></i>
               </div>
               ${currentCategoryId === 'todas' && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
             </div>
@@ -31422,7 +31909,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
           <!-- LÍNEA 2: TÍTULO -->
           <div style="width: 100%; overflow: hidden; margin-top: 8px; margin-bottom: 4px;">
-            <h3 class="entity-card-title club-name-link cursor-pointer" title="${escapeHtml(ficha.title || 'Sin título')}" style="margin: 0; font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
+            <h3 class="entity-card-title club-name-link cursor-pointer" title="${escapeAttr(ficha.title || 'Sin título')}" style="margin: 0; font-size: 18px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main, #1e293b);">
               ${escapeHtml(ficha.title || 'Sin título')}
             </h3>
           </div>
@@ -31434,7 +31921,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
 
           <!-- LÍNEA 5: BOTÓN -->
-          <button type="button" class="btn btn-sm" style="width: 100%; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid ${accentColor}40; color: ${accentColor}; background: ${accentColor}15; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <button type="button" class="btn btn-sm" style="width: 100%; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid ${escapeAttr(accentColor)}40; color: ${escapeAttr(accentColor)}; background: ${escapeAttr(accentColor)}15; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
             <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i> Ver / Editar Nota
           </button>
         `;
@@ -31523,13 +32010,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               const finalFile = compressedFile || file;
               const reader = new FileReader();
               reader.onload = (event) => {
-                document.execCommand('insertHTML', false, `<img src="${event.target.result}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;">`);
+                document.execCommand('insertHTML', false, `<img src="${escapeAttr(event.target.result)}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;">`);
               };
               reader.readAsDataURL(finalFile);
             } else {
               const reader = new FileReader();
               reader.onload = (event) => {
-                document.execCommand('insertHTML', false, `<a href="${event.target.result}" download="${file.name}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: 8px; text-decoration: none; color: var(--primary-blue); font-weight: 500; margin: 10px 0;"><i data-lucide="paperclip" style="width: 16px; height: 16px;"></i> ${escapeHtml(file.name)}</a>`);
+                document.execCommand('insertHTML', false, `<a href="${escapeAttr(event.target.result)}"  /* dirección «data:» del fichero que el usuario acaba de adjuntar: no viene de la base, por eso no pasa por urlSegura */ download="${escapeAttr(file.name)}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-subtle); border: 1px solid var(--border-light); border-radius: 8px; text-decoration: none; color: var(--primary-blue); font-weight: 500; margin: 10px 0;"><i data-lucide="paperclip" style="width: 16px; height: 16px;"></i> ${escapeHtml(file.name)}</a>`);
                 lucide.createIcons();
               };
               reader.readAsDataURL(file);
@@ -31638,8 +32125,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (notasCatPills) {
         notasCatPills.innerHTML = (state.notasCategorias || []).map(cat => {
           const isActive = initialCatIds.includes(cat.id);
-          return `<div class="tag-pill ${isActive ? 'active' : ''}" data-val="${cat.id}">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${cat.color || '#3b82f6'};"></span>
+          return `<div class="tag-pill ${escapeAttr(isActive ? 'active' : '')}" data-val="${escapeAttr(cat.id)}">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${escapeAttr(cat.color || '#3b82f6')};"></span>
             ${escapeHtml(cat.name)}
           </div>`;
         }).join('');
@@ -31694,8 +32181,8 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           // Add pill to current modal
           const notasCatPills = document.getElementById('notasCatPills');
           if (notasCatPills) {
-            const pillHTML = `<div class="tag-pill active" data-val="${newCatId}">
-                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${newColor};"></span>
+            const pillHTML = `<div class="tag-pill active" data-val="${escapeAttr(newCatId)}">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${escapeAttr(newColor)};"></span>
                 ${escapeHtml(customValue)}
               </div>`;
             notasCatPills.insertAdjacentHTML('beforeend', pillHTML);
@@ -31749,7 +32236,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     initDirectorioSubtabs();
     initAgendaFilters();
     initNotificationsSystem();
-    initFirebaseRealtimeListener();
+    // Las escuchas de Firestore solo arrancan con sesión iniciada (auth.js).
+    // Sin sistema de acceso (SDK no cargado) NO se conecta: las reglas del servidor protegen la base igualmente.
+    if (window.RSAuth && window.RSAuth.ready) {
+      window.RSAuth.ready.then(() => initFirebaseRealtimeListener());
+    } else {
+      console.error('Sistema de acceso no disponible: no se conecta con Firestore.');
+    }
     setupInputClearButtons();
     initNotasModule();
 
@@ -31918,7 +32411,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           let html = '';
           filtered.forEach(item => {
             const name = typeof item === 'string' ? item : (item.nombre || item.seleccion || item.equipo || '');
-            html += `<li style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--text-color);" class="dropdown-item-smart" onmouseover="this.style.backgroundColor='var(--bg-body)'" onmouseout="this.style.backgroundColor='transparent'" data-name="${escapeHtml(name)}">${escapeHtml(name)}</li>`;
+            html += `<li style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--text-color);" class="dropdown-item-smart" onmouseover="this.style.backgroundColor='var(--bg-body)'" onmouseout="this.style.backgroundColor='transparent'" data-name="${escapeAttr(name)}">${escapeHtml(name)}</li>`;
           });
 
           if (val && entityCategory) {
@@ -31970,7 +32463,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
               }
 
               state.directory[saveCategory].push(newEntity);
-              saveToFirebase('directorio', state.directory);
+              // Antes se llamaba con 'directorio' y el directorio entero: ni esa colección existe
+              // ni ese objeto tiene identificador, así que el equipo, club o estadio recién creado
+              // se quedaba solo en memoria y desaparecía al recargar.
+              saveToFirebase(saveCategory, newEntity);
 
               input.value = newName;
               dropdown.style.display = 'none';
@@ -32200,16 +32696,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (cols.size > 0) {
       const recoveredCols = Array.from(cols).sort();
       state.favColumns = recoveredCols;
-      // Save it to firebase explicitly
-      const configToSave = Object.assign({}, state.settings || {}, {
-        favColumns: recoveredCols,
-        customTabOrder: state.customTabOrder || [],
-        dirTabOrder: state.dirTabOrder || [],
-        customClubTypes: state.customClubTypes || [],
-        directoryCategoriesOrder: state.directoryCategoriesOrder || [],
-        directoryFederationsOrder: state.directoryFederationsOrder || [],
-      });
-      await db.collection('config').doc('global').set(configToSave, { merge: true });
+      // Se escribía en config/global, un documento que ninguna parte de la aplicación lee: la
+      // recuperación se veía en pantalla y desaparecía al recargar. Los ajustes viven en
+      // configuracion/app_settings, y saveState() es quien escribe ahí.
+      saveState();
 
       alert(`¡Recuperación completada!\n\nSe han restaurado las columnas: ${recoveredCols.join(', ')}`);
 
@@ -32278,7 +32768,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         }
 
         if (logoToUse) {
-          iconHtml = `<img src="${escapeHtml(logoToUse)}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 50%;">`;
+          iconHtml = `<img src="${escapeAttr(logoToUse)}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 50%;">`;
         }
 
         html += `
@@ -32355,7 +32845,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       headerHTML += `
         <div class="week-header-cell">
           <span class="week-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayNames[i]}</span>
-          <span class="week-header-date ${isToday ? 'today' : ''}">${d.getDate()}</span>
+          <span class="week-header-date ${escapeAttr(isToday ? 'today' : '')}">${d.getDate()}</span>
         </div>
       `;
     }
@@ -32443,12 +32933,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   function generateAllDayPill(ev) {
     if (ev.type === 'match') {
-      return `<div class="day-match-pill ${ev.data.estado}" style="margin:0;" data-type="match" data-mid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+      return `<div class="day-match-pill ${escapeAttr(ev.data.estado)}" style="margin:0;" data-type="match" data-mid="${escapeAttr(ev.data.id)}">${escapeHtml(ev.title)}</div>`;
     } else if (ev.type === 'agenda') {
       const colorObj = getCategoryColor(ev.data.categoria);
-      return `<div class="day-match-pill" style="margin:0; background: ${colorObj.bg}; color: ${colorObj.text}; border: 1px solid ${colorObj.border}; font-weight:700;" data-type="agenda" data-agid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+      return `<div class="day-match-pill" style="margin:0; background: ${escapeAttr(colorObj.bg)}; color: ${escapeAttr(colorObj.text)}; border: 1px solid ${escapeAttr(colorObj.border)}; font-weight:700;" data-type="agenda" data-agid="${escapeAttr(ev.data.id)}">${escapeHtml(ev.title)}</div>`;
     } else {
-      return `<div class="day-match-pill" style="margin:0; background: rgba(43,108,176,0.1); color: var(--primary); border: 1px solid var(--primary); font-weight:700;" data-repid="${ev.data.id}">${escapeHtml(ev.title)}</div>`;
+      return `<div class="day-match-pill" style="margin:0; background: rgba(43,108,176,0.1); color: var(--primary); border: 1px solid var(--primary); font-weight:700;" data-repid="${escapeAttr(ev.data.id)}">${escapeHtml(ev.title)}</div>`;
     }
   }
 
@@ -32472,18 +32962,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       } else {
         bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
       }
-      idAttr = `data-type="match" data-mid="${ev.data.id}"`;
+      idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
       const colorObj = getCategoryColor(ev.data.categoria);
       bg = colorObj.bg;
       border = colorObj.border;
       color = colorObj.text;
-      idAttr = `data-type="agenda" data-agid="${ev.data.id}"`;
+      idAttr = `data-type="agenda" data-agid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'report') {
       bg = 'rgba(43,108,176,0.1)';
       border = 'var(--primary)';
       color = 'var(--primary)';
-      idAttr = `data-repid="${ev.data.id}"`;
+      idAttr = `data-repid="${escapeAttr(ev.data.id)}"`;
     }
 
     return `
@@ -32574,7 +33064,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       headerHTML += `
         <div class="days-header-cell">
           <span class="days-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayName}</span>
-          <span class="days-header-date ${isToday ? 'today' : ''}">${d.getDate()}</span>
+          <span class="days-header-date ${escapeAttr(isToday ? 'today' : '')}">${d.getDate()}</span>
         </div>
       `;
     }
@@ -32600,7 +33090,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       gridHTML += dayColHTML;
     }
 
-    let allDayHTML = `<div class="days-all-day-row" style="grid-template-columns: 60px repeat(${calendarDaysCount}, 1fr);">
+    let allDayHTML = `<div class="days-all-day-row" style="grid-template-columns: 60px repeat(${escapeAttr(calendarDaysCount)}, 1fr);">
                         <div class="days-all-day-label">Todo el día</div>`;
 
     let allDayCells = Array(calendarDaysCount).fill('');
@@ -32681,18 +33171,18 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       } else {
         bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
       }
-      idAttr = `data-type="match" data-mid="${ev.data.id}"`;
+      idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
       const colorObj = getCategoryColor(ev.data.categoria);
       bg = colorObj.bg;
       border = colorObj.border;
       color = colorObj.text;
-      idAttr = `data-type="agenda" data-agid="${ev.data.id}"`;
+      idAttr = `data-type="agenda" data-agid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'report') {
       bg = 'rgba(43,108,176,0.1)';
       border = 'var(--primary)';
       color = 'var(--primary)';
-      idAttr = `data-repid="${ev.data.id}"`;
+      idAttr = `data-repid="${escapeAttr(ev.data.id)}"`;
     }
 
     return `

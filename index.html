@@ -3,6 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Política de contenido: limita de dónde puede cargar la aplicación y, sobre todo, a dónde
+       puede enviar datos. Se permite el código en línea porque la aplicación usa atributos
+       onclick por todas partes; aun así, esta política impide incrustar la página en otro sitio,
+       cargar complementos y, lo importante, mandar información a un servidor que no sea el suyo. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://www.gstatic.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src https://fonts.gstatic.com data:;
+    img-src 'self' data: blob: https:;
+    media-src 'self' data: blob:;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.gstatic.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
+    worker-src blob:;
+    child-src blob:;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+  ">
   <title>MS Fútbol Scout</title>
   
   <!-- Fonts -->
@@ -20,14 +39,41 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#1d4ed8">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=20260821021">
+  <link rel="stylesheet" href="styles.css?v=202609031800">
   
   <!-- Lucide Icons -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
+       cualquier mañana y romper la aplicación sola, o servir una alterada. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"
+          integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+          crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@1.40.0/dist/umd/lucide.min.js"
+          integrity="sha384-s4mVkuit0eGTZzd14daHDlafvQQpJM6xaSzp3M68bLqBd672unncFLVRpNFcUTm5"
+          crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"
+          integrity="sha384-DgmC6Xe2bSN2WjTDXzWYbUbxyhNP+NNkGDR/g78pCXV7E7rcVTGxVg0uIVCUUcBc"
+          crossorigin="anonymous"></script>
 </head>
 <body class="theme-light">
+
+  <!-- PUERTA DE ACCESO (auth.js) · visible hasta que hay sesión iniciada -->
+  <div id="authGate" class="auth-gate" data-state="checking" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
+    <div class="auth-gate-card">
+      <img src="Logo MS.png" alt="" class="auth-gate-logo">
+      <h1 id="authGateTitle" class="auth-gate-title">MS Fútbol Scout</h1>
+      <p class="auth-gate-subtitle">Acceso privado</p>
+      <p class="auth-gate-checking">Comprobando sesión…</p>
+      <form id="authGateForm" class="auth-gate-form" novalidate>
+        <label class="auth-gate-label" for="authEmail">Correo electrónico</label>
+        <input id="authEmail" class="form-control" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required>
+        <label class="auth-gate-label" for="authPassword">Contraseña</label>
+        <input id="authPassword" class="form-control" type="password" autocomplete="current-password" required>
+        <div id="authGateMsg" class="auth-gate-msg hidden" role="alert"></div>
+        <button id="btnAuthLogin" class="btn btn-primary auth-gate-btn" type="submit">Entrar</button>
+        <button id="btnAuthForgot" class="btn-text-sm auth-gate-forgot" type="button">¿Has olvidado la contraseña?</button>
+      </form>
+    </div>
+  </div>
 
   <!-- TOP HEADER & MAIN NAVIGATION -->
   <header class="app-header">
@@ -97,6 +143,12 @@
               </div>
             </div>
           </div>
+
+          <!-- Sesión (auth.js) -->
+          <span class="header-user-email" id="headerUserEmail" title="Sesión iniciada"></span>
+          <button class="btn-action-icon hidden" id="btnHeaderLogout" title="Cerrar sesión" aria-label="Cerrar sesión">
+            <i data-lucide="log-out"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -1971,6 +2023,7 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
 
   <!-- Firebase SDKs (v10 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <!-- Modal Info Clubes -->
   <div class="modal-overlay hidden" id="modalInfoClubes" style="z-index: 30000;">
     <div class="modal-card xlarge" style="max-width: 600px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
@@ -2138,10 +2191,21 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
 
   <!-- App Script -->
   <!-- PDF.js for reading PDFs client-side -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- La librería de lectura de PDF se retiró el 04-09-2026: se descargaba en cada visita
+       (400 KB) y ninguna parte de la aplicación la usaba. Para recuperarla basta con volver a
+       poner esta etiqueta:
+       <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
+  -->
   
-  <script src="app.js?v=202608291547" defer></script>
-  <script src="importer_v2.js?v=202608272300" defer></script>
+  <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
+  <script src="toast.js?v=202609041130" defer></script>
+  <script src="data-guard.js?v=202609041130" defer></script>
+  <script src="firebase-config.js?v=202609041130" defer></script>
+  <script src="auth.js?v=202609041130" defer></script>
+  <script src="app.js?v=202609041130" defer></script>
+  <script src="importer_v2.js?v=202609041130" defer></script>
+  <script src="informe-borrador.js?v=202609041130" defer></script>
+  <script src="calendario-export.js?v=202609041130" defer></script>
 
 
 </body>

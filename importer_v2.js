@@ -1,3 +1,31 @@
+/* Escapado del texto que se pega en el importador.
+   Este fichero pinta en la tabla texto copiado de fuera (webs de federaciones, listados de plantillas)
+   y lo metia en atributos HTML sin filtrar: una linea preparada podia inyectar atributos y ejecutar
+   codigo en el navegador del ojeador. Es la unica via de ataque que no exige tener ya acceso a la
+   base de datos: basta con copiar y pegar de una fuente manipulada.
+   Usa las funciones de app.js, que se carga antes; si no estuvieran, hay una version local. */
+function impEscHtml(v) {
+  if (typeof window.escapeAttr === 'function') return window.escapeAttr(v);
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function impEscJs(v) {
+  if (typeof window.escapeJsAttr === 'function') return window.escapeJsAttr(v);
+  var t = (v === null || v === undefined) ? '' : String(v);
+  t = t.replace(/\\/g, '\\\\')
+       .replace(/'/g, "\\'")
+       .replace(/"/g, '\\"')
+       .replace(/\r/g, '\\r')
+       .replace(/\n/g, '\\n');
+  return impEscHtml(t);
+}
+
 let stagedExcelRows = [];
 let currentImporterType = 'plantillas';
 let lastHoveredClubDropdownIndex = null;
@@ -103,9 +131,9 @@ function populateSelect(id, items, defaultText) {
     
     const currentVal = sel.value;
     
-    sel.innerHTML = `<option value="">${defaultText}</option>`;
+    sel.innerHTML = `<option value="">${impEscHtml(defaultText)}</option>`;
     items.forEach(item => {
-        sel.innerHTML += `<option value="${item}">${item}</option>`;
+        sel.innerHTML += `<option value="${impEscHtml(item)}">${impEscHtml(item)}</option>`;
     });
     sel.innerHTML += `<option value="__NEW__" style="font-weight:bold; color: blue;">➕ Añadir nueva...</option>`;
     
@@ -329,7 +357,7 @@ function renderExcelTable() {
         keys.forEach(k => {
             if (k !== 'nombreOficial') {
                 let displayK = k === 'ano' ? 'Año' : k;
-                bulkColSelect.innerHTML += `<option value="${k}">${displayK.toUpperCase()}</option>`;
+                bulkColSelect.innerHTML += `<option value="${impEscHtml(k)}">${impEscHtml(String(displayK).toUpperCase())}</option>`;
             }
         });
     }
@@ -350,19 +378,19 @@ function renderExcelTable() {
         if (!document.getElementById('categoriaList')) {
             let catListHTML = '<datalist id="categoriaList">';
             const LISTA_CATEGORIAS_EQUIPO = window.LISTA_CATEGORIAS_EQUIPO || ['PREBEN', 'BEN', 'ALV', 'INF', 'CAD', 'JUV', 'REG', 'AUT', 'PREF', '3 RFEF', '2 RFEF', '1 RFEF', 'LALIGA 2', 'LALIGA', '1 RFEF FEM', '2 RFEF FEM', '3 RFEF FEM'];
-            LISTA_CATEGORIAS_EQUIPO.forEach(c => { catListHTML += `<option value="${c}">`; });
+            LISTA_CATEGORIAS_EQUIPO.forEach(c => { catListHTML += `<option value="${impEscHtml(c)}">`; });
             catListHTML += '</datalist>';
             document.body.insertAdjacentHTML('beforeend', catListHTML);
         }
         
-        ['24/25', '25/26', '26/27', '27/28'].forEach(t => { tempOptionsHTML += `<option value="${t}">${t}</option>`; });
+        ['24/25', '25/26', '26/27', '27/28'].forEach(t => { tempOptionsHTML += `<option value="${impEscHtml(t)}">${t}</option>`; });
 
         if (!document.getElementById('competicionesList')) {
             let compListHTML = '<datalist id="competicionesList">';
             if (window.state?.directory?.equipos) {
                 const comps = new Set();
                 window.state.directory.equipos.forEach(eq => { if (eq.competicion) comps.add(eq.competicion); });
-                comps.forEach(c => { compListHTML += `<option value="${c}">`; });
+                comps.forEach(c => { compListHTML += `<option value="${impEscHtml(c)}">`; });
             }
             compListHTML += '</datalist>';
             document.body.insertAdjacentHTML('beforeend', compListHTML);
@@ -385,7 +413,7 @@ function renderExcelTable() {
         let bgStyle = isDuplicate ? 'background-color: #fee2e2;' : '';
         let titleAttr = isDuplicate ? 'title="Este registro ya existe (marcado en rojo)"' : '';
 
-        bodyHtml += `<tr style="${bgStyle}" ${titleAttr}>`;
+        bodyHtml += `<tr style="${impEscHtml(bgStyle)}" ${titleAttr}>`;
         bodyHtml += `<td style="padding: 8px; border: 1px solid var(--border-light); text-align: center;">
                         <input type="checkbox" ${row._checked ? 'checked' : ''} onchange="toggleRowCheck(${rowIndex})">
                      </td>`;
@@ -393,61 +421,61 @@ function renderExcelTable() {
         keys.forEach(k => {
             if (k === 'clubVinculado') {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light); position: relative;">
-                                <input type="search" value="${row[k] || ''}" 
-                                    oninput="updateRowField(${rowIndex}, '${k}', this.value); showClubSuggestions(this, ${rowIndex});" 
-                                    class="form-control excel-cell-field club-vinculado-input" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626; font-weight:bold;' : ''}" 
+                                <input type="search" value="${impEscHtml(row[k] || '')}" 
+                                    oninput="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value); showClubSuggestions(this, ${rowIndex});" 
+                                    class="form-control excel-cell-field club-vinculado-input" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626; font-weight:bold;' : '')}" 
                                     onfocus="showClubSuggestions(this, ${rowIndex})" autocomplete="off">
                                 <div class="club-suggestions hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
                              </td>`;
             } else if (k === 'nombreOficial') {
-                bodyHtml += `<td style="padding: 8px; border: 1px solid var(--border-light); font-weight: bold; background: #f8fafc; color: ${isDuplicate ? '#dc2626' : 'inherit'}">
-                                ${row[k]}
+                bodyHtml += `<td style="padding: 8px; border: 1px solid var(--border-light); font-weight: bold; background: #f8fafc; color: ${impEscHtml(isDuplicate ? '#dc2626' : 'inherit')}">
+                                ${impEscHtml(row[k])}
                              </td>`;
             } else if (currentImporterType === 'equipos' && k === 'categoria') {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
-                                <input list="categoriaList" type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
+                                <input list="categoriaList" type="text" value="${impEscHtml(row[k] || '')}" oninput="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">
                              </td>`;
             } else if (currentImporterType === 'equipos' && k === 'temporada') {
                 let currentSelect = tempOptionsHTML;
-                if (row[k]) currentSelect = currentSelect.replace(`value="${row[k]}"`, `value="${row[k]}" selected`);
+                if (row[k]) currentSelect = currentSelect.replace(`value="${impEscHtml(row[k])}"`, `value="${impEscHtml(row[k])}" selected`);
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
-                                <select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
+                                <select onchange="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">
                                     ${currentSelect}
                                 </select>
                              </td>`;
             } else if (currentImporterType === 'equipos' && k === 'competicion') {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
-                                <input list="competicionesList" type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
+                                <input list="competicionesList" type="text" value="${impEscHtml(row[k] || '')}" oninput="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">
                              </td>`;
             } else if (k === 'lateralidad') {
                 const latOptions = ['', 'Derecha', 'Izquierda', 'Ambidiestro'];
-                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">`;
                 latOptions.forEach(p => {
                     // Match case-insensitively just in case it was imported or mass-edited differently
-                    selectHtml += `<option value="${p}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
+                    selectHtml += `<option value="${impEscHtml(p)}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
                 });
                 selectHtml += `</select>`;
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
             } else if (k === 'rol') {
                 const rolOptions = ['Jugador', 'Director Deportivo', 'Secretaría Técnica', 'Analista', 'Primer Entrenador', 'Segundo Entrenador', 'Entrenador Porteros', 'Preparador Físico', 'Delegado / Técnico', 'Fisioterapeuta', 'Readaptador', 'Médico', 'Directivo', 'Otro'];
-                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${k}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">`;
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">`;
                 rolOptions.forEach(p => {
-                    selectHtml += `<option value="${p}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
+                    selectHtml += `<option value="${impEscHtml(p)}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
                 });
                 selectHtml += `</select>`;
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
             } else if (k === 'equipo') {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light); position: relative;">
-                                <input type="search" value="${row[k] || ''}" 
-                                    oninput="updateRowField(${rowIndex}, '${k}', this.value); showEquipoSuggestions(this, ${rowIndex});" 
-                                    class="form-control excel-cell-field equipo-vinculado-input" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}" 
+                                <input type="search" value="${impEscHtml(row[k] || '')}" 
+                                    oninput="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value); showEquipoSuggestions(this, ${rowIndex});" 
+                                    class="form-control excel-cell-field equipo-vinculado-input" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}" 
                                     onfocus="showEquipoSuggestions(this, ${rowIndex})" autocomplete="off">
                                 <div class="equipo-suggestions hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; max-height: 200px; overflow-y: auto; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
                              </td>`;
             } else {
                 bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">
-                                <input type="text" value="${row[k] || ''}" oninput="updateRowField(${rowIndex}, '${k}', this.value)" 
-                                    class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${isDuplicate ? 'color: #dc2626;' : ''}">
+                                <input type="text" value="${impEscHtml(row[k] || '')}" oninput="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" 
+                                    class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">
                              </td>`;
             }
         });
@@ -506,9 +534,9 @@ window.showClubSuggestions = function(input, rowIndex) {
     
     sugCont.innerHTML = filtered.slice(0, 50).map(c => 
         `<div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 12px;" 
-            onmousedown="selectClubSuggestion(${rowIndex}, '${(c.nombre || '').replace(/'/g, "\\'")}')"
+            onmousedown="selectClubSuggestion(${rowIndex}, '${impEscJs(c.nombre || '')}')"
             onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-            ${c.nombre}
+            ${impEscHtml(c.nombre)}
         </div>`
     ).join('');
     
@@ -549,9 +577,9 @@ window.showEquipoSuggestions = function(input, rowIndex) {
     
     sugCont.innerHTML = filtered.slice(0, 50).map(e => 
         `<div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 12px;" 
-            onmousedown="selectEquipoSuggestion(${rowIndex}, '${(e.nombre || '').replace(/'/g, "\\'")}')"
+            onmousedown="selectEquipoSuggestion(${rowIndex}, '${impEscJs(e.nombre || '')}')"
             onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-            ${e.nombre}
+            ${impEscHtml(e.nombre)}
         </div>`
     ).join('');
     
@@ -609,7 +637,7 @@ function updateOfficialName(index) {
             const keys = Object.keys(r).filter(k => k !== '_checked');
             const officialIdx = keys.indexOf('nombreOficial');
             if(officialIdx > -1 && cells[officialIdx + 1]) {
-                cells[officialIdx + 1].innerHTML = r.nombreOficial;
+                cells[officialIdx + 1].textContent = r.nombreOficial;
             }
         }
     }
