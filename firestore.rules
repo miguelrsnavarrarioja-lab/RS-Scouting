@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// =============================================================
+// MS FÚTBOL SCOUT · Reglas de seguridad de Cloud Firestore
+// -------------------------------------------------------------
+// Principio: NADIE lee ni escribe sin (1) sesión iniciada y
+// (2) su correo en la lista blanca configuracion/acceso.emails.
+//
+// La lista blanca se edita SOLO desde la consola de Firebase
+// (Firestore → configuracion → acceso → campo "emails", array de
+// correos en minúsculas). Ningún cliente puede modificarla.
+//
+// Despliegue:  npx firebase-tools deploy --only firestore:rules
+// =============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Exigir el correo VERIFICADO es defensa en profundidad: si alguien reactivase el registro
+    // público en la consola, no bastaría con registrarse con un correo que esté en la lista blanca.
+    function conSesion() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email.size() > 0
+        && request.auth.token.email_verified == true;
+    }
+
+    function listaBlanca() {
+      return get(/databases/$(database)/documents/configuracion/acceso).data.emails;
+    }
+
+    function autorizado() {
+      return conSesion()
+        && exists(/databases/$(database)/documents/configuracion/acceso)
+        && listaBlanca() is list
+        && request.auth.token.email.lower() in listaBlanca();
+    }
+
+    // Lista blanca: ni lectura ni escritura desde la app. Las reglas la consultan con get() sin
+    // necesitar permiso del cliente, así que dar lectura solo serviría para exponer los correos
+    // del equipo a cualquier usuario autorizado (minimización, art. 5.1.c RGPD).
+    match /configuracion/acceso {
+      allow read, write: if false;
+    }
+
+    // Resto de documentos de configuración.
+    match /configuracion/{docId} {
+      allow read, write: if autorizado() && docId != 'acceso';
+    }
+
+    // Todas las colecciones de primer nivel de la app
+    // (jugadores, clubes, equipos, informes, agenda, enlaces, cartelera_calendarios, notas_*, ...).
+    match /{coleccion}/{docId} {
+      allow read, write: if autorizado() && coleccion != 'configuracion';
+    }
+
+    // Las subcolecciones no se usan: quedan denegadas por defecto.
+  }
+}

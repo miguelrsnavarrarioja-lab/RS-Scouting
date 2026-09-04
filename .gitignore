@@ -1,0 +1,28 @@
+# Nada de esto debe subir nunca al repositorio.
+# El repositorio es público y las subidas se hacen arrastrando la carpeta entera,
+# así que sin esta lista bastaría un despiste para publicar la base de datos completa
+# o la clave que da acceso de administrador al servidor.
+
+# Claves y credenciales
+*serviceaccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+clave*.json
+credenciales*.json
+.env
+.env.*
+
+# Copias de seguridad: llevan las fichas completas de los jugadores
+rs-scouting-*.json
+MS_Futbol_Scout_CopiaSeguridad_*.json
+backups/
+copias/
+
+# Dependencias
+node_modules/
+
+# Basura del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
