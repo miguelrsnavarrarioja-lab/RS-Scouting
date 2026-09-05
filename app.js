@@ -1367,13 +1367,14 @@
     if (tabName === 'dashboard') renderDashboard();
     else if (tabName === 'planificacion') renderPlanificacion();
     else if (tabName === 'partidos') {
-      // Cuando llega un cambio de otro dispositivo se repinta la pestaña activa, y repintar
-      // Partidos ocultaba el editor de informes: al ojeador se le cerraba el informe a mitad de
-      // frase cada vez que un compañero guardaba cualquier cosa, o al volver la cobertura en el
-      // estadio. Si el editor está abierto, se deja en paz; la lista se repinta al cerrarlo.
+      // Repintar Partidos ocultaba el editor de informes. Pasaba en dos casos y los dos hacían
+      // perder el hilo al ojeador: cuando llegaba un cambio de otro dispositivo (o volvía la
+      // cobertura en el estadio), y cuando el propio usuario iba al Directorio a consultar una
+      // ficha y volvía a Partidos. Si el editor está abierto se deja como está; para volver a la
+      // lista está su botón «Volver», que sí lo cierra.
       const editor = document.getElementById('matchReportEditorState');
       const editorAbierto = editor && !editor.classList.contains('hidden');
-      if (desdeServidor && editorAbierto) {
+      if (editorAbierto) {
         try { if (window.RSBorrador) window.RSBorrador.guardar(); } catch (e) { /* nada */ }
       } else {
         renderPartidosList();
