@@ -24170,6 +24170,11 @@
   let selectedCarteleraFechas = [];
   let selectedCarteleraInteres = 'all';
   let selectedCarteleraEquipo = 'all';
+  // La cartelera pinta una fila por partido con tres controles cada una. Con los calendarios
+  // reales (más de tres mil partidos) eso eran 86.000 nodos y 18 segundos de bloqueo en cada
+  // repintado. Se pinta por tramos; el filtrado no cambia.
+  const CARTELERA_TRAMO = 150;
+  let carteleraFilasVisibles = CARTELERA_TRAMO;
   let selectedCarteleraGrupo = 'all';
   let selectedCarteleraTecnico = 'all';
   let selectedCarteleraSubview = 'destacados';
@@ -26115,7 +26120,12 @@
         return str; // Return as-is to preserve acronyms and custom casing
       };
 
-      html += allMatches.map(m => {
+      if (renderCarteleraMatches._ultimoTotal !== allMatches.length) {
+        carteleraFilasVisibles = CARTELERA_TRAMO;   // cambió el filtro: se vuelve al primer tramo
+        renderCarteleraMatches._ultimoTotal = allMatches.length;
+      }
+      const matchesVisibles = allMatches.slice(0, carteleraFilasVisibles);
+      html += matchesVisibles.map(m => {
         let locStyle = 'font-weight: 700; color: var(--text-main);';
         if (m.isInterestingLocal) locStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
         else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
@@ -26187,8 +26197,19 @@ const formatTeamName = (str) => {
             </table>
           </div>
       `;
+      if (allMatches.length > matchesVisibles.length) {
+        html += `<div style="display:flex; align-items:center; justify-content:center; gap:14px; padding:14px;">
+          <span style="color: var(--text-muted); font-size: 13px;">Mostrando ${matchesVisibles.length} de ${allMatches.length} partidos</span>
+          <button type="button" class="btn btn-sm" id="btnCarteleraMostrarMas">Mostrar ${Math.min(CARTELERA_TRAMO, allMatches.length - matchesVisibles.length)} más</button>
+          <button type="button" class="btn btn-sm btn-outline" id="btnCarteleraMostrarTodos">Mostrar todos</button>
+        </div>`;
+      }
       container.innerHTML = html;
-      bindCarteleraMatchEvents(container, allMatches);
+      const btnMas = container.querySelector('#btnCarteleraMostrarMas');
+      if (btnMas) btnMas.addEventListener('click', () => { carteleraFilasVisibles += CARTELERA_TRAMO; renderCarteleraMatches(); });
+      const btnTodos = container.querySelector('#btnCarteleraMostrarTodos');
+      if (btnTodos) btnTodos.addEventListener('click', () => { carteleraFilasVisibles = allMatches.length; renderCarteleraMatches(); });
+      bindCarteleraMatchEvents(container, matchesVisibles);
       if (window.lucide) window.lucide.createIcons();
     } catch (e) {
       container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera Jornadas: ${e.message}<br><br>${e.stack}</div>`;

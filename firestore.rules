@@ -42,9 +42,9 @@ service cloud.firestore {
         && request.auth.token.email.lower() in listaBlanca();
     }
 
-    // Firestore rechaza documentos de más de 1 MiB, pero lo hace tarde y con un error opaco.
-    // La aplicación ya mide antes de enviar; aquí se corta además cualquier documento que llegue
-    // por otra vía con un campo desmesurado (una foto sin comprimir, por ejemplo).
+    // Guarda de FORMA, no de bytes: en las reglas, data.size() cuenta CAMPOS (el peso en bytes
+    // no se puede medir aquí). Un documento con más de 200 campos no es de esta aplicación. El
+    // límite de 1 MiB lo aplica Firestore por su cuenta, y la aplicación mide antes de enviar.
     function tamanoRazonable() {
       return request.resource == null || request.resource.data.size() <= 200;
     }
