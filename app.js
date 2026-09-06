@@ -414,8 +414,11 @@
     return texto;
   }
 
+  // Devuelve SIEMPRE una promesa que se resuelve con { ok, motivo }: nunca se rechaza, para que
+  // las decenas de llamadas que no la miran no dejen rechazos sin capturar. Quien sí la mira (el
+  // importador) puede contar cuántas fichas se guardaron de verdad en vez de cantar un éxito ciego.
   function saveToFirebase(collectionName, item) {
-    if (!db) return;
+    if (!db) return Promise.resolve({ ok: false, motivo: 'sin conexión con el servidor' });
     // Sin identificador no hay dónde guardar. Antes se salía en silencio y el usuario creía que
     // su cambio estaba a salvo; ahora queda registrado y se avisa una vez.
     if (!item || !item.id) {
@@ -426,7 +429,7 @@
           showToast('Hay una ficha sin identificador que no se ha podido guardar. Vuelve a crearla desde cero.', 'danger', 9000);
         }
       }
-      return;
+      return Promise.resolve({ ok: false, motivo: 'la ficha no tiene identificador' });
     }
 
     // Sanitize item to remove undefined values which crash Firestore
@@ -447,13 +450,13 @@
         state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: 'documento-demasiado-grande', texto: aviso, contexto: collectionName };
         setFirebaseHeaderStatus('error');
         if (typeof showToast === 'function') showToast(aviso, 'danger', 9000);
-        return;
+        return Promise.resolve({ ok: false, motivo: aviso });
       }
     }
 
     markLocalWrite(collectionName, sanitizedItem.id);
     setFirebaseHeaderStatus('syncing');
-    db.collection(collectionName).doc(String(sanitizedItem.id)).set(sanitizedItem, { merge: true })
+    return db.collection(collectionName).doc(String(sanitizedItem.id)).set(sanitizedItem, { merge: true })
       .then(() => {
         console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
         setFirebaseHeaderStatus('synced');
@@ -461,10 +464,12 @@
         setTimeout(() => {
           if (typeof cleanUpAragonGeneratedPlayersFromFirebase === "function") cleanUpAragonGeneratedPlayersFromFirebase();
         }, 1500);
+        return { ok: true };
       })
       .catch(err => {
         console.error(`Error al guardar ${item.id} en Firebase (${collectionName}):`, err);
         avisarErrorFirebase(err, 'guardar en ' + collectionName);
+        return { ok: false, motivo: (err && err.message) || 'error al guardar' };
       });
   }
 

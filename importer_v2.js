@@ -676,6 +676,17 @@ function saveExcelToDirectory() {
     if (!window.state) window.state = { directory: {} };
     if (!window.state.directory) window.state.directory = {};
 
+    // Antes se anunciaba «¡Éxito! Se han importado N registros» contando las filas MARCADAS, sin
+    // mirar si el servidor las había aceptado, y acto seguido se vaciaba la tabla y el texto pegado.
+    // Si algo fallaba, el usuario se quedaba sin los datos y sin enterarse. Ahora se espera a cada
+    // guardado y se dice cuántos entraron de verdad.
+    const enviadas = [];
+    const anotar = (nombre, promesa) => {
+        enviadas.push(Promise.resolve(promesa)
+            .then((r) => ({ nombre: nombre, ok: !r || r.ok !== false, motivo: r && r.motivo }))
+            .catch((e) => ({ nombre: nombre, ok: false, motivo: (e && e.message) || 'error al guardar' })));
+    };
+
     let added = 0;
     const toSave = stagedExcelRows.filter(r => r._checked);
 
@@ -695,7 +706,7 @@ function saveExcelToDirectory() {
             };
             window.state.directory.equipos.push(newObj);
             if (typeof window.saveToFirebase === 'function') {
-                window.saveToFirebase('equipos', newObj);
+                anotar(newObj.nombre, window.saveToFirebase('equipos', newObj));
             }
             added++;
         });
@@ -710,7 +721,7 @@ function saveExcelToDirectory() {
             };
             window.state.directory.clubes.push(newClub);
             if (typeof window.saveToFirebase === 'function') {
-                window.saveToFirebase('clubes', newClub);
+                anotar(newClub.nombre, window.saveToFirebase('clubes', newClub));
             }
             added++;
         });
@@ -746,7 +757,7 @@ function saveExcelToDirectory() {
             if (isStaff) {
                 window.state.directory.staff.push(newObj);
                 if (typeof window.saveToFirebase === 'function') {
-                    window.saveToFirebase('staff', newObj);
+                    anotar(newObj.nombre, window.saveToFirebase('staff', newObj));
                 }
             } else {
                 const normalizeStr = (str) => {
@@ -763,12 +774,12 @@ function saveExcelToDirectory() {
                         }
                     });
                     if (typeof window.saveToFirebase === 'function') {
-                        window.saveToFirebase('jugadores', existing);
+                        anotar(existing.nombre, window.saveToFirebase('jugadores', existing));
                     }
                 } else {
                     window.state.directory.jugadores.push(newObj);
                     if (typeof window.saveToFirebase === 'function') {
-                        window.saveToFirebase('jugadores', newObj);
+                        anotar(newObj.nombre, window.saveToFirebase('jugadores', newObj));
                     }
                 }
             }
@@ -779,9 +790,26 @@ function saveExcelToDirectory() {
     if (typeof window.saveState === 'function') window.saveState();
     if (typeof window.renderDirectorio === 'function') window.renderDirectorio();
     
-    alert(`¡Éxito! Se han importado ${added} registros.`);
-    
-    stagedExcelRows = [];
-    document.getElementById('importerStep2ExcelContainer').classList.add('hidden');
-    document.getElementById('importerRawText').value = '';
+    Promise.all(enviadas).then(function (resultados) {
+        const fallidas = resultados.filter(function (r) { return !r.ok; });
+        const guardados = resultados.length - fallidas.length;
+        if (!fallidas.length) {
+            alert('¡Listo! Se han guardado ' + resultados.length + ' registros.');
+            stagedExcelRows = [];
+            document.getElementById('importerStep2ExcelContainer').classList.add('hidden');
+            document.getElementById('importerRawText').value = '';
+            return;
+        }
+        const salto = String.fromCharCode(10);
+        const muestra = fallidas.slice(0, 5).map(function (r) {
+            return '· ' + (r.nombre || '(sin nombre)') + ': ' + (r.motivo || 'no se pudo guardar');
+        }).join(salto);
+        // Se nombran las fichas que no entraron para poder volver a pegarlas. La tabla la vacía
+        // otro punto de la aplicación, así que aquí no se promete conservarla.
+        alert('Se han guardado ' + guardados + ' de ' + resultados.length + ' registros.' + salto + salto +
+            'NO se han guardado ' + fallidas.length + ':' + salto + muestra +
+            (fallidas.length > 5 ? salto + '… y ' + (fallidas.length - 5) + ' más.' : '') +
+            salto + salto + 'Vuelve a pegar esas filas y guárdalas otra vez. Si se repite, avisa.');
+        console.error('Importación incompleta:', fallidas);
+    });
 }
