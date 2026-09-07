@@ -11337,7 +11337,7 @@
 
     // Jugadores Destacados
     const destacados = squadPlayers.filter(p => {
-      return String(p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
+      return (p.controlSeguimiento || []).includes('DESTACADO EQUIPO');
     });
 
     let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
@@ -12035,7 +12035,7 @@
                     <select id="tfTorneo" class="form-control">
                       <option value="">Seleccionar torneo...</option>
                       ${(state.customTorneos || ['Copa RFEF', 'Torneo Internacional', 'Copa de Campeones', 'Torneo de Navidad', 'Copa del Rey', 'Torneo Autonómico']).map(t => `<option value="${escapeAttr(t)}" ${torneoVal === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
-                      ${torneoVal && !String(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeAttr(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
+                      ${torneoVal && !(state.customTorneos || []).includes(torneoVal) ? `<option value="${escapeAttr(torneoVal)}" selected>${escapeHtml(torneoVal)}</option>` : ''}
                       <option value="__NEW_TORNEO__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nuevo torneo...</option>
                     </select>
                   </div>
@@ -12047,7 +12047,7 @@
                     <select id="tfCompeticion" class="form-control">
                       <option value="">Seleccionar competición...</option>
                       ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeAttr(c)}" ${competicionVal === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${competicionVal && !String(state.customCompeticiones || []).includes(competicionVal) ? `<option value="${escapeAttr(competicionVal)}" selected>${escapeHtml(competicionVal)}</option>` : ''}
+                      ${competicionVal && !(state.customCompeticiones || []).includes(competicionVal) ? `<option value="${escapeAttr(competicionVal)}" selected>${escapeHtml(competicionVal)}</option>` : ''}
                       <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
                     </select>
                   </div>
@@ -12068,7 +12068,7 @@
                     <select id="tfCompeticion2" class="form-control">
                       <option value="">Añadir segunda competición...</option>
                       ${(state.customCompeticiones || ['Amistoso', 'Primera Regional Navarra', 'Liga Nacional', 'División de Honor', 'Liga RFEF', 'Primera División', 'Segunda División']).map(c => `<option value="${escapeAttr(c)}" ${competicionVal2 === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-                      ${competicionVal2 && !String(state.customCompeticiones || []).includes(competicionVal2) ? `<option value="${escapeAttr(competicionVal2)}" selected>${escapeHtml(competicionVal2)}</option>` : ''}
+                      ${competicionVal2 && !(state.customCompeticiones || []).includes(competicionVal2) ? `<option value="${escapeAttr(competicionVal2)}" selected>${escapeHtml(competicionVal2)}</option>` : ''}
                       <option value="__NEW_COMPETICION__" style="font-weight: bold; color: var(--primary-blue);">+ Crear nueva competición...</option>
                     </select>
                   </div>
@@ -27200,7 +27200,7 @@ const formatTeamName = (str) => {
     });
 
     // Get all clubs and sort alphabetically
-    const allClubs = String(state.directory?.clubes || []).slice().sort((a, b) => {
+    const allClubs = (state.directory?.clubes || []).slice().sort((a, b) => {
       const nameA = String(a.nombre || a.club || '').toLowerCase();
       const nameB = String(b.nombre || b.club || '').toLowerCase();
       return nameA.localeCompare(nameB);
@@ -30901,7 +30901,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (btnRSEquiposMulti && dropdownRSEquiposMulti) {
       const rsTeams = new Set();
       players.forEach(p => {
-        if (String(p.controlSeguimiento || []).includes('MAPA RS') && p.equipo && String(p.equipo).trim() !== '') {
+        if ((p.controlSeguimiento || []).includes('MAPA RS') && p.equipo && String(p.equipo).trim() !== '') {
           rsTeams.add(String(p.equipo).trim());
         }
       });
@@ -31120,7 +31120,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     }
 
     const filteredPlayers = players.filter(p => {
-      const isTagged = String(p.controlSeguimiento || []).includes(activeMapTag);
+      const isTagged = (p.controlSeguimiento || []).includes(activeMapTag);
       if (!isTagged) return false;
       if (activeMapTag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
       if (activeMapTag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {
@@ -31141,7 +31141,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     toggleBtns.forEach(btn => {
       const tag = btn.dataset.tag;
       const countFiltered = players.filter(p => {
-        const isTagged = String(p.controlSeguimiento || []).includes(tag);
+        const isTagged = (p.controlSeguimiento || []).includes(tag);
         if (!isTagged) return false;
         if (tag === 'DESTACADO EQUIPO' && selEquipo && String(p.equipo || '').trim() !== selEquipo) return false;
         if (tag === 'MAPA RS' && selectedMapaRSTeams.length > 0) {

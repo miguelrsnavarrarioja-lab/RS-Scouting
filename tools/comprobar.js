@@ -128,7 +128,16 @@ comprobar('Las operaciones de texto aguantan datos con la forma equivocada', () 
   const re = /(?<!String)\(([^()]*\|\|[^()]*)\)\.(toLowerCase|toUpperCase|trim|normalize|split|includes|startsWith)\(/g;
   // Solo cuentan los valores que vienen de un documento de la base (patron algo.campo): esos
   // pueden llegar con la forma equivocada. Las variables locales las controla el propio codigo.
-  const encontrados = [...src.matchAll(re)].filter(m => /[a-zA-Z_$][w$]*.[a-zA-Z_$]/.test(m[1]));
+  //
+  // Y NUNCA los que declaran una LISTA como valor de reserva (`|| []`). Esta comprobacion pedia
+  // blindar tambien esos, y por darle gusto se envolvieron ocho listas en String(...): sobre texto,
+  // .includes() deja de mirar los elementos y pasa a buscar subcadenas («Copa» daba positivo dentro
+  // de «Copa RFEF»), y .slice() ya no devuelve una lista. Un gate que pide lo que no debe fabrica
+  // defectos: quien escribe `|| []` esta diciendo que eso es una lista, y se le cree.
+  const esLista = (dentro) => /\|\|\s*\[\s*\]\s*$/.test(dentro.trim());
+  const encontrados = [...src.matchAll(re)]
+    .filter(m => /[a-zA-Z_$][w$]*.[a-zA-Z_$]/.test(m[1]))
+    .filter(m => !esLista(m[1]));
   if (encontrados.length) {
     const lineas = src.slice(0, encontrados[0].index).split(/\r?\n/).length;
     throw new Error(encontrados.length + ' sin blindar, la primera en la línea ' + lineas +
