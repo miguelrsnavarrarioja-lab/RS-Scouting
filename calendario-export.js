@@ -130,7 +130,7 @@
 
     var lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:' + PROD, 'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH', 'X-WR-CALNAME:MS Futbol Scout'];
-    var n = 0, sinFecha = 0;
+    var n = 0, sinFecha = 0, tareas = 0, partidos = 0;
 
     // --- Tareas y eventos de la agenda ---
     (estado.agenda || []).forEach(function (t) {
@@ -149,13 +149,22 @@
         aviso: avisoMin
       }));
       n++;
+      tareas++;
     });
 
-    // --- Partidos de los calendarios de la cartelera ---
+    // --- Partidos que alguien va a ver ---
+    //
+    // Solo los que tienen TÉCNICO asignado en la cartelera: asignar un técnico a un partido es,
+    // en esta aplicación, decir «este lo vamos a ver». Antes se exportaban los partidos de todos
+    // los calendarios —más de tres mil— y el calendario del teléfono se llenaba de partidos que
+    // nadie iba a ver. Con `incluirTodosLosPartidos` se puede pedir el volcado completo.
+    var todos = !!opciones.incluirTodosLosPartidos;
     var calendarios = (estado.cartelera && estado.cartelera.calendarios) || [];
     calendarios.forEach(function (cal) {
       (cal.partidos || []).forEach(function (m, i) {
         if (!m) return;
+        var tecnico = String(m.tecnico || '').trim();
+        if (!todos && !tecnico) return;
         var inicio = aFechaHora(m.fecha, m.hora);
         if (!inicio) { sinFecha++; return; }
         lineas = lineas.concat(evento({
@@ -163,15 +172,16 @@
           inicio: inicio, fin: sumarMinutos(inicio, 110),
           titulo: (m.local || '?') + ' - ' + (m.visitante || '?'),
           lugar: m.estadio || '',
-          descripcion: [m.competicion, m.categoria, cal.nombre].filter(Boolean).join(' · '),
+          descripcion: [tecnico ? 'Va: ' + tecnico : '', m.competicion, m.categoria, cal.nombre].filter(Boolean).join(' · '),
           aviso: avisoMin
         }));
         n++;
+        partidos++;
       });
     });
 
     lineas.push('END:VCALENDAR');
-    return { texto: lineas.join('\r\n') + '\r\n', eventos: n, sinFecha: sinFecha };
+    return { texto: lineas.join('\r\n') + '\r\n', eventos: n, sinFecha: sinFecha, tareas: tareas, partidos: partidos };
   }
 
   /** Genera el archivo y lo descarga. */
@@ -195,8 +205,10 @@
 
       if (typeof window.showToast === 'function') {
         var extra = r.sinFecha ? ' (' + r.sinFecha + ' sin fecha, no se han incluido)' : '';
-        window.showToast('Calendario exportado: ' + r.eventos + ' eventos' + extra +
-          '. Ábrelo en el móvil para añadirlo al calendario.', 'success', 8000);
+        var desglose = r.tareas + ' de la agenda y ' + r.partidos +
+          (r.partidos === 1 ? ' partido con técnico asignado' : ' partidos con técnico asignado');
+        window.showToast('Calendario exportado: ' + desglose + extra +
+          '. Ábrelo en el móvil para añadirlo al calendario.', 'success', 9000);
       }
       return r;
     } catch (e) {
