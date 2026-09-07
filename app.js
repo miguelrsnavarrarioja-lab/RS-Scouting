@@ -26126,8 +26126,28 @@
         return str; // Return as-is to preserve acronyms and custom casing
       };
 
-      if (renderCarteleraMatches._ultimoTotal !== allMatches.length) {
-        carteleraFilasVisibles = CARTELERA_TRAMO;   // cambió el filtro: se vuelve al primer tramo
+      // Se vuelve al primer tramo cuando cambia el FILTRO, no cuando cambia el número de
+      // resultados: dos filtros distintos pueden dar el mismo total (escribir una letra que
+      // aparece en todos los partidos, por ejemplo) y entonces cada tecla repintaba los miles
+      // de filas que hubiera abiertas. Se compara el criterio, que es lo que el usuario cambia.
+      const firmaFiltros = [
+        document.getElementById('carteleraSearchInput')?.value || '',
+        document.getElementById('carteleraFilterCategoria')?.value || '',
+        document.getElementById('carteleraFilterEquipo')?.value || '',
+        document.getElementById('carteleraFilterFederacion')?.value || '',
+        document.getElementById('carteleraFilterGrupo')?.value || '',
+        document.getElementById('carteleraFilterInteres')?.value || '',
+        document.getElementById('carteleraFilterTecnico')?.value || '',
+        document.getElementById('carteleraFilterJornadaLabel')?.textContent || '',
+        document.getElementById('carteleraFilterFechaLabel')?.textContent || '',
+        typeof selectedCarteleraCompTab !== 'undefined' ? selectedCarteleraCompTab : '',
+        typeof selectedCarteleraGrupo !== 'undefined' ? selectedCarteleraGrupo : '',
+        typeof selectedCarteleraTecnico !== 'undefined' ? selectedCarteleraTecnico : ''
+      ].join('|');
+      if (renderCarteleraMatches._firmaFiltros !== firmaFiltros ||
+          renderCarteleraMatches._ultimoTotal !== allMatches.length) {
+        carteleraFilasVisibles = CARTELERA_TRAMO;   // cambió el filtro o el conjunto: al primer tramo
+        renderCarteleraMatches._firmaFiltros = firmaFiltros;
         renderCarteleraMatches._ultimoTotal = allMatches.length;
       }
       const matchesVisibles = allMatches.slice(0, carteleraFilasVisibles);
