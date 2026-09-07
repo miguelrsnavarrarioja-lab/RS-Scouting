@@ -23560,6 +23560,20 @@
     });
   }
 
+  // ---------------------------------------------------------------------------------------
+  // IMPORTADOR ANTIGUO — DESACTIVADO (07-sep-2026)
+  //
+  // Convivían DOS importadores completos, este y el de importer_v2.js, y los dos escuchaban los
+  // mismos botones: cada ficha se guardaba dos veces (sin duplicarla, porque el id es el mismo,
+  // pero haciendo el trabajo dos veces) y la tabla se pintaba dos veces.
+  //
+  // Se queda el de importer_v2.js, que es el completo: crea también los clubes, actualiza al
+  // jugador que ya existe en vez de repetirlo (comparando sin acentos), refresca el directorio y
+  // avisa de cuántas fichas se han guardado DE VERDAD. Este de aquí no se borra —queda como
+  // referencia y por si hubiera que volver atrás—, simplemente no se engancha a ningún botón.
+  const IMPORTADOR_ANTIGUO = null;   // interruptor: era document.getElementById(...)
+  // ---------------------------------------------------------------------------------------
+
   // Master header checkbox
   document.getElementById('excelHeaderMasterCheckbox')?.addEventListener('change', (e) => {
     const isChecked = e.target.checked;
@@ -23567,14 +23581,14 @@
     document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = isChecked);
   });
 
-  document.getElementById('btnExcelSelectAllRows')?.addEventListener('click', () => {
+  IMPORTADOR_ANTIGUO?.addEventListener('click', () => {   // btnExcelSelectAllRows
     stagedExcelRows.forEach(r => r.checked = true);
     document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = true);
     const masterCb = document.getElementById('excelHeaderMasterCheckbox');
     if (masterCb) masterCb.checked = true;
   });
 
-  document.getElementById('btnExcelDeselectAllRows')?.addEventListener('click', () => {
+  IMPORTADOR_ANTIGUO?.addEventListener('click', () => {   // btnExcelDeselectAllRows
     stagedExcelRows.forEach(r => r.checked = false);
     document.querySelectorAll('.excel-row-cb').forEach(cb => cb.checked = false);
     const masterCb = document.getElementById('excelHeaderMasterCheckbox');
@@ -23582,7 +23596,7 @@
   });
 
   // Bulk edit / Fill down to checked rows
-  document.getElementById('btnExcelApplyBulk')?.addEventListener('click', () => {
+  IMPORTADOR_ANTIGUO?.addEventListener('click', () => {   // btnExcelApplyBulk
     const colName = document.getElementById('bulkExcelColumn')?.value;
     const val = document.getElementById('bulkExcelValueInput')?.value;
 
@@ -23604,17 +23618,17 @@
   });
 
   // Process text button click listener
-  document.getElementById('btnProcessImporterText')?.addEventListener('click', processImporterText);
+  IMPORTADOR_ANTIGUO?.addEventListener('click', processImporterText);   // btnProcessImporterText
 
   // Cancel import button
-  document.getElementById('btnExcelCancelImport')?.addEventListener('click', () => {
+  IMPORTADOR_ANTIGUO?.addEventListener('click', () => {   // btnExcelCancelImport
     stagedExcelRows = [];
     document.getElementById('importerStep2ExcelContainer')?.classList.add('hidden');
     document.getElementById('importerStep1Container')?.classList.remove('hidden');
   });
 
   // Confirm and Save to app state & Firebase
-  document.getElementById('btnExcelConfirmSave')?.addEventListener('click', () => {
+  IMPORTADOR_ANTIGUO?.addEventListener('click', () => {   // btnExcelConfirmSave
     const itemsToSave = stagedExcelRows.filter(r => r.checked);
     if (itemsToSave.length === 0) {
       alert('Por favor marca al menos una fila para importar.');
