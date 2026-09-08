@@ -26271,7 +26271,7 @@ const formatTeamName = (str) => {
                       <td style="padding: 8px 12px; ${escapeAttr(borderLeft)} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
                       <td style="padding: 8px 12px; ${escapeAttr(locStyle)}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
                       <td style="padding: 8px 12px; ${escapeAttr(visStyle)}">${escapeHtml(formatTeamName(m.visitante))}</td>
-                      <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${m.fechaRealJornada || '-'}</td>
+                      <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.fechaRealJornada || '-')}</td>
                       <td style="padding: 8px 12px;">
                         <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${escapeAttr(m.id)}" value="${escapeAttr(m.fecha || '')}" style="font-size: 11px; height: 26px; padding: 2px 4px;">
                       </td>
@@ -26651,7 +26651,12 @@ const formatTeamName = (str) => {
         const key = `${tObj.category}|||${tObj.team}`;
         const isChecked = currentPrioritySet.has(key.toLowerCase());
 
-        const displayName = tObj.category !== 'all' ? `${tObj.team} <span style="color:#888; font-size:10px;">(${tObj.category})</span>` : tObj.team;
+        // El nombre del equipo y su competición vienen del directorio, y ahí entran pegando texto
+        // desde fuera con el importador: van escapados, como en el resto de la lista. Sin esto, un
+        // nombre con HTML dentro se ejecutaría al abrir este modal.
+        const displayName = tObj.category !== 'all'
+          ? `${escapeHtml(tObj.team)} <span style="color:#888; font-size:10px;">(${escapeHtml(tObj.category)})</span>`
+          : escapeHtml(tObj.team);
 
         return `
           <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-main);">
