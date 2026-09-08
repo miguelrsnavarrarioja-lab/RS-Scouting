@@ -458,7 +458,15 @@
       // Un partido que está en el servidor y no en esta copia tampoco se borra.
       Object.keys(enServidor).forEach(id => fusionados.push(enServidor[id]));
       return Object.assign({}, cal, { partidos: fusionados });
-    }).catch(() => cal);   // si no se puede leer, se guarda lo que hay: nunca se bloquea el guardado
+    }).catch(() => null);   // null = NO se ha podido comprobar; lo trata quien llama
+  }
+
+  /** Lo intenta dos veces antes de rendirse: un corte de un segundo no debería costar un guardado. */
+  function fusionarCalendarioReintentando(ref, cal) {
+    return fusionarCalendarioConServidor(ref, cal).then(r => {
+      if (r !== null) return r;
+      return new Promise(res => setTimeout(res, 400)).then(() => fusionarCalendarioConServidor(ref, cal));
+    });
   }
 
   function saveToFirebase(collectionName, item) {
@@ -502,9 +510,22 @@
     setFirebaseHeaderStatus('syncing');
     const refDoc = db.collection(collectionName).doc(String(sanitizedItem.id));
     const preparado = collectionName === 'cartelera_calendarios'
-      ? fusionarCalendarioConServidor(refDoc, sanitizedItem)
+      ? fusionarCalendarioReintentando(refDoc, sanitizedItem)
       : Promise.resolve(sanitizedItem);
-    return preparado.then(aGuardar => refDoc.set(aGuardar, { merge: true }))
+    return preparado.then(aGuardar => {
+      // Si no se ha podido leer el servidor NO se escribe el calendario: guardarlo a ciegas es
+      // exactamente lo que borró 706 horarios, y hacerlo en silencio es peor. Se avisa y el
+      // usuario puede volver a intentarlo; lo que tiene en pantalla no se pierde.
+      if (aGuardar === null) {
+        const aviso = 'No se ha podido comprobar el calendario en el servidor, así que ese cambio NO se ha guardado. Comprueba la conexión y vuelve a tocarlo.';
+        console.error('Guardado de cartelera cancelado: no se pudo leer el documento del servidor.');
+        state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: 'cartelera-sin-comprobar', texto: aviso, coleccion: collectionName };
+        setFirebaseHeaderStatus('error');
+        if (typeof showToast === 'function') showToast(aviso, 'danger', 9000);
+        return Promise.reject({ __cartelera: true, motivo: aviso });
+      }
+      return refDoc.set(aGuardar, { merge: true });
+    })
       .then(() => {
         console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
         setFirebaseHeaderStatus('synced');
@@ -24287,11 +24308,11 @@
       state.cartelera.priorityTeams = [];
     }
 
-    if (localStorage && !localStorage.getItem('rs_scouting_priority_wiped_v3')) {
-      state.cartelera.priorityTeams = [];
-      localStorage.setItem('rs_scouting_priority_wiped_v3', 'true');
-      if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
-    }
+    // AQUÍ había otra migración de un solo uso: vaciaba la lista de equipos prioritarios y la subía
+    // al servidor. Se protegía con una marca en el almacenamiento del NAVEGADOR, que es por
+    // dispositivo: en un móvil nuevo, en una ventana privada o después de limpiar los datos del
+    // sitio, volvía a dispararse y borraba la lista para todos los dispositivos. Y esta lista SÍ se
+    // persiste. Retirada por el mismo motivo que la de las horas.
 
 
     if (!state.cartelera.calendarios) {
@@ -24311,15 +24332,22 @@
           }
         } else {
           migratedAny = true;
+          // Se le busca su categoría en el directorio. Si no se encuentra —el equipo se borró, el
+          // nombre no casa letra a letra, o el directorio aún no ha cargado— el equipo se conserva
+          // TAL CUAL. Antes se descartaba en silencio y la lista se guardaba sin él: un prioritario
+          // que el cliente había marcado a mano desaparecía sin que nadie dijera nada.
+          let encontrado = false;
           (state.directory.equipos || []).forEach(e => {
             const eName = String(e.nombre || e.equipo || '').toLowerCase().trim();
             if (eName === t.toLowerCase().trim()) {
               const cat = e.categoria || e.competicion || e.liga;
               if (cat) {
                 newTeams.add(`${cat}|||${t}`);
+                encontrado = true;
               }
             }
           });
+          if (!encontrado) newTeams.add(t);
         }
       });
       if (migratedAny) {
@@ -24350,17 +24378,12 @@
       localStorage.setItem('rs_scouting_cartelera_mapped_v2', 'true');
     }
 
-    if (!state.cartelera.timesResetTo0000_v2) {
-      if (state.cartelera.calendarios) {
-        state.cartelera.calendarios.forEach(cal => {
-          if (cal.partidos) {
-            cal.partidos.forEach(m => m.hora = '00:00');
-          }
-        });
-      }
-      state.cartelera.timesResetTo0000_v2 = true;
-      if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
-    }
+    // AQUÍ había una migración que ponía la hora de TODOS los partidos de TODOS los calendarios a
+    // «00:00». Se protegía con un interruptor guardado en `state.cartelera`, pero ese objeto solo se
+    // persiste con `priorityTeams` e `interestingTeams`: el interruptor NUNCA se guardaba, así que
+    // la migración volvía a dispararse en cada carga y borraba las horas en memoria. Bastaba con
+    // guardar cualquier cambio de la cartelera para que ese «00:00» llegara al servidor. Así se
+    // perdieron 706 horarios el 8-sep-2026. Retirada: era de un solo uso y ya no tiene sentido.
   }
 
   // --------------------------------------------------------------------------
@@ -25886,14 +25909,6 @@
       const interestingTeamsLower = (state.cartelera.interestingTeams || []).map(t => String(t || '').toLowerCase().trim());
       const calendarios = state.cartelera.calendarios || [];
       const searchVal = document.getElementById('carteleraSearchInput')?.value.toLowerCase().trim() || '';
-
-      if (!state.cartelera.timesResetTo0000_v3) {
-        calendarios.forEach(cal => {
-          (cal.partidos || []).forEach(m => { m.hora = '00:00'; });
-        });
-        state.cartelera.timesResetTo0000_v3 = true;
-        if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
-      }
 
       let allMatches = [];
       calendarios.forEach(cal => {
