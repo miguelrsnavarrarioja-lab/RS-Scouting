@@ -5509,3 +5509,61 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
 @media (max-width: 767px) {
   body.rs-hueco-teclado { padding-bottom: 46vh; }
 }
+
+/* En un teléfono, la rejilla de fecha/hora/estadio dejaba dos columnas de unos 145 px y el control
+   de HORA no encoge por debajo de su ancho natural: se salía de su celda y su etiqueta se pintaba
+   ENCIMA de «ESTADIO» (medido: 2.201 px² de solape a 390 px). Con una sola columna hay sitio de
+   sobra y cada dato se lee entero. */
+@media (max-width: 767px) {
+  .meta-inputs-grid { grid-template-columns: 1fr; }
+  .meta-inputs-grid > div,
+  .meta-inputs-grid .form-group { min-width: 0; }
+  .meta-inputs-grid .form-control { width: 100%; min-width: 0; }
+}
+
+/* El marcador del informe pone equipo local, resultado y visitante en una sola fila. En un teléfono
+   eso deja los nombres de equipo en unos 70 px: se leía «Busc» en lugar de «Buscar equipo...», y
+   los escudos quedaban desalineados. Apilado, cada equipo ocupa el ancho entero y se lee. */
+@media (max-width: 767px) {
+  .match-teams-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .match-teams-row .team-input-group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  /* El visitante va en espejo en el ordenador; apilado se lee mejor igual que el local. */
+  .match-teams-row .team-input-group.visitante {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+  .match-teams-row .team-input-group .input-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+  .match-teams-row .team-input-group .input-wrapper.text-right {
+    text-align: left;
+  }
+  .match-teams-row .score-display {
+    align-self: center;
+  }
+}
+
+/* La pareja FECHA+HORA comparte una sola celda de la rejilla, y el control nativo de hora no encoge
+   por debajo de su ancho natural: se salía de su celda y su etiqueta se pintaba sobre «ESTADIO»
+   («HORESTADIO», visible tanto a 390 px como a 1440). Ocupando dos columnas hay sitio para los dos.
+   En el teléfono la rejilla es de una sola columna y el navegador ajusta el span solo. */
+.meta-inputs-grid > div:first-child {
+  grid-column: span 2;
+}
+.meta-inputs-grid > div:first-child > .form-group {
+  min-width: 0;
+}
+.meta-inputs-grid > div:first-child .form-control {
+  width: 100%;
+  min-width: 0;
+}
