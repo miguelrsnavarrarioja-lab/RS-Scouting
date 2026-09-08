@@ -470,7 +470,23 @@
   }
 
   function saveToFirebase(collectionName, item) {
-    if (!db) return Promise.resolve({ ok: false, motivo: 'sin conexión con el servidor' });
+    // Sin base de datos no hay dónde guardar, y esto es lo más grave que puede pasar: la copia del
+    // navegador se borra a propósito al guardar, así que la base es el ÚNICO sitio donde viven los
+    // datos. Si la librería de Firestore no llega —un proxy de empresa, gstatic bloqueado, la
+    // primera carga sin cobertura— la aplicación arranca entera y parece sana, y cada guardado
+    // devuelve un «no se pudo» que nadie mira. Una tarde de trabajo se perdería al recargar. Se
+    // avisa una vez, bien claro, y la cabecera se queda en rojo.
+    if (!db) {
+      const aviso = 'NO se está guardando nada: la aplicación no ha podido conectar con la base de datos. No cierres esta ventana; recárgala cuando tengas conexión.';
+      if (!saveToFirebase._avisadoSinBase) {
+        saveToFirebase._avisadoSinBase = true;
+        console.error('Guardado imposible: no hay conexión con la base de datos.');
+        if (typeof showToast === 'function') showToast(aviso, 'danger', 15000);
+      }
+      state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: 'sin-base-de-datos', texto: aviso, coleccion: collectionName };
+      setFirebaseHeaderStatus('error');
+      return Promise.resolve({ ok: false, motivo: aviso });
+    }
     // Sin identificador no hay dónde guardar. Antes se salía en silencio y el usuario creía que
     // su cambio estaba a salvo; ahora queda registrado y se avisa una vez.
     if (!item || !item.id) {
@@ -32369,6 +32385,19 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (typeof lucide === 'undefined') faltan.push('iconos');
       if (typeof Chart === 'undefined') faltan.push('gráficos');
       if (typeof Sortable === 'undefined') faltan.push('arrastrar y soltar');
+      // La base de datos va aparte: las tres de arriba son cosméticas y esta es la única cuya
+      // ausencia hace perder el trabajo. Se avisa con otras palabras, porque es otra cosa.
+      // Solo cuando la librería de Firebase SÍ llegó pero la base no se pudo abrir: ese es el caso
+      // peligroso —un proxy que bloquea solo el fichero de Firestore, una carga a medias— y el que
+      // hace perder el trabajo sin avisar. Si no hay ni librería, es que esta copia se sirve a
+      // propósito sin ella (el banco de pruebas), y no hay nada que advertir.
+      if (typeof firebase !== 'undefined' && !db) {
+        console.warn('La base de datos no está disponible: no se podrá guardar nada.');
+        setFirebaseHeaderStatus('error');
+        if (typeof showToast === 'function') {
+          showToast('No hay conexión con la base de datos: lo que hagas AHORA NO SE GUARDARÁ. Recarga la página cuando tengas conexión.', 'danger', 15000);
+        }
+      }
       if (!faltan.length) return;
       console.error('No se han podido cargar:', faltan.join(', '));
       if (typeof showToast === 'function') {

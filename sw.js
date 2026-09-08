@@ -19,6 +19,10 @@
    --------------------------------------------------------------------------- */
 
 const VERSION = 'ms-scout-v2';
+
+/* La señal de que lo que ha llegado es de verdad la aplicación y no la página de acceso de un wifi
+   público. Vive en el HTML; si alguien la cambia de nombre, la prueba `sin-red` lo canta. */
+const MARCA_DE_LA_APP = 'id="mainContainer"';
 const ESENCIALES = [
   './',
   './index.html',
@@ -71,8 +75,25 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       try {
         const respuesta = await fetch(req);
-        const cache = await caches.open(VERSION);
-        cache.put('./index.html', respuesta.clone()).catch(() => {});
+        // Solo se guarda como copia sin cobertura si de verdad es LA APLICACIÓN. El wifi de un
+        // estadio con portal cautivo devuelve un 200 con su página de acceso, y guardándola sin
+        // mirar, cada arranque posterior sin red servía esa página en vez del programa —y no se
+        // arreglaba solo: la copia solo se sustituye cuando vuelva a haber red buena—. `basic`
+        // significa que la respuesta viene de este mismo sitio y no de una redirección a otro.
+        if (respuesta && respuesta.ok && respuesta.type === 'basic') {
+          // Y además tiene que PARECER la aplicación. El wifi de un estadio con portal cautivo
+          // responde 200 con su página de acceso: sin esta comprobación se guardaba como copia y
+          // cada arranque sin cobertura servía esa página en vez del programa. Se busca una marca
+          // que solo está en el HTML de la aplicación (hay una prueba que vigila que siga estando).
+          const texto = await respuesta.clone().text().catch(() => '');
+          if (texto.indexOf(MARCA_DE_LA_APP) !== -1) {
+            const cache = await caches.open(VERSION);
+            cache.put('./index.html', new Response(texto, {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            })).catch(() => {});
+          }
+        }
         return respuesta;
       } catch (err) {
         const guardada = await caches.match('./index.html');
