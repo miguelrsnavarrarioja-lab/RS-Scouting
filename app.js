@@ -417,6 +417,50 @@
   // Devuelve SIEMPRE una promesa que se resuelve con { ok, motivo }: nunca se rechaza, para que
   // las decenas de llamadas que no la miran no dejen rechazos sin capturar. Quien sí la mira (el
   // importador) puede contar cuántas fichas se guardaron de verdad en vez de cantar un éxito ciego.
+  // Los horarios, las fechas, el técnico y el estadio de la cartelera se rellenan A MANO, partido a
+  // partido: son muchas horas de trabajo. Cada cambio sube el CALENDARIO ENTERO tal y como está en
+  // la memoria de ESTE navegador; si esa copia es más antigua que la del servidor —otra pestaña,
+  // otro dispositivo, o datos cargados antes de que se metieran los horarios— el guardado los
+  // borraba todos de golpe. Y `merge: true` no protege: al fusionar, un array se reemplaza entero,
+  // no se mezcla elemento a elemento. El 8-sep-2026 se perdieron así 650 horarios.
+  //
+  // Antes de escribir un calendario se mira lo que hay en el servidor y se conserva lo que en esta
+  // copia falte. Nunca al revés: lo que este navegador SÍ tiene manda, para que el cambio recién
+  // hecho se guarde.
+  const CARTELERA_A_MANO = ['hora', 'fecha', 'tecnico', 'estadio'];
+
+  /** ¿Está este dato sin rellenar? En la hora, «00:00» es el valor por defecto al importar. */
+  function carteleraSinRellenar(campo, valor) {
+    const texto = String(valor === undefined || valor === null ? '' : valor).trim();
+    if (!texto) return true;
+    return campo === 'hora' && (texto === '00:00' || texto === '0:00');
+  }
+
+  function fusionarCalendarioConServidor(ref, cal) {
+    if (!cal || !Array.isArray(cal.partidos)) return Promise.resolve(cal);
+    return ref.get().then(snap => {
+      const remoto = snap && snap.exists ? snap.data() : null;
+      if (!remoto || !Array.isArray(remoto.partidos)) return cal;
+      const enServidor = {};
+      remoto.partidos.forEach(p => { if (p && p.id) enServidor[p.id] = p; });
+      const fusionados = cal.partidos.map(p => {
+        const viejo = p && p.id ? enServidor[p.id] : null;
+        if (!viejo) return p;
+        const copia = Object.assign({}, p);
+        CARTELERA_A_MANO.forEach(campo => {
+          if (carteleraSinRellenar(campo, copia[campo]) && !carteleraSinRellenar(campo, viejo[campo])) {
+            copia[campo] = viejo[campo];
+          }
+        });
+        delete enServidor[p.id];
+        return copia;
+      });
+      // Un partido que está en el servidor y no en esta copia tampoco se borra.
+      Object.keys(enServidor).forEach(id => fusionados.push(enServidor[id]));
+      return Object.assign({}, cal, { partidos: fusionados });
+    }).catch(() => cal);   // si no se puede leer, se guarda lo que hay: nunca se bloquea el guardado
+  }
+
   function saveToFirebase(collectionName, item) {
     if (!db) return Promise.resolve({ ok: false, motivo: 'sin conexión con el servidor' });
     // Sin identificador no hay dónde guardar. Antes se salía en silencio y el usuario creía que
@@ -456,7 +500,11 @@
 
     markLocalWrite(collectionName, sanitizedItem.id);
     setFirebaseHeaderStatus('syncing');
-    return db.collection(collectionName).doc(String(sanitizedItem.id)).set(sanitizedItem, { merge: true })
+    const refDoc = db.collection(collectionName).doc(String(sanitizedItem.id));
+    const preparado = collectionName === 'cartelera_calendarios'
+      ? fusionarCalendarioConServidor(refDoc, sanitizedItem)
+      : Promise.resolve(sanitizedItem);
+    return preparado.then(aGuardar => refDoc.set(aGuardar, { merge: true }))
       .then(() => {
         console.log(`🔥 Documento ${item.id} guardado en '${collectionName}' en Firebase`);
         setFirebaseHeaderStatus('synced');
@@ -796,13 +844,17 @@
         for (let i = 0; i < state.cartelera.calendarios.length; i += 450) {
           const chunk = state.cartelera.calendarios.slice(i, i + 450);
           const batch = db.batch();
-          chunk.forEach(cal => {
+          // Uno a uno y no con forEach, porque cada calendario se compara antes con el servidor:
+          // este guardado sube TODOS los calendarios de memoria a la vez, y sin la comparación
+          // basta con tener una copia vieja en una pestaña para borrar los horarios de todos.
+          for (const cal of chunk) {
             if (cal && cal.id) {
               markLocalWrite('cartelera_calendarios', cal.id);
               const ref = db.collection('cartelera_calendarios').doc(String(cal.id));
-              batch.set(ref, cal, { merge: true });
+              const aGuardar = await fusionarCalendarioConServidor(ref, cal);
+              batch.set(ref, aGuardar, { merge: true });
             }
-          });
+          }
           await batch.commit();
         }
       }
