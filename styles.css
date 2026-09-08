@@ -5383,7 +5383,10 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
   gap: 12px;
   align-items: start;
 }
-.rejilla-panel.cuatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* `auto-fit` con un mínimo real, no cuatro columnas fijas: dentro de la columna del panel, cuatro
+   columnas dejan 110 px por tarjeta y los rótulos se cortaban («11…», «81…»). Así pone las que
+   caben enteras. */
+.rejilla-panel.cuatro { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 .rejilla-panel.dos    { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 /* Tableta: la mitad de columnas, que a cuatro no caben con texto dentro. */
@@ -5408,4 +5411,60 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
   overflow-x: auto;
   min-width: 0;
   -webkit-overflow-scrolling: touch;   /* que el desplazamiento no vaya a tirones en el iPhone */
+}
+
+/* ---------------------------------------------------------------------------
+   Escribir en el teléfono sin pelearse (08-sep-2026)
+
+   Safari hace ZOOM automático al enfocar un campo cuya letra mide menos de 16 px, y la pantalla se
+   queda descolocada: hay que alejarla a mano cada vez. Medido en esta aplicación: 523 campos por
+   debajo de ese tamaño, incluidos todos los buscadores. Como Miguel va a meter información desde el
+   campo, es el detalle que más estorba.
+
+   Solo se aplica en pantallas pequeñas: en el ordenador no cambia absolutamente nada.
+
+   Y de paso, los objetivos táctiles llegan a los 44 px de alto que hacen falta para acertar con el
+   pulgar de pie en una banda.
+   --------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* Lleva `!important` porque el tamaño va escrito EN LÍNEA en 704 campos del HTML, y un atributo
+     `style` gana a cualquier regla. Reescribir esos 704 a mano en código del cliente sería mucho
+     más arriesgado que esta línea, que además solo actúa en pantallas de móvil. */
+  input[type="text"], input[type="search"], input[type="email"], input[type="number"],
+  input[type="tel"], input[type="url"], input[type="password"], input[type="date"],
+  input[type="time"], input:not([type]), textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Objetivos que se tocan: 44 px de alto, que es lo que recomienda Apple para el dedo. */
+  .nav-tab, .directory-tab, .comp-mode-tab, .btn, button.btn-sm, .btn-action-icon, .btn-month-nav,
+  .btn-mode-toggle,
+  input[type="text"], input[type="search"], input[type="date"], input[type="time"],
+  input[type="number"], input:not([type]), select, textarea {
+    min-height: 44px;
+  }
+
+  /* Los redondos y los estrechos fallaban por ANCHO, no por alto: la campana de avisos medía
+     32 px, los botones de mes 36 y la pestaña «Staff» 42. */
+  .btn-action-icon, .btn-month-nav, .directory-tab, .nav-tab, .btn, button.btn-sm {
+    min-width: 44px;
+  }
+
+  /* Y que no se compriman: la barra del directorio se desplaza de lado, así que sus pestañas deben
+     conservar su ancho. Sin esto se encogían y los rótulos se montaban unos sobre otros
+     («JugadoresClubes»): la medición decía que todo estaba bien y la captura enseñaba el estropicio. */
+  .directory-tab, .nav-tab, .comp-mode-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Dentro de una tabla NO se agrandan: la cartelera tiene ciento cincuenta filas y subirlas todas
+     la haría interminable de recorrer; ahí la tabla se desplaza y se lee girando el teléfono, que
+     es como se mira una parrilla de partidos.
+     Se usa `auto` y no `0`: con `0` se quedaban MÁS pequeños que antes (medido: los controles de
+     las filas pasaron de 150 a 300 objetivos por debajo del mínimo). `auto` los deja como estaban. */
+  table input, table select, table textarea, table button, table .btn {
+    min-height: auto;
+    min-width: auto;
+  }
 }
