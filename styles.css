@@ -5502,3 +5502,10 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
     padding: 12px;
   }
 }
+
+/* Mientras se escribe en el móvil se reserva espacio al final de la página: los últimos campos del
+   formulario no tienen recorrido por debajo y el teclado los taparía sin remedio. Se retira solo al
+   salir del último campo (ver sin-cobertura.js). */
+@media (max-width: 767px) {
+  body.rs-hueco-teclado { padding-bottom: 46vh; }
+}

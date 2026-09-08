@@ -18,7 +18,7 @@
    tiene su propia cola de envío. Guardarlas aquí sería duplicar el trabajo y arriesgar datos.
    --------------------------------------------------------------------------- */
 
-const VERSION = 'ms-scout-v1';
+const VERSION = 'ms-scout-v2';
 const ESENCIALES = [
   './',
   './index.html',
@@ -84,23 +84,31 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // El resto: la copia si está, y si no, la red (y se guarda para la próxima).
+  // El resto: la copia guardada de ESA MISMA versión si está; si no, la red.
+  //
+  // El orden importa y costó un fallo: la copia sin número de versión (la que se guarda al instalar)
+  // NO puede servir como respuesta cuando hay red. Al publicar una versión nueva, el HTML pide
+  // `app.js?v=NUEVA`, esa dirección no está guardada, y devolver la copia vieja dejaba la aplicación
+  // congelada en el código de ayer —con el HTML nuevo— para siempre, sin que nadie se enterara.
+  // Esa copia es exclusivamente el respaldo de cuando NO hay cobertura.
   e.respondWith((async () => {
     const guardada = await caches.match(req);
     if (guardada) return guardada;
-    // Sin la versión exacta, vale la misma ruta guardada al instalar: sin cobertura, es eso o nada.
-    if (url.origin === self.location.origin && url.search) {
-      const sinVersion = await caches.match(url.pathname);
-      if (sinVersion) return sinVersion;
-    }
+    const propio = url.origin === self.location.origin && url.search;
     try {
       const respuesta = await fetch(req);
       if (respuesta && (respuesta.ok || respuesta.type === 'opaque')) {
         const cache = await caches.open(VERSION);
         cache.put(req, respuesta.clone()).catch(() => {});
+        // Y sin el número: así, sin cobertura, se abre con lo ÚLTIMO que se llegó a descargar.
+        if (propio) cache.put(url.pathname, respuesta.clone()).catch(() => {});
       }
       return respuesta;
     } catch (err) {
+      if (propio) {
+        const sinVersion = await caches.match(url.pathname);
+        if (sinVersion) return sinVersion;              // sin red: es eso o nada
+      }
       return new Response('', { status: 504, statusText: 'sin conexión' });
     }
   })());

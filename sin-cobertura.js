@@ -91,6 +91,59 @@
     if (!navigator.onLine) sinConexion();
   });
 
+  // ---------- 3 · Que el teclado no tape lo que se está escribiendo ----------
+  //
+  // En un teléfono, el teclado ocupa más o menos la mitad inferior de la pantalla. Si el campo que
+  // se acaba de tocar está en esa mitad, se escribe a ciegas. Medido en el editor de informes: 21
+  // de 25 campos quedaban ahí abajo al enfocarlos.
+  //
+  // Solo actúa en pantallas de móvil y solo si el campo está en la zona baja: si el navegador ya lo
+  // ha subido —Safari suele hacerlo—, aquí no se toca nada.
+  var ES_CAMPO = /^(INPUT|TEXTAREA|SELECT)$/;
+  var HUECO = 'rs-hueco-teclado';
+  var quitarHueco = null;
+
+  // Los últimos campos del formulario no se pueden subir: la página ya está en su tope y no queda
+  // recorrido. Mientras se escribe se añade espacio al final para que siempre lo haya; se retira al
+  // salir del último campo. Medido: sin esto, los dos últimos campos del informe quedaban a 487 y
+  // 686 px, de lleno bajo el teclado.
+  function abrirHueco() {
+    if (quitarHueco) { clearTimeout(quitarHueco); quitarHueco = null; }
+    document.body.classList.add(HUECO);
+  }
+
+  function cerrarHueco() {
+    quitarHueco = setTimeout(function () {
+      var a = document.activeElement;
+      if (a && ES_CAMPO.test(a.tagName)) return;         // se ha saltado a otro campo: sigue abierto
+      document.body.classList.remove(HUECO);
+      quitarHueco = null;
+    }, 250);
+  }
+
+  document.addEventListener('focusin', function (e) {
+    var el = e.target;
+    if (!el || !ES_CAMPO.test(el.tagName)) return;
+    if (window.innerWidth > 767) return;                 // en el ordenador no hay teclado que tape
+    if (el.type === 'hidden' || el.readOnly) return;
+    abrirHueco();                                        // antes de mover: si no, no hay adónde
+    // Se espera a que el teclado empiece a subir; si no, se mide la pantalla de antes.
+    setTimeout(function () {
+      if (document.activeElement !== el) return;
+      var caja = el.getBoundingClientRect();
+      if (caja.top > window.innerHeight * 0.55) {
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        catch (err) { el.scrollIntoView(); }
+      }
+    }, 180);
+  });
+
+  document.addEventListener('focusout', function (e) {
+    if (!e.target || !ES_CAMPO.test(e.target.tagName)) return;
+    if (window.innerWidth > 767) return;
+    cerrarHueco();
+  });
+
   // Para las pruebas: poder mirar el aviso sin depender de los eventos del navegador.
   window.RSConexion = { sinConexion: sinConexion, conConexion: conConexion, ocultar: ocultar };
 })();
