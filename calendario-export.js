@@ -64,6 +64,18 @@
 
   function dosDigitos(n) { return String(n).padStart(2, '0'); }
 
+  /** Para comparar nombres de técnico sin que un acento o una mayúscula los separe. */
+  function normalizar(v) {
+    return String(v === null || v === undefined ? '' : v)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+
+  /** El nombre con el que uno aparece en la cartelera, guardado en los ajustes. */
+  function tecnicoPropio() {
+    var s = (window.state && window.state.settings) || {};
+    return String(s.tecnicoPropio || '').trim();
+  }
+
   /** «2026-09-05» + «17:30» → «20260905T173000». Sin zona: se interpreta como hora local. */
   function aFechaHora(fecha, hora) {
     if (!fecha) return null;
@@ -152,19 +164,26 @@
       tareas++;
     });
 
-    // --- Partidos que alguien va a ver ---
+    // --- Partidos que va a ver QUIEN exporta ---
     //
     // Solo los que tienen TÉCNICO asignado en la cartelera: asignar un técnico a un partido es,
     // en esta aplicación, decir «este lo vamos a ver». Antes se exportaban los partidos de todos
     // los calendarios —más de tres mil— y el calendario del teléfono se llenaba de partidos que
-    // nadie iba a ver. Con `incluirTodosLosPartidos` se puede pedir el volcado completo.
+    // nadie iba a ver.
+    //
+    // Y si en los ajustes hay un nombre propio (Configuración → «Al calendario, solo mis partidos»),
+    // van únicamente los asignados a esa persona: el resto de técnicos de la cartelera están para
+    // saber quién ve cada partido, no para llenarle el teléfono. Lo pidió Miguel el 7-sep.
+    // Con `incluirTodosLosPartidos` se puede pedir el volcado completo.
     var todos = !!opciones.incluirTodosLosPartidos;
+    var mio = normalizar(opciones.tecnicoPropio !== undefined ? opciones.tecnicoPropio : tecnicoPropio());
     var calendarios = (estado.cartelera && estado.cartelera.calendarios) || [];
     calendarios.forEach(function (cal) {
       (cal.partidos || []).forEach(function (m, i) {
         if (!m) return;
         var tecnico = String(m.tecnico || '').trim();
         if (!todos && !tecnico) return;
+        if (!todos && mio && normalizar(tecnico) !== mio) return;
         var inicio = aFechaHora(m.fecha, m.hora);
         if (!inicio) { sinFecha++; return; }
         lineas = lineas.concat(evento({
@@ -205,8 +224,11 @@
 
       if (typeof window.showToast === 'function') {
         var extra = r.sinFecha ? ' (' + r.sinFecha + ' sin fecha, no se han incluido)' : '';
+        var mio = tecnicoPropio();
+        var deQuien = mio ? ' asignado' + (r.partidos === 1 ? '' : 's') + ' a ' + mio
+          : ' con técnico asignado';
         var desglose = r.tareas + ' de la agenda y ' + r.partidos +
-          (r.partidos === 1 ? ' partido con técnico asignado' : ' partidos con técnico asignado');
+          (r.partidos === 1 ? ' partido' : ' partidos') + deQuien;
         window.showToast('Calendario exportado: ' + desglose + extra +
           '. Ábrelo en el móvil para añadirlo al calendario.', 'success', 9000);
       }
@@ -231,6 +253,37 @@
     btn.innerHTML = '<i data-lucide="calendar-plus"></i> 📅 Enviar agenda al calendario del móvil';
     btn.addEventListener('click', function () { exportar({ avisoMinutos: 60 }); });
     ancla.parentNode.insertBefore(btn, ancla.nextSibling);
+
+    // Y debajo, el nombre con el que uno aparece en la cartelera: si está puesto, al calendario
+    // solo van SUS partidos. Vacío, van los de cualquier técnico asignado.
+    var caja = document.createElement('div');
+    caja.id = 'cajaTecnicoPropio';
+    caja.style.cssText = 'margin: 8px 0 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+    var etiqueta = document.createElement('label');
+    etiqueta.setAttribute('for', 'inputTecnicoPropio');
+    etiqueta.textContent = 'Al calendario, solo mis partidos. Mi nombre en la cartelera:';
+    etiqueta.style.cssText = 'font-size: 13px; color: var(--text-muted, #64748b);';
+    var campo = document.createElement('input');
+    campo.type = 'text';
+    campo.id = 'inputTecnicoPropio';
+    campo.className = 'form-control form-control-sm';
+    campo.placeholder = 'Miguel';
+    campo.style.cssText = 'max-width: 180px;';
+    campo.value = tecnicoPropio();
+    campo.addEventListener('change', function () {
+      var s = window.state || (window.state = {});
+      s.settings = s.settings || {};
+      s.settings.tecnicoPropio = campo.value.trim();
+      if (typeof window.saveState === 'function') window.saveState();
+      if (typeof window.showToast === 'function') {
+        window.showToast(campo.value.trim()
+          ? 'Al calendario irán solo los partidos asignados a «' + campo.value.trim() + '».'
+          : 'Al calendario irán los partidos de cualquier técnico asignado.', 'success', 5000);
+      }
+    });
+    caja.appendChild(etiqueta);
+    caja.appendChild(campo);
+    btn.parentNode.insertBefore(caja, btn.nextSibling);
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
   });
 
