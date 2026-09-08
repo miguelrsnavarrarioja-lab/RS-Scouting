@@ -5468,3 +5468,37 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
     min-width: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   El editor de informes en vertical (08-sep-2026)
+   Es la pantalla donde Miguel pasa más tiempo, y en un teléfono medía 718 px de ancho: había que
+   arrastrar de lado mientras se escribe un informe. Cuatro filas de botones y campos que no podían
+   bajar de línea. En el ordenador no cambia nada: allí caben de sobra.
+   --------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .report-header-banner,
+  .report-banner-actions,
+  .live-timer-container,
+  .team-input-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* El campo de la alineación y la lista, uno debajo del otro. En el ordenador van al lado, con
+     el campo a 340 px fijos; en un teléfono de 390 esas dos columnas no caben y la segunda se
+     quedaba FUERA de la pantalla (medido: 4 px de ancho, empezando en el píxel 392). */
+  .tactical-field-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pitch-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Las dos columnas de alineación, una debajo de otra: en 390 px no caben al lado. */
+  .tactical-team-column {
+    min-width: 0;
+    padding: 12px;
+  }
+}
