@@ -469,6 +469,26 @@
     });
   }
 
+  // Las rutinas de siembra y de arreglo del directorio escriben directas, sin pasar por
+  // `saveToFirebase`, y se tragaban el fallo con un `catch` vacío: ni aviso, ni cabecera en rojo, ni
+  // reintento — y la bandera de «ya sembrado» se pone igual, así que no se vuelve a intentar nunca.
+  // Hoy no se nota porque el servidor acepta todo; el día que se cierren las reglas, cada una de
+  // estas escrituras devolverá «permiso denegado» y nadie se enterará. Ahora se cuentan y se avisa
+  // una vez, con el nombre de la primera que falló.
+  let fallosDeSiembra = 0;
+  function anotarFalloDeSiembra(err) {
+    fallosDeSiembra++;
+    if (fallosDeSiembra === 1) {
+      console.error('Una escritura de mantenimiento ha fallado y no se reintentará:', err && err.code, err && err.message);
+      state._ultimoErrorSync = { cuando: new Date().toISOString(), codigo: 'escritura-de-mantenimiento',
+        texto: 'Algunas escrituras internas no se han podido guardar (' + ((err && err.code) || 'sin código') + ').' };
+      setFirebaseHeaderStatus('error');
+      if (typeof showToast === 'function') {
+        showToast('Algunos datos internos no se han podido guardar. Si acabas de cambiar los permisos del servidor, avísame.', 'danger', 9000);
+      }
+    }
+  }
+
   function saveToFirebase(collectionName, item) {
     // Sin base de datos no hay dónde guardar, y esto es lo más grave que puede pasar: la copia del
     // navegador se borra a propósito al guardar, así que la base es el ÚNICO sitio donde viven los
@@ -19070,15 +19090,18 @@
         // Segunda red: si la limpieza se llevaría más de la mitad de una plantilla, algo va mal
         // (datos a medio cargar). Se deja la plantilla como está y se avisa en la consola.
         const seLlevaria = origLen - quedan.length;
-        if (origLen >= 4 && seLlevaria > origLen / 2) {
+        // La guarda vale para CUALQUIER tamaño. Antes solo protegía plantillas de 4 o más, así que
+        // una de uno, dos o tres jugadores se podía vaciar entera —y hay 32 de ese tamaño—. Con los
+        // datos a medio llegar, eso es una plantilla borrada sin que nadie haya tocado nada.
+        if (seLlevaria && (seLlevaria === origLen || seLlevaria > origLen / 2)) {
           console.warn('Limpieza de plantilla cancelada en', eq.nombre, ': se llevaría', seLlevaria, 'de', origLen);
         } else {
           eq.plantilla = quedan;
           if (eq.plantilla.length < origLen) modified = true;
         }
-      } else {
-        eq.plantilla = [];
       }
+      // Si el equipo no trae lista de plantilla, se le deja como está: inventarle una vacía no
+      // arregla nada y deja preparada una pérdida para la próxima vez que se guarde ese equipo.
 
       if (eqNameLower && validPlayers.length) {
         validPlayers.forEach(p => {
@@ -19278,7 +19301,7 @@
         federacion: federacion
       };
       state.directory.clubes.unshift(clubMatch);
-      if (db) db.collection('clubes').doc(String(slugId)).set(clubMatch, { merge: true }).catch(() => { });
+      if (db) db.collection('clubes').doc(String(slugId)).set(clubMatch, { merge: true }).catch(anotarFalloDeSiembra);
     } else {
       if (clubMatch.id !== slugId) {
         clubMatch.id = slugId;
@@ -19483,7 +19506,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists
@@ -19504,7 +19527,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -19562,7 +19585,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (exactly this name + Tercera RFEF + Group XV, to avoid collision with LNJ team if they have the exact same name)
@@ -19588,7 +19611,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -19647,7 +19670,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (exactly this name + Primera Autonomica Navarra + Group Único, to avoid collision with LNJ or Tercera team if they have the exact same name)
@@ -19672,7 +19695,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -19737,7 +19760,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Autonómica Juvenil Navarra)
@@ -19762,7 +19785,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -19827,7 +19850,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra)
@@ -19852,7 +19875,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -19917,7 +19940,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Regional Preferente Navarra + Grupo 2)
@@ -19943,7 +19966,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20008,7 +20031,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Liga Cadete Navarra)
@@ -20033,7 +20056,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20098,7 +20121,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Autonómica Cadete Navarra)
@@ -20123,7 +20146,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20185,7 +20208,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 1)
@@ -20211,7 +20234,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20275,7 +20298,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 2)
@@ -20301,7 +20324,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20365,7 +20388,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 3)
@@ -20391,7 +20414,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20455,7 +20478,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 4)
@@ -20481,7 +20504,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20545,7 +20568,7 @@
           federacion: FNF
         };
         state.directory.clubes.unshift(clubMatch);
-        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(() => { });
+        if (db) db.collection('clubes').doc(String(clubMatch.id)).set(clubMatch).catch(anotarFalloDeSiembra);
       }
 
       // Check if team already exists (matches teamName + Primera Regional Navarra + Grupo 5)
@@ -20571,7 +20594,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20650,7 +20673,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
@@ -20730,7 +20753,7 @@
           plantilla: []
         };
         state.directory.equipos.unshift(teamMatch);
-        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(() => { });
+        if (db) db.collection('equipos').doc(String(teamMatch.id)).set(teamMatch, { merge: true }).catch(anotarFalloDeSiembra);
         addedCount++;
       }
     });
