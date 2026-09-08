@@ -2974,7 +2974,7 @@
 
     if (combined.length === 0) {
       container.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
+        <div class="empty-state" style="grid-column: 1 / -1;">
           <i data-lucide="calendar-x" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
           <p class="empty-state-text">No hay partidos ni tareas en el calendario con los filtros seleccionados.</p>
           <button class="btn btn-primary" id="btnEmptyScheduleMatch">Programar Primer Partido</button>
@@ -3805,7 +3805,7 @@
     if (filtered.length === 0) {
       const emptyMsg = 'No hay informes técnicos que coincidan con los filtros seleccionados.';
       container.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1; padding: 60px;">
+        <div class="empty-state" style="grid-column: 1 / -1;">
           <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
           <p class="empty-state-text">${emptyMsg}</p>
           <button class="btn btn-primary" id="btnEmptyCreateReport">Crear Primer Informe</button>
@@ -24359,24 +24359,14 @@
       }
     }
 
-    if (localStorage && !localStorage.getItem('rs_scouting_cartelera_mapped_v2')) {
-      let changedMatches = false;
-      state.cartelera.calendarios.forEach(cal => {
-        (cal.partidos || []).forEach(m => {
-          const mLocal = mapCarteleraTeamToDirectoryName(m.local, m.competicion);
-          const mVis = mapCarteleraTeamToDirectoryName(m.visitante, m.competicion);
-          if (mLocal !== m.local || mVis !== m.visitante) {
-            m.local = mLocal;
-            m.visitante = mVis;
-            changedMatches = true;
-          }
-        });
-      });
-      if (changedMatches) {
-        if (typeof saveState === 'function') setTimeout(() => saveState(), 100);
-      }
-      localStorage.setItem('rs_scouting_cartelera_mapped_v2', 'true');
-    }
+    // AQUÍ había una tercera migración automática: reescribía el nombre del equipo local y del
+    // visitante de TODOS los partidos con el nombre «oficial» del directorio. Como las otras, se
+    // protegía con una marca del navegador —por dispositivo— y nunca llegó a ejecutarse: medido
+    // el 8-sep-2026 con los datos reales, cambiaría 534 partidos de 3.456 en 9 calendarios
+    // («CA Osasuna LNJ 26/27» → «Club Atlético Osasuna LNJ 26/27»). Es decir: en cuanto el cliente
+    // abriera la aplicación en un móvil o un iPad, se le reescribían 534 nombres de golpe y sin
+    // avisar. Retirada: normalizar los nombres es una decisión suya, no algo que el programa deba
+    // hacer solo. El mapeo sigue aplicándose al IMPORTAR un calendario, que es donde toca.
 
     // AQUÍ había una migración que ponía la hora de TODOS los partidos de TODOS los calendarios a
     // «00:00». Se protegía con un interruptor guardado en `state.cartelera`, pero ese objeto solo se
@@ -32400,51 +32390,12 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     renderView('dashboard');
 
     // Auto-fix for Monzón calendar issue & uppercase migration in Firebase
-    if (localStorage && !localStorage.getItem('rs_scouting_cartelera_fix_v2')) {
-      localStorage.setItem('rs_scouting_cartelera_fix_v2', 'true');
-      setTimeout(() => {
-        if (state.cartelera && Array.isArray(state.cartelera.calendarios)) {
-          let anyGlobalUpdate = false;
-          state.cartelera.calendarios.forEach(cal => {
-            let updated = false;
-            (cal.partidos || []).forEach(m => {
-              let l = m.local || '';
-              let v = m.visitante || '';
-
-              // Case 1: Local is "S.D. Huesca MONZÓN FÚTBOL BASE", Visitante is "AT. Gigamontrans" (Away Game)
-              if (l.toUpperCase().includes('MONZÓN FÚTBOL BASE') && v.toUpperCase() === 'AT. GIGAMONTRANS') {
-                m.local = l.replace(/MONZÓN FÚTBOL BASE/gi, '').trim();
-                m.visitante = 'At. Monzón Gigamontrans';
-                updated = true;
-              }
-              // Case 2: Local is "MONZÓN FÚTBOL BASE", Visitante starts with "AT. Gigamontrans" (Home Game)
-              else if (l.toUpperCase() === 'MONZÓN FÚTBOL BASE' && v.toUpperCase().includes('AT. GIGAMONTRANS')) {
-                m.local = 'At. Monzón Gigamontrans';
-                m.visitante = v.replace(/AT\.\s*Gigamontrans/gi, '').trim();
-                updated = true;
-              }
-
-              // General cleanup just in case
-              if (m.local && m.local.toUpperCase().includes('MONZÓN FÚTBOL BASE')) {
-                m.local = m.local.replace(/MONZÓN FÚTBOL BASE[\s\t]*AT\.\s*Gigamontrans/gi, 'At. Monzón Gigamontrans');
-              }
-              if (m.visitante && m.visitante.toUpperCase().includes('MONZÓN FÚTBOL BASE')) {
-                m.visitante = m.visitante.replace(/MONZÓN FÚTBOL BASE[\s\t]*AT\.\s*Gigamontrans/gi, 'At. Monzón Gigamontrans');
-              }
-            });
-            if (updated) {
-              anyGlobalUpdate = true;
-              if (typeof saveToFirebase === 'function') saveToFirebase('cartelera_calendarios', cal);
-            }
-          });
-          if (anyGlobalUpdate) {
-            saveState();
-            if (typeof renderCartelera === 'function') renderCartelera();
-            console.log('✅ Cartelera Calendars Auto-Fixed & Uppercased in Firebase');
-          }
-        }
-      }, 5000); // Wait for initial Firebase load
-    }
+    // AQUÍ había un parche de nombres para un caso concreto («Monzón Fútbol Base» /
+    // «At. Gigamontrans»), con la misma forma que las demás: marca en el navegador, recorrido de
+    // todos los calendarios y escritura. Medido el 8-sep-2026 sobre los datos reales: entra en 90
+    // partidos y no cambia NINGUNO, porque sus expresiones exigen «AT.» con punto y en los datos
+    // pone «AT Gigamontrans» sin punto. Era código muerto que se disparaba en cada dispositivo
+    // nuevo; el día que alguien «arreglara» esa expresión, habría reescrito 90 partidos de golpe.
 
     // Refresh app state when returning to foreground
     document.addEventListener('visibilitychange', () => {
