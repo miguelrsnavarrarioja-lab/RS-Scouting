@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#1d4ed8">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609081446">
+  <link rel="stylesheet" href="styles.css?v=202609081505">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -271,7 +271,11 @@
         <div class="dashboard-center-col" style="display: flex; flex-direction: column; height: 100%;">
           <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding-top: 20px; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding-left: 32px; padding-right: 32px; padding-bottom: 32px; flex-grow: 1; overflow-y: auto;">
             <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-family: var(--font-heading); font-size: 34px; font-weight: 900; padding: 20px; border-radius: var(--radius-lg); text-align: center; text-transform: uppercase; letter-spacing: 2px; box-shadow: var(--shadow-lg); box-sizing: border-box; margin-bottom: 20px; cursor: pointer; transition: transform 0.2s ease;"></div>
-            <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; max-width: 95%; max-height: 400px; object-fit: contain; margin-bottom: 20px; flex-grow: 1;">
+            <picture style="width: 100%; max-width: 95%; max-height: 400px; margin-bottom: 20px; flex-grow: 1; display: block; min-height: 0;">
+              <!-- En srcset los espacios separan candidatos: el nombre va con %20 o no se carga nunca. -->
+              <source srcset="./Logo%20MS%202.webp" type="image/webp">
+              <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; height: 100%; max-height: 400px; object-fit: contain; display: block;">
+            </picture>
             
             <div id="partidosVistosContainer" style="width: 100%; max-width: 95%; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); box-sizing: border-box; cursor: pointer; transition: transform 0.2s ease;">
                <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
@@ -2199,15 +2203,15 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609081446" defer></script>
-  <script src="data-guard.js?v=202609081446" defer></script>
-  <script src="firebase-config.js?v=202609081446" defer></script>
-  <script src="auth.js?v=202609081446" defer></script>
-  <script src="app.js?v=202609081446" defer></script>
-  <script src="importer_v2.js?v=202609081446" defer></script>
-  <script src="informe-borrador.js?v=202609081446" defer></script>
-  <script src="calendario-export.js?v=202609081446" defer></script>
-  <script src="sin-cobertura.js?v=202609081446" defer></script>
+  <script src="toast.js?v=202609081505" defer></script>
+  <script src="data-guard.js?v=202609081505" defer></script>
+  <script src="firebase-config.js?v=202609081505" defer></script>
+  <script src="auth.js?v=202609081505" defer></script>
+  <script src="app.js?v=202609081505" defer></script>
+  <script src="importer_v2.js?v=202609081505" defer></script>
+  <script src="informe-borrador.js?v=202609081505" defer></script>
+  <script src="calendario-export.js?v=202609081505" defer></script>
+  <script src="sin-cobertura.js?v=202609081505" defer></script>
 
 
 </body>

@@ -24,7 +24,7 @@ const ESENCIALES = [
   './index.html',
   './manifest.json',
   './Logo MS.png',
-  './Logo MS 2.png',
+  './Logo MS 2.webp',
   // Los ficheros del programa se guardan SIN el número de versión. Al pedirlos, el HTML les añade
   // uno (app.js?v=…) y esa dirección no estaría guardada todavía: por eso, si no se encuentra la
   // dirección exacta, se busca la misma ruta sin el número. Con red siempre gana la versión nueva.
