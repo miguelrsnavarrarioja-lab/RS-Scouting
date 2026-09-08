@@ -163,6 +163,11 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* La cabecera (marca + navegación + fecha, hora, correo y botones) necesita 1625 px y se salía
+     185 en una pantalla de 1440. Con `wrap` baja a dos líneas en vez de empujar la página, y no
+     hay que recortar ningún texto. Donde cabe —pantallas anchas— se ve igual que siempre. */
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
 .brand {
@@ -1825,6 +1830,10 @@ a {
   align-items: center;
   gap: 4px;
   margin-left: auto;
+  /* Sin `wrap`, los tres botones del directorio (Duplicados, Destacados, Selección múltiple) miden
+     376 px dentro de una fila de 336 y empujaban la página 14 px en el teléfono (08-sep-2026).
+     `flex-wrap` no cambia nada donde caben, que es a partir de la tableta. */
+  flex-wrap: wrap;
 }
 
 /* Empty State Container */
@@ -5358,3 +5367,45 @@ body.rs-auth-pending { overflow: hidden; }
 /* ---------- Aviso de borrador guardado (informe-borrador.js) ---------- */
 .rs-borrador-estado { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748B); background: var(--bg-subtle, #F1F5F9); border: 1px solid var(--border-color, #E2E8F0); border-radius: 8px; padding: 6px 12px; margin: 0 0 12px; display: inline-block; }
 body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
+
+/* ---------------------------------------------------------------------------
+   Rejillas del panel de inicio (08-sep-2026)
+   Estaban escritas con `style="grid-template-columns: repeat(4, 1fr)"` dentro del HTML, y en el
+   móvil eran la razón de que la pantalla de inicio midiera 778 px en un teléfono de 390: `1fr` no
+   baja del ancho de su contenido, así que las cuatro columnas se estiraban y arrastraban la página.
+   Un atributo `style` además gana a cualquier media query, así que no había forma de adaptarlo.
+
+   En el ordenador se ven EXACTAMENTE igual que antes: cuatro columnas (o dos las que tenían dos).
+   Lo que cambia es que ahora pueden encoger, y que en pantallas pequeñas caben.
+   --------------------------------------------------------------------------- */
+.rejilla-panel {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+.rejilla-panel.cuatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rejilla-panel.dos    { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Tableta: la mitad de columnas, que a cuatro no caben con texto dentro. */
+@media (max-width: 900px) {
+  .rejilla-panel.cuatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Teléfono: dos columnas en las tarjetas pequeñas, una sola en las que llevan texto largo. */
+@media (max-width: 560px) {
+  .rejilla-panel.cuatro { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .rejilla-panel.dos    { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------------------------------------------------------------------------
+   Tablas que no caben (08-sep-2026)
+   La aplicación envuelve sus tablas en `.table-responsive` —el nombre viene de Bootstrap—, pero esa
+   clase NO estaba definida en ninguna parte: no hacía nada. Por eso la cartelera medía 937 px en un
+   teléfono de 390 y la página entera se iba de lado.
+   Ahora la tabla se desplaza DENTRO de su caja y la página no se mueve. En el ordenador, donde las
+   tablas ya caben, no cambia nada.
+   --------------------------------------------------------------------------- */
+.table-responsive {
+  overflow-x: auto;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;   /* que el desplazamiento no vaya a tirones en el iPhone */
+}
