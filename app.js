@@ -137,6 +137,28 @@
   // --------------------------------------------------------------------------
   const STORAGE_KEY = 'RS_SCOUTING_DATA_V1';
   let isConfigLoadedFromFirebase = false;
+  /** La última configuración que llegó del servidor, tal cual.
+   *
+   *  Los ajustes se guardan en UN documento entero: cada vez que se toca cualquier cosa se sube
+   *  todo. Las listas de preferencias se escriben como `state.X || []`, así que una lista que en
+   *  memoria esté vacía PISA la que hay guardada. El 9 de septiembre de 2026 el orden de las once
+   *  pestañas del directorio quedó en una lista vacía por este camino. Con esta copia se puede
+   *  distinguir «el usuario la ha vaciado» de «en esta pantalla nunca se llenó».
+   */
+  let ultimaConfigDelServidor = null;
+
+  /** Devuelve la lista de memoria, salvo que esté vacía y el servidor tuviera uno con contenido. */
+  function conservarListaGuardada(clave, enMemoria) {
+    const lista = Array.isArray(enMemoria) ? enMemoria : [];
+    if (lista.length > 0 || !ultimaConfigDelServidor) return lista;
+    const guardada = ultimaConfigDelServidor[clave];
+    const previa = Array.isArray(guardada) ? guardada : (guardada && typeof guardada === 'object' ? Object.values(guardada) : null);
+    if (previa && previa.length > 0) {
+      console.warn('Ajustes: «' + clave + '» está vacío en esta pantalla; se conserva lo guardado (' + previa.length + ').');
+      return previa;
+    }
+    return lista;
+  }
 
   const DEFAULT_INITIAL_STATE = {
     settings: {
@@ -738,14 +760,14 @@
       favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
       favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
       favLinksOrderStr: JSON.stringify(state.favLinksOrder || {}),
-      customTabOrder: state.customTabOrder || [],
-      dirTabOrder: state.dirTabOrder || [],
-      customClubTypes: state.customClubTypes || [],
-      directoryCategoriesOrder: state.directoryCategoriesOrder || [],
-      directoryFederationsOrder: state.directoryFederationsOrder || [],
-      directoryEstadiosComunidadOrder: state.directoryEstadiosComunidadOrder || [],
-      directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
-      agendaCategories: state.agendaCategories || [],
+      customTabOrder: conservarListaGuardada('customTabOrder', state.customTabOrder),
+      dirTabOrder: conservarListaGuardada('dirTabOrder', state.dirTabOrder),
+      customClubTypes: conservarListaGuardada('customClubTypes', state.customClubTypes),
+      directoryCategoriesOrder: conservarListaGuardada('directoryCategoriesOrder', state.directoryCategoriesOrder),
+      directoryFederationsOrder: conservarListaGuardada('directoryFederationsOrder', state.directoryFederationsOrder),
+      directoryEstadiosComunidadOrder: conservarListaGuardada('directoryEstadiosComunidadOrder', state.directoryEstadiosComunidadOrder),
+      directoryStaffCargoOrder: conservarListaGuardada('directoryStaffCargoOrder', state.directoryStaffCargoOrder),
+      agendaCategories: conservarListaGuardada('agendaCategories', state.agendaCategories),
       cartelera: {
         priorityTeams: state.cartelera?.priorityTeams || [],
         interestingTeams: state.cartelera?.interestingTeams || []
@@ -901,14 +923,14 @@
         favColumns: state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3'],
         favColumnsStr: JSON.stringify(state.favColumns || ['Columna 1', 'Columna 2', 'Columna 3']),
         favLinksOrderStr: JSON.stringify(state.favLinksOrder || {}),
-        customTabOrder: state.customTabOrder || [],
-        dirTabOrder: state.dirTabOrder || [],
-        customClubTypes: state.customClubTypes || [],
-        directoryCategoriesOrder: state.directoryCategoriesOrder || [],
-        directoryFederationsOrder: state.directoryFederationsOrder || [],
-        directoryEstadiosComunidadOrder: state.directoryEstadiosComunidadOrder || [],
-        directoryStaffCargoOrder: state.directoryStaffCargoOrder || [],
-        agendaCategories: state.agendaCategories || [],
+        customTabOrder: conservarListaGuardada('customTabOrder', state.customTabOrder),
+        dirTabOrder: conservarListaGuardada('dirTabOrder', state.dirTabOrder),
+        customClubTypes: conservarListaGuardada('customClubTypes', state.customClubTypes),
+        directoryCategoriesOrder: conservarListaGuardada('directoryCategoriesOrder', state.directoryCategoriesOrder),
+        directoryFederationsOrder: conservarListaGuardada('directoryFederationsOrder', state.directoryFederationsOrder),
+        directoryEstadiosComunidadOrder: conservarListaGuardada('directoryEstadiosComunidadOrder', state.directoryEstadiosComunidadOrder),
+        directoryStaffCargoOrder: conservarListaGuardada('directoryStaffCargoOrder', state.directoryStaffCargoOrder),
+        agendaCategories: conservarListaGuardada('agendaCategories', state.agendaCategories),
         cartelera: {
           priorityTeams: state.cartelera?.priorityTeams || [],
           interestingTeams: state.cartelera?.interestingTeams || []
@@ -1097,6 +1119,7 @@
           if (configData.favLinksOrderStr) {
             try { state.favLinksOrder = JSON.parse(configData.favLinksOrderStr); } catch (e) { state.favLinksOrder = {}; }
           }
+          ultimaConfigDelServidor = configData;
           if (configData.customTabOrder) {
             state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
           }
@@ -1184,6 +1207,7 @@
           if (configData.favLinksOrderStr) {
             try { state.favLinksOrder = JSON.parse(configData.favLinksOrderStr); } catch (e) { state.favLinksOrder = {}; }
           }
+          ultimaConfigDelServidor = configData;
           if (configData.customTabOrder) {
             state.customTabOrder = Array.isArray(configData.customTabOrder) ? configData.customTabOrder : Object.values(configData.customTabOrder);
           }
@@ -8075,6 +8099,11 @@
         onEnd: function () {
           // Save new order
           const newOrder = Array.from(bar.querySelectorAll('.directory-tab')).map(t => t.dataset.dir);
+          // Un orden VACÍO no es un orden: guardarlo borra el que el usuario había colocado. Pasó
+          // el 9 de septiembre de 2026: las once pestañas del directorio quedaron en una lista
+          // vacía. Basta con que este manejador salte cuando la barra todavía no está pintada
+          // -un toque que se interpreta como arrastre- para que el orden bueno se pierda.
+          if (!newOrder.length) return;
           state.dirTabOrder = newOrder;
           saveState();
         }
