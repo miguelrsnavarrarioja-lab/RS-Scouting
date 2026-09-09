@@ -5682,3 +5682,515 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==========================================================================
+   REDISEÑO 2026 · «Talento en datos»
+   --------------------------------------------------------------------------
+   Sistema visual de los mockups del 9 de septiembre de 2026. Los colores se
+   midieron sobre las imágenes, no se estimaron a ojo: cabecera #06151E,
+   pestaña activa #196659, verde de acción #05A37D, verde de marca #0BEBA5.
+
+   Todo lleva el prefijo `--ms-` a propósito. Sin prefijo, un nombre corriente
+   como `--gap` o `--width` lo pisa cualquier hoja de terceros y el valor deja
+   de ser el nuestro sin aviso ninguno.
+   ========================================================================== */
+
+:root {
+  /* Fondos oscuros: cabecera, barra inferior y bandas de estadio */
+  --ms-noche: #06151E;
+  --ms-noche-2: #0A2131;
+  --ms-noche-3: #122F41;
+  --ms-noche-borde: rgba(255, 255, 255, .09);
+  --ms-campo: #203A4D;          /* pestaña en reposo */
+  --ms-campo-activo: #196659;   /* pestaña seleccionada */
+  --ms-buscador: #284355;
+
+  /* Verdes de marca */
+  --ms-verde: #05A37D;          /* acciones, botones sólidos */
+  --ms-verde-hondo: #026156;
+  --ms-verde-neon: #0BEBA5;     /* logotipo y botón flotante */
+  --ms-verde-suave: #E7FCF5;
+
+  /* Pasteles de los indicadores */
+  --ms-pastel-verde: #E7FCF5;
+  --ms-pastel-ambar: #FEF8ED;
+  --ms-pastel-rojo: #FFF1F5;
+  --ms-pastel-azul: #EFF4FE;
+  --ms-tinta-verde: #047857;
+  --ms-tinta-ambar: #B45309;
+  --ms-tinta-rojo: #BE123C;
+  --ms-tinta-azul: #3538CD;
+
+  /* Alturas de las dos barras fijas: el contenido se aparta con ellas */
+  --ms-alto-cabecera: 168px;
+  --ms-alto-barra: 66px;
+}
+
+/* ==========================================================================
+   1 · CABECERA
+   ========================================================================== */
+.app-header {
+  background: var(--ms-noche);
+  border-bottom: 1px solid var(--ms-noche-borde);
+  box-shadow: none;
+}
+/* La imagen de fondo del estadio la irá sustituyendo Jesús; mientras tanto,
+   un degradado con el mismo peso visual para no dejar el hueco en plano. */
+.app-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 140% at 78% -20%, rgba(11, 235, 165, .13) 0%, transparent 52%),
+    radial-gradient(90% 120% at 8% 0%, rgba(37, 99, 235, .16) 0%, transparent 55%),
+    linear-gradient(180deg, var(--ms-noche-3) 0%, var(--ms-noche) 78%);
+  pointer-events: none;
+}
+.app-header > * { position: relative; z-index: 1; }
+
+.header-container {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "marca sesion"
+    "buscar buscar"
+    "nav nav";
+  gap: 12px 14px;
+  align-items: center;
+  padding: 12px 16px 14px;
+  max-width: 1400px;
+}
+
+/* --- marca --- */
+.brand { grid-area: marca; gap: 11px; }
+.brand-badge {
+  width: 40px; height: 40px;
+  background: transparent;
+  box-shadow: none;
+}
+/* El logotipo que hay hoy es oscuro y sobre la cabecera nueva se pierde. Hasta que llegue la
+   versión clara, se aclara por filtro: es reversible y no toca el fichero. */
+.brand-badge .brand-logo-img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(11, 235, 165, .45));
+  opacity: .95;
+}
+.brand-name {
+  color: #fff;
+  font-family: var(--font-display, 'Outfit', sans-serif);
+  font-weight: 700;
+  font-size: 21px;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+}
+.brand-text::after {
+  content: "TALENTO EN DATOS";
+  display: block;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: .26em;
+  color: rgba(255, 255, 255, .48);
+  margin-top: 2px;
+}
+
+/* --- buscador global --- */
+.ms-buscador-global {
+  grid-area: buscar;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ms-buscador);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  padding: 0 16px;
+  height: 44px;
+}
+.ms-buscador-global svg { width: 17px; height: 17px; color: rgba(255, 255, 255, .62); flex: none; }
+.ms-buscador-global input {
+  flex: 1; min-width: 0;
+  background: none; border: 0; outline: none;
+  color: #fff;
+  font: 400 13.5px/1 var(--font-body);
+  text-overflow: ellipsis;
+}
+.ms-buscador-global input::placeholder { color: rgba(255, 255, 255, .46); }
+
+/* --- pestañas --- */
+.main-nav {
+  /* La regla original pintaba una cápsula clara con borde alrededor de las pestañas. Sobre la
+     cabecera oscura eso era un marco blanco flotando; aquí se anulan las tres declaraciones. */
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 2px;
+  grid-area: nav;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.main-nav::-webkit-scrollbar { display: none; }
+.main-nav .nav-tab {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 82px;
+  height: 68px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: var(--ms-campo);
+  border: 1px solid rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .78);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.main-nav .nav-tab i,
+.main-nav .nav-tab svg { width: 20px; height: 20px; }
+.main-nav .nav-tab:hover { background: #27455a; color: #fff; }
+.main-nav .nav-tab.active {
+  background: var(--ms-campo-activo);
+  border-color: rgba(11, 235, 165, .5);
+  color: #fff;
+}
+.main-nav .nav-tab.active svg { color: var(--ms-verde-neon); }
+
+/* --- lado derecho: avisos y sesión --- */
+.header-right {
+  grid-area: sesion;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-right .dashboard-date-badge { display: none; }   /* la fecha larga con segundos se va: ocupaba una banda entera */
+.btn-action-icon {
+  width: 38px; height: 38px;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 12px;
+  color: #fff;
+}
+.btn-action-icon:hover { background: rgba(255, 255, 255, .14); }
+.notification-dot { background: #F43F5E; border-color: var(--ms-noche); }
+
+.ms-sesion { display: flex; align-items: center; gap: 9px; }
+.ms-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(145deg, var(--ms-verde) 0%, var(--ms-verde-hondo) 100%);
+  display: grid; place-items: center;
+  color: #fff; font: 700 14px/1 var(--font-display, 'Outfit', sans-serif);
+  border: 2px solid rgba(11, 235, 165, .45);
+  flex: none;
+  object-fit: cover;
+}
+.ms-sesion-texto { display: none; }
+.header-user-email { display: none; }
+
+/* ==========================================================================
+   2 · BARRA INFERIOR
+   ========================================================================== */
+.ms-barra-inferior {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 900;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  gap: 2px;
+  background: var(--ms-noche);
+  border-top: 1px solid var(--ms-noche-borde);
+  padding: 8px 6px calc(9px + env(safe-area-inset-bottom, 0px));
+}
+.ms-barra-inferior button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  color: rgba(255, 255, 255, .58);
+  font: 500 10px/1.3 var(--font-body);
+  cursor: pointer;
+  min-height: 44px;                      /* objetivo táctil: nunca por debajo */
+}
+.ms-barra-inferior button svg { width: 21px; height: 21px; }
+.ms-barra-inferior button.activo { color: var(--ms-verde-neon); }
+.ms-barra-inferior .ms-btn-nuevo {
+  color: #fff;
+  gap: 6px;
+}
+.ms-barra-inferior .ms-btn-nuevo .ms-circulo {
+  width: 52px; height: 52px;
+  margin-top: -26px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--ms-verde-neon) 0%, var(--ms-verde) 100%);
+  display: grid; place-items: center;
+  color: #04231C;
+  box-shadow: 0 6px 20px -6px rgba(11, 235, 165, .75);
+  border: 3px solid var(--ms-noche);
+}
+.ms-barra-inferior .ms-btn-nuevo .ms-circulo svg { width: 24px; height: 24px; stroke-width: 2.4; }
+
+/* El contenido se aparta de la barra para que nada quede debajo */
+body.ms-con-barra .app-main { padding-bottom: calc(var(--ms-alto-barra) + 14px); }
+/* No basta con apartar el contenedor: las pantallas que llevan su propio desplazamiento
+   (`.tab-view-flex`, como Planificación) no heredan ese hueco y dejan sus últimas filas debajo de
+   la barra. Medido: ocho elementos tapados con el scroll al final. */
+body.ms-con-barra .tab-view.active { padding-bottom: calc(var(--ms-alto-barra) + 14px); }
+/* A las pantallas de altura fija (Planificación) NO se les añade relleno: su contenido se reparte
+   dentro de un alto calculado, así que un relleno abajo le roba sitio a la rejilla y el calendario
+   se corta a media mañana. Ésas se apartan con el relleno del contenedor, que no toca su alto. */
+/* Lo que sí necesitan es que su alto DESCUENTE la barra. Estos dos contenedores se calculaban
+   contra la ventana entera (`100vh - 180px`), así que su última franja caía justo debajo de la
+   barra: las 11:00, 12:00 y 13:00 del calendario no había forma de verlas. */
+/* NO se toca la maquetación de Planificación desde aquí. Se intentó de cuatro maneras: darle hueco
+   abajo le roba alto y corta el calendario a media mañana, y quitarle el desplazamiento propio al
+   área de horas deja las 11:00 en adelante SIN NINGUNA FORMA de alcanzarlas —se vio en la captura,
+   no en los números—. Esa pantalla tiene su propio diseño pendiente y se rehará entera; hasta
+   entonces conserva el desplazamiento interno que ya tenía, que es lo que permite llegar a todo. */
+
+/* ==========================================================================
+   3 · PANEL DE INICIO
+   ========================================================================== */
+/* El selector tiene que llevar `.active`: `#view-dashboard` a secas gana por especificidad al
+   `display: none` de `.tab-view`, y el panel de inicio se queda pintado DEBAJO de todas las demás
+   pantallas. Pasó al primer intento: la Cartelera mostraba el contenido del Inicio. */
+#view-dashboard.tab-view.active { display: grid; gap: 14px; }
+
+.ms-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 15px 16px 16px;
+  /* Sin esto, un hijo de rejilla no se encoge por debajo de su contenido: la tira deslizante
+     ensancha el panel y la página entera se va 324 px a la derecha. */
+  min-width: 0;
+}
+#view-dashboard > * { min-width: 0; }
+.ms-panel-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 13px;
+}
+.ms-panel-cab h3 {
+  margin: 0;
+  font: 700 16px/1.2 var(--font-display, 'Outfit', sans-serif);
+  letter-spacing: -.01em;
+  color: var(--text-main);
+}
+.ms-ver-todo {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 0; cursor: pointer;
+  font: 600 12.5px/1 var(--font-body);
+  color: var(--ms-verde);
+  padding: 6px 2px;
+}
+.ms-ver-todo svg { width: 14px; height: 14px; }
+
+/* --- 3.1 · tira de indicadores --- */
+.ms-tira-kpi {
+  /* El mockup pone los seis indicadores en UNA fila. A 390 px eso deja 52 px por tarjeta y la
+     etiqueta baja a un tamaño que no se lee. Se conserva la fila y se desliza: se ven cuatro y
+     los otros dos entran con el dedo, en vez de encoger la letra hasta hacerla inútil. */
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.ms-tira-kpi::-webkit-scrollbar { display: none; }
+.ms-tira-kpi > .ms-kpi { flex: 0 0 104px; scroll-snap-align: start; }
+@media (min-width: 560px) {
+  .ms-tira-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(104px, 100%), 1fr)); overflow: visible; }
+  .ms-tira-kpi > .ms-kpi { flex: initial; }
+}
+.ms-kpi {
+  border-radius: 15px;
+  padding: 12px 11px 13px;
+  border: 1px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.ms-kpi .ms-kpi-icono { width: 22px; height: 22px; margin-bottom: 8px; }
+.ms-kpi .ms-kpi-cifra {
+  display: block;
+  font: 700 25px/1 var(--font-display, 'Outfit', sans-serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  color: var(--text-main);
+}
+.ms-kpi .ms-kpi-nombre {
+  display: block;
+  margin-top: 4px;
+  font: 500 11.5px/1.28 var(--font-body);
+  color: var(--text-muted);
+}
+.ms-kpi.verde { background: var(--ms-pastel-verde); }
+.ms-kpi.verde .ms-kpi-icono { color: var(--ms-tinta-verde); }
+.ms-kpi.ambar { background: var(--ms-pastel-ambar); }
+.ms-kpi.ambar .ms-kpi-icono { color: var(--ms-tinta-ambar); }
+.ms-kpi.rojo { background: var(--ms-pastel-rojo); }
+.ms-kpi.rojo .ms-kpi-icono { color: var(--ms-tinta-rojo); }
+.ms-kpi.azul { background: var(--ms-pastel-azul); }
+.ms-kpi.azul .ms-kpi-icono { color: var(--ms-tinta-azul); }
+
+/* --- 3.2 · herramientas rápidas --- */
+.ms-herramientas { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.ms-herramienta {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 13px;
+  padding: 12px 12px;
+  cursor: pointer;
+  text-align: left;
+  font: 600 13px/1.2 var(--font-body);
+  color: var(--text-main);
+  min-width: 0;
+}
+.ms-herramienta svg { width: 19px; height: 19px; color: var(--ms-verde); flex: none; }
+.ms-herramienta span { min-width: 0; overflow-wrap: anywhere; }
+
+/* --- 3.3 · cifras de la temporada --- */
+.ms-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(88px, 100%), 1fr));
+  gap: 4px;
+}
+.ms-cifra { text-align: center; padding: 9px 4px; cursor: pointer; min-width: 0; }
+.ms-cifra svg { width: 19px; height: 19px; color: var(--ms-verde); }
+.ms-cifra b {
+  display: block; margin-top: 7px;
+  font: 700 20px/1 var(--font-display, 'Outfit', sans-serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+}
+.ms-cifra span {
+  display: block; margin-top: 3px;
+  font: 500 10.5px/1.3 var(--font-body);
+  color: var(--text-muted);
+}
+
+/* --- 3.4 · llamada a nuevo informe --- */
+.ms-cta-informe {
+  display: block; width: 100%;
+  text-align: left;
+  border: 0; cursor: pointer;
+  border-radius: 18px;
+  padding: 18px 19px 19px;
+  color: #fff;
+  background: linear-gradient(145deg, var(--ms-verde) 0%, var(--ms-verde-hondo) 100%);
+  box-shadow: 0 10px 26px -14px rgba(5, 163, 125, .9);
+}
+.ms-cta-informe .ms-cta-fila {
+  display: flex; align-items: center; gap: 11px;
+}
+.ms-cta-informe .ms-cta-icono {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: rgba(255, 255, 255, .18);
+  display: grid; place-items: center; flex: none;
+}
+.ms-cta-informe .ms-cta-icono svg { width: 21px; height: 21px; }
+.ms-cta-informe h3 {
+  margin: 0; flex: 1; min-width: 0;
+  font: 700 18px/1.15 var(--font-display, 'Outfit', sans-serif);
+  letter-spacing: -.01em;
+}
+.ms-cta-informe .ms-cta-flecha { width: 20px; height: 20px; flex: none; opacity: .85; }
+.ms-cta-informe p {
+  margin: 11px 0 0;
+  font: 400 13.5px/1.45 var(--font-body);
+  color: rgba(255, 255, 255, .84);
+}
+
+/* --- 3.5 · banda del estadio --- */
+.ms-banda-lema {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 22px 20px;
+  background:
+    radial-gradient(120% 160% at 82% 0%, rgba(11, 235, 165, .16) 0%, transparent 55%),
+    linear-gradient(160deg, var(--ms-noche-3) 0%, var(--ms-noche) 82%);
+  color: #fff;
+}
+.ms-banda-lema h4 {
+  margin: 0;
+  font: 700 16px/1.22 var(--font-display, 'Outfit', sans-serif);
+  letter-spacing: .01em;
+  text-transform: uppercase;
+}
+.ms-banda-lema hr {
+  width: 40px; height: 3px; border: 0; border-radius: 2px;
+  background: var(--ms-verde-neon);
+  margin: 11px 0 0;
+}
+.ms-banda-lema p {
+  margin: 13px 0 0;
+  font: 400 13.5px/1.5 var(--font-body);
+  font-style: italic;
+  color: rgba(255, 255, 255, .78);
+}
+
+/* --- 3.6 · el gráfico dentro de su panel --- */
+#dashboardPlayersByYear, #dashboardTeamsByCategory { min-height: 150px; }
+
+/* ==========================================================================
+   4 · ESCRITORIO
+   El mockup describe el teléfono. En pantallas grandes se reparte en columnas
+   y la barra inferior sobra, porque ahí no hay pulgar que alcance.
+   ========================================================================== */
+@media (min-width: 860px) {
+  :root { --ms-alto-cabecera: 96px; }
+  .header-container {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "marca buscar sesion" "nav nav nav";
+    padding: 14px 24px 12px;
+  }
+  .ms-buscador-global { max-width: 460px; justify-self: center; width: 100%; }
+  .ms-sesion-texto {
+    display: block;
+    line-height: 1.25;
+  }
+  .ms-sesion-texto b { display: block; font: 600 13px/1.25 var(--font-body); color: #fff; }
+  .ms-sesion-texto span { font-size: 11px; color: rgba(255, 255, 255, .55); }
+  .ms-barra-inferior { display: none; }
+  body.ms-con-barra .app-main { padding-bottom: 24px; }
+  body.ms-con-barra .tab-view.active { padding-bottom: 0; }
+
+  #view-dashboard {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .ms-ancho-total { grid-column: 1 / -1; }
+}
+@media (min-width: 1180px) {
+  #view-dashboard { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ==========================================================================
+   5 · TEMA OSCURO
+   El cuerpo ya va sobre variables, así que solo hay que ajustar los pasteles:
+   un pastel pensado para papel blanco sobre fondo oscuro deslumbra.
+   ========================================================================== */
+body.theme-dark {
+  --ms-pastel-verde: #0C2E27;
+  --ms-pastel-ambar: #2E2413;
+  --ms-pastel-rojo: #2E1620;
+  --ms-pastel-azul: #171B33;
+  --ms-tinta-verde: #34D399;
+  --ms-tinta-ambar: #FBBF24;
+  --ms-tinta-rojo: #FB7185;
+  --ms-tinta-azul: #A5B4FC;
+}
+body.theme-dark .ms-panel { background: var(--bg-card); border-color: var(--border-light); }

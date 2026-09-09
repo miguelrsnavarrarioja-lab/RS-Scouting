@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#1d4ed8">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609091909">
+  <link rel="stylesheet" href="styles.css?v=202609092331">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -89,9 +89,20 @@
         </div>
       </div>
 
+      <!-- Buscador global: en el móvil es la primera fila útil de la cabecera -->
+      <div class="ms-buscador-global">
+        <i data-lucide="search"></i>
+        <input type="search" id="msBuscadorGlobal" placeholder="Buscar jugadores, equipos, informes..."
+               aria-label="Buscar en toda la aplicación" autocomplete="off">
+      </div>
+
       <!-- Main Navigation Menu Tabs -->
       <nav class="main-nav">
 
+        <button class="nav-tab active" data-tab="dashboard">
+          <i data-lucide="home"></i>
+          <span>Inicio</span>
+        </button>
         <button class="nav-tab" data-tab="planificacion">
           <i data-lucide="calendar-check"></i>
           <span>Planificación</span>
@@ -121,7 +132,7 @@
 
       <div class="header-right" style="display: flex; align-items: center; gap: 12px;">
         <!-- Grupo de Botones de Acción de Cabecera en la Misma Fila -->
-        <div style="display: flex; align-items: center; gap: 12px; background: var(--bg-subtle, #f8fafc); padding: 4px 8px; border-radius: var(--radius-pill); border: 1px solid var(--border-light);">
+        <div style="display: flex; align-items: center; gap: 10px;">
           
           <div class="dashboard-date-badge" style="margin: 0; cursor: default;">
             <i data-lucide="clock"></i>
@@ -145,7 +156,14 @@
             </div>
           </div>
 
-          <!-- Sesión (auth.js) -->
+          <!-- Sesión (auth.js) · el avatar y el nombre los rellena auth.js con la cuenta real -->
+          <div class="ms-sesion">
+            <div class="ms-avatar" id="msAvatar" aria-hidden="true">MS</div>
+            <div class="ms-sesion-texto">
+              <b id="msSaludo">Hola</b>
+              <span id="msRol">Scout</span>
+            </div>
+          </div>
           <span class="header-user-email" id="headerUserEmail" title="Sesión iniciada"></span>
           <button class="btn-action-icon hidden" id="btnHeaderLogout" title="Cerrar sesión" aria-label="Cerrar sesión">
             <i data-lucide="log-out"></i>
@@ -159,222 +177,170 @@
   <main class="app-main" id="mainContainer">
 
     <!-- ==================== 0. DASHBOARD VIEW ==================== -->
-    <section class="tab-view active" id="view-dashboard">
+        <section class="tab-view active" id="view-dashboard">
 
-
-      <!-- MAIN HERO SECTION: 3-COLUMN LAYOUT -->
-      <div class="dashboard-main-hero-grid">
-        
-        <!-- LEFT COLUMN -->
-        <div class="dashboard-side-col">
-          <div class="kpi-grid-2x2">
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon blue"><i data-lucide="eye"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Terminados</span>
-                <span class="kpi-value" id="kpiTotalMatchesVistos">0</span>
-                <span class="kpi-subtext">Total completados</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon orange"><i data-lucide="activity"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Pendientes</span>
-                <span class="kpi-value" id="kpiDirectMatchesCount">0</span>
-                <span class="kpi-subtext">Sin completar</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon green"><i data-lucide="radio"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Directo</span>
-                <span class="kpi-value" id="kpiTotalDirecto">0</span>
-                <span class="kpi-subtext">Visionados en vivo</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon red"><i data-lucide="video"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Vídeo</span>
-                <span class="kpi-value" id="kpiTotalVideo">0</span>
-                <span class="kpi-subtext">Visionados diferidos</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon indigo"><i data-lucide="briefcase"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Trabajo</span>
-                <span class="kpi-value" id="kpiTotalRS">0</span>
-                <span class="kpi-subtext">RS (Trabajo)</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="partidos">
-              <div class="kpi-icon teal"><i data-lucide="user"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Informes Personal</span>
-                <span class="kpi-value" id="kpiTotalMS">0</span>
-                <span class="kpi-subtext">MS (Personal)</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="widget-card" style="padding: 12px; margin: 0; flex-grow: 1;">
-            <div class="widget-header" style="margin-bottom: 8px;">
-              <div class="widget-title">
-                <i data-lucide="bar-chart-3"></i>
-                <h3 style="font-size: 13px; margin: 0;">Jugadores por Año</h3>
-              </div>
-            </div>
-            <div class="widget-body rejilla-panel cuatro" id="dashboardPlayersByYear">
-              <!-- Rendered dynamically -->
-            </div>
-          </div>
-          
-          <!-- Accesos directos: Mapa, Comparador, Importador -->
-          <div class="widget-card" style="padding: 16px; margin: 0; margin-top: 16px;">
-            <div class="widget-header" style="margin-bottom: 12px;">
-              <div class="widget-title">
-                <i data-lucide="zap"></i>
-                <h3 style="font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Herramientas Rápidas</h3>
-              </div>
-            </div>
-            <div class="widget-body rejilla-panel cuatro">
-              <div class="kpi-card" data-shortcut="mapas" style="cursor: pointer;">
-                <div class="kpi-icon blue"><i data-lucide="map"></i></div>
-                <div class="kpi-info">
-                  <span class="kpi-value" style="font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Mapas</span>
-                </div>
-              </div>
-              <div class="kpi-card" data-shortcut="comparador" style="cursor: pointer;">
-                <div class="kpi-icon teal"><i data-lucide="bar-chart-2"></i></div>
-                <div class="kpi-info">
-                  <span class="kpi-value" style="font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Comparador</span>
-                </div>
-              </div>
-              <div class="kpi-card" data-shortcut="importador" style="cursor: pointer;">
-                <div class="kpi-icon indigo"><i data-lucide="upload-cloud"></i></div>
-                <div class="kpi-info">
-                  <span class="kpi-value" style="font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Importador</span>
-                </div>
-              </div>
-              <div class="kpi-card" data-shortcut="enlaces" style="cursor: pointer;">
-                <div class="kpi-icon purple"><i data-lucide="link"></i></div>
-                <div class="kpi-info">
-                  <span class="kpi-value" style="font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dark);">Enlaces</span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <!-- 1 · LOS SEIS INFORMES. Es lo primero que se ve y lo que más se mira.
+           Los identificadores son los mismos de siempre: el código que los rellena no cambia. -->
+      <div class="ms-panel ms-ancho-total">
+        <div class="ms-tira-kpi">
+          <button type="button" class="ms-kpi verde" data-shortcut="partidos">
+            <i data-lucide="eye" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalMatchesVistos">0</span>
+            <span class="ms-kpi-nombre">Informes<br>terminados</span>
+          </button>
+          <button type="button" class="ms-kpi ambar" data-shortcut="partidos">
+            <i data-lucide="activity" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiDirectMatchesCount">0</span>
+            <span class="ms-kpi-nombre">Pendientes</span>
+          </button>
+          <button type="button" class="ms-kpi rojo" data-shortcut="partidos">
+            <i data-lucide="radio" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalDirecto">0</span>
+            <span class="ms-kpi-nombre">En directo</span>
+          </button>
+          <button type="button" class="ms-kpi azul" data-shortcut="partidos">
+            <i data-lucide="video" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalVideo">0</span>
+            <span class="ms-kpi-nombre">Vídeo</span>
+          </button>
+          <button type="button" class="ms-kpi azul" data-shortcut="partidos">
+            <i data-lucide="briefcase" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalRS">0</span>
+            <span class="ms-kpi-nombre">Trabajo</span>
+          </button>
+          <button type="button" class="ms-kpi verde" data-shortcut="partidos">
+            <i data-lucide="user" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalMS">0</span>
+            <span class="ms-kpi-nombre">Personal</span>
+          </button>
         </div>
+      </div>
 
-        <!-- CENTER COLUMN -->
-        <div class="dashboard-center-col" style="display: flex; flex-direction: column; height: 100%;">
-          <div class="logo-container" style="display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding-top: 20px; height: 100%; min-height: 400px; background: var(--bg-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); padding-left: 32px; padding-right: 32px; padding-bottom: 32px; flex-grow: 1; overflow-y: auto;">
-            <div id="motivationalMessage" style="width: 100%; max-width: 95%; font-family: var(--font-heading); font-size: 34px; font-weight: 900; padding: 20px; border-radius: var(--radius-lg); text-align: center; text-transform: uppercase; letter-spacing: 2px; box-shadow: var(--shadow-lg); box-sizing: border-box; margin-bottom: 20px; cursor: pointer; transition: transform 0.2s ease;"></div>
-            <picture style="width: 100%; max-width: 95%; max-height: 400px; margin-bottom: 20px; flex-grow: 1; display: block; min-height: 0;">
-              <!-- En srcset los espacios separan candidatos: el nombre va con %20 o no se carga nunca. -->
-              <source srcset="./Logo%20MS%202.webp" type="image/webp">
-              <img src="./Logo MS 2.png" alt="MS Fútbol Scout" style="width: 100%; height: 100%; max-height: 400px; object-fit: contain; display: block;">
-            </picture>
-            
-            <div id="partidosVistosContainer" style="width: 100%; max-width: 95%; padding: 20px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); box-sizing: border-box; cursor: pointer; transition: transform 0.2s ease;">
-               <div style="display: flex; justify-content: center; align-items: center; text-align: center;">
-                 <div>
-                   <div style="font-family: var(--font-heading); font-size: 16px; font-weight: 900; color: var(--text-main); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">Partidos Vistos</div>
-                   <div id="kpiPartidosVistos" style="font-size: 42px; font-weight: 900; color: var(--text-main);">0</div>
-                 </div>
-               </div>
-            </div>
-          </div>
+      <!-- 2 · NUEVO INFORME. En el mockup es la acción destacada de la pantalla. -->
+      <button type="button" class="ms-cta-informe" data-shortcut="partidos">
+        <span class="ms-cta-fila">
+          <span class="ms-cta-icono"><i data-lucide="file-plus-2"></i></span>
+          <h3>Nuevo informe</h3>
+          <i data-lucide="arrow-right" class="ms-cta-flecha"></i>
+        </span>
+        <p>Crea un informe de jugador, partido o equipo.</p>
+      </button>
+
+      <!-- 3 · JUGADORES POR AÑO -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Jugadores por año</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="directorio">
+            Ver todos <i data-lucide="arrow-right"></i>
+          </button>
         </div>
-
-        <!-- RIGHT COLUMN -->
-        <div class="dashboard-side-col">
-          <div class="kpi-grid-2x2">
-            <div class="kpi-card" data-shortcut="jugadores">
-              <div class="kpi-icon purple"><i data-lucide="users"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Jugadores</span>
-                <span class="kpi-value" id="kpiTotalPlayers">0</span>
-                <span class="kpi-subtext">En directorio activo</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="clubes">
-              <div class="kpi-icon info"><i data-lucide="shield"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Clubes</span>
-                <span class="kpi-value" id="kpiTotalClubes">0</span>
-                <span class="kpi-subtext">Registrados</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="equipos">
-              <div class="kpi-icon success"><i data-lucide="users-2"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Equipos</span>
-                <span class="kpi-value" id="kpiTotalEquipos">0</span>
-                <span class="kpi-subtext">Por categoría</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="selecciones">
-              <div class="kpi-icon orange"><i data-lucide="globe"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Selecciones</span>
-                <span class="kpi-value" id="kpiTotalSelecciones">0</span>
-                <span class="kpi-subtext">Internacionales/Autonómicas</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="widget-card" style="padding: 16px; margin: 16px 0 0 0; flex-grow: 1;">
-            <div class="widget-header" style="margin-bottom: 12px;">
-              <div class="widget-title">
-                <i data-lucide="pie-chart"></i>
-                <h3 style="font-size: 13px; margin: 0;">Equipos Vistos por Categoría</h3>
-              </div>
-            </div>
-            <div class="widget-body rejilla-panel dos" id="dashboardTeamsByCategory">
-              <!-- Rendered dynamically -->
-            </div>
-          </div>
-
-          <!-- SEGUNDO BLOQUE DE 4 (Planificación) -->
-          <div class="kpi-grid-2x2" style="margin-top: 16px;">
-            <div class="kpi-card" data-shortcut="cartelera">
-              <div class="kpi-icon orange"><i data-lucide="star"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Cartelera</span>
-                <span class="kpi-value" id="kpiTotalCartelera">0</span>
-                <span class="kpi-subtext">Partidos esta semana</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="agenda">
-              <div class="kpi-icon yellow"><i data-lucide="check-square"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Agenda</span>
-                <span class="kpi-value" id="kpiPendingTasks">0</span>
-                <span class="kpi-subtext" id="kpiHighPriorityTasks">0 pendientes</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="notas-page">
-              <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Página Notas</span>
-                <span class="kpi-value" id="kpiTotalNotasPage">0</span>
-                <span class="kpi-subtext">Ver base de notas</span>
-              </div>
-            </div>
-            <div class="kpi-card" data-shortcut="notas">
-              <div class="kpi-icon purple"><i data-lucide="sticky-note"></i></div>
-              <div class="kpi-info">
-                <span class="kpi-label">Notas Rápidas</span>
-                <span class="kpi-value" id="kpiTotalNotas">0</span>
-                <span class="kpi-subtext">Crear nueva nota</span>
-              </div>
-            </div>
-          </div>
+        <div class="widget-body" id="dashboardPlayersByYear">
+          <!-- Rendered dynamically -->
         </div>
+      </div>
 
-      </div> <!-- End of dashboard-main-hero-grid -->
+      <!-- 4 · HERRAMIENTAS RÁPIDAS -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab"><h3>Herramientas rápidas</h3></div>
+        <div class="ms-herramientas">
+          <button type="button" class="ms-herramienta" data-shortcut="mapas">
+            <i data-lucide="map"></i><span>Mapas</span>
+          </button>
+          <button type="button" class="ms-herramienta" data-shortcut="comparador">
+            <i data-lucide="scale"></i><span>Comparador</span>
+          </button>
+          <button type="button" class="ms-herramienta" data-shortcut="importador">
+            <i data-lucide="upload-cloud"></i><span>Importador</span>
+          </button>
+          <button type="button" class="ms-herramienta" data-shortcut="enlaces">
+            <i data-lucide="link"></i><span>Enlaces</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 5 · CIFRAS DE LA TEMPORADA -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab"><h3>Estadísticas principales</h3></div>
+        <div class="ms-cifras">
+          <button type="button" class="ms-cifra" data-shortcut="partidos">
+            <i data-lucide="dribbble"></i>
+            <b id="kpiPartidosVistos">0</b>
+            <span>Partidos vistos</span>
+          </button>
+          <button type="button" class="ms-cifra" data-shortcut="directorio">
+            <i data-lucide="users"></i>
+            <b id="kpiTotalPlayers">0</b>
+            <span>Jugadores</span>
+          </button>
+          <button type="button" class="ms-cifra" data-shortcut="directorio">
+            <i data-lucide="shield"></i>
+            <b id="kpiTotalClubes">0</b>
+            <span>Clubes</span>
+          </button>
+          <button type="button" class="ms-cifra" data-shortcut="directorio">
+            <i data-lucide="users-2"></i>
+            <b id="kpiTotalEquipos">0</b>
+            <span>Equipos</span>
+          </button>
+          <button type="button" class="ms-cifra" data-shortcut="directorio">
+            <i data-lucide="globe"></i>
+            <b id="kpiTotalSelecciones">0</b>
+            <span>Selecciones</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 6 · PLANIFICACIÓN: cartelera, agenda y notas -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Planificación</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="planificacion">
+            Ver todo <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="ms-tira-kpi">
+          <button type="button" class="ms-kpi azul" data-shortcut="cartelera">
+            <i data-lucide="film" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalCartelera">0</span>
+            <span class="ms-kpi-nombre">Cartelera<br>esta semana</span>
+          </button>
+          <button type="button" class="ms-kpi ambar" data-shortcut="agenda">
+            <i data-lucide="calendar-check" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiPendingTasks">0</span>
+            <span class="ms-kpi-nombre" id="kpiHighPriorityTasks">0 pendientes</span>
+          </button>
+          <button type="button" class="ms-kpi verde" data-shortcut="notas">
+            <i data-lucide="file-text" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalNotasPage">0</span>
+            <span class="ms-kpi-nombre">Base de notas</span>
+          </button>
+          <button type="button" class="ms-kpi rojo" data-shortcut="notas">
+            <i data-lucide="sticky-note" class="ms-kpi-icono"></i>
+            <span class="ms-kpi-cifra" id="kpiTotalNotas">0</span>
+            <span class="ms-kpi-nombre">Notas rápidas</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 7 · EQUIPOS VISTOS POR CATEGORÍA -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Equipos vistos por categoría</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="directorio">
+            Ver todos <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="widget-body" id="dashboardTeamsByCategory">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 8 · EL LEMA. El fondo de estadio irá aquí cuando llegue la imagen. -->
+      <div class="ms-banda-lema ms-ancho-total">
+        <h4>Mejores decisiones.<br>Más talento.</h4>
+        <hr>
+        <p id="motivationalMessage">«El fútbol se ve mejor cuando se analiza.»</p>
+      </div>
 
     </section>
 
@@ -2206,16 +2172,37 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609091909" defer></script>
-  <script src="data-guard.js?v=202609091909" defer></script>
-  <script src="firebase-config.js?v=202609091909" defer></script>
-  <script src="auth.js?v=202609091909" defer></script>
-  <script src="app.js?v=202609091909" defer></script>
-  <script src="importer_v2.js?v=202609091909" defer></script>
-  <script src="informe-borrador.js?v=202609091909" defer></script>
-  <script src="calendario-export.js?v=202609091909" defer></script>
-  <script src="sin-cobertura.js?v=202609091909" defer></script>
+  <script src="toast.js?v=202609092331" defer></script>
+  <script src="data-guard.js?v=202609092331" defer></script>
+  <script src="firebase-config.js?v=202609092331" defer></script>
+  <script src="auth.js?v=202609092331" defer></script>
+  <script src="app.js?v=202609092331" defer></script>
+  <script src="importer_v2.js?v=202609092331" defer></script>
+  <script src="informe-borrador.js?v=202609092331" defer></script>
+  <script src="calendario-export.js?v=202609092331" defer></script>
+  <script src="sin-cobertura.js?v=202609092331" defer></script>
 
+
+
+  <!-- BARRA INFERIOR · en el teléfono la navegación va donde llega el pulgar -->
+  <nav class="ms-barra-inferior" id="msBarraInferior" aria-label="Navegación principal">
+    <button type="button" class="activo" data-tab="dashboard">
+      <i data-lucide="home"></i><span>Inicio</span>
+    </button>
+    <button type="button" data-tab="cartelera">
+      <i data-lucide="search"></i><span>Explorar</span>
+    </button>
+    <button type="button" class="ms-btn-nuevo" id="msBtnNuevoInforme">
+      <span class="ms-circulo"><i data-lucide="plus"></i></span>
+      <span>Nuevo informe</span>
+    </button>
+    <button type="button" data-tab="laboratorio">
+      <i data-lucide="bar-chart-3"></i><span>Estadísticas</span>
+    </button>
+    <button type="button" data-tab="configuracion">
+      <i data-lucide="user"></i><span>Mi perfil</span>
+    </button>
+  </nav>
 
 </body>
 </html>

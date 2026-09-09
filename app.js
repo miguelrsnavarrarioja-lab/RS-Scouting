@@ -1921,6 +1921,7 @@
 
     // 7. Init Shortcuts listeners
     initDashboardShortcuts();
+    initBarraInferior();
   }
 
   function renderDashboardPlayersByYear() {
@@ -2791,6 +2792,51 @@
     });
   }
 
+  /** Conecta la barra inferior del teléfono, el botón central y el buscador de la cabecera. */
+  function initBarraInferior() {
+    const barra = document.getElementById('msBarraInferior');
+    if (!barra) return;
+    document.body.classList.add('ms-con-barra');
+
+    barra.querySelectorAll('button[data-tab]').forEach((b) => {
+      b.onclick = () => navigateToTab(b.dataset.tab);
+    });
+
+    const nuevo = document.getElementById('msBtnNuevoInforme');
+    if (nuevo) nuevo.onclick = () => navigateToTab('partidos');
+
+    // El buscador de la cabecera lleva a la pantalla que corresponde y arrastra lo escrito,
+    // en vez de ser una caja que no hace nada.
+    const buscador = document.getElementById('msBuscadorGlobal');
+    if (buscador) {
+      // Asignación, no `addEventListener`: esta función se vuelve a llamar al repintar el panel y
+      // cada escucha añadida se quedaba viva. El gate lo cazó: «deja 1 por vuelta».
+      buscador.onkeydown = (e) => {
+        if (e.key !== 'Enter') return;
+        const texto = buscador.value.trim();
+        if (!texto) return;
+        navigateToTab('directorio');
+        const destino = document.getElementById('directorySearchInput')
+          || document.querySelector('#view-directorio input[type="search"], #view-directorio input[type="text"]');
+        if (destino) {
+          destino.value = texto;
+          destino.dispatchEvent(new Event('input', { bubbles: true }));
+          destino.focus();
+        }
+      };
+    }
+  }
+
+  /** Marca en la barra inferior la pantalla en la que se está. */
+  function marcarBarraInferior(tabName) {
+    const barra = document.getElementById('msBarraInferior');
+    if (!barra) return;
+    barra.querySelectorAll('button').forEach((b) => b.classList.remove('activo'));
+    const equivale = { dashboard: 'dashboard', cartelera: 'cartelera', laboratorio: 'laboratorio', configuracion: 'configuracion' };
+    const destino = barra.querySelector('button[data-tab="' + (equivale[tabName] || '') + '"]');
+    if (destino) destino.classList.add('activo');
+  }
+
   function navigateToTab(tabName) {
     const navTabs = document.querySelectorAll('.nav-tab');
     const tabViews = document.querySelectorAll('.tab-view');
@@ -2805,12 +2851,16 @@
     if (targetView) targetView.classList.add('active');
 
     renderView(tabName);
+    marcarBarraInferior(tabName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
 
   function initDashboardShortcuts() {
-    document.querySelectorAll('.kpi-card[data-shortcut]').forEach(card => {
+    // Antes solo se enganchaban las tarjetas `.kpi-card`. Con el panel nuevo los atajos viven
+    // también en las cifras, las herramientas y la llamada a nuevo informe: se engancha por el
+    // atributo, que es lo que de verdad declara la intención.
+    document.querySelectorAll('[data-shortcut]').forEach(card => {
       card.onclick = () => {
         const target = card.dataset.shortcut;
         if (target === 'jugadores') {
