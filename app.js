@@ -1525,7 +1525,12 @@
   }
 
   function renderView(tabName, desdeServidor = false) {
-    if (tabName === 'dashboard') renderDashboard();
+    if (tabName === 'dashboard') {
+      renderDashboard();
+      // Los bloques nuevos del panel se pintan con los datos de AHORA, cada vez que se entra.
+      pintarAgendaInicio();
+      pintarSeguidosInicio();
+    }
     else if (tabName === 'planificacion') renderPlanificacion();
     else if (tabName === 'partidos') {
       // Repintar Partidos ocultaba el editor de informes. Pasaba en dos casos y los dos hacían
@@ -1588,7 +1593,7 @@
     const agenda = state.agenda || [];
 
     const nowForKpis = new Date();
-    const todayStrForKpis = nowForKpis.toISOString().split('T')[0];
+    const todayStrForKpis = fechaDeHoy();   // en UTC, de madrugada daba el día anterior
     const totalVistos = reports.filter(r => r.completado).length;
     const scheduledMatches = reports.filter(r => !r.completado && r.date >= todayStrForKpis).length;
     const directMatches = reports.filter(r => !r.completado).length;
@@ -1922,6 +1927,7 @@
     // 7. Init Shortcuts listeners
     initDashboardShortcuts();
     initBarraInferior();
+    initDirectorioInicio();
   }
 
   function renderDashboardPlayersByYear() {
@@ -2788,6 +2794,133 @@
           renderDashboard();
           if (typeof renderAgenda === 'function') renderAgenda();
         }
+      };
+    });
+  }
+
+  /** Pinta en el inicio lo que viene en la agenda, agrupado por día. */
+  function pintarAgendaInicio() {
+    const caja = document.getElementById('msAgendaInicio');
+    if (!caja) return;
+    const hoy = fechaDeHoy();
+    const proximos = (state.agenda || [])
+      .filter((a) => a && !a.completada && !a.archivada && a.fecha && a.fecha >= hoy)
+      .sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')))
+      .slice(0, 6);
+
+    if (!proximos.length) {
+      caja.innerHTML = '<p class="ms-vacio">No hay nada apuntado para los próximos días.</p>';
+      return;
+    }
+
+    const manana = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })();
+    const nombreDia = (f) => {
+      if (f === hoy) return 'HOY';
+      if (f === manana) return 'MAÑANA';
+      const d = new Date(f + 'T12:00:00');
+      return isNaN(d.getTime()) ? f : d.toLocaleDateString('es-ES', { weekday: 'long' }).toUpperCase();
+    };
+    const diaCorto = (f) => {
+      const d = new Date(f + 'T12:00:00');
+      return isNaN(d.getTime()) ? '' : d.getDate() + ' ' + d.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase().replace('.', '');
+    };
+
+    const porDia = {};
+    proximos.forEach((a) => { (porDia[a.fecha] = porDia[a.fecha] || []).push(a); });
+
+    caja.innerHTML = Object.keys(porDia).sort().map((fecha) => {
+      const filas = porDia[fecha].map((a, i) => `
+        <div class="ms-agenda-fila">
+          <span class="ms-agenda-dia">${i === 0 ? `<b>${escapeHtml(nombreDia(fecha))}</b><span>${escapeHtml(diaCorto(fecha))}</span>` : ''}</span>
+          <span class="ms-agenda-hora">${escapeHtml(a.hora || '')}</span>
+          <span class="ms-agenda-texto">
+            <b>${escapeHtml(a.titulo || 'Sin título')}</b>
+            ${a.lugar ? `<span><i data-lucide="map-pin"></i>${escapeHtml(a.lugar)}</span>` : ''}
+          </span>
+          ${a.prioridad === 'Alta' ? '<span class="ms-etiqueta roja">Prioritario</span>' : ''}
+        </div>`).join('');
+      return `<div class="ms-agenda-grupo">${filas}</div>`;
+    }).join('');
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  /** Pinta en el inicio los jugadores que se están siguiendo, con su estado. */
+  function pintarSeguidosInicio() {
+    const caja = document.getElementById('msSeguidosInicio');
+    if (!caja) return;
+    const jugadores = (state.directory && state.directory.jugadores) || [];
+    const seguidos = jugadores
+      .filter((j) => j && Array.isArray(j.controlSeguimiento) && j.controlSeguimiento.length)
+      .slice(0, 4);
+
+    if (!seguidos.length) {
+      caja.innerHTML = '<p class="ms-vacio">Todavía no hay jugadores en seguimiento.</p>';
+      return;
+    }
+
+    // El color de la etiqueta sale del propio estado, no de una lista inventada.
+    const tono = (t) => {
+      const x = String(t || '').toUpperCase();
+      if (/PRIORI|FICHAR|INTERES/.test(x)) return 'verde';
+      if (/SEGUIMIENTO|OBSERVA/.test(x)) return 'azul';
+      return 'gris';
+    };
+
+    caja.innerHTML = seguidos.map((j) => {
+      const etiqueta = (j.controlSeguimiento || [])[0] || '';
+      const anio = j.ano || j.anoNac || '';
+      const bajo = [j.posicionPrincipal || j.posicion || '', anio ? anio : '']
+        .filter(Boolean).join(' · ');
+      const foto = j.foto || j.imagen || '';
+      return `
+        <button type="button" class="ms-seguido" data-jugador="${escapeAttr(j.id || '')}">
+          <span class="ms-seguido-foto">${foto
+            ? `<img src="${escapeAttr(foto)}" alt="" loading="lazy">`
+            : '<i data-lucide="user"></i>'}</span>
+          <span class="ms-seguido-datos">
+            <b>${escapeHtml(j.nombre || 'Sin nombre')}</b>
+            <span>${escapeHtml(bajo)}</span>
+            <span>${escapeHtml(j.equipo || j.equipoPrincipal || '')}</span>
+          </span>
+          ${etiqueta ? `<span class="ms-etiqueta ${tono(etiqueta)}">${escapeHtml(etiqueta)}</span>` : ''}
+        </button>`;
+    }).join('');
+
+    caja.querySelectorAll('[data-jugador]').forEach((b) => {
+      b.onclick = () => {
+        const id = b.dataset.jugador;
+        if (id && typeof openPlayerModal === 'function') openPlayerModal(id);
+        else navigateToTab('directorio');
+      };
+    });
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  /** Buscador y pastillas del bloque de directorio del inicio. */
+  function initDirectorioInicio() {
+    const buscador = document.getElementById('msBuscadorDirectorio');
+    if (buscador) {
+      buscador.onkeydown = (e) => {
+        if (e.key !== 'Enter') return;
+        const texto = buscador.value.trim();
+        navigateToTab('directorio');
+        const destino = document.getElementById('directorySearchInput')
+          || document.querySelector('#view-directorio input[type="search"], #view-directorio input[type="text"]');
+        if (destino && texto) {
+          destino.value = texto;
+          destino.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      };
+    }
+    document.querySelectorAll('[data-dir-ir]').forEach((b) => {
+      b.onclick = () => {
+        const donde = b.dataset.dirIr;
+        if (typeof navigateToDirectoryTab === 'function') navigateToDirectoryTab(donde);
+        navigateToTab('directorio');
       };
     });
   }

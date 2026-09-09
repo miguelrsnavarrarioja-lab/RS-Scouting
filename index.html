@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#1d4ed8">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609092331">
+  <link rel="stylesheet" href="styles.css?v=202609100014">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -141,9 +141,11 @@
 
           <!-- Notificaciones del Sistema -->
           <div class="notifications-dropdown-container" style="position: relative; display: inline-flex; align-items: center;">
-            <button class="btn-action-icon" id="btnHeaderNotifications" title="Notificaciones del sistema">
+            <button class="btn-action-icon ms-campana" id="btnHeaderNotifications"
+                    title="Avisos del sistema" aria-label="Avisos del sistema">
               <i data-lucide="bell"></i>
               <span class="notification-dot hidden" id="headerNotificationDot"></span>
+              <span class="ms-campana-cuenta hidden" id="msAvisosCuenta">0</span>
             </button>
             <div class="dropdown-menu hidden" id="notificationsDropdown" style="position: absolute; top: calc(100% + 8px); right: 0; z-index: 1000;">
               <div class="dropdown-header">
@@ -158,7 +160,10 @@
 
           <!-- Sesión (auth.js) · el avatar y el nombre los rellena auth.js con la cuenta real -->
           <div class="ms-sesion">
-            <div class="ms-avatar" id="msAvatar" aria-hidden="true">MS</div>
+            <picture class="ms-avatar" id="msAvatar">
+              <source srcset="escudo-rs.webp" type="image/webp">
+              <img src="escudo-rs.png" alt="Real Sociedad" width="38" height="38">
+            </picture>
             <div class="ms-sesion-texto">
               <b id="msSaludo">Hola</b>
               <span id="msRol">Scout</span>
@@ -332,6 +337,74 @@
         </div>
         <div class="widget-body" id="dashboardTeamsByCategory">
           <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 8 · MI AGENDA · lo que viene, agrupado por día -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Mi agenda</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="agenda">
+            Ver todo <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="ms-agenda" id="msAgendaInicio">
+          <!-- Lo rellena pintarAgendaInicio() -->
+        </div>
+      </div>
+
+      <!-- 9 · CARTELERA DE SCOUTING · los jugadores que se están siguiendo -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Cartelera de scouting</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="directorio">
+            Ver todos <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="ms-seguidos" id="msSeguidosInicio">
+          <!-- Lo rellena pintarSeguidosInicio() -->
+        </div>
+      </div>
+
+      <!-- 10 · DIRECTORIO · buscar y saltar a cada apartado -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Directorio</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="directorio">
+            Ver todo <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="ms-buscador-panel">
+          <i data-lucide="search"></i>
+          <input type="search" id="msBuscadorDirectorio" placeholder="Buscar club, jugador o contacto..."
+                 aria-label="Buscar en el directorio" autocomplete="off">
+        </div>
+        <div class="ms-pastillas">
+          <button type="button" class="ms-pastilla activa" data-dir-ir="jugadores">Jugadores</button>
+          <button type="button" class="ms-pastilla" data-dir-ir="clubes">Clubes</button>
+          <button type="button" class="ms-pastilla" data-dir-ir="agentes">Agentes</button>
+          <button type="button" class="ms-pastilla" data-dir-ir="staff">Staff</button>
+        </div>
+      </div>
+
+      <!-- 11 · LABORATORIO · los módulos que existen hoy, con su nombre real -->
+      <div class="ms-panel">
+        <div class="ms-panel-cab">
+          <h3>Laboratorio de análisis</h3>
+          <button type="button" class="ms-ver-todo" data-shortcut="laboratorio">
+            Ver todo <i data-lucide="arrow-right"></i>
+          </button>
+        </div>
+        <div class="ms-laboratorio">
+          <button type="button" class="ms-modulo" data-shortcut="mapas">
+            <i data-lucide="map"></i><span>Mapa RS</span>
+          </button>
+          <button type="button" class="ms-modulo" data-shortcut="comparador">
+            <i data-lucide="bar-chart-3"></i><span>Comparador</span>
+          </button>
+          <button type="button" class="ms-modulo" data-shortcut="importador">
+            <i data-lucide="share-2"></i><span>Importador</span>
+          </button>
         </div>
       </div>
 
@@ -2172,15 +2245,15 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609092331" defer></script>
-  <script src="data-guard.js?v=202609092331" defer></script>
-  <script src="firebase-config.js?v=202609092331" defer></script>
-  <script src="auth.js?v=202609092331" defer></script>
-  <script src="app.js?v=202609092331" defer></script>
-  <script src="importer_v2.js?v=202609092331" defer></script>
-  <script src="informe-borrador.js?v=202609092331" defer></script>
-  <script src="calendario-export.js?v=202609092331" defer></script>
-  <script src="sin-cobertura.js?v=202609092331" defer></script>
+  <script src="toast.js?v=202609100014" defer></script>
+  <script src="data-guard.js?v=202609100014" defer></script>
+  <script src="firebase-config.js?v=202609100014" defer></script>
+  <script src="auth.js?v=202609100014" defer></script>
+  <script src="app.js?v=202609100014" defer></script>
+  <script src="importer_v2.js?v=202609100014" defer></script>
+  <script src="informe-borrador.js?v=202609100014" defer></script>
+  <script src="calendario-export.js?v=202609100014" defer></script>
+  <script src="sin-cobertura.js?v=202609100014" defer></script>
 
 
 
