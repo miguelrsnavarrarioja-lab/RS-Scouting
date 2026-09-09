@@ -292,6 +292,31 @@ comprobar('El guardado automático del informe no depende de identificadores', (
   return 'anclaje por ruta y clave por informe';
 });
 
+comprobar('Cada control tiene un nombre que se pueda leer y oir', () => {
+  const h = leer('index.html');
+
+  // Un boton que solo lleva un icono no dice nada: ni muestra ayuda al pasar el raton, ni tiene
+  // que leer un lector de pantalla. Siete botones de cerrar estaban asi.
+  const mudos = [];
+  const botones = h.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) || [];
+  for (const b of botones) {
+    const cabecera = b.slice(0, b.indexOf('>') + 1);
+    const cuerpo = b.slice(cabecera.length, b.length - '</button>'.length);
+    if (cuerpo.replace(/<[^>]+>/g, '').replace(/[\s ]/g, '')) continue;
+    if (/title=|aria-label=/.test(cabecera)) continue;
+    mudos.push((/id="([^"]+)"/.exec(cabecera) || [, '(sin id)'])[1]);
+  }
+  if (mudos.length) throw new Error('botones sin nombre: ' + mudos.join(', '));
+
+  // Y un rotulo que apunta a un campo inexistente es peor que ninguno: engana al lector.
+  const ids = new Set((h.match(/\bid="[^"]+"/g) || []).map((x) => x.slice(4, -1)));
+  const fors = (h.match(/<label[^>]*\bfor="[^"]+"/g) || []).map((x) => /for="([^"]+)"/.exec(x)[1]);
+  const rotos = fors.filter((f) => !ids.has(f));
+  if (rotos.length) throw new Error('rotulos que apuntan al vacio: ' + rotos.join(', '));
+
+  return botones.length + ' botones, todos con nombre; ' + fors.length + ' rotulos, todos con su campo';
+});
+
 // ---------------------------------------------------------------------------
 
 const fallidas = resultados.filter(r => !r.ok);

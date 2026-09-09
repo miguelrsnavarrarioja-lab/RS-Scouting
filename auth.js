@@ -82,6 +82,7 @@
     const chip = $('headerUserEmail');
     if (chip) {
       chip.textContent = 'Acceso sin contraseña · pendiente de activar';
+      chip.title = 'Acceso sin contraseña · pendiente de activar';   // por si el hueco no da
       chip.title = 'La aplicación entra sin contraseña hasta que se active el acceso por usuario.';
     }
     const btn = $('btnHeaderLogout');

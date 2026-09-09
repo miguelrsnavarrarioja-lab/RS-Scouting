@@ -489,6 +489,29 @@
     }
   }
 
+  /** Guarda un partido programado desde el calendario.
+   *
+   *  Antes aquí solo se llamaba a `saveState()`, que escribe la CONFIGURACIÓN y nada más: las
+   *  colecciones van por `saveToFirebase`. El partido se metía en la lista de la pantalla y al
+   *  recargar —o al abrir en el iPad— no existía, sin un solo aviso. Los otros dos sitios que
+   *  tocan partidos (arrastrar en el calendario y guardar un informe ligado) sí lo hacían bien.
+   */
+  function guardarPartidoProgramado(partido) {
+    saveState();
+    return saveToFirebase('partidos', partido);
+  }
+
+  /** La fecha de HOY en la zona horaria del usuario, como «2026-09-09».
+   *
+   *  Antes se usaba `fechaDeHoy()` en nueve sitios, y eso es la fecha en
+   *  UTC: en España, desde medianoche hasta las dos de la madrugada devuelve el día ANTERIOR. Un
+   *  informe redactado a la 00:30 después de un partido nocturno nacía fechado el día de antes.
+   */
+  function fechaDeHoy() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   function saveToFirebase(collectionName, item) {
     // Sin base de datos no hay dónde guardar, y esto es lo más grave que puede pasar: la copia del
     // navegador se borra a propósito al guardar, así que la base es el ÚNICO sitio donde viven los
@@ -1595,12 +1618,12 @@
         zona = 'Zona Alerta (11 - 15)';
         paraBajar = directMatches - 10;
       } else if (directMatches > 0) {
-        msg = 'TE QUEDA POCO ¡ANIMO!';
+        msg = 'TE QUEDA POCO ¡ÁNIMO!';
         color = '#3b82f6';
         zona = 'Zona Control (1 - 10)';
         paraBajar = directMatches;
       } else {
-        msg = 'AL DIA (POR FIN)';
+        msg = 'AL DÍA (POR FIN)';
         color = '#10b981';
         zona = 'Zona Perfecta (0)';
         paraBajar = 0;
@@ -2546,7 +2569,7 @@
     const container = document.getElementById('dashboardUpcomingMatchesList');
     if (!container) return;
 
-    const nowStr = new Date().toISOString().split('T')[0];
+    const nowStr = fechaDeHoy();
     const reports = state.reports || [];
 
     const upcoming = reports
@@ -3401,7 +3424,7 @@
   document.getElementById('btnNewCalendarEvent')?.addEventListener('click', () => openNewAgendaTaskModal(null, 'evento'));
 
   function openNewMatchModal(defaultDate = null) {
-    const initialDate = defaultDate || new Date().toISOString().split('T')[0];
+    const initialDate = defaultDate || fechaDeHoy();
     showModal('Programar Partido en Calendario', `
       <form id="newMatchForm">
         <div class="form-group mb-4">
@@ -3464,7 +3487,7 @@
       };
 
       state.matches.unshift(newMatch);
-      saveState();
+      guardarPartidoProgramado(newMatch);
       hideModal();
       renderCalendario();
     });
@@ -3474,6 +3497,14 @@
   // 5. SECTION 2: PARTIDOS & INFORME TÉCNICO DE PARTIDO
   // --------------------------------------------------------------------------
   let currentEditingReportId = null;
+  /** Mientras se guarda por primera vez un informe, lleva su identificador definitivo.
+   *
+   *  Hasta ese momento las valoraciones de cada jugador se archivan en su ficha con el
+   *  identificador provisional 'temp'. Al guardar se creaba una SEGUNDA entrada con el
+   *  identificador de verdad, y el jugador acababa con el mismo partido dos veces: minutos,
+   *  goles, asistencias y tarjetas contados por duplicado, y las medias falseadas.
+   */
+  let informeNuevoAdoptandoTemp = null;
   let timerInterval = null;
   let timerSeconds = 0;
   const _d = new Date();
@@ -3597,6 +3628,14 @@
     const weeks = Object.keys(weekMap).sort((a, b) => weekSortMap[b] - weekSortMap[a]); // Descending order
     const days = Object.keys(dayMap).sort((a, b) => daySortMap[b] - daySortMap[a]); // Descending order
 
+    // Segunda red, para cualquier camino que no pase por los manejadores de arriba: si la semana o
+    // el día que se están filtrando ya no existen entre las opciones —porque se cambió de mes, o
+    // porque la semana en curso con la que arranca la aplicación no tiene ningún informe— se vuelve
+    // a «todas». Sin esto, la pantalla decía «TODAS» mientras el código filtraba por otra cosa.
+    if (currentPartidosWeekTab !== 'all' && !weeks.includes(currentPartidosWeekTab)) currentPartidosWeekTab = 'all';
+    if (currentPartidosDayTab !== 'all' && !days.includes(currentPartidosDayTab)) currentPartidosDayTab = 'all';
+
+
     let countCompletado = 0;
     let countIncompleto = 0;
     reports.forEach(r => {
@@ -3709,11 +3748,18 @@
 
     document.getElementById('partidosMonthSelect')?.addEventListener('change', (e) => {
       currentPartidosMonthTab = e.target.value;
+      // Al cambiar de mes se vuelve a «todas las semanas» y «todos los días». Si no, seguía
+      // filtrando por una semana de OTRO mes que ya no aparece en la lista: el desplegable mostraba
+      // «TODAS» —porque ninguna opción casaba y el navegador pinta la primera— y la pantalla se
+      // quedaba vacía. El ojeador cambiaba de mes y no veía ni uno de sus informes.
+      currentPartidosWeekTab = 'all';
+      currentPartidosDayTab = 'all';
       renderPartidosList();
     });
 
     document.getElementById('partidosWeekSelect')?.addEventListener('change', (e) => {
       currentPartidosWeekTab = e.target.value;
+      currentPartidosDayTab = 'all';        // el día de otra semana no existe en esta
       renderPartidosList();
     });
 
@@ -3797,8 +3843,11 @@
         if (currentPartidosDayTab !== 'all') matchesDay = false;
       }
 
-      const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`.toLowerCase();
-      const matchesSearch = !searchVal || text.includes(searchVal);
+      const text = `${r.localTeam} ${r.visitanteTeam} ${r.estadio} ${r.competicion} ${r.categoria} ${r.generalAnalysis}`;
+      // Igual que en el directorio: sin tildes también encuentra.
+      const matchesSearch = !searchVal || (typeof window.flexibleMatch === 'function'
+        ? window.flexibleMatch(searchVal, text)
+        : text.toLowerCase().includes(searchVal));
 
       let matchesStatus = true;
       if (currentPartidosStatusTab === 'completado') matchesStatus = !!r.completado;
@@ -4286,7 +4335,7 @@
         visitanteTeam: '',
         localScore: 0,
         visitanteScore: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: fechaDeHoy(),
         time: '17:00',
         estadio: '',
         clima: 'Soleado',
@@ -5009,6 +5058,13 @@
   function closeReportEditor() {
     clearInterval(timerInterval);
     timerInterval = null;
+    // El cronómetro también se pone a cero. Antes solo lo hacía el botón «Reiniciar», así que al
+    // abrir el segundo informe de la jornada seguía corriendo el tiempo del primero: los botones
+    // ENTRA y SALIR rellenaban el minuto con `getCurrentMatchMinute()` y se guardaba «ENTRÓ (63')»
+    // en un partido que acababa de empezar. Un dato falso, y sin manera de notarlo.
+    timerSeconds = 0;
+    const reloj = document.getElementById('matchTimerDisplay');
+    if (reloj) reloj.textContent = '00:00';
     renderPartidosList();
   }
 
@@ -6448,10 +6504,25 @@
       // Append/update match evaluation history
       if (!playerInDir.historialEvaluaciones) playerInDir.historialEvaluaciones = [];
       const repId = currentEditingReportId || 'temp';
+
+      // Al guardar por primera vez, la valoración provisional de ESTE jugador pasa a ser la del
+      // informe recién creado. Sin esto quedarían las dos y el partido contaría el doble.
+      if (informeNuevoAdoptandoTemp && informeNuevoAdoptandoTemp === repId) {
+        const provisional = playerInDir.historialEvaluaciones.findIndex(h => h.reportId === 'temp');
+        if (provisional >= 0) {
+          const yaEstaba = playerInDir.historialEvaluaciones.findIndex(h => h.reportId === repId);
+          if (yaEstaba >= 0) {
+            playerInDir.historialEvaluaciones.splice(provisional, 1);
+          } else {
+            playerInDir.historialEvaluaciones[provisional].reportId = repId;
+          }
+        }
+      }
+
       const existingIdx = playerInDir.historialEvaluaciones.findIndex(h => h.reportId === repId);
       const evalRecord = {
         reportId: repId,
-        fecha: document.getElementById('reportDate')?.value || new Date().toISOString().split('T')[0],
+        fecha: document.getElementById('reportDate')?.value || fechaDeHoy(),
         competicion: document.getElementById('reportCompeticion')?.value || 'Sin Especificar',
         equipo: teamName,
         dorsal: pNum,
@@ -7009,9 +7080,27 @@
       const isNowEntra = !btnEntra.classList.contains('active');
       btnEntra.classList.toggle('active');
       if (isNowEntra) {
+        // Si el cronómetro está corriendo, se usa su minuto. Si no —que es lo normal, porque el
+        // cronómetro empieza parado— se PREGUNTA en vez de inventarlo: antes se ponía «60'» sin
+        // más, y eso es un dato falso en el informe que nadie puede detectar semanas después.
         const matchMin = getCurrentMatchMinute();
-        minutoEntrada = matchMin > 0 ? matchMin : 60;
-        btnEntra.innerHTML = `<i data-lucide="log-in" style="width: 14px;"></i> ENTRÓ (${minutoEntrada}')`;
+        if (matchMin > 0) {
+          minutoEntrada = matchMin;
+          btnEntra.innerHTML = `<i data-lucide="log-in" style="width: 14px;"></i> ENTRÓ (${minutoEntrada}')`;
+          if (window.lucide) window.lucide.createIcons();
+          recalculateMinutes();
+          return;
+        }
+        showCustomPromptModal('¿En qué minuto entró?', '', (valor) => {
+          const min = parseInt(String(valor || '').replace(/\D/g, ''), 10);
+          minutoEntrada = (min > 0 && min <= 130) ? min : 0;
+          btnEntra.innerHTML = minutoEntrada
+            ? `<i data-lucide="log-in" style="width: 14px;"></i> ENTRÓ (${minutoEntrada}')`
+            : `<i data-lucide="log-in" style="width: 14px;"></i> ENTRÓ`;
+          if (window.lucide) window.lucide.createIcons();
+          recalculateMinutes();
+        });
+        return;
       } else {
         minutoEntrada = 0;
         btnEntra.innerHTML = `<i data-lucide="log-in" style="width: 14px;"></i> ENTRA`;
@@ -7025,8 +7114,23 @@
       btnSalir.classList.toggle('active');
       if (isNowSalir) {
         const matchMin = getCurrentMatchMinute();
-        minutoSalida = matchMin > 0 ? matchMin : 75;
-        btnSalir.innerHTML = `<i data-lucide="log-out" style="width: 14px;"></i> SUSTITUIDO (${minutoSalida}')`;
+        if (matchMin > 0) {
+          minutoSalida = matchMin;
+          btnSalir.innerHTML = `<i data-lucide="log-out" style="width: 14px;"></i> SUSTITUIDO (${minutoSalida}')`;
+          if (window.lucide) window.lucide.createIcons();
+          recalculateMinutes();
+          return;
+        }
+        showCustomPromptModal('¿En qué minuto salió?', '', (valor) => {
+          const min = parseInt(String(valor || '').replace(/\D/g, ''), 10);
+          minutoSalida = (min > 0 && min <= 130) ? min : 0;
+          btnSalir.innerHTML = minutoSalida
+            ? `<i data-lucide="log-out" style="width: 14px;"></i> SUSTITUIDO (${minutoSalida}')`
+            : `<i data-lucide="log-out" style="width: 14px;"></i> SUSTITUIDO`;
+          if (window.lucide) window.lucide.createIcons();
+          recalculateMinutes();
+        });
+        return;
       } else {
         minutoSalida = 0;
         btnSalir.innerHTML = `<i data-lucide="log-out" style="width: 14px;"></i> SALIR`;
@@ -7323,7 +7427,7 @@
     const existingIdx = staffObj.historialEvaluaciones.findIndex(h => h.reportId === repId);
     const evalRecord = {
       reportId: repId,
-      fecha: document.getElementById('reportDate')?.value || new Date().toISOString().split('T')[0],
+      fecha: document.getElementById('reportDate')?.value || fechaDeHoy(),
       equipo: teamName,
       rival: rivalTeam,
       nota: coachRating,
@@ -7454,6 +7558,8 @@
         if (renombradas) console.log('Valoraciones asociadas al informe nuevo:', renombradas);
       }
 
+      if (informeEsNuevo) informeNuevoAdoptandoTemp = repId;
+      try {
       ['local', 'visitante'].forEach(t => {
         ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
           const system = matchTacticalSystems[t]?.[sysKey] || {};
@@ -7489,6 +7595,7 @@
           processPlayers(system.suplentes, false);
         });
       });
+      } finally { informeNuevoAdoptandoTemp = null; }
 
       let isCompletado = false;
       let existingIncidencia = '';
@@ -7674,10 +7781,14 @@
         }
       } catch (e) { console.warn('No se pudo descartar el borrador:', e); }
 
-      if (typeof showCustomAlertModal === 'function') {
-        showCustomAlertModal('Aviso del Sistema', '¡Informe Técnico de Partido guardado con éxito!');
-      } else {
-        alert('¡Informe Técnico de Partido guardado con éxito!');
+      // Un aviso flotante, no una ventana. Guardar es lo que MÁS se hace durante un partido —lo
+      // prudente es guardar varias veces— y cada guardado abría un modal a pantalla completa con
+      // desenfoque que había que cerrar a mano, tapando el informe en mitad de la jugada. El aviso
+      // se ve, no estorba y se va solo. La ventana se reserva para lo que exige una decisión.
+      if (typeof showToast === 'function') {
+        showToast('Informe guardado', 'success', 2500);
+      } else if (typeof showCustomAlertModal === 'function') {
+        showCustomAlertModal('Informe guardado', 'El informe técnico del partido se ha guardado.');
       }
 
       // Do not close the editor so the user can continue working
@@ -9247,6 +9358,7 @@
               <div class="form-group">
                 <label class="form-label">POTENCIAL (1-5) ${potencialNum}</label>
                 <select id="pfPotencial" class="form-control">
+                  <option value="" ${!potencial ? 'selected' : ''}>Seleccionar...</option>
                   <option value="1" ${potencial === '1' ? 'selected' : ''}>1 - Bajo</option>
                   <option value="2" ${potencial === '2' ? 'selected' : ''}>2 - Medio Bajo</option>
                   <option value="3" ${potencial === '3' ? 'selected' : ''}>3 - Promedio</option>
@@ -9542,7 +9654,7 @@
       p.posicionPrincipal = posP;
       p.posicion = posP;
       p.posicionSecundaria = posS;
-      p.observacionesDeportivas = document.getElementById('pfObservaciones')?.value.trim() || '';
+      p.observacionesDeportivas = document.getElementById('pfObservacionesDeportivas')?.value.trim() || p.observacionesDeportivas || '';
 
       p.finContrato = document.getElementById('pfFinContrato')?.value.trim() || '';
       p.agencia = document.getElementById('pfAgencia')?.value.trim() || '';
@@ -9554,9 +9666,12 @@
       p.besoccer = document.getElementById('pfBesoccer')?.value.trim() || '';
       p.telefono = document.getElementById('pfTelefono')?.value.trim() || '';
 
-      p.gestorRebound = document.getElementById('pfGestorRebound')?.value || 'NINGUNA / CLUB CONVENIDO';
-      p.rendimientoAcumulado = document.getElementById('pfRendimientoAcumulado')?.value.trim() || '';
-      p.potencial = document.getElementById('pfPotencial')?.value || '3';
+      // Este dato no tiene ningún control en el formulario: se leía un campo que no existe y, al no
+      // encontrarlo, se reescribía con el valor por defecto en cada guardado. Se conserva lo que
+      // tenga la ficha; el día que se le ponga un control, aquí se leerá.
+      p.gestorRebound = p.gestorRebound || 'NINGUNA / CLUB CONVENIDO';
+      p.rendimientoAcumulado = document.getElementById('pfRendAcumulado')?.value.trim() || p.rendimientoAcumulado || '';
+      p.potencial = document.getElementById('pfPotencial')?.value || p.potencial || '';
       p.minutos = document.getElementById('pfMinutos')?.value.trim() || '';
       p.rendimientoRS = document.getElementById('pfRendRS')?.value || '';
       p.descFisica = document.getElementById('pfDescFisica')?.value.trim() || '';
@@ -10111,6 +10226,53 @@
         openJugadorFichaReadOnly(playerId);
       };
     }
+
+    // El botón de exportar la ficha estaba puesto y no hacía NADA: su identificador aparecía una
+    // sola vez en todo el proyecto, la de su propio marcado. Un botón que promete algo y se queda
+    // quieto es peor que no tenerlo, así que aquí se conecta.
+    const btnPdf = document.getElementById('btnExportPlayerPdf');
+    if (btnPdf) {
+      btnPdf.onclick = () => exportarFichaJugadorPDF(playerId);
+    }
+  }
+
+  /** Abre la ficha del jugador en una ventana lista para imprimir o guardar como PDF. */
+  function exportarFichaJugadorPDF(playerId) {
+    const ficha = document.getElementById('generalModalCard');
+    if (!ficha) return;
+    const jugador = (state.directory?.jugadores || []).find(j => String(j.id) === String(playerId));
+    const nombre = (jugador && (jugador.nombre || jugador.jugador)) || 'Ficha de jugador';
+
+    const copia = ficha.cloneNode(true);
+    // Fuera lo que no tiene sentido en papel: botones, campos de edición y desplegables.
+    copia.querySelectorAll('button, select, input[type="file"]').forEach(n => n.remove());
+    copia.querySelectorAll('input, textarea').forEach(n => {
+      const texto = document.createElement('div');
+      texto.textContent = n.value || '';
+      texto.style.cssText = 'padding:4px 0; font-weight:600;';
+      n.parentNode.replaceChild(texto, n);
+    });
+
+    const ventana = window.open('', '', 'width=900,height=700');
+    if (!ventana) {
+      if (typeof showToast === 'function') showToast('El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes de esta página.', 'warning', 7000);
+      return;
+    }
+    ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8">
+      <title>${escapeHtml(nombre)}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               color: #1e293b; margin: 0; padding: 24px; background: #fff;
+               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        h1 { font-size: 22px; margin: 0 0 16px; }
+        img { max-width: 160px; height: auto; }
+        .form-label { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: .04em; }
+        @media print { body { padding: 1cm; } }
+      </style></head><body>
+      <h1>${escapeHtml(nombre)}</h1>${copia.innerHTML}</body></html>`);
+    ventana.document.close();
+    ventana.focus();
+    setTimeout(() => { try { ventana.print(); } catch (e) { /* el usuario puede imprimir a mano */ } }, 400);
   }
 
   function openClubEditModal(clubId = null) {
@@ -21073,20 +21235,18 @@
       }
 
       if (!searchVal) return true;
-      const itemName = String(
-        item.nombre ||
-        item.equipo ||
-        item.jugador ||
-        item.staff ||
-        item.torneo ||
-        item.estadio ||
-        item.agencia ||
-        item.agente ||
-        item.seleccion ||
-        item.federacion ||
-        ''
-      ).toLowerCase();
-      return itemName.includes(searchVal);
+      // Se busca en el nombre Y en su equipo, club y año: en la banda se teclea lo primero que se
+      // recuerda. Y se compara con `flexibleMatch`, que quita las tildes: escribir «martinez» o
+      // «logrones» a toda prisa tiene que encontrar a Martínez y al Logroñés. Antes se comparaba
+      // con `includes` a secas y no los encontraba, así que parecía que el jugador no estaba.
+      const dondeBuscar = [
+        item.nombre, item.equipo, item.jugador, item.staff, item.torneo, item.estadio,
+        item.agencia, item.agente, item.seleccion, item.federacion,
+        item.equipoPrincipal, item.club, item.ano, item.categoria
+      ].filter(Boolean).join(' ');
+      return typeof window.flexibleMatch === 'function'
+        ? window.flexibleMatch(searchVal, dondeBuscar)
+        : dondeBuscar.toLowerCase().includes(searchVal);
     });
 
     // 4. Sub-filter Pills Bar Generation
@@ -24283,16 +24443,6 @@
     }, 20000);
   }
 
-  function ensureCarteleraState() {
-    if (!state.cartelera) {
-      state.cartelera = {
-        calendarios: [],
-        priorityTeams: [],
-        interestingTeams: []
-      };
-    }
-  }
-
   // --------------------------------------------------------------------------
   // 8. SECTION 5: CARTELERA DE SCOUTING & MATCH IMPORTING
   // --------------------------------------------------------------------------
@@ -24345,6 +24495,13 @@
     }
     if (!state.cartelera.priorityTeams) {
       state.cartelera.priorityTeams = [];
+    }
+    // Los equipos de interés se usan sin comprobar (quitar uno de la lista llama a .filter sobre
+    // ella): si no existe, la pantalla revienta. Había una segunda versión de esta misma función,
+    // más arriba, que sí la creaba; la elevación de funciones hacía que ganara esta y aquella nunca
+    // llegaba a ejecutarse. Se ha retirado la duplicada y esta recoge lo que le faltaba.
+    if (!state.cartelera.interestingTeams) {
+      state.cartelera.interestingTeams = [];
     }
 
     // AQUÍ había otra migración de un solo uso: vaciaba la lista de equipos prioritarios y la subía
@@ -25922,7 +26079,12 @@
       if (intEl) intEl.value = selectedCarteleraInteres;
     } catch (e) {
       const container = document.getElementById('carteleraMatchesGrid');
-      if (container) container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Filtros de Cartelera: ${e.message}<br><br>${e.stack}</div>`;
+      // La traza de programación va a la consola, no a la pantalla: al cliente se le dice qué
+      // hacer. Antes le salía el volcado entero de JavaScript en rojo donde debían estar sus filtros.
+      console.error('Filtros de cartelera:', e);
+      if (container) container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">
+          <p class="empty-state-text">No se han podido pintar los filtros de la cartelera. Prueba a recargar la página; tus datos no se han tocado.</p>
+        </div>`;
       console.error(e);
     }
   }
@@ -26307,7 +26469,8 @@ const formatTeamName = (str) => {
 
           return `
                     <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(bgStyle)}">
-                      <td style="padding: 8px 12px; ${escapeAttr(borderLeft)} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
+                      <td style="padding: 8px 12px; ${escapeAttr(borderLeft)} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.jornada || '-')}</td>
+                      <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.competicion || '')}</td>
                       <td style="padding: 8px 12px; ${escapeAttr(locStyle)}">${escapeHtml(formatTeamName(m.local))} ${clashIcon}</td>
                       <td style="padding: 8px 12px; ${escapeAttr(visStyle)}">${escapeHtml(formatTeamName(m.visitante))}</td>
                       <td style="padding: 8px 12px; color: var(--text-muted); font-weight: 600;">${escapeHtml(m.fechaRealJornada || '-')}</td>
@@ -26348,7 +26511,10 @@ const formatTeamName = (str) => {
       bindCarteleraMatchEvents(container, matchesVisibles);
       if (window.lucide) window.lucide.createIcons();
     } catch (e) {
-      container.innerHTML = `<div style="padding: 20px; color: red; font-weight: bold; background: #fee2e2; border: 1px solid red; border-radius: 8px;">Error interno en Cartelera Jornadas: ${e.message}<br><br>${e.stack}</div>`;
+      console.error('Cartelera (jornadas):', e);
+      container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;">
+          <p class="empty-state-text">No se ha podido pintar la parrilla de partidos. Prueba a quitar los filtros o a recargar la página; tus datos no se han tocado.</p>
+        </div>`;
       console.error(e);
     }
   }
@@ -27765,6 +27931,14 @@ const formatTeamName = (str) => {
         const intEl = document.getElementById('carteleraFilterInteres');
         if (intEl) intEl.value = 'priority_teams';
 
+        // Jornada y fecha no son desplegables normales: su rótulo lo escribe la propia pantalla
+        // ('3 selecc.'). Al vaciar la selección hay que reponerlo a mano, o el filtro queda
+        // limpio pero el rótulo sigue anunciando una selección que ya no existe.
+        ['carteleraFilterJornadaLabel', 'carteleraFilterFechaLabel'].forEach((id) => {
+          const rotulo = document.getElementById(id);
+          if (rotulo) rotulo.textContent = 'Todas';
+        });
+
         renderCarteleraMatches();
       };
     }
@@ -28061,7 +28235,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: currentJornada,
             fechaRealJornada: currentFechaReal,
-            fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
+            fecha: convertFechaReal(currentFechaReal) || fechaDeHoy(),
             hora: '00:00',
             local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
             visitante: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawVisitante, competicionName) : rawVisitante,
@@ -28082,7 +28256,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             id: 'cm_' + Date.now() + '_' + idx,
             jornada: 'Jornada 1',
             fechaRealJornada: currentFechaReal,
-            fecha: convertFechaReal(currentFechaReal) || new Date().toISOString().split('T')[0],
+            fecha: convertFechaReal(currentFechaReal) || fechaDeHoy(),
             hora: '00:00',
             local: typeof mapCarteleraTeamToDirectoryName === 'function' ? mapCarteleraTeamToDirectoryName(rawLocal, competicionName) : rawLocal,
             visitante: 'Rival',
@@ -28990,7 +29164,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
   function openNewAgendaTaskModal(defaultDate = null, defaultType = null) {
     normalizeAgendaCategories();
-    const initialDate = defaultDate || new Date().toISOString().split('T')[0];
+    const initialDate = defaultDate || fechaDeHoy();
     const catOptions = (state.agendaCategories || []).map(c => `<div class="tag-pill" data-val="${escapeAttr(c.id)}">${escapeHtml(c.label)}</div>`).join('');
     const selectedTipo = defaultType || (typeof currentAgendaSubtab !== 'undefined' ? currentAgendaSubtab : 'tareas');
 
@@ -30302,7 +30476,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
       downloadAnchor.href = url;
-      downloadAnchor.download = `MS_Futbol_Scout_CopiaSeguridad_${new Date().toISOString().split('T')[0]}.json`;
+      downloadAnchor.download = `MS_Futbol_Scout_CopiaSeguridad_${fechaDeHoy()}.json`;
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -30549,7 +30723,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       // El mensaje depende de lo que haya pasado de verdad, no de que se haya llegado hasta aqui.
       if (resultadoBorrado && resultadoBorrado.falladas && resultadoBorrado.falladas.length) {
         const nombres = resultadoBorrado.falladas.map(f => f.coleccion).join(', ');
-        alert('ATENCION: se han borrado los datos de la aplicacion, pero NO se han podido borrar del servidor ' +
+        alert('ATENCIÓN: se han borrado los datos de la aplicación, pero NO se han podido borrar del servidor ' +
           resultadoBorrado.falladas.length + ' de ' + resultadoBorrado.total + ' colecciones (' + nombres + '). ' +
           'Esos datos SIGUEN en el servidor. Avisa al administrador antes de dar por hecho el borrado.');
       } else {

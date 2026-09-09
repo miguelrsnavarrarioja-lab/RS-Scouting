@@ -6,6 +6,16 @@
 /* --------------------------------------------------------------------------
    1. CSS Custom Properties / Variables
    -------------------------------------------------------------------------- */
+/* El navegador del móvil agranda por su cuenta el texto de algunos bloques para «ayudar» a leer.
+   Medido el 9-sep sobre las capturas de 390 px: los desplegables de la cartelera declaran 12 px y se
+   pintaban a ~17 px reales (1,34 veces más ancho por carácter que un div con la misma letra). Por eso
+   ningún buscador se podía leer entero en el teléfono: «Buscador rápido por equipo, est…», «Buscar
+   inform…». Con esto, un tamaño declarado es el tamaño que se ve. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 :root {
   /* Color Palette - Light Mode */
   --bg-app: #F8FAFC;
@@ -21,6 +31,32 @@
   
   --border-light: #E2E8F0;
   --border-focus: #3B82F6;
+
+  /* Nombres que el código YA usaba y que nadie había definido: 213 usos repartidos por la hoja, el
+     HTML y el JavaScript. Una abreviatura como `border: 1px solid var(--border-medium)` con la
+     variable sin definir es una declaración INVÁLIDA: el borde no se pinta y no hay ni un aviso.
+     Por eso salían sin píldora los botones «Duplicados» y «Destacados» del directorio, la fila de
+     filtros de la cartelera y las tarjetas del panel, y por eso la tarjeta central de inicio tenía
+     las esquinas rectas mientras las demás eran redondeadas. No se inventa paleta: cada uno apunta
+     al valor que ya existe. */
+  --border-color: var(--border-light);
+  --border-medium: #CBD5E1;
+  --text-dark: var(--text-main);
+  --text-primary: var(--text-main);
+  --text-light: var(--text-subtle);
+  --bg-body: var(--bg-app);
+  --bg-hover: var(--bg-subtle);
+  --bg-surface-hover: var(--bg-subtle);
+  --primary-light: var(--primary-blue-light);
+  --primary-dark: var(--primary-blue-dark);
+  --radius-xl: 20px;
+  --radius-full: var(--radius-pill);
+  --shadow-xl: 0 20px 40px -12px rgba(0, 0, 0, 0.16), 0 10px 20px -8px rgba(0, 0, 0, 0.08);
+  --font-main: var(--font-body);
+  --text-secondary: var(--text-muted);
+  --text-color: var(--text-main);
+  --text-danger: var(--accent-red);
+  --primary-color: var(--primary-blue);
   
   /* Brand Colors */
   --primary-blue: #3B82F6;
@@ -104,6 +140,9 @@ body.theme-dark {
   --text-inverse: #0F172A;
   
   --border-light: #334155;
+  /* El borde marcado tenía un gris claro fijo, pensado solo para el tema claro: sobre fondo
+     oscuro se veía como una línea blanca. */
+  --border-medium: #475569;
   --border-focus: #60A5FA;
   
   --primary-blue-light: rgba(59, 130, 246, 0.15);
@@ -4171,7 +4210,7 @@ a {
   animation: fadeInNotif 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-body.dark-theme #notificationsDropdown {
+body.theme-dark #notificationsDropdown {
   background: #1e293b;
   border-color: #334155;
   box-shadow: 0 16px 32px -4px rgba(0, 0, 0, 0.5);
@@ -4191,7 +4230,7 @@ body.dark-theme #notificationsDropdown {
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
-body.dark-theme #notificationsDropdown .dropdown-header {
+body.theme-dark #notificationsDropdown .dropdown-header {
   background: #0f172a;
   border-bottom-color: #334155;
 }
@@ -4205,7 +4244,7 @@ body.dark-theme #notificationsDropdown .dropdown-header {
   gap: 6px;
 }
 
-body.dark-theme #notificationsDropdown .dropdown-header span {
+body.theme-dark #notificationsDropdown .dropdown-header span {
   color: #f8fafc;
 }
 
@@ -4242,7 +4281,7 @@ body.dark-theme #notificationsDropdown .dropdown-header span {
   position: relative;
 }
 
-body.dark-theme .notif-item {
+body.theme-dark .notif-item {
   border-bottom-color: #334155;
 }
 
@@ -4254,7 +4293,7 @@ body.dark-theme .notif-item {
   background: var(--bg-subtle, #f8fafc);
 }
 
-body.dark-theme .notif-item:hover {
+body.theme-dark .notif-item:hover {
   background: #334155;
 }
 
@@ -4262,7 +4301,7 @@ body.dark-theme .notif-item:hover {
   background: rgba(37, 99, 235, 0.05);
 }
 
-body.dark-theme .notif-item.unread {
+body.theme-dark .notif-item.unread {
   background: rgba(59, 130, 246, 0.12);
 }
 
@@ -5350,7 +5389,10 @@ body.theme-dark .auth-gate-msg.is-info { color: #BFDBFE; background: rgba(59, 13
 .auth-gate[data-state="checking"] .auth-gate-form { display: none; }
 .auth-gate[data-state="login"] .auth-gate-checking { display: none; }
 body.rs-auth-pending { overflow: hidden; }
-.header-user-email { font-size: 12px; color: var(--text-muted, #64748B); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Este hueco se hizo para un correo, que cabe en 180 px. Ahora también muestra el estado del
+   acceso —«Acceso sin contraseña · pendiente de activar»— y se cortaba a la mitad en todas las
+   pantallas. Con 340 px caben los dos, y el título completo queda disponible al pasar el ratón. */
+.header-user-email { font-size: 12px; color: var(--text-muted, #64748B); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) { .header-user-email { display: none; } }
 
 /* ---------- Avisos flotantes (toast.js) ---------- */
