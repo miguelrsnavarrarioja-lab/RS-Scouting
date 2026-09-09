@@ -282,6 +282,51 @@ function createEquipoObj(clubBase, cat, temp, comp, fed) {
     };
 }
 
+/** Cambia el tipo de importacion: pista del cuadro de texto, campos visibles y texto del boton.
+ *
+ *  Antes esto vivia escrito dentro del atributo `onchange` de cada boton, y las tres copias
+ *  tocaban `importerEquiposMetaContainer`, un contenedor QUE NO EXISTE en la pagina: la linea
+ *  lanzaba un error y todo lo que venia detras -incluido el texto del boton- se quedaba sin
+ *  aplicar. Ademas, la opcion de CLUBES no tenia boton: el codigo que importa clubes estaba
+ *  entero pero era inalcanzable desde la pantalla.
+ */
+const TIPOS_DE_IMPORTACION = {
+    plantillas: {
+        pista: 'Pega aqui la lista de la federacion. Ejemplo:' + String.fromCharCode(10) + 'Albisu Munoz, Unai' + String.fromCharCode(10) + '...',
+        boton: 'Procesar y Abrir Hoja de Calculo Interactiva',
+        equipo: true, federacion: false
+    },
+    equipos: {
+        pista: 'Pega aqui la lista de equipos. Ejemplo:' + String.fromCharCode(10) + '1' + String.fromCharCode(10) + 'AMISTAD-U.D.' + String.fromCharCode(10) + '0' + String.fromCharCode(10) + '...',
+        boton: 'Procesar Equipos',
+        equipo: false, federacion: false
+    },
+    clubes: {
+        pista: 'Pega aqui la lista de clubes, uno por linea. Si copias de una hoja de calculo con columnas, se leen como codigo, nombre y localidad:'
+            + String.fromCharCode(10) + '1234	OSASUNA C.A.	Pamplona' + String.fromCharCode(10) + '...',
+        boton: 'Procesar Clubes',
+        equipo: false, federacion: true
+    }
+};
+
+function cambiarTipoImportacion(tipo) {
+    const cfg = TIPOS_DE_IMPORTACION[tipo];
+    if (!cfg) return;
+    currentImporterType = tipo;
+    const area = document.getElementById('importerRawText');
+    if (area) area.placeholder = cfg.pista;
+    const equipo = document.getElementById('importerEquipoDestinoContainer');
+    if (equipo) equipo.style.display = cfg.equipo ? 'block' : 'none';
+    const federacion = document.getElementById('importerFederacionDestinoContainer');
+    if (federacion) federacion.style.display = cfg.federacion ? 'block' : 'none';
+    const boton = document.getElementById('btnProcessImporterText');
+    if (boton) {
+        boton.innerHTML = '<i data-lucide="table"></i> ' + cfg.boton;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+window.cambiarTipoImportacion = cambiarTipoImportacion;
+
 function processClubesImport(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
     lines.forEach(line => {
@@ -717,7 +762,10 @@ function saveExcelToDirectory() {
                 id: 'cl_' + Date.now() + Math.random().toString(36).substr(2, 9),
                 nombre: r.nombre,
                 codigo: r.codigo || '',
-                localidad: r.localidad || ''
+                localidad: r.localidad || '',
+                // La federación elegida arriba se rellenaba en pantalla pero nadie la leía: los
+                // clubes se guardaban siempre sin ella. El resto de la aplicación sí usa este campo.
+                federacion: document.getElementById('importerDefaultFederacionSelect')?.value || ''
             };
             window.state.directory.clubes.push(newClub);
             if (typeof window.saveToFirebase === 'function') {
