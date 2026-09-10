@@ -26547,19 +26547,15 @@
           </div>
         </div>
       `;
+        // Este manejador estaba escrito contra una versión anterior del código: de sus seis
+        // asignaciones, cuatro eran a variables que no existen (`selectedCarteleraInterest`,
+        // `selectedCarteleraJornada` en singular, `FedTab` y `CompTab`) y leía un desplegable,
+        // `carteleraInterestFilter`, que tampoco existe. Como el fichero corre en modo estricto,
+        // la PRIMERA línea lanzaba ReferenceError y ninguna de las demás llegaba a ejecutarse:
+        // el botón no hacía nada, y es el que aparece cuando los filtros dejan la cartelera
+        // vacía, justo cuando hace falta.
         document.getElementById('btnResetCarteleraFilters')?.addEventListener('click', () => {
-          selectedCarteleraInterest = 'all';
-          selectedCarteleraJornada = 'all';
-          selectedCarteleraFedTab = 'all';
-          selectedCarteleraCompTab = 'all';
-          selectedCarteleraGrupo = 'all';
-          selectedCarteleraTecnico = 'all';
-          const intSel = document.getElementById('carteleraInterestFilter');
-          if (intSel) intSel.value = 'all';
-          const tecSel = document.getElementById('carteleraFilterTecnico');
-          if (tecSel) tecSel.value = 'all';
-          const searchInp = document.getElementById('carteleraSearchInput');
-          if (searchInp) searchInp.value = '';
+          limpiarFiltrosCartelera('all');
           renderCartelera();
         });
         document.getElementById('btnEmptyImportText')?.addEventListener('click', () => {
@@ -28114,6 +28110,57 @@ const formatTeamName = (str) => {
 
     modal.classList.remove('hidden');
   }
+  // La pastilla marcada tiene que decir la verdad sobre lo que se está filtrando. El 9 de
+  // septiembre ya pasó lo contrario: «Destacados del finde» limpiaba jornada y fecha pero dejaba
+  // sus rótulos diciendo «3 selecc.», y la pantalla mentía sobre lo que enseñaba.
+  function marcarPastillaCartelera(interes, finde) {
+    const porInteres = {
+      all: 'btnCarteleraTodos',
+      priority_teams: 'btnCarteleraPrioritarios',
+      tracked_players: 'btnCarteleraSeguimientos',
+    };
+    const activa = finde ? 'btnCarteleraDestacadosFinde' : porInteres[interes];
+    ['btnCarteleraTodos', 'btnCarteleraPrioritarios', 'btnCarteleraSeguimientos', 'btnCarteleraDestacadosFinde']
+      .forEach((id) => {
+        const boton = document.getElementById(id);
+        if (!boton) return;
+        const esActiva = id === activa;
+        boton.classList.toggle('activa', esActiva);
+        boton.setAttribute('aria-pressed', esActiva ? 'true' : 'false');
+      });
+  }
+
+  // Deja los filtros de la cartelera como recién abierta: las variables, los controles y también
+  // los rótulos de jornada y fecha, que los escribe la propia pantalla y no se reponen solos.
+  // Una única función para los tres sitios que limpian —el botón del panel, el del estado vacío
+  // y las pastillas—, para que no vuelvan a divergir.
+  function limpiarFiltrosCartelera(interes) {
+    const destino = interes || 'all';
+    selectedCarteleraCategoria = 'all';
+    selectedCarteleraFederacion = 'all';
+    selectedCarteleraGrupo = 'all';
+    selectedCarteleraJornadas = [];
+    selectedCarteleraFechas = [];
+    selectedCarteleraEquipo = 'all';
+    selectedCarteleraTecnico = 'all';
+    selectedCarteleraInteres = destino;
+    window.filterCarteleraThisWeekend = false;
+
+    ['carteleraFilterCategoria', 'carteleraFilterFederacion', 'carteleraFilterGrupo', 'carteleraFilterTecnico']
+      .forEach((id) => { const el = document.getElementById(id); if (el) el.value = 'all'; });
+    const equipoEl = document.getElementById('carteleraFilterEquipo');
+    if (equipoEl) equipoEl.value = '';
+    const buscaEl = document.getElementById('carteleraSearchInput');
+    if (buscaEl) buscaEl.value = '';
+    const interesEl = document.getElementById('carteleraFilterInteres');
+    if (interesEl) interesEl.value = destino;
+    ['carteleraFilterJornadaLabel', 'carteleraFilterFechaLabel'].forEach((id) => {
+      const rotulo = document.getElementById(id);
+      if (rotulo) rotulo.textContent = 'Todas';
+    });
+    marcarPastillaCartelera(destino, false);
+  }
+
   function initCarteleraListeners() {
     const btnOpenGestor = document.getElementById('btnOpenClubesPrioritariosModal');
     if (btnOpenGestor && !btnOpenGestor.dataset.initialized) {
@@ -28150,6 +28197,7 @@ const formatTeamName = (str) => {
           const rotulo = document.getElementById(id);
           if (rotulo) rotulo.textContent = 'Todas';
         });
+        marcarPastillaCartelera('priority_teams', true);
 
         renderCarteleraMatches();
       };
@@ -28160,6 +28208,8 @@ const formatTeamName = (str) => {
       searchInput.dataset.initialized = 'true';
       searchInput.oninput = () => {
         window.filterCarteleraThisWeekend = false;
+        // Buscar apaga el filtro del finde: su pastilla no puede quedarse encendida.
+        marcarPastillaCartelera(selectedCarteleraInteres, false);
         renderCarteleraMatches();
       };
     }
@@ -28208,7 +28258,35 @@ const formatTeamName = (str) => {
       renderCarteleraFilters();
     });
     bindSelect('carteleraFilterTecnico', val => selectedCarteleraTecnico = val);
-    bindSelect('carteleraFilterInteres', val => selectedCarteleraInteres = val);
+    bindSelect('carteleraFilterInteres', val => {
+      selectedCarteleraInteres = val;
+      // El desplegable y las pastillas son el MISMO filtro con dos mandos: si uno se mueve, el
+      // otro tiene que reflejarlo o la pantalla acaba diciendo dos cosas distintas a la vez.
+      marcarPastillaCartelera(val, false);
+    });
+
+    // Pastillas de filtro rápido. No añaden función nueva: son los tres valores que ya tenía el
+    // desplegable de Interés, a un toque en vez de dentro de un menú.
+    [['btnCarteleraTodos', 'all'],
+     ['btnCarteleraPrioritarios', 'priority_teams'],
+     ['btnCarteleraSeguimientos', 'tracked_players']].forEach(([id, valor]) => {
+      const boton = document.getElementById(id);
+      if (!boton || boton.dataset.initialized) return;
+      boton.dataset.initialized = 'true';
+      boton.onclick = () => {
+        limpiarFiltrosCartelera(valor);
+        renderCarteleraMatches();
+      };
+    });
+
+    const btnLimpiar = document.getElementById('btnCarteleraLimpiarFiltros');
+    if (btnLimpiar && !btnLimpiar.dataset.initialized) {
+      btnLimpiar.dataset.initialized = 'true';
+      btnLimpiar.onclick = () => {
+        limpiarFiltrosCartelera('all');
+        renderCarteleraMatches();
+      };
+    }
 
     const btnExportPdf = document.getElementById('btnExportCarteleraPDF');
     if (btnExportPdf && !btnExportPdf.dataset.initialized) {

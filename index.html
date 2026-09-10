@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#1d4ed8">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609100014">
+  <link rel="stylesheet" href="styles.css?v=202609101032">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -1634,117 +1634,125 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
 
     <!-- ==================== 4.5 CARTELERA DE SCOUTING VIEW ==================== -->
     <section class="tab-view" id="view-cartelera">
-      <div class="view-header">
-        <div class="view-title-group">
-          <h1>🎬 Cartelera de Scouting</h1>
+
+      <!-- Cabecera de la pantalla (mockup m6): icono, título, subtítulo y acciones -->
+      <div class="ms-seccion">
+        <span class="ms-seccion-icono" aria-hidden="true"><i data-lucide="clipboard-list"></i></span>
+        <div class="ms-seccion-texto">
+          <h1>Cartelera de scouting</h1>
+          <p>Próximos partidos y oportunidades de seguimiento</p>
+        </div>
+        <div class="ms-seccion-acciones">
+          <button type="button" class="ms-accion" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos">
+            <i data-lucide="file-input" aria-hidden="true"></i><span>Importar</span>
+          </button>
+          <button type="button" class="ms-accion" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas">
+            <i data-lucide="printer" aria-hidden="true"></i><span>Exportar</span>
+          </button>
+          <button type="button" class="ms-accion" id="btnOpenClubesPrioritariosModal" title="Gestionar los clubes prioritarios">
+            <i data-lucide="settings-2" aria-hidden="true"></i><span>Clubes</span>
+          </button>
+          <button type="button" class="ms-accion" id="btnInfoClubes" title="Ver información de clubes">
+            <i data-lucide="info" aria-hidden="true"></i><span>Leyenda</span>
+          </button>
         </div>
       </div>
 
-      <!-- Control Panel: Filtro de Jornada -->
-      <div class="cartelera-controls-card mb-4" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
-        
-        <!-- Equipos Prioritarios Chips (Ocultos temporalmente) -->
-        <div style="display: none; margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <h3 style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
-              <i data-lucide="star" style="width: 18px; color: #f59e0b;"></i> Equipos Prioritarios y de Interés
-            </h3>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-secondary" id="btnAddInterestingTeam" style="font-size: 12px; padding: 4px 10px; border-color: #9333ea; color: #7e22ce;">
-                <i data-lucide="eye" style="width: 13px;"></i> Equipo Jugadores Interesantes
-              </button>
-              <button class="btn btn-sm btn-secondary" id="btnAddPriorityTeam" style="font-size: 12px; padding: 4px 10px; border-color: #f59e0b; color: #b45309;">
-                <i data-lucide="star" style="width: 13px;"></i> Equipo Prioritario
-              </button>
-            </div>
+      <!-- Filtros rápidos. No son botones nuevos: son los tres valores que ya tenía el
+           desplegable de Interés (all / priority_teams / tracked_players) y el botón de
+           destacados, sacados a la superficie como en el mockup. Se mantienen sincronizados
+           con el desplegable en los dos sentidos: si la pastilla y el desplegable dijeran
+           cosas distintas, la pantalla mentiría sobre lo que está filtrando. -->
+      <div class="ms-pastillas" role="group" aria-label="Filtros rápidos de la cartelera">
+        <button type="button" class="ms-pastilla activa" id="btnCarteleraTodos" data-interes="all" aria-pressed="true">
+          <i data-lucide="layout-list" aria-hidden="true"></i><span>Todos los partidos</span>
+        </button>
+        <button type="button" class="ms-pastilla" id="btnCarteleraPrioritarios" data-interes="priority_teams" aria-pressed="false">
+          <i data-lucide="target" aria-hidden="true"></i><span>Prioritarios</span>
+        </button>
+        <button type="button" class="ms-pastilla" id="btnCarteleraDestacadosFinde" aria-pressed="false">
+          <i data-lucide="star" aria-hidden="true"></i><span>Destacados del finde</span>
+        </button>
+        <button type="button" class="ms-pastilla" id="btnCarteleraSeguimientos" data-interes="tracked_players" aria-pressed="false">
+          <i data-lucide="bookmark" aria-hidden="true"></i><span>Mis seguimientos</span>
+        </button>
+      </div>
+
+      <!-- Panel de filtros -->
+      <div class="ms-filtros">
+        <div class="ms-filtros-busca">
+          <i data-lucide="search" aria-hidden="true"></i>
+          <label class="sr-only" for="carteleraSearchInput">Buscar en la cartelera</label>
+          <input type="text" id="carteleraSearchInput" placeholder="Buscar por equipo, estadio, jornada o competición">
+        </div>
+
+        <div class="ms-filtros-rejilla">
+          <div class="ms-filtro">
+            <label for="carteleraFilterCategoria"><i data-lucide="trophy" aria-hidden="true"></i> Categoría</label>
+            <select id="carteleraFilterCategoria" class="ms-filtro-control"></select>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div id="carteleraInterestingTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-              <!-- Rendered interesting team chips -->
+          <div class="ms-filtro">
+            <label for="carteleraFilterFederacion"><i data-lucide="shield" aria-hidden="true"></i> Federación</label>
+            <select id="carteleraFilterFederacion" class="ms-filtro-control"></select>
+          </div>
+          <div class="ms-filtro">
+            <label for="carteleraFilterGrupo"><i data-lucide="users" aria-hidden="true"></i> Grupo</label>
+            <select id="carteleraFilterGrupo" class="ms-filtro-control"></select>
+          </div>
+          <div class="ms-filtro">
+            <span class="ms-filtro-rotulo"><i data-lucide="calendar-days" aria-hidden="true"></i> Jornada</span>
+            <div id="carteleraFilterJornadaTrigger" class="ms-filtro-control ms-filtro-boton" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+              <span id="carteleraFilterJornadaLabel">Todas</span>
+              <i data-lucide="chevron-down" aria-hidden="true"></i>
             </div>
-            <div id="carteleraPriorityTeamsContainer" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-              <!-- Rendered priority team chips -->
+            <div id="carteleraFilterJornadaDropdown" class="autocomplete-dropdown ms-filtro-lista hidden"></div>
+          </div>
+          <div class="ms-filtro">
+            <span class="ms-filtro-rotulo"><i data-lucide="calendar" aria-hidden="true"></i> Fecha</span>
+            <div id="carteleraFilterFechaTrigger" class="ms-filtro-control ms-filtro-boton" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+              <span id="carteleraFilterFechaLabel">Todas</span>
+              <i data-lucide="chevron-down" aria-hidden="true"></i>
             </div>
+            <div id="carteleraFilterFechaDropdown" class="autocomplete-dropdown ms-filtro-lista hidden"></div>
+          </div>
+          <div class="ms-filtro">
+            <label for="carteleraFilterInteres"><i data-lucide="star" aria-hidden="true"></i> Interés</label>
+            <select id="carteleraFilterInteres" class="ms-filtro-control">
+              <option value="all">Todos los partidos</option>
+              <option value="priority_teams">Equipos prioritarios</option>
+              <option value="tracked_players">Partidos con seguimiento</option>
+            </select>
+          </div>
+          <div class="ms-filtro">
+            <label for="carteleraFilterEquipo"><i data-lucide="shirt" aria-hidden="true"></i> Equipo</label>
+            <input type="text" id="carteleraFilterEquipo" class="ms-filtro-control" placeholder="Todos" autocomplete="off">
+            <div id="carteleraFilterEquipoDropdown" class="autocomplete-dropdown ms-filtro-lista hidden"></div>
+          </div>
+          <div class="ms-filtro">
+            <label for="carteleraFilterTecnico"><i data-lucide="user" aria-hidden="true"></i> Técnico</label>
+            <select id="carteleraFilterTecnico" class="ms-filtro-control"></select>
           </div>
         </div>
 
-        <!-- Buscador Rápido de Cartelera y Botones de Acción -->
-        <div class="toolbar mb-3" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-          <div class="toolbar-search" style="flex: 1; min-width: 250px;">
-            <i data-lucide="search"></i>
-            <input type="text" id="carteleraSearchInput" placeholder="🔍 Buscador rápido por equipo, estadio, jornada o competición...">
-          </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-            <button class="btn btn-sm" id="btnInfoClubes" title="Ver información de clubes" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); color: #059669; background: rgba(16, 185, 129, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('modalInfoClubes').classList.remove('hidden'); if(window.lucide) lucide.createIcons();">
-              <i data-lucide="info" style="width: 14px; height: 14px;"></i> Info Clubes
-            </button>
-            <button class="btn btn-sm" id="btnPasteCalendarText" title="Importar calendario pegando el texto de los partidos" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(37, 99, 235, 0.3); color: var(--primary-blue); background: rgba(37, 99, 235, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="file-input" style="width: 14px; height: 14px;"></i> Importar
-            </button>
-            <button class="btn btn-sm" id="btnExportCarteleraPDF" title="Exportar hoja de partidos a PDF por rango de fechas" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar
-            </button>
-            <button class="btn btn-sm" id="btnOpenClubesPrioritariosModal" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(245, 158, 11, 0.3); color: #b45309; background: rgba(245, 158, 11, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="star" style="width: 14px; height: 14px;"></i> Prioritarios
-            </button>
-            <button class="btn btn-sm" id="btnCarteleraDestacadosFinde" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(139, 92, 246, 0.3); color: #6d28d9; background: rgba(139, 92, 246, 0.08); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="zap" style="width: 14px; height: 14px;"></i> Destacados del Finde
-            </button>
-          </div>
+        <div class="ms-filtros-pie">
+          <div id="carteleraFilterPillsContainer"></div>
+          <button type="button" class="ms-limpiar" id="btnCarteleraLimpiarFiltros">
+            <i data-lucide="rotate-ccw" aria-hidden="true"></i> Limpiar filtros
+          </button>
         </div>
+      </div>
 
-        <!-- Selector de Liga y Selector de Jornada -->
-        <div class="cartelera-filters-row" style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Categoría:</span>
-              <select id="carteleraFilterCategoria" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Federación:</span>
-              <select id="carteleraFilterFederacion" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Grupo:</span>
-              <select id="carteleraFilterGrupo" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px; position: relative;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Jornada:</span>
-              <div id="carteleraFilterJornadaTrigger" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; cursor: pointer; color: var(--text-dark); width: 100%; display: flex; justify-content: space-between; align-items: center;">
-                <span id="carteleraFilterJornadaLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">Todas</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div id="carteleraFilterJornadaDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; min-width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px; position: relative;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Fecha:</span>
-              <div id="carteleraFilterFechaTrigger" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; cursor: pointer; color: var(--text-dark); width: 100%; display: flex; justify-content: space-between; align-items: center;">
-                <span id="carteleraFilterFechaLabel" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;">Todas</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div id="carteleraFilterFechaDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; min-width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Interés:</span>
-              <select id="carteleraFilterInteres" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;">
-                <option value="all">Todos los partidos</option>
-                <option value="priority_teams">Equipos prioritarios</option>
-                <option value="tracked_players">Partidos con seguimiento</option>
-              </select>
-            </div>
-            <div style="flex: 1; min-width: 180px; position: relative; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Equipo:</span>
-              <input type="text" id="carteleraFilterEquipo" class="form-control" placeholder="Todos" autocomplete="off" style="font-size: 12px; font-weight: 600; padding: 4px; border: none; background-color: transparent; box-shadow: none; color: var(--text-dark); width: 100%;">
-              <div id="carteleraFilterEquipoDropdown" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); z-index: 1000; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
-            </div>
-            <div style="flex: 1; min-width: 180px; display: flex; align-items: center; gap: 6px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 12px;">
-              <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">Técnico:</span>
-              <select id="carteleraFilterTecnico" class="form-control" style="font-size: 12px; font-weight: 600; padding: 4px 24px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark); width: 100%;"></select>
-            </div>
-        </div>
-
-      <!-- Filtros de Cartelera: Federación, Categoría, Jornada (estilo Directorio) -->
-      <div id="carteleraFilterPillsContainer">
-        <!-- Dynamically rendered with same pill style as Directory -->
+      <!-- Equipos prioritarios y de interés. Estaban ocultos antes de este rediseño y siguen
+           ocultos: el JS los rellena y quitarlos rompería renderCarteleraTeams(). -->
+      <div class="ms-equipos-chips" hidden>
+        <button type="button" class="btn btn-sm btn-secondary" id="btnAddInterestingTeam">
+          <i data-lucide="eye" aria-hidden="true"></i> Equipo Jugadores Interesantes
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" id="btnAddPriorityTeam">
+          <i data-lucide="star" aria-hidden="true"></i> Equipo Prioritario
+        </button>
+        <div id="carteleraInterestingTeamsContainer"></div>
+        <div id="carteleraPriorityTeamsContainer"></div>
       </div>
 
       <!-- Match Cards / Tables Grid -->
@@ -2245,15 +2253,15 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609100014" defer></script>
-  <script src="data-guard.js?v=202609100014" defer></script>
-  <script src="firebase-config.js?v=202609100014" defer></script>
-  <script src="auth.js?v=202609100014" defer></script>
-  <script src="app.js?v=202609100014" defer></script>
-  <script src="importer_v2.js?v=202609100014" defer></script>
-  <script src="informe-borrador.js?v=202609100014" defer></script>
-  <script src="calendario-export.js?v=202609100014" defer></script>
-  <script src="sin-cobertura.js?v=202609100014" defer></script>
+  <script src="toast.js?v=202609101032" defer></script>
+  <script src="data-guard.js?v=202609101032" defer></script>
+  <script src="firebase-config.js?v=202609101032" defer></script>
+  <script src="auth.js?v=202609101032" defer></script>
+  <script src="app.js?v=202609101032" defer></script>
+  <script src="importer_v2.js?v=202609101032" defer></script>
+  <script src="informe-borrador.js?v=202609101032" defer></script>
+  <script src="calendario-export.js?v=202609101032" defer></script>
+  <script src="sin-cobertura.js?v=202609101032" defer></script>
 
 
 

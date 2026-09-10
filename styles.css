@@ -6383,3 +6383,236 @@ picture.ms-avatar img { width: 100%; height: 100%; object-fit: contain; display:
   font: 400 13px/1.45 var(--font-body);
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   4 · CARTELERA DE SCOUTING  (fase 2 del rediseño · mockup m6)
+   ==========================================================================
+   Todo con las variables del sistema, nunca con colores fijos: así la pantalla
+   sale clara junto al Inicio ya publicado y oscura —como el mockup— en cuanto
+   se activa el modo oscuro. Los colores de las píldoras de estado se midieron
+   sobre el propio mockup, no se estimaron a ojo. */
+
+/* Sólo para lectores de pantalla. No existía en la hoja y las etiquetas
+   ocultas se habrían visto. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+#view-cartelera.tab-view.active { display: grid; gap: 14px; }
+#view-cartelera > * { min-width: 0; }
+
+/* --- 4.1 · cabecera de la pantalla --- */
+.ms-seccion {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  min-width: 0;
+}
+.ms-seccion-icono {
+  width: 44px; height: 44px; flex: none;
+  border-radius: 13px;
+  display: grid; place-items: center;
+  background: var(--ms-pastel-verde);
+  color: var(--ms-tinta-verde);
+}
+.ms-seccion-icono svg { width: 22px; height: 22px; }
+.ms-seccion-texto { flex: 1; min-width: 0; }
+.ms-seccion-texto h1 {
+  margin: 0;
+  font: 700 23px/1.15 var(--font-display, 'Outfit', sans-serif);
+  letter-spacing: -.02em;
+  color: var(--text-main);
+}
+.ms-seccion-texto p {
+  margin: 3px 0 0;
+  font: 400 13px/1.35 var(--font-body);
+  color: var(--text-muted);
+}
+
+/* Las cuatro acciones que el mockup no dibuja pero la aplicación sí tiene.
+   Antes eran cinco botones de cinco colores distintos (verde, azul, gris,
+   ámbar y morado), cada uno con sus estilos escritos en el HTML. */
+.ms-seccion-acciones {
+  display: flex; gap: 7px; flex-wrap: wrap;
+  width: 100%;
+}
+@media (min-width: 620px) {
+  .ms-seccion-acciones { width: auto; flex-wrap: nowrap; }
+}
+.ms-accion {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font: 600 12.5px/1 var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 40px;
+}
+.ms-accion svg { width: 15px; height: 15px; flex: none; color: var(--ms-verde); }
+.ms-accion:hover { border-color: var(--ms-verde); }
+
+/* --- 4.2 · pastillas de filtro rápido --- */
+.ms-pastillas {
+  display: flex; gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.ms-pastillas::-webkit-scrollbar { display: none; }
+.ms-pastilla {
+  display: inline-flex; align-items: center; gap: 7px;
+  flex: none;
+  padding: 10px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font: 600 13px/1 var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 42px;
+}
+.ms-pastilla svg { width: 15px; height: 15px; flex: none; }
+#btnCarteleraPrioritarios svg { color: var(--ms-tinta-rojo); }
+#btnCarteleraDestacadosFinde svg { color: var(--ms-tinta-ambar); }
+#btnCarteleraSeguimientos svg,
+#btnCarteleraTodos svg { color: var(--ms-tinta-azul); }
+.ms-pastilla.activa {
+  background: var(--ms-pastilla-fondo);
+  border-color: var(--ms-pastilla-borde);
+  color: var(--ms-pastilla-texto);
+  font-weight: 700;
+}
+.ms-pastilla.activa svg { color: currentColor; }
+
+:root {
+  /* El verde vivo de la marca con texto blanco encima da 3,21 de contraste, y AA pide 4,5
+     en texto normal. En una banda de fútbol a pleno sol eso no es un detalle. Se usa el verde
+     hondo, que ya estaba en el sistema y sube a 6,4 sin salirse de la paleta. */
+  --ms-pastilla-fondo: var(--ms-verde-hondo);
+  --ms-pastilla-borde: var(--ms-verde-hondo);
+  --ms-pastilla-texto: #FFFFFF;
+}
+body.theme-dark {
+  /* Medido sobre el mockup m6: fondo #023E3A con el borde verde de la marca. */
+  --ms-pastilla-fondo: #023E3A;
+  --ms-pastilla-borde: var(--ms-verde);
+  --ms-pastilla-texto: var(--ms-verde-suave);
+}
+
+/* --- 4.3 · panel de filtros --- */
+.ms-filtros {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  display: grid; gap: 12px;
+  min-width: 0;
+}
+.ms-filtros-busca {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 0 12px;
+  min-width: 0;
+}
+.ms-filtros-busca svg { width: 17px; height: 17px; flex: none; color: var(--text-subtle); }
+.ms-filtros-busca input {
+  flex: 1; min-width: 0;
+  border: 0; background: none; outline: none;
+  padding: 12px 0;
+  font: 400 13.5px/1.2 var(--font-body);
+  color: var(--text-main);
+}
+.ms-filtros-busca input::placeholder { color: var(--text-subtle); }
+
+/* El mockup pone los ocho filtros en cuatro columnas. A 390 px eso da 80 px por
+   filtro y ni el rótulo ni el valor se leen — la misma lección que la tira de
+   indicadores del Inicio. Se conserva la rejilla y se deja que el navegador
+   ponga las columnas que caben: dos en un teléfono, cuatro a partir de 660 px.
+   El mínimo va con min() porque un minmax de ancho fijo dentro de un
+   contenedor más estrecho planta la columna y desborda la página entera. */
+.ms-filtros-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 10px;
+}
+.ms-filtro { position: relative; min-width: 0; display: grid; gap: 5px; }
+.ms-filtro > label,
+.ms-filtro-rotulo {
+  display: flex; align-items: center; gap: 5px;
+  font: 600 11.5px/1 var(--font-body);
+  color: var(--text-muted);
+  min-width: 0;
+}
+.ms-filtro > label svg,
+.ms-filtro-rotulo svg { width: 13px; height: 13px; flex: none; color: var(--text-subtle); }
+.ms-filtro-control {
+  width: 100%; min-width: 0;
+  box-sizing: border-box;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 10px 11px;
+  font: 600 12.5px/1.2 var(--font-body);
+  color: var(--text-main);
+  min-height: 40px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+select.ms-filtro-control { appearance: none; padding-right: 26px; }
+.ms-filtro-boton { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ms-filtro-boton > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ms-filtro-boton svg { width: 15px; height: 15px; flex: none; color: var(--text-subtle); }
+.ms-filtro-lista {
+  position: absolute; top: 100%; left: 0; z-index: 1000;
+  min-width: 100%; max-height: 250px; overflow-y: auto;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+}
+.ms-filtros-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.ms-filtros-pie > #carteleraFilterPillsContainer { flex: 1; min-width: 0; }
+.ms-limpiar {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 0; cursor: pointer;
+  padding: 8px 2px;
+  font: 600 12.5px/1 var(--font-body);
+  /* Mismo motivo: el verde vivo sobre la tarjeta blanca daba 3,21. */
+  color: var(--ms-limpiar-texto);
+  min-height: 38px;
+}
+.ms-limpiar svg { width: 14px; height: 14px; }
+:root { --ms-limpiar-texto: var(--ms-verde-hondo); }
+body.theme-dark { --ms-limpiar-texto: var(--ms-verde-neon); }
+
+.ms-equipos-chips { display: none; }
+
+/* Jornada y Fecha no son <select>, son divs: la regla que sube los campos a 16 px en móvil
+   —la que evita el zoom automático de iOS— no los alcanzaba, y en la rejilla se veían con
+   la letra más pequeña que sus vecinos. Medido: 12,5 px frente a 16. */
+@media (max-width: 767px) {
+  .ms-filtro-boton { font-size: 16px; }
+  /* Y que los ocho tengan el mismo alto: la hoja ya pide 44 px para acertar con el pulgar. */
+  .ms-filtro-control { min-height: 44px; }
+}
+
+/* Cuatro acciones en un teléfono ocupaban dos filas y empujaban la pantalla hacia abajo antes
+   de enseñar un solo partido. Se deslizan en una sola fila, como las pastillas. */
+.ms-seccion-acciones {
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.ms-seccion-acciones::-webkit-scrollbar { display: none; }
+.ms-accion { flex: none; }
