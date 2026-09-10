@@ -24668,6 +24668,10 @@
   // reales (más de tres mil partidos) eso eran 86.000 nodos y 18 segundos de bloqueo en cada
   // repintado. Se pinta por tramos; el filtrado no cambia.
   const CARTELERA_TRAMO = 150;
+  // Por debajo de este ancho la cartelera se pinta en fichas en vez de en tabla. 700 px porque
+  // la tabla tiene nueve columnas, tres de ellas con campos: por debajo de ahí no se puede ni
+  // leer ni tocar. Es el mismo umbral en el CSS y en el JS.
+  const CARTELERA_ANCHO_FICHAS = 700;
   let carteleraFilasVisibles = CARTELERA_TRAMO;
   let selectedCarteleraGrupo = 'all';
   let selectedCarteleraTecnico = 'all';
@@ -26582,7 +26586,38 @@
         return selHtml;
       };
 
-      let html = `
+      // En un teléfono, una tabla de nueve columnas con campos dentro no se usa: por eso el
+      // mockup enseña fichas. En el ordenador la tabla sigue siendo lo más rápido para repasar
+      // una jornada entera, así que se conservan las dos. Las fichas llevan las MISMAS clases y
+      // el mismo `data-matchid` que las celdas, de modo que `bindCarteleraMatchEvents` las
+      // engancha sin cambiar una línea y la edición de fecha, hora y técnico se conserva.
+      const enFichas = window.innerWidth <= CARTELERA_ANCHO_FICHAS;
+      renderCarteleraMatches._modo = enFichas ? 'fichas' : 'tabla';
+
+      // El escudo del club NO se pinta aquí: son data:image en base64 de unos 90 KB cada uno
+      // (246 clubes, ~22 MB en la base). Treinta partidos serían casi 3 MB de golpe en un móvil
+      // con mala cobertura. Se usan las iniciales sobre el color del propio club, que también
+      // está en el directorio y no pesa nada.
+      const inicialesDe = (nombre) => String(nombre || '?')
+        .replace(/\b(CA|CD|SD|UD|CF|FC|RC|AD|CP|AT|UDC|UCD|CLUB|DE|DEL|LA|EL)\b/gi, ' ')
+        .trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
+      const clubesPorNombre = new Map();
+      (state.directory?.clubes || []).forEach((c) => {
+        const n = String(c.nombre || c.club || '').toLowerCase().trim();
+        if (n) clubesPorNombre.set(n, c);
+      });
+      const colorDe = (nombre) => {
+        const c = clubesPorNombre.get(String(nombre || '').toLowerCase().trim());
+        const propio = c && (c.colorPrimary || c.colorPrimary2);
+        if (propio && /^#[0-9a-f]{3,8}$/i.test(String(propio).trim())) return String(propio).trim();
+        // Sin club en el directorio: un tono estable derivado del nombre, para que el mismo
+        // equipo tenga siempre el mismo color y no baile entre pintados.
+        let h = 0;
+        for (let i = 0; i < String(nombre || '').length; i++) h = (h * 31 + String(nombre).charCodeAt(i)) % 360;
+        return `hsl(${h}, 42%, 38%)`;
+      };
+
+      let html = enFichas ? `<div class="ms-partidos">` : `
       <div class="table-responsive" style="background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); width: 100%;">
         <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
           <thead>
@@ -26675,6 +26710,47 @@ const formatTeamName = (str) => {
             return str;
           };
 
+          if (enFichas) {
+            // La etiqueta de estado es la MISMA información que en la tabla dan el color de
+            // fondo y la banda lateral (prioridad A/B/C del club, o equipo de interés): en una
+            // ficha, un color de fondo suave no se distingue, así que se dice con palabras.
+            let etiqueta = '';
+            if (m.isInterestingLocal || m.isInterestingVisitante) etiqueta = m.isClash ? 'Duelo' : 'Interesante';
+            else if (m.locPrio === 'A' || m.visPrio === 'A') etiqueta = 'Prioritario';
+            else if (m.locPrio === 'B' || m.visPrio === 'B') etiqueta = 'Seguimiento';
+            else if (m.locPrio === 'C' || m.visPrio === 'C') etiqueta = 'Observación';
+            const claseEtiqueta = { Prioritario: 'es-prioritario', Interesante: 'es-interesante',
+              Seguimiento: 'es-seguimiento', 'Observación': 'es-observacion', Duelo: 'es-duelo' }[etiqueta] || '';
+            const sub = [m.competicion, m.jornada ? 'Jornada ' + m.jornada : ''].filter(Boolean).join(' · ');
+            return `
+                    <article class="ms-partido ${escapeAttr(claseEtiqueta)}">
+                      <div class="ms-partido-equipos">
+                        <span class="ms-escudo" style="background: ${escapeAttr(colorDe(m.local))}" aria-hidden="true">${escapeHtml(inicialesDe(m.local))}</span>
+                        <div class="ms-partido-nombres">
+                          <b>${escapeHtml(m.local || '')} ${clashIcon}</b>
+                          <b>${escapeHtml(m.visitante || '')}</b>
+                        </div>
+                        ${etiqueta ? `<span class="ms-etiqueta">${escapeHtml(etiqueta)}</span>` : ''}
+                      </div>
+                      ${sub ? `<p class="ms-partido-comp"><i data-lucide="trophy" aria-hidden="true"></i> ${escapeHtml(sub)}</p>` : ''}
+                      ${m.fechaRealJornada ? `<p class="ms-partido-comp"><i data-lucide="calendar" aria-hidden="true"></i> Fecha original: ${escapeHtml(m.fechaRealJornada)}</p>` : ''}
+                      <div class="ms-partido-pie">
+                        <label class="ms-campo-fecha"><span class="sr-only">Fecha del partido</span>
+                          <input type="date" class="form-control form-control-sm cartelera-match-date" data-matchid="${escapeAttr(m.id)}" value="${escapeAttr(m.fecha || '')}" aria-label="Fecha del partido">
+                        </label>
+                        <label class="ms-campo-hora"><span class="sr-only">Hora del partido</span>
+                          <input type="time" class="form-control form-control-sm cartelera-match-time" data-matchid="${escapeAttr(m.id)}" value="${escapeAttr(m.hora || '00:00')}" aria-label="Hora del partido">
+                        </label>
+                        <label class="ms-campo-tecnico"><span class="sr-only">Técnico asignado</span>
+                          ${getTecnicoSelect(m.id, m.tecnico)}
+                        </label>
+                        <button type="button" class="btn btn-sm btn-cartelera-to-live ms-partido-informe" data-matchid="${escapeAttr(m.id)}" title="Crear informe de este partido">
+                          <i data-lucide="zap" aria-hidden="true"></i><span>Informe</span>
+                        </button>
+                      </div>
+                    </article>
+                  `;
+          }
           return `
                     <tr style="border-bottom: 1px solid var(--border-light); ${escapeAttr(bgStyle)}">
                       <td style="padding: 8px 12px; ${escapeAttr(borderLeft)} color: var(--text-muted); font-weight: 600;">${escapeHtml(m.jornada || '-')}</td>
@@ -26699,11 +26775,15 @@ const formatTeamName = (str) => {
                     </tr>
                   `;
         }).join('');
-        html += `
+        html += enFichas ? `</div>` : `
               </tbody>
             </table>
           </div>
       `;
+      // «N partidos encontrados», como en el mockup. No se añade el desplegable de orden que
+      // dibuja la maqueta: hoy no existe ninguna ordenación que elegir, y un control que no
+      // ordena nada es peor que no ponerlo.
+      html = `<div class="ms-resultados"><b>${allMatches.length}</b> ${allMatches.length === 1 ? 'partido encontrado' : 'partidos encontrados'}</div>` + html;
       if (allMatches.length > matchesVisibles.length) {
         html += `<div style="display:flex; align-items:center; justify-content:center; gap:14px; padding:14px;">
           <span style="color: var(--text-muted); font-size: 13px;">Mostrando ${matchesVisibles.length} de ${allMatches.length} partidos</span>
@@ -28278,6 +28358,24 @@ const formatTeamName = (str) => {
         renderCarteleraMatches();
       };
     });
+
+    // Girar el teléfono o abrir el portátil cruza el umbral entre fichas y tabla. Se repinta
+    // solo si el modo CAMBIA de verdad: repintar en cada píxel de arrastre tira la lista entera
+    // y con ella el foco del campo que se esté editando.
+    if (!window.__carteleraModoVigilado) {
+      window.__carteleraModoVigilado = true;
+      let espera = null;
+      window.addEventListener('resize', () => {
+        clearTimeout(espera);
+        espera = setTimeout(() => {
+          const tocaFichas = window.innerWidth <= CARTELERA_ANCHO_FICHAS;
+          const modoAhora = tocaFichas ? 'fichas' : 'tabla';
+          if (renderCarteleraMatches._modo && renderCarteleraMatches._modo !== modoAhora) {
+            renderCarteleraMatches();
+          }
+        }, 200);
+      });
+    }
 
     const btnLimpiar = document.getElementById('btnCarteleraLimpiarFiltros');
     if (btnLimpiar && !btnLimpiar.dataset.initialized) {
@@ -30727,7 +30825,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // 10. SECTION 7: CONFIGURACIÓN & BACKUP JSON
   // --------------------------------------------------------------------------
   function renderConfiguracion() {
-    setTheme((state && state.settings && state.settings.theme) || 'light');
+    setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
   }
 
   function renderImportador() {
@@ -32903,7 +33001,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Apply saved brand name & theme
     updateAppNameUI();
-    setTheme((state && state.settings && state.settings.theme) || 'light');
+    setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
 
     initClock();
 

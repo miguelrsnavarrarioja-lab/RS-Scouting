@@ -38,7 +38,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="MS Scout">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#06151E">
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css?v=202609101032">
   
@@ -100,32 +100,42 @@
       <nav class="main-nav">
 
         <button class="nav-tab active" data-tab="dashboard">
-          <i data-lucide="home"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/01_icon_home.webp"
+               srcset="assets/navigation_icons/01_icon_home.webp 1x, assets/navigation_icons/01_icon_home@2x.webp 2x">
           <span>Inicio</span>
         </button>
         <button class="nav-tab" data-tab="planificacion">
-          <i data-lucide="calendar-check"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/03_icon_calendar.webp"
+               srcset="assets/navigation_icons/03_icon_calendar.webp 1x, assets/navigation_icons/03_icon_calendar@2x.webp 2x">
           <span>Planificación</span>
         </button>
-        <button class="nav-tab" data-tab="partidos">
-          <i data-lucide="trophy"></i>
-          <span>Partidos</span>
-        </button>
+        <!-- «Partidos» vive ahora en la barra inferior: el mockup lleva seis pestañas arriba y
+             la aplicación tenía siete. La pantalla sigue existiendo y se alcanza igual. -->
         <button class="nav-tab" data-tab="cartelera">
-          <i data-lucide="film"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/04_icon_board.webp"
+               srcset="assets/navigation_icons/04_icon_board.webp 1x, assets/navigation_icons/04_icon_board@2x.webp 2x">
           <span>Cartelera</span>
         </button>
         <button class="nav-tab" data-tab="directorio">
-          <i data-lucide="folder-open"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/05_icon_players_directory.webp"
+               srcset="assets/navigation_icons/05_icon_players_directory.webp 1x, assets/navigation_icons/05_icon_players_directory@2x.webp 2x">
           <span>Directorio</span>
         </button>
         <button class="nav-tab" data-tab="laboratorio">
-          <i data-lucide="flask-conical"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/06_icon_laboratory.webp"
+               srcset="assets/navigation_icons/06_icon_laboratory.webp 1x, assets/navigation_icons/06_icon_laboratory@2x.webp 2x">
           <span>Laboratorio</span>
         </button>
         
         <button class="nav-tab" data-tab="configuracion">
-          <i data-lucide="settings"></i>
+          <img class="ms-icono-nav" alt="" aria-hidden="true" width="20" height="20"
+               src="assets/navigation_icons/08_icon_settings.webp"
+               srcset="assets/navigation_icons/08_icon_settings.webp 1x, assets/navigation_icons/08_icon_settings@2x.webp 2x">
           <span>Configuración</span>
         </button>
       </nav>
@@ -439,7 +449,7 @@
       </div>
 
       <!-- Consolidated Calendar Header -->
-      <div class="calendar-main-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; background: white; padding: 12px 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);">
+      <div class="calendar-main-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; background: var(--bg-card); padding: 12px 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);">
         <div class="month-nav-controls" style="display: flex; align-items: center; gap: 8px;">
           <button type="button" class="btn-month-nav" id="btnPrevMonth" title="Anterior"><i data-lucide="chevron-left"></i></button>
           <h2 class="month-title-display" id="monthTitleDisplay" style="margin: 0; font-size: 18px; min-width: 140px; text-align: center;">Agosto 2026</h2>
@@ -605,7 +615,7 @@
 
         <!-- Right Side: Search & Action -->
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-          <div class="filter-search-box" style="margin: 0; background: white; border: 1px solid var(--border-medium);">
+          <div class="filter-search-box" style="margin: 0; background: var(--bg-card); border: 1px solid var(--border-medium);">
             <i data-lucide="search" style="color: var(--text-muted);"></i>
             <input type="text" id="linkSearchInput" placeholder="Buscar título o URL..." style="border: none; outline: none; background: transparent; font-size: 13px; color: var(--text-dark); width: 180px;">
           </div>
@@ -679,7 +689,7 @@
       <!-- Partidos List view state -->
       <div id="partidosListState" class="partidos-list-container">
         <div class="dir-subfilter-container mb-4" style="display: flex; flex-wrap: nowrap; gap: 8px; background: var(--bg-subtle, #f8fafc); padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-light); align-items: center; overflow-x: auto;">
-          <div class="filter-search-box" style="margin: 0; min-width: 140px; flex-shrink: 0; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 6px;">
+          <div class="filter-search-box" style="margin: 0; min-width: 140px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 6px;">
             <i data-lucide="search" style="color: var(--text-muted); width: 14px; height: 14px;"></i>
             <input type="text" id="reportsSearchInput" placeholder="Buscar informes..." style="border: none; outline: none; background: transparent; font-size: 12px; color: var(--text-dark); width: 100%;">
           </div>
@@ -1269,12 +1279,12 @@
             <input type="text" id="dirYearFilterInput" placeholder="Año o 'vacio'" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
           </div>
 
-          <button type="button" id="dirDuplicatesContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: white; white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDuplicatesFilter()">
+          <button type="button" id="dirDuplicatesContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: var(--bg-card); white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDuplicatesFilter()">
             <i data-lucide="copy" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
             <span id="dirDuplicatesText">Duplicados</span>
           </button>
 
-          <button type="button" id="dirDestacadosContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: white; white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDestacadosFilter()">
+          <button type="button" id="dirDestacadosContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: var(--bg-card); white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDestacadosFilter()">
             <i data-lucide="star" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
             <span id="dirDestacadosText">Destacados</span>
           </button>
@@ -1463,7 +1473,7 @@
     
 <!-- Sub-vista Importador -->
       <div class="laboratorio-subview page-content hidden" id="subview-importador">
-        <div class="importador-card" style="width: 95%; max-width: 1600px; margin: 40px auto; padding: 48px; background: #ffffff; border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1), 0 10px 20px -5px rgba(0,0,0,0.05); border: 1px solid var(--border-light, #e2e8f0);">
+        <div class="importador-card" style="width: 95%; max-width: 1600px; margin: 40px auto; padding: 48px; background: var(--bg-card); border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1), 0 10px 20px -5px rgba(0,0,0,0.05); border: 1px solid var(--border-light, #e2e8f0);">
         <!-- Header -->
         <div class="importador-header" style="margin-bottom: 32px; text-align: center;">
           <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: var(--primary-blue-light, #eff6ff); border-radius: 50%; margin-bottom: 16px;">
@@ -1537,7 +1547,7 @@
             </div>
 
               <!-- Columna Derecha: Textarea -->
-              <div style="background: #ffffff; padding: 0;">
+              <div style="background: var(--bg-card); padding: 0;">
                 <div class="form-group mb-0">
                   <div style="position: relative; padding-top: 12px;">
                     <div style="position: absolute; top: -12px; left: 0; background: #10b981; color: white; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Paso 2: Datos</div>
@@ -1604,7 +1614,7 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
           </div>
 
           <!-- Excel Scrollable Table Wrapper -->
-          <div class="excel-table-container" style="max-height: 520px; overflow-x: auto; overflow-y: auto; border: 1px solid var(--border-medium, #cbd5e1); border-radius: 10px; background: #ffffff; box-shadow: var(--shadow-sm);">
+          <div class="excel-table-container" style="max-height: 520px; overflow-x: auto; overflow-y: auto; border: 1px solid var(--border-medium, #cbd5e1); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow-sm);">
             <table class="excel-grid-table" style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto;">
               <thead id="excelTableHeader">
                 <!-- Generado dinámicamente -->
@@ -2266,22 +2276,26 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
 
 
   <!-- BARRA INFERIOR · en el teléfono la navegación va donde llega el pulgar -->
+  <!-- Barra inferior. Los rótulos dicen ahora a dónde llevan de verdad: antes se habían copiado
+       los del mockup («Explorar», «Estadísticas», «Mi perfil») sobre botones que iban a Cartelera,
+       Laboratorio y Configuración. Tres de cinco mentían. Y «Partidos» baja aquí, como pidió el
+       mockup, que arriba lleva seis pestañas y la aplicación tenía siete. -->
   <nav class="ms-barra-inferior" id="msBarraInferior" aria-label="Navegación principal">
     <button type="button" class="activo" data-tab="dashboard">
       <i data-lucide="home"></i><span>Inicio</span>
     </button>
     <button type="button" data-tab="cartelera">
-      <i data-lucide="search"></i><span>Explorar</span>
+      <i data-lucide="clipboard-list"></i><span>Cartelera</span>
     </button>
     <button type="button" class="ms-btn-nuevo" id="msBtnNuevoInforme">
       <span class="ms-circulo"><i data-lucide="plus"></i></span>
       <span>Nuevo informe</span>
     </button>
-    <button type="button" data-tab="laboratorio">
-      <i data-lucide="bar-chart-3"></i><span>Estadísticas</span>
+    <button type="button" data-tab="partidos">
+      <i data-lucide="trophy"></i><span>Partidos</span>
     </button>
     <button type="button" data-tab="configuracion">
-      <i data-lucide="user"></i><span>Mi perfil</span>
+      <i data-lucide="settings"></i><span>Ajustes</span>
     </button>
   </nav>
 

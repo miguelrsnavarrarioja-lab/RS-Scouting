@@ -317,6 +317,50 @@ comprobar('Cada control tiene un nombre que se pueda leer y oir', () => {
   return botones.length + ' botones, todos con nombre; ' + fors.length + ' rotulos, todos con su campo';
 });
 
+// Trinquete del rediseño: la deuda de maquetación puede bajar, nunca subir.
+//
+// Un estilo escrito dentro del HTML gana a cualquier regla de la hoja, así que es lo que impide
+// que una pantalla se adapte al ancho o al tema. Son los que quedan por desmontar, pantalla a
+// pantalla. Los techos se BAJAN cada vez que se cierra una: si una pasada los deja por debajo,
+// esta comprobación avisa para que se apunte el número nuevo y no se pueda volver atrás.
+comprobar('La maquetación escrita dentro del HTML no crece', () => {
+  const h = leer('index.html');
+  const TECHO_ESTILOS = 329;   // 10-sep-2026: valor medido hoy, tras rehacer la Cartelera
+  const TECHO_PX = 34;         // anchos y altos fijos, que son los que rompen el móvil
+  const estilos = (h.match(/style="/g) || []).length;
+  const px = (h.match(/(?:width|min-width|height)\s*:\s*\d{3,}px/g) || []).length;
+
+  if (estilos > TECHO_ESTILOS) {
+    throw new Error(`estilos en el HTML: ${estilos}, y el techo está en ${TECHO_ESTILOS}. ` +
+      'Van a la hoja de estilos, no aquí.');
+  }
+  if (px > TECHO_PX) {
+    throw new Error(`anchos y altos fijos en el HTML: ${px}, techo ${TECHO_PX}. ` +
+      'Un ancho fijo dentro de un contenedor más estrecho desborda la página entera.');
+  }
+  const holgura = (TECHO_ESTILOS - estilos) + (TECHO_PX - px);
+  return `${estilos} estilos (techo ${TECHO_ESTILOS}) y ${px} medidas fijas (techo ${TECHO_PX})` +
+    (holgura > 0 ? ` — han bajado: baja también los techos` : '');
+});
+
+// Los fondos claros escritos a fuego no se pueden apagar en tema oscuro, que desde el 10-sep es
+// el de por defecto. Los velos translúcidos sobre fondos de color (rgba con alfa) SÍ valen y no
+// se cuentan: la primera versión de este contador los mezclaba, y también contaba `white-space`.
+comprobar('No vuelven los fondos blancos que el tema oscuro no puede apagar', () => {
+  const macizo = /background(?:-color)?\s*:\s*(?:#fff(?:fff)?|white(?!-))\s*(?=[;"'}])/gi;
+  const enHtml = (leer('index.html').match(macizo) || []).length;
+  const enCss = (leer('styles.css').match(macizo) || []).length;
+  if (enHtml > 0) {
+    throw new Error(`${enHtml} fondos blancos escritos en el HTML. Un atributo style gana a la ` +
+      'hoja: en tema oscuro son parches que no hay forma de apagar.');
+  }
+  const TECHO_CSS = 2;  // .btn-white-solid y picture.ms-avatar, blancos a propósito
+  if (enCss > TECHO_CSS) {
+    throw new Error(`${enCss} fondos blancos macizos en la hoja, techo ${TECHO_CSS}.`);
+  }
+  return `0 en el HTML y ${enCss} en la hoja, los dos deliberados`;
+});
+
 // ---------------------------------------------------------------------------
 
 const fallidas = resultados.filter(r => !r.ok);

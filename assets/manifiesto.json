@@ -1,0 +1,634 @@
+[
+ {
+  "origen": "01_logo_horizontal_flat_primary.png",
+  "familia": "01_branding",
+  "salidas": [
+   "branding/01_logo_horizontal_flat_primary.webp",
+   "branding/01_logo_horizontal_flat_primary@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_logo_shield_with_wordmark.png",
+  "familia": "01_branding",
+  "salidas": [
+   "branding/02_logo_shield_with_wordmark.webp",
+   "branding/02_logo_shield_with_wordmark@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_logo_shield_monogram_ms.png",
+  "familia": "01_branding",
+  "salidas": [
+   "branding/03_logo_shield_monogram_ms.webp",
+   "branding/03_logo_shield_monogram_ms@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_logo_horizontal_legacy_variant.png",
+  "familia": "01_branding",
+  "salidas": [
+   "branding/04_logo_horizontal_legacy_variant.webp",
+   "branding/04_logo_horizontal_legacy_variant@2x.webp"
+  ]
+ },
+ {
+  "origen": "01_icon_home.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/01_icon_home.webp",
+   "navigation_icons/01_icon_home@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_icon_search.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/02_icon_search.webp",
+   "navigation_icons/02_icon_search@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_icon_calendar.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/03_icon_calendar.webp",
+   "navigation_icons/03_icon_calendar@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_icon_board.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/04_icon_board.webp",
+   "navigation_icons/04_icon_board@2x.webp"
+  ]
+ },
+ {
+  "origen": "05_icon_players_directory.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/05_icon_players_directory.webp",
+   "navigation_icons/05_icon_players_directory@2x.webp"
+  ]
+ },
+ {
+  "origen": "06_icon_laboratory.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/06_icon_laboratory.webp",
+   "navigation_icons/06_icon_laboratory@2x.webp"
+  ]
+ },
+ {
+  "origen": "07_icon_notifications.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/07_icon_notifications.webp",
+   "navigation_icons/07_icon_notifications@2x.webp"
+  ]
+ },
+ {
+  "origen": "08_icon_settings.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/08_icon_settings.webp",
+   "navigation_icons/08_icon_settings@2x.webp"
+  ]
+ },
+ {
+  "origen": "09_icon_profile.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/09_icon_profile.webp",
+   "navigation_icons/09_icon_profile@2x.webp"
+  ]
+ },
+ {
+  "origen": "10_icon_user_alt.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/10_icon_user_alt.webp",
+   "navigation_icons/10_icon_user_alt@2x.webp"
+  ]
+ },
+ {
+  "origen": "11_icon_theme_light.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/11_icon_theme_light.webp",
+   "navigation_icons/11_icon_theme_light@2x.webp"
+  ]
+ },
+ {
+  "origen": "12_icon_theme_dark.png",
+  "familia": "02_navigation_icons",
+  "salidas": [
+   "navigation_icons/12_icon_theme_dark.webp",
+   "navigation_icons/12_icon_theme_dark@2x.webp"
+  ]
+ },
+ {
+  "origen": "01_icon_import_upload.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/01_icon_import_upload.webp",
+   "feature_icons/01_icon_import_upload@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_icon_new_report.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/02_icon_new_report.webp",
+   "feature_icons/02_icon_new_report@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_icon_stats.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/03_icon_stats.webp",
+   "feature_icons/03_icon_stats@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_icon_map_location.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/04_icon_map_location.webp",
+   "feature_icons/04_icon_map_location@2x.webp"
+  ]
+ },
+ {
+  "origen": "05_icon_comparison.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/05_icon_comparison.webp",
+   "feature_icons/05_icon_comparison@2x.webp"
+  ]
+ },
+ {
+  "origen": "06_icon_link.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/06_icon_link.webp",
+   "feature_icons/06_icon_link@2x.webp"
+  ]
+ },
+ {
+  "origen": "07_icon_lineup_433.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/07_icon_lineup_433.webp",
+   "feature_icons/07_icon_lineup_433@2x.webp"
+  ]
+ },
+ {
+  "origen": "08_icon_predictive_player_profile.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/08_icon_predictive_player_profile.webp",
+   "feature_icons/08_icon_predictive_player_profile@2x.webp"
+  ]
+ },
+ {
+  "origen": "09_icon_erf_risk.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/09_icon_erf_risk.webp",
+   "feature_icons/09_icon_erf_risk@2x.webp"
+  ]
+ },
+ {
+  "origen": "10_icon_featured_team.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/10_icon_featured_team.webp",
+   "feature_icons/10_icon_featured_team@2x.webp"
+  ]
+ },
+ {
+  "origen": "11_icon_individual_analysis.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/11_icon_individual_analysis.webp",
+   "feature_icons/11_icon_individual_analysis@2x.webp"
+  ]
+ },
+ {
+  "origen": "12_icon_export_pdf.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/12_icon_export_pdf.webp",
+   "feature_icons/12_icon_export_pdf@2x.webp"
+  ]
+ },
+ {
+  "origen": "13_icon_video.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/13_icon_video.webp",
+   "feature_icons/13_icon_video@2x.webp"
+  ]
+ },
+ {
+  "origen": "14_icon_live.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/14_icon_live.webp",
+   "feature_icons/14_icon_live@2x.webp"
+  ]
+ },
+ {
+  "origen": "15_icon_work.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/15_icon_work.webp",
+   "feature_icons/15_icon_work@2x.webp"
+  ]
+ },
+ {
+  "origen": "16_icon_reports_done.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/16_icon_reports_done.webp",
+   "feature_icons/16_icon_reports_done@2x.webp"
+  ]
+ },
+ {
+  "origen": "17_icon_pending_tasks.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/17_icon_pending_tasks.webp",
+   "feature_icons/17_icon_pending_tasks@2x.webp"
+  ]
+ },
+ {
+  "origen": "18_icon_notes.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/18_icon_notes.webp",
+   "feature_icons/18_icon_notes@2x.webp"
+  ]
+ },
+ {
+  "origen": "19_icon_tasks_checklist.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/19_icon_tasks_checklist.webp",
+   "feature_icons/19_icon_tasks_checklist@2x.webp"
+  ]
+ },
+ {
+  "origen": "20_icon_goals_target.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/20_icon_goals_target.webp",
+   "feature_icons/20_icon_goals_target@2x.webp"
+  ]
+ },
+ {
+  "origen": "21_icon_save.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/21_icon_save.webp",
+   "feature_icons/21_icon_save@2x.webp"
+  ]
+ },
+ {
+  "origen": "22_icon_filters.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/22_icon_filters.webp",
+   "feature_icons/22_icon_filters@2x.webp"
+  ]
+ },
+ {
+  "origen": "23_icon_favorite_off.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/23_icon_favorite_off.webp",
+   "feature_icons/23_icon_favorite_off@2x.webp"
+  ]
+ },
+ {
+  "origen": "24_icon_favorite_on.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/24_icon_favorite_on.webp",
+   "feature_icons/24_icon_favorite_on@2x.webp"
+  ]
+ },
+ {
+  "origen": "25_icon_federation_or_club_shield.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/25_icon_federation_or_club_shield.webp",
+   "feature_icons/25_icon_federation_or_club_shield@2x.webp"
+  ]
+ },
+ {
+  "origen": "26_icon_team.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/26_icon_team.webp",
+   "feature_icons/26_icon_team@2x.webp"
+  ]
+ },
+ {
+  "origen": "27_icon_international_selection.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/27_icon_international_selection.webp",
+   "feature_icons/27_icon_international_selection@2x.webp"
+  ]
+ },
+ {
+  "origen": "28_icon_tournament.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/28_icon_tournament.webp",
+   "feature_icons/28_icon_tournament@2x.webp"
+  ]
+ },
+ {
+  "origen": "29_icon_agency.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/29_icon_agency.webp",
+   "feature_icons/29_icon_agency@2x.webp"
+  ]
+ },
+ {
+  "origen": "30_icon_agent.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/30_icon_agent.webp",
+   "feature_icons/30_icon_agent@2x.webp"
+  ]
+ },
+ {
+  "origen": "31_icon_stadium.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/31_icon_stadium.webp",
+   "feature_icons/31_icon_stadium@2x.webp"
+  ]
+ },
+ {
+  "origen": "32_icon_location_pin.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/32_icon_location_pin.webp",
+   "feature_icons/32_icon_location_pin@2x.webp"
+  ]
+ },
+ {
+  "origen": "33_icon_match_vision_camera.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/33_icon_match_vision_camera.webp",
+   "feature_icons/33_icon_match_vision_camera@2x.webp"
+  ]
+ },
+ {
+  "origen": "34_icon_difficulty_or_progress.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/34_icon_difficulty_or_progress.webp",
+   "feature_icons/34_icon_difficulty_or_progress@2x.webp"
+  ]
+ },
+ {
+  "origen": "35_icon_play_style.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/35_icon_play_style.webp",
+   "feature_icons/35_icon_play_style@2x.webp"
+  ]
+ },
+ {
+  "origen": "36_icon_set_pieces_abp.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/36_icon_set_pieces_abp.webp",
+   "feature_icons/36_icon_set_pieces_abp@2x.webp"
+  ]
+ },
+ {
+  "origen": "37_icon_match.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/37_icon_match.webp",
+   "feature_icons/37_icon_match@2x.webp"
+  ]
+ },
+ {
+  "origen": "38_icon_stadium_visit.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/38_icon_stadium_visit.webp",
+   "feature_icons/38_icon_stadium_visit@2x.webp"
+  ]
+ },
+ {
+  "origen": "39_icon_meeting.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/39_icon_meeting.webp",
+   "feature_icons/39_icon_meeting@2x.webp"
+  ]
+ },
+ {
+  "origen": "40_icon_travel_plane.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/40_icon_travel_plane.webp",
+   "feature_icons/40_icon_travel_plane@2x.webp"
+  ]
+ },
+ {
+  "origen": "41_icon_transport_bus.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/41_icon_transport_bus.webp",
+   "feature_icons/41_icon_transport_bus@2x.webp"
+  ]
+ },
+ {
+  "origen": "42_icon_archive_box.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/42_icon_archive_box.webp",
+   "feature_icons/42_icon_archive_box@2x.webp"
+  ]
+ },
+ {
+  "origen": "43_icon_backup.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/43_icon_backup.webp",
+   "feature_icons/43_icon_backup@2x.webp"
+  ]
+ },
+ {
+  "origen": "44_icon_restore_or_download.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/44_icon_restore_or_download.webp",
+   "feature_icons/44_icon_restore_or_download@2x.webp"
+  ]
+ },
+ {
+  "origen": "45_icon_firebase_cloud.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/45_icon_firebase_cloud.webp",
+   "feature_icons/45_icon_firebase_cloud@2x.webp"
+  ]
+ },
+ {
+  "origen": "46_icon_database.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/46_icon_database.webp",
+   "feature_icons/46_icon_database@2x.webp"
+  ]
+ },
+ {
+  "origen": "47_icon_clean_database.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/47_icon_clean_database.webp",
+   "feature_icons/47_icon_clean_database@2x.webp"
+  ]
+ },
+ {
+  "origen": "48_icon_duplicates_profiles.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/48_icon_duplicates_profiles.webp",
+   "feature_icons/48_icon_duplicates_profiles@2x.webp"
+  ]
+ },
+ {
+  "origen": "49_icon_restore_links.png",
+  "familia": "03_feature_icons",
+  "salidas": [
+   "feature_icons/49_icon_restore_links.webp",
+   "feature_icons/49_icon_restore_links@2x.webp"
+  ]
+ },
+ {
+  "origen": "01_hero_stadium_entrance.png",
+  "familia": "04_illustrations",
+  "salidas": [
+   "illustrations/01_hero_stadium_entrance.webp",
+   "illustrations/01_hero_stadium_entrance@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_hero_better_decisions_more_talent.png",
+  "familia": "04_illustrations",
+  "salidas": [
+   "illustrations/02_hero_better_decisions_more_talent.webp",
+   "illustrations/02_hero_better_decisions_more_talent@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_hero_future_football_analytics.png",
+  "familia": "04_illustrations",
+  "salidas": [
+   "illustrations/03_hero_future_football_analytics.webp",
+   "illustrations/03_hero_future_football_analytics@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_illustration_sports_analytics_info.png",
+  "familia": "04_illustrations",
+  "salidas": [
+   "illustrations/04_illustration_sports_analytics_info.webp",
+   "illustrations/04_illustration_sports_analytics_info@2x.webp"
+  ]
+ },
+ {
+  "origen": "01_bg_stadium_night_wide.png",
+  "familia": "05_backgrounds_patterns",
+  "salidas": [
+   "backgrounds_patterns/01_bg_stadium_night_wide.webp",
+   "backgrounds_patterns/01_bg_stadium_night_wide@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_bg_grass_detail.png",
+  "familia": "05_backgrounds_patterns",
+  "salidas": [
+   "backgrounds_patterns/02_bg_grass_detail.webp",
+   "backgrounds_patterns/02_bg_grass_detail@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_bg_analysis_pattern_dark.png",
+  "familia": "05_backgrounds_patterns",
+  "salidas": [
+   "backgrounds_patterns/03_bg_analysis_pattern_dark.webp",
+   "backgrounds_patterns/03_bg_analysis_pattern_dark@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_bg_gradient_dark_primary.png",
+  "familia": "05_backgrounds_patterns",
+  "salidas": [
+   "backgrounds_patterns/04_bg_gradient_dark_primary.webp",
+   "backgrounds_patterns/04_bg_gradient_dark_primary@2x.webp"
+  ]
+ },
+ {
+  "origen": "05_bg_gradient_light_secondary.png",
+  "familia": "05_backgrounds_patterns",
+  "salidas": [
+   "backgrounds_patterns/05_bg_gradient_light_secondary.webp",
+   "backgrounds_patterns/05_bg_gradient_light_secondary@2x.webp"
+  ]
+ },
+ {
+  "origen": "01_graphic_heatmap.png",
+  "familia": "06_data_graphics",
+  "salidas": [
+   "data_graphics/01_graphic_heatmap.webp",
+   "data_graphics/01_graphic_heatmap@2x.webp"
+  ]
+ },
+ {
+  "origen": "02_graphic_pitch_clean.png",
+  "familia": "06_data_graphics",
+  "salidas": [
+   "data_graphics/02_graphic_pitch_clean.webp",
+   "data_graphics/02_graphic_pitch_clean@2x.webp"
+  ]
+ },
+ {
+  "origen": "03_graphic_pitch_with_positions.png",
+  "familia": "06_data_graphics",
+  "salidas": [
+   "data_graphics/03_graphic_pitch_with_positions.webp",
+   "data_graphics/03_graphic_pitch_with_positions@2x.webp"
+  ]
+ },
+ {
+  "origen": "04_graphic_radar_empty.png",
+  "familia": "06_data_graphics",
+  "salidas": [
+   "data_graphics/04_graphic_radar_empty.webp",
+   "data_graphics/04_graphic_radar_empty@2x.webp"
+  ]
+ },
+ {
+  "origen": "05_graphic_radar_player.png",
+  "familia": "06_data_graphics",
+  "salidas": [
+   "data_graphics/05_graphic_radar_player.webp",
+   "data_graphics/05_graphic_radar_player@2x.webp"
+  ]
+ }
+]

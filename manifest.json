@@ -4,8 +4,8 @@
   "description": "Pro Football Scouting System",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1d4ed8",
+  "background_color": "#06151E",
+  "theme_color": "#06151E",
   "icons": [
     {
       "src": "Logo MS.png",
