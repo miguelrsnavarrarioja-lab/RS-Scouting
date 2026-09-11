@@ -196,7 +196,10 @@
 
       <!-- 1 · LOS SEIS INFORMES. Es lo primero que se ve y lo que más se mira.
            Los identificadores son los mismos de siempre: el código que los rellena no cambia. -->
-      <div class="ms-panel ms-ancho-total">
+      <div data-area="indicadores" class="ms-panel ms-ancho-total">
+        <!-- Semáforo de informes pendientes: sube aquí, junto a «Pendientes», que es el dato del
+             que depende (antes vivía en la banda del final). Mismo id, misma lógica en app.js. -->
+        <p id="motivationalMessage" class="ms-semaforo" role="status" tabindex="0">«El fútbol se ve mejor cuando se analiza.»</p>
         <div class="ms-tira-kpi">
           <button type="button" class="ms-kpi verde" data-shortcut="partidos">
             <i data-lucide="eye" class="ms-kpi-icono"></i>
@@ -232,7 +235,7 @@
       </div>
 
       <!-- 2 · NUEVO INFORME. En el mockup es la acción destacada de la pantalla. -->
-      <button type="button" class="ms-cta-informe" data-shortcut="partidos">
+      <button data-area="nuevo" type="button" class="ms-cta-informe" data-shortcut="partidos">
         <span class="ms-cta-fila">
           <span class="ms-cta-icono"><i data-lucide="file-plus-2"></i></span>
           <h3>Nuevo informe</h3>
@@ -242,7 +245,7 @@
       </button>
 
       <!-- 3 · JUGADORES POR AÑO -->
-      <div class="ms-panel">
+      <div data-area="jugadores" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Jugadores por año</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="directorio">
@@ -255,7 +258,7 @@
       </div>
 
       <!-- 4 · HERRAMIENTAS RÁPIDAS -->
-      <div class="ms-panel">
+      <div data-area="herramientas" class="ms-panel">
         <div class="ms-panel-cab"><h3>Herramientas rápidas</h3></div>
         <div class="ms-herramientas">
           <button type="button" class="ms-herramienta" data-shortcut="mapas">
@@ -274,7 +277,7 @@
       </div>
 
       <!-- 5 · CIFRAS DE LA TEMPORADA -->
-      <div class="ms-panel">
+      <div data-area="estadisticas" class="ms-panel">
         <div class="ms-panel-cab"><h3>Estadísticas principales</h3></div>
         <div class="ms-cifras">
           <button type="button" class="ms-cifra" data-shortcut="partidos">
@@ -282,22 +285,22 @@
             <b id="kpiPartidosVistos">0</b>
             <span>Partidos vistos</span>
           </button>
-          <button type="button" class="ms-cifra" data-shortcut="directorio">
+          <button type="button" class="ms-cifra" data-shortcut="jugadores">
             <i data-lucide="users"></i>
             <b id="kpiTotalPlayers">0</b>
             <span>Jugadores</span>
           </button>
-          <button type="button" class="ms-cifra" data-shortcut="directorio">
+          <button type="button" class="ms-cifra" data-shortcut="clubes">
             <i data-lucide="shield"></i>
             <b id="kpiTotalClubes">0</b>
             <span>Clubes</span>
           </button>
-          <button type="button" class="ms-cifra" data-shortcut="directorio">
+          <button type="button" class="ms-cifra" data-shortcut="equipos">
             <i data-lucide="users-2"></i>
             <b id="kpiTotalEquipos">0</b>
             <span>Equipos</span>
           </button>
-          <button type="button" class="ms-cifra" data-shortcut="directorio">
+          <button type="button" class="ms-cifra" data-shortcut="selecciones">
             <i data-lucide="globe"></i>
             <b id="kpiTotalSelecciones">0</b>
             <span>Selecciones</span>
@@ -306,7 +309,7 @@
       </div>
 
       <!-- 6 · PLANIFICACIÓN: cartelera, agenda y notas -->
-      <div class="ms-panel">
+      <div data-area="planificacion" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Planificación</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="planificacion">
@@ -338,10 +341,10 @@
       </div>
 
       <!-- 7 · EQUIPOS VISTOS POR CATEGORÍA -->
-      <div class="ms-panel">
+      <div data-area="equipos" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Equipos vistos por categoría</h3>
-          <button type="button" class="ms-ver-todo" data-shortcut="directorio">
+          <button type="button" class="ms-ver-todo" data-shortcut="equipos">
             Ver todos <i data-lucide="arrow-right"></i>
           </button>
         </div>
@@ -351,7 +354,7 @@
       </div>
 
       <!-- 8 · MI AGENDA · lo que viene, agrupado por día -->
-      <div class="ms-panel">
+      <div data-area="agenda" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Mi agenda</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="agenda">
@@ -364,7 +367,7 @@
       </div>
 
       <!-- 9 · CARTELERA DE SCOUTING · los jugadores que se están siguiendo -->
-      <div class="ms-panel">
+      <div data-area="cartelera" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Cartelera de scouting</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="directorio">
@@ -377,7 +380,7 @@
       </div>
 
       <!-- 10 · DIRECTORIO · buscar y saltar a cada apartado -->
-      <div class="ms-panel">
+      <div data-area="directorio" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Directorio</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="directorio">
@@ -398,7 +401,7 @@
       </div>
 
       <!-- 11 · LABORATORIO · los módulos que existen hoy, con su nombre real -->
-      <div class="ms-panel">
+      <div data-area="laboratorio" class="ms-panel">
         <div class="ms-panel-cab">
           <h3>Laboratorio de análisis</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="laboratorio">
@@ -419,10 +422,8 @@
       </div>
 
       <!-- 8 · EL LEMA. El fondo de estadio irá aquí cuando llegue la imagen. -->
-      <div class="ms-banda-lema ms-ancho-total">
+      <div data-area="banda" class="ms-banda-lema ms-ancho-total">
         <h4>Mejores decisiones.<br>Más talento.</h4>
-        <hr>
-        <p id="motivationalMessage">«El fútbol se ve mejor cuando se analiza.»</p>
       </div>
 
     </section>

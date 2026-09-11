@@ -1632,28 +1632,28 @@
       let paraBajar = 0;
       if (directMatches > 20) {
         msg = '¡ESTAS JODIDO AMIGO!';
-        color = '#3b82f6';
+        color = '#1D4ED8';
         zona = 'Zona Crítica (Más de 20)';
         paraBajar = directMatches - 20;
       } else if (directMatches > 15) {
         msg = '¡ESPABILA MIGUEL!';
-        color = '#f97316';
+        color = '#C2410C';
         zona = 'Zona Peligro (16 - 20)';
         paraBajar = directMatches - 15;
       } else if (directMatches > 10) {
         msg = 'NO TE RELAJES';
         color = '#fde047'; // bright yellow
-        textColor = '#854d0e'; // dark yellow/brown text for contrast
+        textColor = '#713F12'; // marrón oscuro sobre el amarillo: 6,58
         zona = 'Zona Alerta (11 - 15)';
         paraBajar = directMatches - 10;
       } else if (directMatches > 0) {
         msg = 'TE QUEDA POCO ¡ÁNIMO!';
-        color = '#3b82f6';
+        color = '#1D4ED8';
         zona = 'Zona Control (1 - 10)';
         paraBajar = directMatches;
       } else {
         msg = 'AL DÍA (POR FIN)';
-        color = '#10b981';
+        color = '#047857';
         zona = 'Zona Perfecta (0)';
         paraBajar = 0;
       }

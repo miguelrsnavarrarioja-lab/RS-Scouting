@@ -6175,14 +6175,7 @@ body.ms-con-barra .tab-view.active { padding-bottom: calc(var(--ms-alto-barra) +
   body.ms-con-barra .app-main { padding-bottom: 24px; }
   body.ms-con-barra .tab-view.active { padding-bottom: 0; }
 
-  #view-dashboard {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-  .ms-ancho-total { grid-column: 1 / -1; }
-}
-@media (min-width: 1180px) {
-  #view-dashboard { grid-template-columns: repeat(3, 1fr); }
+  /* El grid del Inicio ya no vive aquí: ver «6 · EL INICIO EN TRES COMPOSICIONES». */
 }
 
 /* ==========================================================================
@@ -6794,8 +6787,10 @@ body.theme-light { color-scheme: light; }
 .btn-warning { background-color: var(--accion-ambar); }
 .btn-success { background-color: var(--accion-verde); }
 
-/* El mensaje de ánimo de la portada iba en blanco sobre el verde medio: 2,54. */
-#motivationalMessage { background-color: var(--accion-verde) !important; }
+/* El mensaje de ánimo NO se fuerza a un color: es un SEMÁFORO de cinco niveles que el JS pinta
+   según los informes pendientes. Un `!important` puesto el 10-sep para arreglar su contraste lo
+   dejaba siempre en verde y anulaba los cinco niveles — se rompía justo la información que da.
+   El contraste se arregla en el origen, en los colores de cada nivel (`app.js`). */
 
 /* La llamada a «Nuevo informe»: el degradado arrancaba en el verde de marca y el título, que es
    de 18 px (justo por debajo de los 18,66 que AA considera «grande»), quedaba en 3,07. */
@@ -6864,3 +6859,143 @@ body.theme-dark .ms-kpi .ms-kpi-nombre { color: var(--text-muted); }
 :root            { --texto-rojo: #B91C1C; }   /* 6,47 sobre blanco */
 body.theme-dark  { --texto-rojo: #FCA5A5; }   /* 8,03 sobre la tarjeta oscura */
 .week-header-dayname { color: var(--texto-rojo); }
+
+/* ==========================================================================
+   6 · EL INICIO EN TRES COMPOSICIONES  (encargo de Miguel, 11-sep-2026)
+   ==========================================================================
+   Móvil, tableta y escritorio son tres MAQUETAS de la misma pantalla, no una que se encoge.
+   Cada bloque declara su área una sola vez en el HTML (`data-area`) y cada franja de ancho las
+   coloca a su manera. Nada de la lógica, los datos ni los componentes cambia entre ellas.
+
+   Por qué así: la hoja tenía 17 cortes distintos sin sistema (767 y 768 a la vez; 1180, 1194 y
+   1200 a pocos píxeles). Una regla escrita para el móvil con `max-width: 1024px` caía también
+   sobre la tableta y los portátiles pequeños, y por eso tocar el móvil rompía el escritorio.
+   Aquí las tres franjas son EXCLUSIVAS: una regla de una no puede alcanzar a otra.
+
+     móvil       …  767 px
+     tableta   768 – 1023 px
+     escritorio 1024 px …                                                             */
+
+#view-dashboard.tab-view.active {
+  display: grid;
+  gap: 14px;
+  align-items: start;          /* cada bloque, su alto: sin estirar para igualar */
+}
+#view-dashboard > [data-area="indicadores"] { grid-area: indicadores; }
+#view-dashboard > [data-area="nuevo"]        { grid-area: nuevo; }
+#view-dashboard > [data-area="jugadores"]    { grid-area: jugadores; }
+#view-dashboard > [data-area="herramientas"] { grid-area: herramientas; }
+#view-dashboard > [data-area="estadisticas"] { grid-area: estadisticas; }
+#view-dashboard > [data-area="planificacion"]{ grid-area: planificacion; }
+#view-dashboard > [data-area="equipos"]      { grid-area: equipos; }
+#view-dashboard > [data-area="agenda"]       { grid-area: agenda; }
+#view-dashboard > [data-area="cartelera"]    { grid-area: cartelera; }
+#view-dashboard > [data-area="directorio"]   { grid-area: directorio; }
+#view-dashboard > [data-area="laboratorio"]  { grid-area: laboratorio; }
+#view-dashboard > [data-area="banda"]        { grid-area: banda; }
+
+/* --- MÓVIL: una columna, por orden de uso en la banda -------------------------------
+   Arriba lo que se consulta de un vistazo (pendientes y semáforo), luego lo que se hace
+   (nuevo informe, planificación, agenda, cartelera) y abajo lo que se analiza. */
+@media (max-width: 767px) {
+  #view-dashboard.tab-view.active {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "indicadores"
+      "nuevo"
+      "planificacion"
+      "agenda"
+      "cartelera"
+      "herramientas"
+      "directorio"
+      "estadisticas"
+      "jugadores"
+      "equipos"
+      "laboratorio"
+      "banda";
+  }
+}
+
+/* --- TABLETA: dos columnas con composición propia --------------------------------------
+   Ni el escritorio apretado (tres columnas de 240 px no se leen) ni el móvil estirado (una
+   columna de 800 px desperdicia la mitad). Las parejas van por afinidad: lo que se hace, lo
+   que se planifica, lo que se consulta y lo que se analiza. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #view-dashboard.tab-view.active {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "indicadores  indicadores"
+      "nuevo        planificacion"
+      "agenda       cartelera"
+      "jugadores    equipos"
+      "herramientas directorio"
+      "estadisticas laboratorio"
+      "banda        banda";
+  }
+}
+
+/* --- ESCRITORIO: la distribución que pidió Miguel ---------------------------------------
+     izquierda: Nuevo informe · Planificación · Herramientas rápidas · Laboratorio
+     centro:    Jugadores por año        (y debajo Estadísticas principales, que no estaba
+                                          en su lista pero no se quita: son cifras del mismo
+                                          tipo y equilibran la columna)
+     derecha:   Equipos vistos por categoría
+     2.ª fila:  Agenda · Cartelera de scouting · Directorio                            */
+@media (min-width: 1024px) {
+  #view-dashboard.tab-view.active {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "indicadores   indicadores   indicadores"
+      "nuevo         jugadores     equipos"
+      "planificacion jugadores     equipos"
+      "herramientas  estadisticas  equipos"
+      "laboratorio   estadisticas  equipos"
+      "agenda        cartelera     directorio"
+      "banda         banda         banda";
+  }
+}
+
+/* --- el semáforo de pendientes, arriba ---------------------------------------------------
+   Lo pinta app.js con el color de su nivel (cinco niveles según los informes en directo) y
+   se puede pulsar para ver el detalle. Aquí solo se le da forma de aviso. */
+.ms-semaforo {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font: 800 13px/1.3 var(--font-body);
+  letter-spacing: .02em;
+  text-align: center;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ms-semaforo:focus-visible { outline: 3px solid var(--ms-verde-neon); outline-offset: 2px; }
+
+/* Las cifras de la temporada son <button>. Al quitarles el fondo nativo del navegador (que en
+   modo oscuro las pintaba de gris) asomó en modo claro su BORDE nativo: cinco cajas con marco
+   gris grueso. Se declara el borde, como cualquier otra pieza del sistema. */
+.ms-cifra {
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.ms-cifra:hover { border-color: var(--border-light); }
+.ms-cifra:focus-visible { outline: 3px solid var(--ms-verde); outline-offset: 2px; }
+
+/* --- los gráficos llenan su columna en el escritorio -----------------------------------
+   La columna izquierda lleva cuatro bloques y las otras dos, uno o dos: sin esto, bajo
+   «Equipos vistos por categoría» quedaban 560 px vacíos. Son paneles con gráfico, así que en
+   vez de dejar el hueco se estiran y el gráfico crece con ellos. Solo en el escritorio: en
+   tableta y móvil cada bloque conserva su alto natural. */
+@media (min-width: 1024px) {
+  #view-dashboard > [data-area="jugadores"],
+  #view-dashboard > [data-area="equipos"] {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+  #view-dashboard > [data-area="jugadores"] > .widget-body,
+  #view-dashboard > [data-area="equipos"] > .widget-body {
+    flex: 1;
+    min-height: 0;
+  }
+}
