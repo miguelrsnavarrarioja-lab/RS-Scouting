@@ -6999,3 +6999,17 @@ body.theme-dark  { --texto-rojo: #FCA5A5; }   /* 8,03 sobre la tarjeta oscura */
     min-height: 0;
   }
 }
+
+/* --- 7 · foto de perfil pulsable --------------------------------------------------------
+   La cabecera está aprobada: el botón que envuelve al avatar no añade nada que se vea, solo
+   hace que se pueda pulsar y alcanzar con el teclado. La foto no se deforma (object-fit) y
+   ocupa siempre su caja de 38 px, así que al cambiarla no salta nada de sitio. */
+.ms-avatar-boton {
+  background: none; border: 0; padding: 0; margin: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 0;
+  flex: none;
+}
+.ms-avatar-boton:focus-visible { outline: 3px solid var(--ms-verde-neon); outline-offset: 3px; }
+.ms-avatar img { object-fit: cover; }

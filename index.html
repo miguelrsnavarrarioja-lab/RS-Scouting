@@ -170,10 +170,17 @@
 
           <!-- Sesión (auth.js) · el avatar y el nombre los rellena auth.js con la cuenta real -->
           <div class="ms-sesion">
-            <picture class="ms-avatar" id="msAvatar">
-              <source srcset="escudo-rs.webp" type="image/webp">
-              <img src="escudo-rs.png" alt="Real Sociedad" width="38" height="38">
-            </picture>
+            <!-- Foto de perfil editable (encargo de Miguel, 11-sep): el avatar es un botón que
+                 abre el selector. La cabecera está aprobada, así que el botón no añade nada
+                 visible; solo se puede pulsar. Sin foto propia se ve el escudo de siempre. -->
+            <button type="button" class="ms-avatar-boton" id="btnCambiarAvatar"
+                    aria-label="Cambiar tu foto de perfil" title="Cambiar tu foto de perfil">
+              <picture class="ms-avatar" id="msAvatar">
+                <source srcset="escudo-rs.webp" type="image/webp">
+                <img src="escudo-rs.png" alt="Real Sociedad" width="38" height="38">
+              </picture>
+            </button>
+            <input type="file" id="inputAvatar" accept="image/jpeg,image/png,image/webp" hidden>
             <div class="ms-sesion-texto">
               <b id="msSaludo">Hola</b>
               <span id="msRol">Scout</span>

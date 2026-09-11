@@ -1926,6 +1926,7 @@
 
     // 7. Init Shortcuts listeners
     initDashboardShortcuts();
+    initAvatar();
     initBarraInferior();
     initDirectorioInicio();
   }
@@ -2988,6 +2989,80 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+
+  // ---- FOTO DE PERFIL (encargo de Miguel, 11-sep-2026) --------------------------------------
+  // La foto se juzga por lo que CONTIENE el fichero, no por su nombre ni por el tipo que declara
+  // el navegador: a cualquier fichero se le puede poner «.jpg», y un SVG puede llevar código.
+  // Solo se admiten JPEG, PNG y WebP, reconocidos por los primeros bytes.
+  const AVATAR_MAX_ENTRADA = 8 * 1024 * 1024;   // lo que se acepta subir
+  const AVATAR_LADO = 256;                        // lo que se guarda: sobra para 38 px en retina
+  const AVATAR_MAX_GUARDADO = 60 * 1024;          // cabe holgado en la configuración
+
+  async function tipoRealDeImagen(file) {
+    try {
+      const c = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      if (c[0] === 0xFF && c[1] === 0xD8 && c[2] === 0xFF) return 'jpeg';
+      if (c[0] === 0x89 && c[1] === 0x50 && c[2] === 0x4E && c[3] === 0x47) return 'png';
+      if (c[0] === 0x52 && c[1] === 0x49 && c[2] === 0x46 && c[3] === 0x46 &&
+          c[8] === 0x57 && c[9] === 0x45 && c[10] === 0x42 && c[11] === 0x50) return 'webp';
+    } catch (e) { /* un fichero que no se puede leer no es una imagen válida */ }
+    return null;
+  }
+
+  // Solo se pinta un data URI de imagen RÁSTER. Si en la configuración hubiera cualquier otra
+  // cosa —un SVG, un «javascript:», un texto—, se ignora y se queda el escudo: la base es
+  // editable y lo que viene de ella no se pinta sin mirar.
+  const AVATAR_VALIDO = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+  function pintarAvatar() {
+    const pic = document.getElementById('msAvatar');
+    const img = pic && pic.querySelector('img');
+    if (!img) return;
+    const propio = state && state.settings && state.settings.avatar;
+    if (propio && AVATAR_VALIDO.test(propio)) {
+      const source = pic.querySelector('source');
+      if (source) source.remove();          // el <source> del escudo ganaría al <img>
+      img.src = propio;
+      img.alt = 'Tu foto de perfil';
+    }
+  }
+
+  async function cambiarAvatar(file) {
+    if (!file) return;                        // selector cancelado: no se toca nada
+    if (file.size > AVATAR_MAX_ENTRADA) {
+      showToast('La imagen ocupa ' + Math.round(file.size / 1048576) + ' MB y el máximo son 8. Prueba con una más ligera.', 'danger', 6000);
+      return;
+    }
+    const tipo = await tipoRealDeImagen(file);
+    if (!tipo) {
+      showToast('Ese archivo no es una foto JPG, PNG o WebP.', 'danger', 6000);
+      return;
+    }
+    const dataUrl = await compressImage(file, AVATAR_LADO, AVATAR_LADO, 0.85, AVATAR_MAX_GUARDADO);
+    if (!dataUrl || !AVATAR_VALIDO.test(dataUrl)) {
+      showToast('No se ha podido preparar la foto. Prueba con otra.', 'danger', 6000);
+      return;
+    }
+    state.settings = state.settings || {};
+    state.settings.avatar = dataUrl;
+    pintarAvatar();
+    saveState();                              // se guarda con el resto de la configuración
+    showToast('Foto de perfil actualizada', 'success', 3000);
+  }
+
+  function initAvatar() {
+    const boton = document.getElementById('btnCambiarAvatar');
+    const input = document.getElementById('inputAvatar');
+    if (!boton || !input || boton.dataset.initialized) return;
+    boton.dataset.initialized = 'true';
+    boton.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => {
+      const f = input.files && input.files[0];
+      input.value = '';                       // para poder volver a elegir el mismo fichero
+      cambiarAvatar(f);
+    });
+    pintarAvatar();
+  }
 
   function initDashboardShortcuts() {
     // Antes solo se enganchaban las tarjetas `.kpi-card`. Con el panel nuevo los atajos viven
@@ -30826,6 +30901,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // --------------------------------------------------------------------------
   function renderConfiguracion() {
     setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
+    pintarAvatar();   // la foto de perfil guardada, al llegar la configuración
   }
 
   function renderImportador() {
@@ -33002,6 +33078,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     // Apply saved brand name & theme
     updateAppNameUI();
     setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
+    pintarAvatar();   // la foto de perfil guardada, al llegar la configuración
 
     initClock();
 
