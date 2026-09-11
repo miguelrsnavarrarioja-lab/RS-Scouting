@@ -42,12 +42,12 @@
         const span = btn.querySelector('span');
         if (span) span.style.color = 'white';
       } else {
-        btn.style.background = 'var(--bg-card)';
+        btn.style.background = 'white';
         btn.style.borderColor = 'var(--border-medium)';
         const icon = btn.querySelector('i, svg');
         if (icon) icon.style.color = 'var(--text-muted)';
         const span = btn.querySelector('span');
-        if (span) span.style.color = 'var(--text-strong)';
+        if (span) span.style.color = '#334155';
       }
     }
     if (typeof window.renderDirectorio === 'function') {
@@ -70,12 +70,12 @@
         const span = btn.querySelector('span');
         if (span) span.style.color = 'white';
       } else {
-        btn.style.background = 'var(--bg-card)';
+        btn.style.background = 'white';
         btn.style.borderColor = 'var(--border-medium)';
         const icon = btn.querySelector('i, svg');
         if (icon) icon.style.color = 'var(--text-muted)';
         const span = btn.querySelector('span');
-        if (span) span.style.color = 'var(--text-strong)';
+        if (span) span.style.color = '#334155';
       }
     }
     if (typeof window.renderDirectorio === 'function') {
@@ -671,6 +671,67 @@
     });
   }
 
+
+  // --- MIGRATION FOR NEW POSITION ACRONYMS ---
+  function migratePositions(stateObj) {
+    if (!stateObj || !stateObj.directory || !stateObj.directory.jugadores) return stateObj;
+    
+    // Check if migration is needed by looking for old DC (which meant Defensa Central)
+    // Actually it's safer to just migrate everything blindly because we might have old files.
+    // However, if it was already migrated, Delantero Centro would be 'DC'.
+    // How to distinguish an old DC (Defensa Central) from a new DC (Delantero Centro)?
+    // The only reliable way is a migration flag in the state settings, OR we assume any state
+    // without the flag needs migration.
+    
+    if (stateObj.settings && stateObj.settings.migratedPositionsV1) {
+      return stateObj;
+    }
+    
+    const mapping = {
+      'PO': 'PT',
+      'DBD': 'LTD',
+      'DBZ': 'LTI',
+      'DCD': 'CTD',
+      'DCZ': 'CTI',
+      'DC': 'CT', // OLD DC (Defensa Central) -> CT
+      'MCD': 'MC',
+      'MCZ': 'MC',
+      'MVD': 'INT',
+      'MVZ': 'INT',
+      'MPD': 'MP',
+      'MPZ': 'MP',
+      'MBD': 'ED',
+      'MBZ': 'EI',
+      'AC': 'DC', // OLD AC (Delantero Centro) -> DC
+      'ACD': 'DC',
+      'ACZ': 'DC'
+    };
+    
+    function mapPos(val) {
+      if (!val) return val;
+      const upper = val.toUpperCase().trim();
+      return mapping[upper] || val; // Fallback to original if not found
+    }
+    
+    stateObj.directory.jugadores.forEach(j => {
+      j.posicionPrincipal = mapPos(j.posicionPrincipal);
+      j.posicionSecundaria = mapPos(j.posicionSecundaria);
+      j.pos = mapPos(j.pos);
+      j.posicion = mapPos(j.posicion);
+      if (j.posicionesAlternativas && Array.isArray(j.posicionesAlternativas)) {
+        j.posicionesAlternativas = j.posicionesAlternativas.map(mapPos);
+      }
+    });
+    
+    // Also migrate positions mapped in team squad or campograma if they exist explicitly? 
+    // Usually they are computed dynamically from player data, so migrating players is enough.
+    
+    if (!stateObj.settings) stateObj.settings = {};
+    stateObj.settings.migratedPositionsV1 = true;
+    
+    return stateObj;
+  }
+
   function loadState() {
     let savedAppName = 'MS Fútbol Scout';
     try {
@@ -686,6 +747,7 @@
   }
 
   let state = loadState();
+  state = migratePositions(state);
 
   // Debounce timer for auto-sync to Firebase
   let _saveStateDebounceTimer = null;
@@ -1107,11 +1169,6 @@
 
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
-          // El tema y la foto llegan con la configuración: se aplican en cuanto llegan. Antes solo
-          // se aplicaban al abrir Ajustes; con el oscuro de reserva, un usuario en claro se quedaba
-          // en oscuro hasta entrar ahí.
-          if (configData.theme === 'light' || configData.theme === 'dark') setTheme(configData.theme);
-          pintarAvatar();
           if (configData.appName) {
             state.settings.appName = configData.appName;
             try {
@@ -1202,11 +1259,6 @@
         const configData = doc.data();
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
-          // El tema y la foto llegan con la configuración: se aplican en cuanto llegan. Antes solo
-          // se aplicaban al abrir Ajustes; con el oscuro de reserva, un usuario en claro se quedaba
-          // en oscuro hasta entrar ahí.
-          if (configData.theme === 'light' || configData.theme === 'dark') setTheme(configData.theme);
-          pintarAvatar();
           if (configData.appName) {
             state.settings.appName = configData.appName;
             try { localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName); } catch (e) { }
@@ -1471,31 +1523,31 @@
   };
 
   const SYSTEM_STARTER_POSITIONS = {
-    '1-4-3-3': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MBZ', 'AC'],
-    '1-4-4-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'ACD', 'ACZ'],
-    '1-4-4-2 (Rombo)': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
-    '1-4-2-3-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MP', 'MBZ', 'AC'],
-    '1-4-1-4-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MVD', 'MVZ', 'MBZ', 'AC'],
-    '1-4-3-2-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'AC'],
-    '1-4-3-1-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
-    '1-4-5-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MC', 'MCZ', 'MBZ', 'AC'],
-    '1-3-5-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MC', 'MVD', 'MVZ', 'MBZ', 'ACD', 'ACZ'],
-    '1-3-4-3': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MBD', 'MBZ', 'AC'],
-    '1-3-4-2-1': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MPD', 'MPZ', 'AC'],
-    '1-3-4-1-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MP', 'ACD', 'ACZ'],
-    '1-3-3-3-1': ['PO', 'DCD', 'DC', 'DCZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MP', 'MBZ', 'AC'],
-    '1-5-3-2': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'ACD', 'ACZ'],
-    '1-5-4-1': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'AC'],
-    '1-5-2-3': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MBZ', 'AC'],
+    '1-4-3-3': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'],
+    '1-4-4-2': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'ED', 'MC', 'MC', 'EI', 'DC', 'DC'],
+    '1-4-4-2 (Rombo)': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'DC', 'DC'],
+    '1-4-2-3-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'ED', 'MP', 'EI', 'DC'],
+    '1-4-1-4-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'INT', 'MP', 'EI', 'DC'],
+    '1-4-3-2-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'MP', 'DC'],
+    '1-4-3-1-2': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'DC', 'DC'],
+    '1-4-5-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'ED', 'MC', 'MC', 'MC', 'EI', 'DC'],
+    '1-3-5-2': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'MC', 'INT', 'MP', 'EI', 'DC', 'DC'],
+    '1-3-4-3': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'MC', 'MC', 'EI', 'ED', 'EI', 'DC'],
+    '1-3-4-2-1': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'MC', 'MC', 'EI', 'MP', 'MP', 'DC'],
+    '1-3-4-1-2': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'MC', 'MC', 'EI', 'MP', 'DC', 'DC'],
+    '1-3-3-3-1': ['PT', 'CTD', 'CT', 'CTI', 'MC', 'INT', 'INT', 'ED', 'MP', 'EI', 'DC'],
+    '1-5-3-2': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'MC', 'INT', 'MP', 'DC', 'DC'],
+    '1-5-4-1': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'ED', 'MC', 'MC', 'EI', 'DC'],
+    '1-5-2-3': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'MC', 'MC', 'ED', 'EI', 'DC'],
     // Fútbol 7
-    '1-3-2-1 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MCD', 'MCZ', 'AC'],
-    '1-3-1-2 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MC', 'ACD', 'ACZ'],
-    '1-2-3-1 (F7)': ['PO', 'DCD', 'DCZ', 'MBD', 'MC', 'MBZ', 'AC'],
-    '1-2-2-2 (F7)': ['PO', 'DCD', 'DCZ', 'MBD', 'MBZ', 'ACD', 'ACZ'],
-    '1-2-1-3 (F7)': ['PO', 'DCD', 'DCZ', 'MC', 'MBD', 'MBZ', 'AC'],
-    '1-3-3 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MBD', 'MBZ', 'AC'],
-    '1-4-2 (F7)': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'ACD', 'ACZ'],
-    '1-1-4-1 (F7)': ['PO', 'DC', 'MBD', 'MCD', 'MCZ', 'MBZ', 'AC']
+    '1-3-2-1 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'MC', 'MC', 'DC'],
+    '1-3-1-2 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'MC', 'DC', 'DC'],
+    '1-2-3-1 (F7)': ['PT', 'CTD', 'CTI', 'ED', 'MC', 'EI', 'DC'],
+    '1-2-2-2 (F7)': ['PT', 'CTD', 'CTI', 'ED', 'EI', 'DC', 'DC'],
+    '1-2-1-3 (F7)': ['PT', 'CTD', 'CTI', 'MC', 'ED', 'EI', 'DC'],
+    '1-3-3 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'ED', 'EI', 'DC'],
+    '1-4-2 (F7)': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'DC', 'DC'],
+    '1-1-4-1 (F7)': ['PT', 'CT', 'ED', 'MC', 'MC', 'EI', 'DC']
   };
 
   // --------------------------------------------------------------------------
@@ -2057,7 +2109,7 @@
       const yearsJson = encodeURIComponent(JSON.stringify(stats.years));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openPlayersAgeGroupModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(yearsJson)}')">
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(yearsJson)}')">
         <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
@@ -2207,7 +2259,7 @@
       const statsJson = encodeURIComponent(JSON.stringify(groupedStats[groupName]));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openTeamsCategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(statsJson)}')">
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(statsJson)}')">
         <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
@@ -2248,8 +2300,8 @@
       if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
 
       const isSub23 = groupName === 'Senior' && y.subAge > 0 && y.subAge <= 23;
-      const defaultBg = isSub23 ? 'rgba(34, 197, 94, 0.10)' : 'var(--bg-card)';
-      const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : 'var(--bg-hover)';
+      const defaultBg = isSub23 ? 'rgba(34, 197, 94, 0.10)' : 'white';
+      const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : '#f8fafc';
 
       const playersJson = encodeURIComponent(JSON.stringify(y.jugadoresVistos || []));
 
@@ -2276,7 +2328,7 @@
     if (window.lucide) window.lucide.createIcons();
   };
 
-  window.openPlayersSubcategoryModal = function (groupName, year, playersJson) {
+  window.openPlayersSubcategoryModal = function (groupName, year, playersJson, page = 1) {
     const players = JSON.parse(decodeURIComponent(playersJson));
     players.sort((a, b) => {
       const rsA = (a.rendimientoRS && a.rendimientoRS !== '-') ? a.rendimientoRS : 'Z';
@@ -2289,6 +2341,11 @@
 
       return (a.nombre || '').localeCompare(b.nombre || '');
     });
+
+    const itemsPerPage = 20;
+    const totalPages = Math.ceil(players.length / itemsPerPage) || 1;
+    const startIndex = (page - 1) * itemsPerPage;
+    const paginatedPlayers = players.slice(startIndex, startIndex + itemsPerPage);
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
 
@@ -2308,7 +2365,7 @@
       html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay jugadores vistos en este año.</div>`;
     } else {
       let tbodyHtml = '';
-      players.forEach(p => {
+      paginatedPlayers.forEach(p => {
         let rowBgStyle = '';
         if (p.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
         else if (p.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
@@ -2327,7 +2384,7 @@
             <td style="padding: 12px 16px; font-weight: 600; color: var(--text-dark);">${escapeHtml(p.nombre || 'Sin nombre')}</td>
             <td style="padding: 12px 16px; color: var(--text-muted);">${escapeHtml(p.equipo || '-')}</td>
             <td style="padding: 12px 16px; text-align: center;">
-              <span style="background: var(--bg-subtle); color: var(--text-main); font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(p.rendimientoRS || '-')}</span>
+              <span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(p.rendimientoRS || '-')}</span>
             </td>
             <td style="padding: 12px 16px; text-align: center;">
               ${vistosBadge}
@@ -2340,7 +2397,7 @@
       });
 
       html += `
-        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: var(--bg-card);">
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: white;">
           <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
             <thead>
               <tr style="background: var(--bg-subtle); border-bottom: 1px solid var(--border-color);">
@@ -2357,6 +2414,16 @@
           </table>
         </div>
       `;
+      
+      if (totalPages > 1) {
+        html += `
+          <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+            <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" ${page === 1 ? 'disabled' : ''} onclick="openPlayersSubcategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(year)}', '${escapeJsAttr(playersJson)}', ${page - 1})">Anterior</button>
+            <span style="font-size: 13px; font-weight: 600; align-self: center;">Página ${page} de ${totalPages}</span>
+            <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" ${page === totalPages ? 'disabled' : ''} onclick="openPlayersSubcategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(year)}', '${escapeJsAttr(playersJson)}', ${page + 1})">Siguiente</button>
+          </div>
+        `;
+      }
     }
     html += '</div>';
 
@@ -2450,7 +2517,7 @@
       const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
       const groupsJson = encodeURIComponent(JSON.stringify(stat.groups));
       html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openTeamsSubcategoryModal('${escapeJsAttr(stat.cat)}', '${escapeJsAttr(groupName)}', '${escapeJsAttr(groupsJson)}')">
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeJsAttr(stat.cat)}', '${escapeJsAttr(groupName)}', '${escapeJsAttr(groupsJson)}')">
           <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
             <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)')};">${stat.vistos}/${stat.total}</span>
@@ -2470,9 +2537,24 @@
     if (window.lucide) window.lucide.createIcons();
   };
 
-  window.openTeamsSubcategoryModal = function (subCatName, parentCatName, groupsJson) {
+  window.openTeamsSubcategoryModal = function (subCatName, parentCatName, groupsJson, activeTabIndex = 0) {
     const groups = JSON.parse(decodeURIComponent(groupsJson));
+    const priority = {
+      'navarra': 1,
+      'aragón': 2,
+      'aragon': 2,
+      'la rioja': 3
+    };
+
     const groupNames = Object.keys(groups).sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      
+      const pA = priority[aLower] || 99;
+      const pB = priority[bLower] || 99;
+      
+      if (pA !== pB) return pA - pB;
+
       // Basic numerical sort if they contain numbers, otherwise alphabetical
       const numA = parseInt(a.match(/\d+/)) || 0;
       const numB = parseInt(b.match(/\d+/)) || 0;
@@ -2496,51 +2578,63 @@
 
     if (groupNames.length === 0) {
       html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay equipos registrados en esta categoría.</div>`;
-    }
-
-    groupNames.forEach(gName => {
-      const gStats = groups[gName];
-      const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
-
-      let teamsHtml = '';
-      gStats.equipos.sort((a, b) => {
-        const vA = a.vistoCount || 0;
-        const vB = b.vistoCount || 0;
-        if (vA !== vB) return vB - vA;
-        return a.nombre.localeCompare(b.nombre);
-      }).forEach(t => {
-        let rowBgStyle = '';
-        if (t.vistoCount > 2) {
-          rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
-        } else if (t.vistoCount === 2) {
-          rowBgStyle = 'background-color: rgba(59, 130, 246, 0.15);';
-        } else if (t.vistoCount === 1) {
-          rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
-        }
-
-        const teamIdStr = t.id ? `'${escapeJsAttr(t.id)}'` : 'null';
-        const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
-
-        teamsHtml += `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${escapeAttr(rowBgStyle)}">
-                <span style="color: ${escapeAttr(teamColor)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
-                <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
-            </div>`;
+    } else {
+      // Tabs
+      html += `<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); scrollbar-width: none;">`;
+      groupNames.forEach((gName, idx) => {
+        const isActive = idx === activeTabIndex;
+        const bg = isActive ? 'var(--primary-blue)' : 'var(--bg-surface)';
+        const color = isActive ? 'white' : 'var(--text-dark)';
+        const border = isActive ? 'var(--primary-blue)' : 'var(--border-color)';
+        html += `<button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; background: ${bg}; color: ${color}; border-color: ${border}; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="openTeamsSubcategoryModal('${escapeJsAttr(subCatName)}', '${escapeJsAttr(parentCatName)}', '${escapeJsAttr(groupsJson)}', ${idx})">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</button>`;
       });
+      html += `</div>`;
+      
+      const activeGroupName = groupNames[activeTabIndex];
+      if (activeGroupName) {
+        const gStats = groups[activeGroupName];
+        const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
 
-      html += `
-        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
-            <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</span>
-                <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${escapeAttr(badgeColor)}; padding: 3px 8px; border-radius: 12px;">
-                    ${gStats.vistos} / ${gStats.total} Vistos
-                </span>
-            </div>
-            <div style="padding: 10px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px;">
-                ${teamsHtml}
-            </div>
-        </div>`;
-    });
+        let teamsHtml = '';
+        gStats.equipos.sort((a, b) => {
+          const vA = a.vistoCount || 0;
+          const vB = b.vistoCount || 0;
+          if (vA !== vB) return vB - vA;
+          return a.nombre.localeCompare(b.nombre);
+        }).forEach(t => {
+          let rowBgStyle = '';
+          if (t.vistoCount > 2) {
+            rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+          } else if (t.vistoCount === 2) {
+            rowBgStyle = 'background-color: rgba(59, 130, 246, 0.15);';
+          } else if (t.vistoCount === 1) {
+            rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
+
+          const teamIdStr = t.id ? `'${escapeJsAttr(t.id)}'` : 'null';
+          const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
+
+          teamsHtml += `
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${escapeAttr(rowBgStyle)}">
+                  <span style="color: ${escapeAttr(teamColor)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+                  <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
+              </div>`;
+        });
+
+        html += `
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
+              <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(activeGroupName === 'Sin Grupo' ? 'General' : activeGroupName)}</span>
+                  <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${escapeAttr(badgeColor)}; padding: 3px 8px; border-radius: 12px;">
+                      ${gStats.vistos} / ${gStats.total} Vistos
+                  </span>
+              </div>
+              <div style="padding: 10px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px;">
+                  ${teamsHtml}
+              </div>
+          </div>`;
+      }
+    }
 
     html += '</div>';
 
@@ -2678,12 +2772,12 @@
       const visitLogoImg = visitLogo ? `<img src="${escapeAttr(visitLogo)}" alt="Visit" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
 
       return `
-      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--border-light);" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${escapeJsAttr(r.id)}\\']').click()">
+      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${escapeJsAttr(r.id)}\\']').click()">
         
         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
           ${localLogoImg}
           <div style="flex: 1; text-align: center;">
-            <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">
+            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">
               ${escapeHtml(r.equipoLocal || 'Local')} <span style="color: var(--text-muted); font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(r.equipoVisitante || 'Visitante')}
             </div>
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">
@@ -3359,7 +3453,7 @@
 
               <div style="display: flex; gap: 8px; margin-top: 6px;">
                 ${item.reportId ? `
-                  <button class="btn btn-sm btn-open-report" data-repid="${escapeAttr(item.reportId)}" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: var(--ms-tinta-verde); border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                  <button class="btn btn-sm btn-open-report" data-repid="${escapeAttr(item.reportId)}" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                     <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Ver Informe
                   </button>
                 ` : `
@@ -3940,7 +4034,7 @@
 
     let html = `
         <div style="display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="file-check-2" style="width: 14px; color: var(--text-muted);" title="Estado"></i>
             <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosStatusTab === 'all' ? 'selected' : ''}>TODOS (${reports.length})</option>
@@ -3949,7 +4043,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="trophy" style="width: 14px; color: var(--text-muted);" title="Competición"></i>
             <select id="partidosCatSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
@@ -3960,7 +4054,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);" title="Mes"></i>
             <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosMonthTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -3973,7 +4067,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="calendar-days" style="width: 14px; color: var(--text-muted);" title="Semana"></i>
             <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
@@ -3984,7 +4078,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="clock" style="width: 14px; color: var(--text-muted);" title="Día"></i>
             <select id="partidosDaySelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -3995,7 +4089,7 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="tv" style="width: 14px; color: var(--text-muted);" title="Visionado"></i>
             <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosVisionadoTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -4004,7 +4098,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="briefcase" style="width: 14px; color: var(--text-muted);" title="Tipo de Informe"></i>
             <select id="partidosTipoInformeSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosTipoInformeTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -4013,7 +4107,7 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="alert-triangle" style="width: 14px; color: var(--text-muted);" title="Incidencias"></i>
             <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosIncidenciaTab === 'all' ? 'selected' : ''}>TODAS</option>
@@ -4333,13 +4427,27 @@
 
             const cardDisp = (isWeekCollapsed || isDayCollapsed) ? 'display: none;' : 'display: flex;';
 
+            let missingNames = false;
+            let missingNamesCount = 0;
+            const checkPlayer = (p) => {
+              if (p && p.num && (!p.name || p.name.trim() === '')) {
+                missingNames = true;
+                missingNamesCount++;
+              }
+            };
+            (r.titularesLocal || []).forEach(checkPlayer);
+            (r.suplentesLocal || []).forEach(checkPlayer);
+            (r.titularesVisitante || []).forEach(checkPlayer);
+            (r.suplentesVisitante || []).forEach(checkPlayer);
+
             return `
             <div class="match-card" data-group-id="${escapeAttr(groupId)}" data-day-group-id="${escapeAttr(dayGroupId)}" style="${escapeAttr(cardDisp)} flex-direction: column; gap: 8px; transition: opacity 0.2s;">
-              <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
+              <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px; flex-wrap: wrap;">
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
                 ${r.visionado ? `<span class="match-category-tag" style="background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-light);">${escapeHtml(r.visionado)}</span>` : ''}
                 <span class="match-category-tag" style="background: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(99, 102, 241, 0.1)')}; color: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? '#0d9488' : '#4f46e5')}; border: 1px solid ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(99, 102, 241, 0.2)')}; font-weight: 800;">${r.tipoInforme === 'MS (Personal)' ? 'MS' : 'RS'}</span>
+                ${missingNames ? `<span class="match-category-tag" style="background: #fef2f2; color: #ef4444; border: 1px solid #f87171;" title="${missingNamesCount} jugador(es) con dorsal pero sin nombre asignado">⚠️ Faltan Nombres (${missingNamesCount})</span>` : ''}
               </div>
 
               <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
@@ -4368,7 +4476,7 @@
                   <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Abrir
                 </button>
                 ${!r.completado ? `
-                <button class="btn btn-sm btn-complete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: var(--ms-tinta-verde); border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                <button class="btn btn-sm btn-complete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                   <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Completar
                 </button>
                 ` : `
@@ -5104,6 +5212,39 @@
 
     return slotMap;
   }
+  function getAgeBadgeHTML(player, teamCategory) {
+    if (!player) return '';
+    const pYearStr = String(player.anoNac || player.ano || '').trim();
+    const pYear = parseInt(pYearStr, 10);
+    if (isNaN(pYear)) return '';
+
+    const teamCatStr = String(teamCategory || '').toUpperCase().trim();
+    if (!teamCatStr) return '';
+
+    const isJuvenil = /JUVENIL|JAU|LNJ|DHJ/.test(teamCatStr);
+    const isSenior = /RFEF|AUTON[OÓ]MICA|PREFERENTE|REGIONAL/.test(teamCatStr) && !isJuvenil && !/CADETE|INFANTIL|ALEV[IÍ]N/.test(teamCatStr);
+
+    let exactTargetYear = null;
+    if (teamCatStr.includes('CV')) exactTargetYear = 2012;
+    else if (teamCatStr.includes('CH')) exactTargetYear = 2013;
+    else if (teamCatStr.includes('IH')) exactTargetYear = 2014;
+    else if (teamCatStr.includes('ITX')) exactTargetYear = 2015;
+    else if (teamCatStr.includes('ALV')) exactTargetYear = 2016;
+
+    let markAge = false;
+    if (isJuvenil) {
+       if (pYear === 2010) markAge = true;
+    } else if (isSenior) {
+       if (pYear >= 2003) markAge = true;
+    } else if (exactTargetYear) {
+       if (pYear !== exactTargetYear) markAge = true;
+    }
+
+    if (markAge) {
+      return ` <span title="Edad destacada" style="font-size: 11px; margin-left: 3px;">🎯</span>`;
+    }
+    return '';
+  }
 
   function formatPlayerNameForCampograma(fullName) {
     if (!fullName) return "";
@@ -5641,7 +5782,7 @@
   };
 
   function updateStarterPositionsForFormation(team, formation) {
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
     const rows = document.querySelectorAll(`#${team}TitularesRows .lineup-row`);
     rows.forEach((row, idx) => {
       const posSelect = row.querySelector('select.pos');
@@ -5806,7 +5947,7 @@
       dropdown.id = 'lineupAutocompleteDropdown';
       dropdown.style.position = 'absolute';
       dropdown.style.zIndex = '9999';
-      dropdown.style.background = 'var(--bg-card)';
+      dropdown.style.background = 'white';
       dropdown.style.border = '1px solid var(--border-color)';
       dropdown.style.borderRadius = '4px';
       dropdown.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1)';
@@ -5845,7 +5986,7 @@
       if (name && !enteredNames.includes(name.toLowerCase()) && !teamPlayersSet.has(name.toLowerCase())) {
         if (!filterText || name.toLowerCase().includes(filterText)) {
           teamPlayersSet.add(name.toLowerCase());
-          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}" title="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
+          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}" title="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }
       }
     };
@@ -5902,7 +6043,7 @@
     }
 
     // Always append filial option
-    html += `<div class="autocomplete-item special" style="padding: 6px 10px; cursor: pointer; border-top: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-color);" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="FILIAL">+ INCLUIR JUGADOR FUERA DE PLANTILLA</div>`;
+    html += `<div class="autocomplete-item special" style="padding: 6px 10px; cursor: pointer; border-top: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-color);" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="FILIAL">+ INCLUIR JUGADOR FUERA DE PLANTILLA</div>`;
 
     dropdown.innerHTML = html;
 
@@ -5924,10 +6065,10 @@
   }
 
   function renderPlayerRows(team, titulares = [], suplentes = []) {
-    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
     const formationSelect = document.getElementById(`${team}FormationSelect`);
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
 
     // Titulares (dynamic based on role, default 11 or 7 for F7)
     const currentRole = activeTacticalRole[team] || 'principal';
@@ -5962,18 +6103,30 @@
       const hasCurrent2 = posOptions.includes(currentPos2);
 
       let inputBgStyle = '';
+      let ageBadgeHTML = '';
       if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
         const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+          ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
         }
+      }
+
+      let missingNameWarning = '';
+      if (numVal && (!p.name || p.name.trim() === '')) {
+        missingNameWarning = `<div style="position: absolute; right: ${ageBadgeHTML ? '22px' : '6px'}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
       }
 
       titHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)} width: 100%;">
+            ${ageBadgeHTML ? `<div style="position: absolute; right: 4px; pointer-events: none; z-index: 2;">${ageBadgeHTML}</div>` : ''}
+            ${missingNameWarning}
+          </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
             ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -6013,18 +6166,30 @@
       const hasCurrent2 = posOptions.includes(currentPos2);
 
       let inputBgStyle = '';
+      let ageBadgeHTML = '';
       if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
         const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+          ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
         }
+      }
+
+      let missingNameWarning = '';
+      if (numVal && (!p.name || p.name.trim() === '')) {
+        missingNameWarning = `<div style="position: absolute; right: ${ageBadgeHTML ? '22px' : '6px'}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
       }
 
       supHTML += `
         <div class="lineup-row">
           <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)} width: 100%;">
+            ${ageBadgeHTML ? `<div style="position: absolute; right: 4px; pointer-events: none; z-index: 2;">${ageBadgeHTML}</div>` : ''}
+            ${missingNameWarning}
+          </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
@@ -6130,14 +6295,14 @@
         <div class="form-group mb-2" style="position: relative;">
           <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
           <input type="text" id="filialSelectorSearch" autocomplete="off" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
-          <div id="filialTeamAutocomplete" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-height: 200px; overflow-y: auto; display: none;"></div>
+          <div id="filialTeamAutocomplete" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: white; border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-height: 200px; overflow-y: auto; display: none;"></div>
         </div>
         <div style="text-align: right; margin-bottom: 12px;">
           <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
         </div>
         <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 4px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
         <input type="text" id="filialSelectorPlayerSearch" autocomplete="off" class="form-control" placeholder="Buscar jugador..." style="font-size: 13px; padding: 8px; margin-bottom: 8px; display: none;">
-        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: 8px; padding: 10px;">
+        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
           <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
         </div>
       </div>
@@ -6167,7 +6332,7 @@
       } else {
         autocompleteDropdown.innerHTML = matches.map(eq => {
           const name = eq.nombre || '';
-          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
+          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }).join('');
       }
       autocompleteDropdown.style.display = 'block';
@@ -6224,7 +6389,7 @@
 
       const addBtn = (pName, tName) => {
         return `
-          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; color: var(--text-main); width: 100%; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--border-medium)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-light)';" data-name="${escapeAttr(pName)}" data-team="${escapeAttr(tName)}">
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeAttr(pName)}" data-team="${escapeAttr(tName)}">
             ${escapeHtml(pName)}
           </button>
         `;
@@ -6288,11 +6453,7 @@
         btn.addEventListener('click', () => {
           const pName = btn.getAttribute('data-name');
           const tName = btn.getAttribute('data-team');
-          if (tName === currentTeamName) {
-            inputElement.value = pName;
-          } else {
-            inputElement.value = `${pName} [${tName}]`;
-          }
+          inputElement.value = pName;
           hideModal();
           // Restaurar display del btnSubmit por si se usa en otros modales luego
           if (btnSubmit) btnSubmit.style.display = '';
@@ -6320,7 +6481,7 @@
     if (!formationSelect) return;
     const formation = formationSelect.value;
     const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultStarterPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultStarterPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
     const container = document.getElementById(`${team}PitchPins`);
     if (!container) return;
 
@@ -6411,11 +6572,13 @@
 
       let badgesHTML = '';
       let isZurdo = false;
+      let ageBadgeSpan = '';
       if (nameVal && state.directory && state.directory.jugadores) {
         const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
         if (foundP) {
           const pierna = String(foundP.pierna || '').toLowerCase();
           if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
+          ageBadgeSpan = getAgeBadgeHTML(foundP, document.getElementById('reportCategoria')?.value);
         }
       }
 
@@ -6426,13 +6589,21 @@
         const amarillas = stats.amarillas || 0;
         const rojas = stats.rojas || 0;
 
-        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
         if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: var(--bg-card); border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
       }
       if (isZurdo) {
         badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
+      }
+
+      // DESTACADO EQUIPO badge
+      if (evalObj && evalObj.tags && evalObj.tags.includes('DESTACADO EQUIPO')) {
+        badgesHTML += `<div style="position: absolute; bottom: -8px; right: -8px; font-size: 12px; z-index: 2; line-height: 1; filter: drop-shadow(0px 0px 2px rgba(255,215,0,0.8));" title="Destacado Equipo">⭐</div>`;
+        if (row) row.classList.add('is-destacado');
+      } else {
+        if (row) row.classList.remove('is-destacado');
       }
 
       let shortName = '';
@@ -6453,6 +6624,7 @@
       // Sub styles: slightly different border and z-index to stand out
       const borderStyle = isTitular ? '2px solid #ffffff' : '2px dashed #fbbf24';
       const zIndex = isTitular ? 10 : 11; // Subs render above starters if they overlap
+
 
       const generatePinHTML = (positionVal, isPos2) => {
         if (!positionVal) return '';
@@ -6490,7 +6662,7 @@
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
-          ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${escapeHtml(shortName)}</div>` : ''}
+          ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 2px;">${escapeHtml(shortName)}${ageBadgeSpan}</div>` : ''}
         </div>
         `;
       };
@@ -6548,13 +6720,18 @@
           const amarillas = stats.amarillas || 0;
           const rojas = stats.rojas || 0;
 
-          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
           if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: var(--bg-card); border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
         }
         if (isZurdo) {
           badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
+        }
+
+        // DESTACADO EQUIPO badge
+        if (evalObj && evalObj.tags && evalObj.tags.includes('DESTACADO EQUIPO')) {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; right: -8px; font-size: 12px; z-index: 2; line-height: 1; filter: drop-shadow(0px 0px 2px rgba(255,215,0,0.8));" title="Destacado Equipo">⭐</div>`;
         }
 
         return `
@@ -6716,11 +6893,11 @@
   function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
     let html = `
     <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 0;">
-      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeJsAttr(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeJsAttr(placeholder)}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
+      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeJsAttr(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeJsAttr(placeholder)}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
         <span>+ ${escapeHtml(placeholder)}</span>
         <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
       </div>
-      <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
+      <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
     `;
 
     // Opción para crear uno nuevo dinámicamente
@@ -6786,6 +6963,7 @@
       if (evalData.descTecnica) playerInDir.descTecnica = mergeUniqueCsv(playerInDir.descTecnica, evalData.descTecnica);
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
+      if (evalData.perfilRS2) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS2);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
       
       // Sincronización absoluta de los tags:
@@ -6981,27 +7159,7 @@
       return nameMatch || (numMatch && teamMatch);
     }) : null;
 
-    if (playerInDir && !state.matchPlayerEvaluations[evalKey]) {
-      state.matchPlayerEvaluations[evalKey] = {
-        rendimiento: playerInDir.rendimientoRS || '',
-        potencial: playerInDir.potencial || '',
-        rendimientoRS: playerInDir.rendimientoRS || '',
-        tags: playerInDir.tags || [],
-        minutos: defaultMins,
-        sustituido: false,
-        comentarioGeneral: '',
-        descFisica: playerInDir.descFisica || '',
-        descTecnica: playerInDir.descTecnica || '',
-        descEmocional: playerInDir.descEmocional || '',
-        perfilRS: playerInDir.perfilRS || '',
-        stats: {
-          goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
-          regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-          duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
-          golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0, penaltiParado: 0
-        }
-      };
-    }
+
 
     const pEval = state.matchPlayerEvaluations[evalKey] || {
       rendimiento: '',
@@ -7016,14 +7174,6 @@
       descEmocional: '',
       perfilRS: ''
     };
-
-    // Merge tags from the match evaluation with global tags from the directory
-    let combinedTags = new Set(pEval.tags || []);
-    if (playerInDir) {
-      (playerInDir.tags || []).forEach(t => combinedTags.add(t));
-      (playerInDir.controlSeguimiento || []).forEach(t => combinedTags.add(t));
-    }
-    const mergedTagsArray = Array.from(combinedTags);
 
     const pStats = Object.assign({
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
@@ -7069,7 +7219,7 @@
           </div>
           <div style="display: flex; gap: 8px;">
             <button type="button" class="btn btn-secondary" id="btnClosePlayerMatchModal" style="font-size: 11px; padding: 6px 12px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);">Cerrar</button>
-            <button type="button" class="btn btn-primary" id="btnSavePlayerMatchReport" style="font-size: 11px; padding: 6px 14px; background: var(--bg-card); color: #1d4ed8; font-weight: 800; border: none;">💾 Guardar Ficha</button>
+            <button type="button" class="btn btn-primary" id="btnSavePlayerMatchReport" style="font-size: 11px; padding: 6px 14px; background: #ffffff; color: #1d4ed8; font-weight: 800; border: none;">💾 Guardar Ficha</button>
           </div>
         </div>
 
@@ -7086,7 +7236,10 @@
           <div style="display: flex; gap: 16px;">
             <!-- Rendimiento -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO</div>
+              <div class="rating-score-title mb-2" style="text-align: center;">
+                RENDIMIENTO
+                ${playerInDir && playerInDir.rendimientoAcumulado ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.rendimientoAcumulado} ${playerInDir.rendimientoAcumuladoAvgNum ? `(${playerInDir.rendimientoAcumuladoAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmRendimientoGroup">
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
@@ -7098,15 +7251,21 @@
 
             <!-- Potencial -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">POTENCIAL</div>
+              <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">
+                POTENCIAL
+                ${playerInDir && playerInDir.potencial ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.potencial} ${playerInDir.potencialAvgNum ? `(${playerInDir.potencialAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmPotencialGroup">
-                ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : 'var(--bg-card)'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
+                ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : '#fff'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
               </div>
             </div>
 
             <!-- Rendimiento RS -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
+              <div class="rating-score-title mb-2" style="text-align: center;">
+                RENDIMIENTO RS
+                ${playerInDir && playerInDir.rendimientoRS ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.rendimientoRS} ${playerInDir.rendimientoRSAvgNum ? `(${playerInDir.rendimientoRSAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
@@ -7118,16 +7277,39 @@
 
             <!-- Perfil RS -->
             <div class="form-group" style="margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start;">
-              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">PERFIL DEL JUGADOR (RS)</label>
-              ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
-              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">
+                PERFIL DEL JUGADOR (RS)
+                ${playerInDir && playerInDir.perfilRS ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${escapeHtml(playerInDir.perfilRS)}</span>` : ''}
+              </label>
+              
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 2px;">${escapeHtml(pPos)}</div>
+                  ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
+                  <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+                </div>
+                <div id="pmPerfilRS2Wrapper" style="flex: 1; min-width: 0; display: ${(pPos2 || pEval.posicionAlternativa) ? 'block' : 'none'};">
+                  <div id="pmPerfilRS2Label" style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 2px;">${escapeHtml(pPos2 || pEval.posicionAlternativa || '')}</div>
+                  <div id="pmPerfilRS2DropdownContainer">
+                    ${buildFilteredPerfilKeepOpenHTML(pPos2 || pEval.posicionAlternativa || '', 'pmPerfilRS2')}
+                  </div>
+                  <textarea id="pmPerfilRS2" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil (Alt)...">${escapeHtml(pEval.perfilRS2 || '')}</textarea>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
-          <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
+          ${playerInDir && ((playerInDir.tags || []).length > 0 || (playerInDir.controlSeguimiento || []).length > 0) ? `
+          <div style="text-align: center; margin-top: 8px; margin-bottom: -4px;">
+            <span style="font-size:10px; font-weight:800;">ETIQUETAS Y SEGUIMIENTO</span><br>
+            <span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">
+              Histórico: ${escapeHtml([...new Set([...(playerInDir.tags || []), ...(playerInDir.controlSeguimiento || [])])].filter(t => !['NO JUEGA', 'NO VISTO'].includes(t)).join(', ') || 'Ninguna')}
+            </span>
+          </div>` : ''}
+          <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); ${playerInDir && ((playerInDir.tags || []).length > 0 || (playerInDir.controlSeguimiento || []).length > 0) ? 'margin-top: 12px;' : ''}">
             ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes(tag) ? 'active' : '')}" data-tag="${escapeAttr(tag)}">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes(tag) ? 'active' : '')}" data-tag="${escapeAttr(tag)}">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -7140,10 +7322,10 @@
               <input type="number" id="pmMinutos" class="form-control" value="${escapeAttr(pEval.minutos || 0)}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px; display: flex; gap: 4px;">
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO JUEGA') ? 'active' : '')}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes('NO JUEGA') ? 'active' : '')}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
                 NO JUEGA
               </button>
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO VISTO') ? 'active' : '')}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes('NO VISTO') ? 'active' : '')}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
                 NO VISTO
               </button>
             </div>
@@ -7293,7 +7475,7 @@
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
           b.classList.remove('active');
-          b.style.background = 'var(--bg-card)';
+          b.style.background = '#fff';
           b.style.color = '#ec4899';
           b.style.borderColor = 'rgba(236,72,153,0.3)';
         });
@@ -7336,7 +7518,7 @@
           modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
           modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
             b.classList.remove('active');
-            b.style.background = 'var(--bg-card)';
+            b.style.background = '#fff';
             b.style.color = '#ec4899';
             b.style.borderColor = 'rgba(236,72,153,0.3)';
           });
@@ -7529,6 +7711,25 @@
       if (modalFooter) modalFooter.style.display = '';
     });
 
+    const pmPosicionAlternativaSelect = modalContent.querySelector('#pmPosicionAlternativa');
+    if (pmPosicionAlternativaSelect) {
+      pmPosicionAlternativaSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const wrapper = modalContent.querySelector('#pmPerfilRS2Wrapper');
+        const label = modalContent.querySelector('#pmPerfilRS2Label');
+        const container = modalContent.querySelector('#pmPerfilRS2DropdownContainer');
+        if (wrapper && label && container) {
+          if (val) {
+            wrapper.style.display = 'block';
+            label.textContent = val;
+            container.innerHTML = buildFilteredPerfilKeepOpenHTML(val, 'pmPerfilRS2');
+          } else {
+            wrapper.style.display = 'none';
+          }
+        }
+      });
+    }
+
     // Save Button
     modalContent.querySelector('#btnSavePlayerMatchReport')?.addEventListener('click', () => {
       const activeRSBtn = modalContent.querySelector('#pmRendimientoRSGroup .rs-pill-btn.active');
@@ -7562,6 +7763,7 @@
         posicionAlternativa: modalContent.querySelector('#pmPosicionAlternativa')?.value || '',
         posicionAlternativaNota: modalContent.querySelector('#pmPosicionAlternativaNota')?.value || '',
         perfilRS: modalContent.querySelector('#pmPerfilRS')?.value || '',
+        perfilRS2: modalContent.querySelector('#pmPerfilRS2')?.value || '',
         stats: pStats
       };
 
@@ -8709,6 +8911,15 @@
       return new Date(b.fecha) - new Date(a.fecha);
     });
 
+    let notasJugadorArr = [];
+    allMatchHistory.forEach(ev => {
+      if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) return;
+      if (ev.rendimiento && ev.rendimiento !== '-') {
+        notasJugadorArr.push(ev.rendimiento);
+      }
+    });
+    const notasJugadorStr = notasJugadorArr.length > 0 ? notasJugadorArr.join(', ') : '-';
+
     let displayPosPri = player.posicionPrincipal || player.posicion || '';
     let displayPosSec = player.posicionSecundaria || '';
 
@@ -8860,7 +9071,7 @@
           
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
@@ -8919,7 +9130,13 @@
               <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
             </div>
           </div>
-          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
+              <div class="ficha-stat-label">VALORACIONES</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; font-weight: 800;">
+                 ${notasJugadorStr}
+              </div>
+            </div>
             <div class="ficha-stat-box" id="btnAtributosCard" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
               <div class="ficha-stat-label">ATRIBUTOS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -9077,6 +9294,24 @@
     if (btnEstadisticasEmergente) {
       btnEstadisticasEmergente.onclick = () => {
         let statsPorComp = player.statsPorCompeticion;
+        let tTitular = 0, tSuplente = 0;
+        
+        // Count Titular/Suplente from reports
+        const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+        if (pNameLower) {
+          (state.reports || []).forEach(rep => {
+            let isTitular = false; let isSuplente = false;
+            const checkT = (pObj, teamName) => { if (pObj && isSamePlayerName(pObj.name||'', player.nombre, teamName, player.equipo)) isTitular = true; };
+            const checkS = (pObj, teamName) => { if (pObj && isSamePlayerName(pObj.name||'', player.nombre, teamName, player.equipo)) isSuplente = true; };
+            (rep.localTitulares || []).forEach(p => checkT(p, rep.localTeam || rep.local));
+            (rep.visitanteTitulares || []).forEach(p => checkT(p, rep.visitanteTeam || rep.visitante));
+            (rep.localSuplentes || []).forEach(p => checkS(p, rep.localTeam || rep.local));
+            (rep.visitanteSuplentes || []).forEach(p => checkS(p, rep.visitanteTeam || rep.visitante));
+            
+            if (isTitular) tTitular++;
+            if (isSuplente) tSuplente++;
+          });
+        }
         
         if (!statsPorComp && player.historialEvaluaciones) {
           statsPorComp = {};
@@ -9096,12 +9331,37 @@
         
         statsPorComp = statsPorComp || {};
         
-        let estadisticasHtml = Object.keys(statsPorComp).length > 0
-          ? Object.entries(statsPorComp).map(([c, s]) => `
+        let mStats = player.manualStats || { goles: 0, amarillas: 0, rojas: 0, titular: 0, suplente: 0, convocado: 0 };
+        let autoGoles = 0, autoAmarillas = 0, autoRojas = 0;
+        Object.values(statsPorComp).forEach(s => { autoGoles += (s.goles||0); autoAmarillas += (s.amarillas||0); autoRojas += (s.rojas||0); });
+        
+        let tGoles = autoGoles + (mStats.goles||0);
+        let tAmarillas = autoAmarillas + (mStats.amarillas||0);
+        let tRojas = autoRojas + (mStats.rojas||0);
+        let totalTitular = tTitular + (mStats.titular||0);
+        let totalSuplente = tSuplente + (mStats.suplente||0);
+        let totalConvocado = (tTitular + tSuplente) + (mStats.convocado||0);
+        
+        let estadisticasHtml = `
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+            <div style="font-weight: 800; font-size: 14px; margin-bottom: 8px; color: var(--primary-blue); border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">RESUMEN TOTAL (Informes + Manual)</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-dark); font-weight: 700;">
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Titular">▶️</span> <strong>${totalTitular}</strong> Titular</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Suplente">🔄</span> <strong>${totalSuplente}</strong> Suplente</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Convocado">📋</span> <strong>${totalConvocado}</strong> Convocatorias</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Goles">⚽</span> <strong>${tGoles}</strong> Goles</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Amarillas">🟨</span> <strong>${tAmarillas}</strong> Amarillas</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Rojas">🟥</span> <strong>${tRojas}</strong> Rojas</div>
+            </div>
+          </div>
+        `;
+        
+        if (Object.keys(statsPorComp).length > 0) {
+          estadisticasHtml += Object.entries(statsPorComp).map(([c, s]) => `
             <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
               <div style="font-weight: 800; font-size: 14px; margin-bottom: 8px; color: var(--text-main); border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">${escapeHtml(c)}</div>
               <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary);">
-                <div style="display: flex; align-items: center; gap: 4px;"><span title="Minutos Jugados">⏱️</span> <strong>${s.minutos}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Minutos Jugados">⏱️</span> <strong>${s.minutos} min</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Goles">⚽</span> <strong>${s.goles}</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Asistencias">🅰️</span> <strong>${s.asistencias}</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Amarillas">🟨</span> <strong>${s.amarillas}</strong></div>
@@ -9109,8 +9369,10 @@
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Penaltis Parados">🧤</span> <strong>${s.penaltiParado}</strong></div>
               </div>
             </div>
-          `).join('')
-          : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin estadísticas registradas</div>`;
+          `).join('');
+        } else {
+          estadisticasHtml += `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin estadísticas registradas en informes</div>`;
+        }
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -9190,7 +9452,7 @@
     const comunidad = player.comunidad || 'Navarra';
     const localidad = player.localidad || 'Pamplona';
 
-    let _piernaRaw = String(player.pierna || 'Derecha').toLowerCase();
+    let _piernaRaw = String(player.lateralidad || player.pierna || 'Derecha').toLowerCase();
     let pierna = 'Derecha';
     if (_piernaRaw.includes('izq') || _piernaRaw.includes('zur')) pierna = 'Izquierda';
     else if (_piernaRaw.includes('ambid')) pierna = 'Ambidiestro';
@@ -9422,12 +9684,11 @@
                 </div>
 
                 <div class="form-group mb-4">
-                  <label class="form-label">ESTADO JUGADOR (TEMPORADA 2026/2027)</label>
+                  <label class="form-label">ESTADO JUGADOR</label>
                   <div class="status-pill-group" id="pfEstadoGroup">
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'ALTA' ? 'active' : '')}" data-val="ALTA">ALTA</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'RENOVACIÓN' ? 'active' : '')}" data-val="RENOVACIÓN">RENOVACIÓN</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'BAJA' ? 'active' : '')}" data-val="BAJA">BAJA</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'SUBE DE EQUIPO INFERIOR' ? 'active' : '')}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Renovación' ? 'active' : '')}" data-val="Renovación">RENOVACIÓN</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Sube' ? 'active' : '')}" data-val="Sube">SUBE</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Alta' ? 'active' : '')}" data-val="Alta">ALTA</button>
                   </div>
                 </div>
 
@@ -9542,16 +9803,16 @@
                 <label class="form-label">POSICIÓN PRINCIPAL</label>
                 <select id="pfPosicion" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeAttr(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
+                  ${['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionPrincipal && !['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].includes(posicionPrincipal) ? `<option value="${escapeAttr(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">POSICIÓN SECUNDARIA</label>
                 <select id="pfPosicionSecundaria" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeAttr(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
+                  ${['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionSecundaria && !['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].includes(posicionSecundaria) ? `<option value="${escapeAttr(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -9703,8 +9964,38 @@
                     </div>
                   </div>
                 `).join('')
-      : `<div style="color: var(--text-muted); font-size:13px;">Sin estadísticas registradas</div>`}
+      : `<div style="color: var(--text-muted); font-size:13px;">Sin estadísticas registradas del informe</div>`}
               </div>
+            </div>
+
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="edit-3"></i> ESTADÍSTICAS MANUALES (Se suman al total)
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;" class="mb-4">
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">⚽ Goles</label>
+                 <input type="number" id="pfManualGoles" class="form-control" value="${player.manualStats?.goles || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🟨 Amarillas</label>
+                 <input type="number" id="pfManualAmarillas" class="form-control" value="${player.manualStats?.amarillas || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🟥 Rojas</label>
+                 <input type="number" id="pfManualRojas" class="form-control" value="${player.manualStats?.rojas || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">▶️ Titular</label>
+                 <input type="number" id="pfManualTitular" class="form-control" value="${player.manualStats?.titular || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🔄 Suplente</label>
+                 <input type="number" id="pfManualSuplente" class="form-control" value="${player.manualStats?.suplente || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">📋 Convocado</label>
+                 <input type="number" id="pfManualConvocado" class="form-control" value="${player.manualStats?.convocado || 0}">
+               </div>
             </div>
 
             <div class="player-section-title mb-2 mt-4">
@@ -9846,7 +10137,7 @@
               </div>
               
               <!-- Radar Chart Container -->
-              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: center; position: relative;">
+              <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: center; position: relative;">
                 <canvas id="playerAtributosChart" width="300" height="300"></canvas>
               </div>
             </div>
@@ -9925,7 +10216,7 @@
       p.nombre = document.getElementById('pfNombre')?.value.trim() || p.nombre || '';
       p.dorsal = document.getElementById('pfDorsal')?.value.trim() || '';
       const activeEstado = document.querySelector('#pfEstadoGroup .status-pill-btn.active');
-      p.estado = activeEstado ? activeEstado.dataset.val : (p.estado || 'ALTA');
+      p.estado = activeEstado ? activeEstado.dataset.val : (p.estado || 'Alta');
       p.equipo = document.getElementById('pfEquipo')?.value.trim() || '';
       p.equipoSecundario = document.getElementById('pfEquipoSecundario')?.value.trim() || '';
       p.seleccion = document.getElementById('pfSeleccion')?.value.trim() || '';
@@ -9937,6 +10228,7 @@
       p.localidad = document.getElementById('pfLocalidad')?.value.trim() || '';
 
       p.pierna = document.getElementById('pfPierna')?.value || 'Derecha';
+      p.lateralidad = p.pierna;
       p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
       p.proyeccion = document.getElementById('pfProyeccion')?.value || '';
       let posP = document.getElementById('pfPosicion')?.value || '';
@@ -9965,6 +10257,15 @@
       p.transfermarkt = document.getElementById('pfTransfermarkt')?.value.trim() || '';
       p.besoccer = document.getElementById('pfBesoccer')?.value.trim() || '';
       p.telefono = document.getElementById('pfTelefono')?.value.trim() || '';
+
+      p.manualStats = {
+         goles: parseInt(document.getElementById('pfManualGoles')?.value || 0),
+         amarillas: parseInt(document.getElementById('pfManualAmarillas')?.value || 0),
+         rojas: parseInt(document.getElementById('pfManualRojas')?.value || 0),
+         titular: parseInt(document.getElementById('pfManualTitular')?.value || 0),
+         suplente: parseInt(document.getElementById('pfManualSuplente')?.value || 0),
+         convocado: parseInt(document.getElementById('pfManualConvocado')?.value || 0)
+      };
 
       // Este dato no tiene ningún control en el formulario: se leía un campo que no existe y, al no
       // encontrarlo, se reescribía con el valor por defecto en cada guardado. Se conserva lo que
@@ -11346,7 +11647,7 @@
         badgesContainer.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Ningún tipo seleccionado</span>`;
       } else {
         badgesContainer.innerHTML = selectedClubTypes.map(t => `
-          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--accion-azul); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
             ${escapeHtml(t)}
             <button type="button" class="btn-remove-club-type" data-type="${escapeAttr(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
           </span>
@@ -11791,13 +12092,27 @@
     });
     allPlayersList.forEach(p => {
       const playerTeamNorm = normalizeStr(p.equipo || p.club || p.seleccion);
-      if ((playerTeamNorm === teamNameNorm || window.flexibleMatch(teamNameNorm, playerTeamNorm) || window.flexibleMatch(playerTeamNorm, teamNameNorm)) && p.nombre) {
+      if (playerTeamNorm && (playerTeamNorm === teamNameNorm || window.flexibleMatch(teamNameNorm, playerTeamNorm) || window.flexibleMatch(playerTeamNorm, teamNameNorm)) && p.nombre) {
         combinedPlantillaMap.set(normalizeStr(p.nombre), p.nombre);
       }
     });
     let localPlantillaList = Array.from(combinedPlantillaMap.values());
 
     const numPlantilla = localPlantillaList.length;
+    let yearCounts = {};
+    localPlantillaList.forEach(pName => {
+      const player = allPlayersList.find(p => {
+        const nP = normalizeStr(p.nombre || p.jugador || p.name);
+        const nName = normalizeStr(pName);
+        return nP === nName || window.flexibleMatch(nName, nP) || window.flexibleMatch(nP, nName);
+      });
+      if (player) {
+        const ano = player.anoNac || player.ano || '?';
+        yearCounts[ano] = (yearCounts[ano] || 0) + 1;
+      }
+    });
+    const yearKeys = Object.keys(yearCounts).sort((a,b) => b - a);
+    const yearStr = yearKeys.length > 0 ? yearKeys.map(k => `${k}: ${yearCounts[k]}`).join(' | ') : 'N/A';
 
     // Shield
     let shieldSrc = team.escudo || team.logo || '';
@@ -11816,12 +12131,14 @@
           <th style="padding: 10px; text-align: center;">Dorsal</th>
           <th style="padding: 10px; text-align: center;">Año</th>
           <th style="padding: 10px; text-align: center;">Posición</th>
+          <th style="padding: 10px; text-align: center;">Lateralidad</th>
+          <th style="padding: 10px; text-align: center;">Estado</th>
         </tr>
       </thead>
       <tbody>
     `;
     if (numPlantilla === 0) {
-      plantillaHTML += `<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
+      plantillaHTML += `<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
     } else {
       localPlantillaList.forEach(pName => {
         const player = allPlayersList.find(p => {
@@ -11834,8 +12151,10 @@
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 10px; font-weight: 600;"><a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(player.id)}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(pName)}</a></td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.dorsal || '-')}</td>
-              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}${getAgeBadgeHTML(player, team.categoria || team.competicion)}</td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.lateralidad || player.pierna || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.estado || '-')}</td>
             </tr>
           `;
         }
@@ -11894,7 +12213,7 @@
         staffHTML += `
           <tr style="border-bottom: 1px solid var(--border-light);">
             <td style="padding: 10px; font-weight: 600;">${nameHTML}</td>
-            <td style="padding: 10px; text-align: center; color: var(--text-muted);"><span style="background: var(--bg-subtle); padding: 2px 8px; border-radius: 4px; font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(sRol)}</span></td>
+            <td style="padding: 10px; text-align: center; color: var(--text-muted);"><span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 11px; color: #475569; font-weight: 600;">${escapeHtml(sRol)}</span></td>
           </tr>
         `;
       });
@@ -11913,11 +12232,11 @@
 
     let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
     if (destacados.length === 0) {
-      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: 8px; border: 1px dashed var(--border-medium);">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
+      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: white; border-radius: 8px; border: 1px dashed #cbd5e1;">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
     } else {
       destacados.forEach(p => {
         destacadosHTML += `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${escapeJsAttr(p.id)}')">
+          <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${escapeJsAttr(p.id)}')">
             <img src="${escapeAttr(p.foto || 'Foto Jugador General.png')}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${escapeAttr(themeColor)};">
             <div>
               <div style="font-weight: 800; color: var(--text-dark); font-size: 14px; margin-bottom: 2px;">${escapeHtml(p.nombre || p.jugador || 'Sin Nombre')}</div>
@@ -11936,7 +12255,7 @@
     let campogramaHTML = '';
     const formation = team.sistemaHabitual || '1-4-3-3';
     const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
     const curTextColor = getContrastColor(themeColor);
@@ -11960,7 +12279,7 @@
           <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
-              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}${getAgeBadgeHTML(p, team.categoria || team.competicion)}</span>
             </div>
           </div>
         `}).join('');
@@ -12002,7 +12321,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -12018,7 +12337,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Equipo">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12029,34 +12348,38 @@
             <button type="button" class="player-subtab" data-fichatab="plantilla">PLANTILLA</button>
             <button type="button" class="player-subtab" data-fichatab="staff">STAFF</button>
             <button type="button" class="player-subtab" data-fichatab="campograma">CAMPOGRAMA</button>
-            <button type="button" class="player-subtab" data-fichatab="destacados">DESTACADOS <span style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))}; border-radius: 12px; padding: 2px 6px; font-size: 10px; margin-left: 4px;">${destacados.length}</span></button>
+            <button type="button" class="player-subtab" data-fichatab="destacados">DESTACADOS <span style="background: var(--ficha-theme); color: white; border-radius: 12px; padding: 2px 6px; font-size: 10px; margin-left: 4px;">${destacados.length}</span></button>
           </div>
 
           <div id="fichaTab-resumen" class="ficha-tab-pane" style="display: block;">
             <div class="ficha-grid" style="gap: 20px;">
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">CLUB VINCULADO</div>
                 <div class="ficha-stat-value">${escapeHtml(team.clubVinculado || team.club || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">GRUPO</div>
                 <div class="ficha-stat-value">${escapeHtml(team.grupo || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">COMPETICIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(team.competicion || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(String(team.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PLANTILLA</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numPlantilla} Jugadores</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">STAFF TÉCNICO</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numStaff} Miembros</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+                <div class="ficha-stat-label">AÑOS DE NACIMIENTO (PLANTILLA)</div>
+                <div class="ficha-stat-value" style="color: var(--text-main); font-size: 14px;">${yearStr}</div>
               </div>
             </div>
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
@@ -12065,19 +12388,19 @@
           </div>
           
           <div id="fichaTab-plantilla" class="ficha-tab-pane" style="display: none;">
-             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
                ${plantillaHTML}
              </div>
           </div>
 
           <div id="fichaTab-staff" class="ficha-tab-pane" style="display: none;">
-             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
                ${staffHTML}
              </div>
           </div>
 
           <div id="fichaTab-campograma" class="ficha-tab-pane" style="display: none;">
-             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 16px;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 16px;">
                ${campogramaHTML}
              </div>
           </div>
@@ -12172,7 +12495,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${club.escudo || club.logo ? `<img src="${escapeAttr(club.escudo || club.logo)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -12188,7 +12511,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Club">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12201,33 +12524,33 @@
 
           <div id="fichaTabClub-resumen" class="ficha-tab-pane" style="display: block;">
             <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PAÍS</div>
                 <div class="ficha-stat-value">${escapeHtml(club.pais || 'España')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">COMUNIDAD</div>
                 <div class="ficha-stat-value">${escapeHtml(club.comunidad || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">LOCALIDAD</div>
                 <div class="ficha-stat-value">${escapeHtml(club.localidad || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(String(club.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">ESTADIO</div>
                 <div class="ficha-stat-value">${escapeHtml(club.estadio || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">EQUIPOS VINCULADOS</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numEquipos} Equipos</div>
               </div>
             </div>
 
-            ${club.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(club.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
+            ${club.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(club.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
             
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
                <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos e infraestructura del club.</p>
@@ -12235,7 +12558,7 @@
           </div>
 
           <div id="fichaTabClub-equipos" class="ficha-tab-pane" style="display: none;">
-             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 20px;">
+             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 20px;">
                ${equiposHTML}
              </div>
           </div>
@@ -12309,7 +12632,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(staff.foto || shieldSrc || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(staff.foto || shieldSrc || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -12323,26 +12646,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Staff">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EDAD</div>
               <div class="ficha-stat-value">${escapeHtml(staff.edad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CLUB VINCULADO</div>
               <div class="ficha-stat-value">${escapeHtml(staff.clubVinculado || staff.club || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(staff.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">SITUACIÓN CONTRACTUAL</div>
               <div class="ficha-stat-value">${escapeHtml(staff.contrato || '-')}</div>
             </div>
@@ -12483,8 +12806,8 @@
       <div class="team-modal-wrapper" style="border-top: 6px solid ${escapeAttr(colorPrimary)}; box-shadow: 0 -3px 12px ${escapeAttr(colorPrimary)}33;">
         <div id="teamModalHeaderBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, ${escapeAttr(colorPrimary)}22 0%, ${escapeAttr(colorSecondary)}22 100%); border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid ${escapeAttr(colorPrimary)}40;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              ${escudoData ? `<img src="${escapeAttr(escudoData)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: var(--bg-card);">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
+            <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              ${escudoData ? `<img src="${escapeAttr(escudoData)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
             </div>
             <div>
               <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">${escapeHtml(nombre || 'Equipo')}</h2>
@@ -12493,8 +12816,8 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-light);">
-              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorPrimary)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Principal: ${escapeAttr(colorPrimary)}"></span>
-              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorSecondary)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Secundario: ${escapeAttr(colorSecondary)}"></span>
+              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorPrimary)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(colorPrimary)}"></span>
+              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorSecondary)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(colorSecondary)}"></span>
             </div>
           </div>
         </div>
@@ -13014,7 +13337,7 @@
           }
           const headerBox = document.getElementById('teamHeaderEscudoBox');
           if (headerBox) {
-            headerBox.innerHTML = `<img src="${escapeAttr(clubLogo)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: var(--bg-card);">`;
+            headerBox.innerHTML = `<img src="${escapeAttr(clubLogo)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">`;
           }
         }
         const clubPri = foundClub.colorPrimary || foundClub.colorPrimario || foundClub.color1 || foundClub.colorCamiseta;
@@ -13377,7 +13700,8 @@
             const dorsalVal = foundPlayer.dorsal || '';
             dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
-            anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
+            const curCat = document.getElementById('tfCategoria')?.value || '';
+            anoHTML = `<div style="display: flex; align-items: center; justify-content: center;"><input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center; min-width: 0;">${getAgeBadgeHTML(foundPlayer, curCat)}</div>`;
             let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             let posSec = foundPlayer.posicionSecundaria || '';
 
@@ -13461,14 +13785,14 @@
               }
             }
 
-            let _pRaw = String(foundPlayer.pierna || '').toLowerCase();
+            let _pRaw = String(foundPlayer.lateralidad || foundPlayer.pierna || '').toLowerCase();
             let pierna = _pRaw ? 'Derecha' : '';
             if (_pRaw.includes('izq') || _pRaw.includes('zur')) pierna = 'Izquierda';
             else if (_pRaw.includes('ambid')) pierna = 'Ambidiestro';
             const estado = foundPlayer.estado || 'ALTA';
             const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
 
-            const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+            const posicionesOpts = ['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
             const generatePosOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += posicionesOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -13491,7 +13815,7 @@
               return opts;
             };
 
-            const estadoOpts = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
+            const estadoOpts = ['Renovación', 'Sube', 'Alta'];
             const generateEstadoOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += estadoOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -13629,7 +13953,7 @@
 
       const formation = sysSelect.value || '1-4-3-3';
       const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
       // Resolve valid player objects for squad from directory
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
@@ -13680,7 +14004,7 @@
             <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}${getAgeBadgeHTML(p, document.getElementById('tfCategoria')?.value)}</span>
               </div>
             </div>
           `}).join('');
@@ -13745,7 +14069,7 @@
       const curSys = document.getElementById('tfCampogramaSistema')?.value || sistemaHabitual || '1-4-3-3';
 
       const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
@@ -13974,7 +14298,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -13989,28 +14313,28 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">SEDE / CIUDAD</div>
               <div class="ficha-stat-value">${escapeHtml(fed.sede || fed.ciudad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">PRESIDENTE</div>
               <div class="ficha-stat-value">${escapeHtml(fed.presidente || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AÑO FUNDACIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(fed.fundacion || fed.anoFundacion || '-')}</div>
             </div>
           </div>
           
-          ${fed.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(fed.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${fed.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(fed.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y las observaciones.</p>
@@ -14050,7 +14374,7 @@
         const cDate = escapeHtml(c.fechaInicio || c.fecha || '');
         const cAct = escapeHtml(c.tipoActividad || '');
         listHtml += `
-          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="window.openConvocatoriaFichaReadOnly('${escapeJsAttr(c.id || c.codigo)}')">
+          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="window.openConvocatoriaFichaReadOnly('${escapeJsAttr(c.id || c.codigo)}')">
             <div>
               <div style="font-weight: 700; color: var(--primary-blue); font-size: 14px;">${cName}</div>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${cDate ? `<strong>Fechas:</strong> ${cDate} ` : ''}${cAct ? `&nbsp;|&nbsp; <strong>Tipo:</strong> ${cAct}` : ''}</div>
@@ -14117,7 +14441,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14133,26 +14457,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); display: grid;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">FEDERACIÓN</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(String(federacionNombre || '').split(' - ')[0] || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">SELECCIONADOR</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(primerEntrenador)}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeJsAttr(sel.nombre || sel.seleccion || '')}')">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeJsAttr(sel.nombre || sel.seleccion || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CONVOCATORIAS</div>
               <div class="ficha-stat-value" style="font-size: 18px; font-weight: 800; color: var(--primary-blue);">${selConvocatorias.length}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeJsAttr(sel.id || sel.codigo || '')}')">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeJsAttr(sel.id || sel.codigo || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CAMPOGRAMAS</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 800; color: var(--primary-blue); margin-top: 4px;"><i data-lucide="layout-template" style="width: 16px; height: 16px; vertical-align: middle;"></i> Ver Táctica</div>
             </div>
@@ -14270,37 +14594,37 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">FECHAS</div>
               <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(conv.fechaInicio || '-')} al ${escapeHtml(conv.fechaFin || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">COMPETICIÓN / MOTIVO</div>
               <div class="ficha-stat-value">${escapeHtml(conv.competicion || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">LUGAR</div>
               <div class="ficha-stat-value">${escapeHtml(conv.lugar || conv.sede || '-')}</div>
             </div>
-            <div class="ficha-stat-box" id="btnViewConvocados" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+            <div class="ficha-stat-box" id="btnViewConvocados" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">JUGADORES CONVOCADOS</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${numJugadores} Jugadores</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="users" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver plantilla</div>
             </div>
-            <div class="ficha-stat-box" id="btnViewCampogramaConv" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+            <div class="ficha-stat-box" id="btnViewCampogramaConv" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">CAMPOGRAMA</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(conv.sistemaTactico || '1-4-3-3')}</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="layout-template" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver mapa táctico</div>
             </div>
             ${Array.isArray(conv.partidosList) && conv.partidosList.length > 0 ? `
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                 ${conv.partidosList.map(p => `
@@ -14315,7 +14639,7 @@
               </div>
             </div>
             ` : (conv.partidos ? `
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div class="ficha-stat-value" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(conv.partidos)}</div>
             </div>
@@ -14377,7 +14701,7 @@
       return { nombre: pName, demarcacion: item.pos1 || 'MC', id: null };
     }).filter(Boolean);
 
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[sys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
 
     let resolvedColor = '#2563eb';
@@ -14545,7 +14869,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14561,26 +14885,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EDICIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(t.edicion || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">FECHAS</div>
               <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(t.fechaInicio || '-')} al ${escapeHtml(t.fechaFin || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">UBICACIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(t.ciudad || t.pais || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EQUIPOS PARTICIPANTES</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(t.numEquipos || '-')}</div>
             </div>
@@ -14618,7 +14942,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14633,32 +14957,32 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CIUDAD SEDE</div>
               <div class="ficha-stat-value">${escapeHtml(ag.ciudad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(ag.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EMAIL</div>
               <div class="ficha-stat-value">${escapeHtml(ag.email || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AGENTES ASOCIADOS</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${numAgentes} Agentes</div>
             </div>
           </div>
           
-          ${ag.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(ag.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${ag.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(ag.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su descripción y datos de contacto extra.</p>
@@ -14695,7 +15019,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(agt.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(agt.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -14709,26 +15033,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(agt.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EMAIL</div>
               <div class="ficha-stat-value">${escapeHtml(agt.email || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">LICENCIA FIFA</div>
               <div class="ficha-stat-value">${escapeHtml(agt.licencia || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">NIVEL</div>
               <div class="ficha-stat-value">${escapeHtml(agt.nivel || '-')}</div>
             </div>
@@ -14774,9 +15098,9 @@
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               ${est.foto ? `
-                <img src="${escapeAttr(est.foto)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <img src="${escapeAttr(est.foto)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
               ` : `
-                <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                   <i data-lucide="map-pin" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
                 </div>
               `}
@@ -14793,26 +15117,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CAPACIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(est.capacidad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TIPO DE CÉSPED</div>
               <div class="ficha-stat-value">${escapeHtml(est.tipoCesped || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">DIMENSIONES</div>
               <div class="ficha-stat-value">${escapeHtml(est.dimensiones || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AÑO CONSTRUCCIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(est.construccion || '-')}</div>
             </div>
@@ -15887,7 +16211,7 @@
           let dispAno = j.ano || (foundP ? (foundP.ano || foundP.anoNacimiento || '') : '');
 
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundP.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
-          const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+          const posOptions = ['-', 'PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
           const pos1HTML = `<select class="form-control sel-jugador-pos1" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos1 === p || (!dispPos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${escapeAttr(idx)}" value="${escapeAttr(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
@@ -16082,7 +16406,7 @@
 
       const formation = sysSelect.value || '1-4-3-3';
       const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
       // Filter convocatorias belonging ONLY to THIS selección
       const allConvocatorias = state.directory.convocatorias || [];
@@ -16242,7 +16566,7 @@
       const convText = convSelect && convSelect.options[convSelect.selectedIndex] ? convSelect.options[convSelect.selectedIndex].text : '';
 
       const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
       // Active convocatoria players
       const allConvocatorias = state.directory.convocatorias || [];
@@ -19464,9 +19788,9 @@
       const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${escapeJsAttr(c.codigo)}.png` : `./escudos/${String(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
 
       return `
-              <div class="convenido-item-card" data-club-name="${escapeAttr(c.nombre)}" data-club-id="${escapeAttr(c.id || '')}" style="background: var(--bg-card); border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${escapeAttr(clubPriColor)}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
+              <div class="convenido-item-card" data-club-name="${escapeAttr(c.nombre)}" data-club-id="${escapeAttr(c.id || '')}" style="background: #ffffff; border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${escapeAttr(clubPriColor)}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${escapeAttr(clubPriColor)}; padding: 2px; flex-shrink: 0;">
+                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${escapeAttr(clubPriColor)}; padding: 2px; flex-shrink: 0;">
                     <img src="${escapeAttr(clubLogo)}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: contain;">
                   </div>
                   <div style="flex: 1; overflow: hidden;">
@@ -21453,8 +21777,26 @@
     const filterValPos = document.getElementById('dirFilterPosicion')?.value.toLowerCase().trim() || '';
     const filterValOtro = document.getElementById('dirFilterOtro')?.value.toLowerCase().trim() || '';
 
+    function getConvocatoriaCategoria(conv) {
+      if (!conv) return 'Sin Categoría';
+      if (conv.categoria) return String(conv.categoria).trim();
+      const selName = String(conv.seleccion || conv.seleccionVinculada || conv.nombre || '').trim();
+      if (!selName) return 'Sin Categoría';
+      const sel = (state.directory.selecciones || []).find(s => String(s.nombre || s.seleccion || '').trim().toLowerCase() === selName.toLowerCase());
+      if (sel && sel.categoria) return String(sel.categoria).trim();
+      const match = selName.match(/(Sub\d{2}|Absolut[ao]|Alev[ií]n|Infantil|Cadete|Juvenil|Amateur)/i);
+      if (match) return match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+      return 'Sin Categoría';
+    }
+
     // All items returned cleanly without filter interference
     let subFilteredItems = rawItems;
+
+    if (currentDirectoryTab === 'convocatorias') {
+      if (currentSubCategoryFilter !== 'TODOS') {
+        subFilteredItems = subFilteredItems.filter(item => getConvocatoriaCategoria(item).toUpperCase() === currentSubCategoryFilter.toUpperCase());
+      }
+    }
 
     if (currentDirectoryTab === 'equipos') {
       if (currentSubCategoryFilter !== 'TODOS') {
@@ -21589,7 +21931,7 @@
                         data-val="${escapeAttr(cat)}" 
                         draggable="${escapeAttr(isDraggable)}" 
                         title="${escapeAttr(cat)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" 
-                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
+                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
                   ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(cat)}
                 </button>
               `;
@@ -21600,7 +21942,7 @@
             <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
               <i data-lucide="layers" style="width: 14px;"></i> Grupo:
             </span>
-            <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
+            <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: #ffffff; color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
               ${allGroups.map(grp => `
                 <option value="${escapeAttr(grp)}" ${currentSubGroupFilter === grp ? 'selected' : ''}>${escapeHtml(grp)}</option>
               `).join('')}
@@ -21652,6 +21994,31 @@
 
       const allComs = ['TODAS', ...comList];
 
+      let categoriasBarHTML = '';
+      if (currentDirectoryTab === 'convocatorias') {
+        const catSet = new Set();
+        rawItems.forEach(item => {
+          catSet.add(getConvocatoriaCategoria(item));
+        });
+        const categories = Array.from(catSet).sort();
+        const allCats = ['TODOS', ...categories];
+        categoriasBarHTML = `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="filter" style="width: 14px;"></i> Categoría:
+          </span>
+          ${allCats.map(cat => {
+            const isActive = currentSubCategoryFilter === cat;
+            return `
+            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="categoria" data-val="${escapeAttr(cat)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+              ${escapeHtml(cat)}
+            </button>
+            `;
+          }).join('')}
+        </div>
+        `;
+      }
+
       const genderBarHTML = currentDirectoryTab === 'selecciones' ? `
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
@@ -21660,7 +22027,7 @@
           ${['TODOS', 'Masculino', 'Femenino'].map(gender => {
         const isActive = currentGenderFilter === gender;
         return `
-            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="genero" data-val="${escapeAttr(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="genero" data-val="${escapeAttr(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${escapeHtml(gender)}
             </button>
             `;
@@ -21669,7 +22036,6 @@
       ` : '';
 
       subFilterBarHTML = `
-        ${genderBarHTML}
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
@@ -21685,12 +22051,14 @@
                     data-val="${escapeAttr(comName)}" 
                     draggable="${escapeAttr(isDraggable)}" 
                     title="${escapeAttr(comName)} (Arrastra para reordenar)" 
-                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(comName)}
             </button>
           `;
       }).join('')}
         </div>
+        ${categoriasBarHTML}
+        ${genderBarHTML}
       `;
     } else if (currentDirectoryTab === 'estadios') {
       const comunidadesSet = new Set(rawItems.map(est => String(est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
@@ -21721,7 +22089,7 @@
                     data-val="${escapeAttr(com)}" 
                     draggable="${escapeAttr(isDraggable)}" 
                     title="${escapeAttr(com)} (Arrastra para reordenar)"
-                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
+                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(com)}
             </button>
             `;
@@ -21752,7 +22120,7 @@
             const label = cargo === 'all' ? 'Todos los Cargos' : cargo;
             const isDraggable = cargo !== 'all';
             return `
-              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${escapeAttr(isActive ? 'active' : '')}" data-type="cargo" data-val="${escapeAttr(cargo)}" draggable="${escapeAttr(isDraggable)}" title="${escapeAttr(label)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
+              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${escapeAttr(isActive ? 'active' : '')}" data-type="cargo" data-val="${escapeAttr(cargo)}" draggable="${escapeAttr(isDraggable)}" title="${escapeAttr(label)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
                 ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(label)}
               </button>
             `;
@@ -21811,7 +22179,7 @@
           
           <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-subtle, #f8fafc); padding: 3px 8px; border-radius: 8px; border: 1px solid var(--border-light);">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Pág.</span>
-            <input type="number" class="dir-page-jump-input" min="1" max="${escapeAttr(totalPages)}" value="${escapeAttr(currentDirectoryPage)}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: var(--bg-card);">
+            <input type="number" class="dir-page-jump-input" min="1" max="${escapeAttr(totalPages)}" value="${escapeAttr(currentDirectoryPage)}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: #ffffff;">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">de ${totalPages}</span>
             <button type="button" class="btn btn-primary btn-dir-jump-go" style="padding: 4px 8px; font-size: 11px; font-weight: 800; border-radius: 6px;">Ir</button>
           </div>
@@ -21827,7 +22195,7 @@
       <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 8px; align-items: center;">
         <span id="dirSelectedCount" style="font-size: 13px; font-weight: 700; color: var(--text-muted);">0</span> <span style="font-size: 13px; color: var(--text-muted);">seleccionados</span>
         <button id="btnBulkDeleteDir" class="btn btn-danger hidden" style="display: none; align-items: center; gap: 4px; padding: 6px 12px; font-size: 12px; font-weight: 700;">
-          <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar <span id="dirBulkDeleteBadge" class="badge" style="background: var(--bg-card); color: #ef4444; border-radius: 50%; padding: 2px 6px; margin-left: 4px;">0</span>
+          <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar <span id="dirBulkDeleteBadge" class="badge" style="background: white; color: #ef4444; border-radius: 50%; padding: 2px 6px; margin-left: 4px;">0</span>
         </button>
       </div>
     ` : '';
@@ -21865,6 +22233,8 @@
                   <th style="padding: 12px 16px; width: 12%;">POS. 1</th>
                   <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
                   <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
+                  <th style="padding: 12px 16px; width: 8%;">P. VISTOS</th>
+                  <th style="padding: 12px 16px; width: 10%;">VALORACIÓN</th>
                   <th style="padding: 12px 16px; width: 12%;">PROYECCIÓN</th>
                 </tr>
               </thead>
@@ -21873,6 +22243,17 @@
           let rowBgStyle = '';
           if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
           else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          
+          let evals = j.historialEvaluaciones || [];
+          let pVistos = 0;
+          let notasArr = [];
+          evals.forEach(ev => {
+             if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) return;
+             pVistos++;
+             if (ev.rendimiento && ev.rendimiento !== '-') notasArr.push(ev.rendimiento);
+          });
+          let notasDirStr = notasArr.length > 0 ? notasArr.join(', ') : '-';
+
           return `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${escapeAttr(rowBgStyle)}" class="dir-table-row">
                     <td style="padding: 10px 8px; text-align: center; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};">
@@ -21886,14 +22267,16 @@
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
+                    <td style="padding: 8px 12px; font-weight: 800; text-align: center;">${pVistos}</td>
+                    <td style="padding: 8px 12px; font-weight: 800; color: var(--primary-blue);">${escapeHtml(notasDirStr)}</td>
                     <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
                   </tr>`;
         }).join('')}
@@ -21988,7 +22371,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(clubPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(clubPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       <img src="${escapeAttr(clubLogo)}" data-tried="0" onerror="
                         if (this.dataset.tried === '0' && '${escapeJsAttr(c.codigo)}') {
                           this.dataset.tried = '1';
@@ -21998,7 +22381,7 @@
                           if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                         }
                       " style="width: 100%; height: 100%; object-fit: contain;">
-                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(clubPriColor)}; color: ${escapeAttr(getContrastColor(clubPriColor))}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
+                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(clubPriColor)}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -22111,13 +22494,33 @@
           const localEscudoPath = `./escudos/${cleanName}.png`;
           const finalImgSrc = eqLogo || (clubCodigo ? `./escudos/${clubCodigo}.png` : localEscudoPath);
 
+          let countDestacados = 0;
+          let countTargetAge = 0;
+          if (eq.plantilla && Array.isArray(eq.plantilla) && state.directory && Array.isArray(state.directory.jugadores)) {
+            const locNormalizar = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+            const plantillaLower = eq.plantilla.map(n => locNormalizar(typeof n === 'string' ? n : (n.nombre || n.jugador || n.name || '')));
+            state.directory.jugadores.forEach(p => {
+              if (p) {
+                const pName = locNormalizar(p.nombre || p.jugador || p.name || '');
+                if (plantillaLower.includes(pName)) {
+                  if (p.controlSeguimiento && p.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+                    countDestacados++;
+                  }
+                  if (getAgeBadgeHTML(p, eq.categoria || eq.competicion) !== '') {
+                    countTargetAge++;
+                  }
+                }
+              }
+            });
+          }
+
           return `
               <div class="entity-card" style="border-top: 5px solid ${escapeAttr(eqPriColor)} !important; background: linear-gradient(180deg, ${escapeAttr(eqPriColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(eq.id || eq.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(eqPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(eqPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       ${eqLogo ? `<img src="${escapeAttr(eqLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `
                         <img src="${escapeAttr(finalImgSrc)}" data-tried="0" onerror="
                           if (this.dataset.tried === '0' && '${clubCodigo}') {
@@ -22131,15 +22534,23 @@
                             if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                           }
                         " style="width: 100%; height: 100%; object-fit: contain;">
-                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(eqPriColor)}; color: ${escapeAttr(getContrastColor(eqPriColor))}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
+                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(eqPriColor)}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
                       `}
                     </div>
                   </div>
                   <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--accion-azul); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
+                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--primary-blue, #2563eb); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
                       <i data-lucide="users" style="width: 16px; height: 16px;"></i>
                       ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
                     </span>
+                    ${countDestacados > 0 ? `
+                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: #fbbf24; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);" title="Jugadores Destacados en la plantilla">
+                      <span>⭐</span> ${countDestacados}
+                    </span>` : ''}
+                    ${countTargetAge > 0 ? `
+                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: #ef4444; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);" title="Jugadores con Edad Destacada">
+                      <span>🎯</span> ${countTargetAge}
+                    </span>` : ''}
                     <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
                       <i data-lucide="trash-2" style="width: 14px;"></i>
                     </button>
@@ -22157,8 +22568,8 @@
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
                   ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
                   <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqPriColor)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Principal: ${escapeAttr(eqPriColor)}"></span>
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqSecColor)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Secundario: ${escapeAttr(eqSecColor)}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqPriColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(eqPriColor)}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqSecColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(eqSecColor)}"></span>
                   </span>
                 </div>
 
@@ -22200,10 +22611,29 @@
                   const estado = String(foundPlayer.estado || '').toUpperCase();
                   if (estado === 'ALTA') altas++;
                   else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
-                  else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+                  else if (estado === 'SUBE DE EQUIPO INFERIOR' || estado === 'SUBE') sube++;
                 }
               });
               return `${altas} | Renovaciones: ${renov} | Sube: ${sube}`;
+            })()}</div>
+                  <div style="font-weight: 800; color: var(--text-main); font-size: 11px;">Por Año: ${(() => {
+              const yearsCount = {};
+              const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+              (eq.plantilla || []).forEach(j => {
+                const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                const foundPlayer = playersPool.find(p =>
+                  (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                  (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                  (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                );
+                if (foundPlayer) {
+                  const ano = foundPlayer.anoNac || foundPlayer.ano || '?';
+                  yearsCount[ano] = (yearsCount[ano] || 0) + 1;
+                }
+              });
+              const keys = Object.keys(yearsCount).sort((a,b) => b - a);
+              if (keys.length === 0) return '-';
+              return keys.map(k => `${k}: ${yearsCount[k]}`).join(' | ');
             })()}</div>
                 </div>
 
@@ -22260,8 +22690,8 @@
                     <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
                       <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(fedColorPrimary)}; color: ${escapeAttr(getContrastColor(fedColorPrimary))}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(f.id || f.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -22387,8 +22817,8 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(s.id || s.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(selColor)}; color: ${escapeAttr(getContrastColor(selColor))}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                      ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(s.id || s.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -22473,7 +22903,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(convColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(convColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(convColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(convColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${badgeSrc
               ? `<img src="${escapeAttr(badgeSrc)}" style="width: 100%; height: 100%; object-fit: contain;">`
               : `<i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>`
@@ -22553,7 +22983,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(t.id || t.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(trnColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(trnColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(trnColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(trnColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${trnLogo ? `<img src="${escapeAttr(trnLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22741,7 +23171,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(ag.id || ag.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(agColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(agColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${ag.logo || ag.escudo ? `<img src="${escapeAttr(ag.logo || ag.escudo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22826,7 +23256,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(agt.id || agt.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agtColor)}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agtColor)}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${agt.foto || agt.imagen ? `<img src="${escapeAttr(agt.foto || agt.imagen)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<img src="Foto Jugador General.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`}
                     </div>
                   </div>
@@ -22903,7 +23333,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(est.id || est.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(estColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(estColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(estColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(estColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${est.foto || est.imagen ? `<img src="${escapeAttr(est.foto || est.imagen)}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22956,7 +23386,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(item.id || item.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(itemColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(itemColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(itemColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(itemColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       <span style="font-weight: 800; font-size: 16px;">${itemName.charAt(0)}</span>
                     </div>
                   </div>
@@ -23802,7 +24232,7 @@
             <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
           </div>
           
-          <h3 style="font-size: 22px; font-weight: 800; color: var(--ms-tinta-verde); margin: 0 0 10px 0;">
+          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
             🎉 ¡Importación de Clubes Completada con Éxito!
           </h3>
           
@@ -23969,7 +24399,7 @@
     }
 
     // Positions from player modal (only abbreviated codes)
-    const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['', 'PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
     const piernaOptions = ['Derecha', 'Izquierda', 'Ambidiestro'];
@@ -23990,26 +24420,26 @@
         alreadyExists = state.directory.staff.some(s => s && isSamePerson(s.nombre || s.staff || '', row.nombre || ''));
       }
 
-      const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : 'var(--bg-card)');
+      const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : '#ffffff');
 
       html += `
-        <tr data-idx="${escapeAttr(idx)}" style="border-bottom: 1px solid var(--border-light); background: ${escapeAttr(rowBg)}; transition: background 0.15s ease;">
-          <td style="padding: 6px; text-align: center; border-right: 1px solid var(--border-light);">
+        <tr data-idx="${escapeAttr(idx)}" style="border-bottom: 1px solid #e2e8f0; background: ${escapeAttr(rowBg)}; transition: background 0.15s ease;">
+          <td style="padding: 6px; text-align: center; border-right: 1px solid #f1f5f9;">
             <input type="checkbox" class="excel-row-cb" data-idx="${escapeAttr(idx)}" ${row.checked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
           </td>
 
-          <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid #f1f5f9;">
             ${idx + 1}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="tipo" style="font-size: 11px; font-weight: 800; padding: 3px 6px; height: 28px; background: ${escapeAttr(isStaff ? '#fef3c7' : '#dbeafe')}; color: ${escapeAttr(isStaff ? '#92400e' : '#1e40af')}; border-radius: 6px;">
               <option value="JUGADOR" ${row.tipo === 'JUGADOR' ? 'selected' : ''}>🏃 JUGADOR</option>
               <option value="STAFF" ${row.tipo === 'STAFF' ? 'selected' : ''}>👔 STAFF</option>
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             ${isStaff ? `
               <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="cargo" list="importerCargoList" value="${escapeAttr(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
             ` : `
@@ -24017,63 +24447,63 @@
             `}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="nombre" value="${escapeAttr(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px; border: ${escapeAttr(alreadyExists ? '1px solid #ef4444' : '')};" placeholder="Nombre...">
             ${alreadyExists ? `<div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-top: 2px; text-align: center;">⚠️ YA REGISTRADO</div>` : ''}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="ano" value="${escapeAttr(row.ano)}" style="font-size: 11px; font-weight: 700; text-align: center; padding: 3px 4px; height: 28px; width: 60px;" placeholder="Año">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pais" value="${escapeAttr(row.pais)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="País">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="sexo" style="font-size: 11px; padding: 3px 6px; height: 28px;">
               <option value="MASCULINO" ${row.sexo === 'MASCULINO' ? 'selected' : ''}>Masculino</option>
               <option value="FEMENINO" ${row.sexo === 'FEMENINO' ? 'selected' : ''}>Femenino</option>
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(row.equipo)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Equipo principal" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="estado" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${estadoOptions.map(e => `<option value="${e}" ${row.estado === e ? 'selected' : ''}>${e}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="comunidad" value="${escapeAttr(row.comunidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Comunidad">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="localidad" value="${escapeAttr(row.localidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Localidad">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pierna" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${piernaOptions.map(p => `<option value="${p}" ${row.pierna === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
+          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p || '(Ninguna)'}</option>`).join('')}
             </select>
@@ -24324,7 +24754,7 @@
             <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
           </div>
           
-          <h3 style="font-size: 22px; font-weight: 800; color: var(--ms-tinta-verde); margin: 0 0 10px 0;">
+          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
             🎉 ¡Importación Completada con Éxito!
           </h3>
           
@@ -25054,7 +25484,7 @@
             <!-- Izquierda: Datos Físicos y Resumen -->
             <div style="flex: 1; min-width: 300px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px;">
                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
-                  <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--accion-azul); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
+                  <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--primary-blue, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
                     ${String(stats.nombre || 'J').charAt(0).toUpperCase()}
                   </div>
                   <div>
@@ -25803,7 +26233,7 @@
               ${renderTextSection('Descripción Técnica / Táctica', player.descTecnica)}
               ${renderTextSection('Descripción Física', player.descFisica)}
               ${renderTextSection('Descripción Emocional / Carácter', player.descEmocional)}
-              ${renderTextSection('Perfil RS (Estilo de Juego)', player.perfilRS)}
+              ${renderTextSection('Perfil RS (Estilo de Juego)', [player.perfilRS, player.perfilRS2].filter(Boolean).join(' | '))}
               ${renderTextSection('Comentario General', player.comentarioGeneral)}
             </div>
 
@@ -25857,7 +26287,7 @@
       const selectedText = sel.options[sel.selectedIndex]?.text || '';
       const textNode = document.createElement('div');
       textNode.style.fontWeight = '800';
-      textNode.style.color = 'var(--text-main)';
+      textNode.style.color = '#1e293b';
       textNode.style.fontSize = '14px';
       textNode.style.marginBottom = '8px';
       textNode.textContent = selectedText.includes('-- Seleccionar') ? 'Sin seleccionar' : selectedText;
@@ -25938,7 +26368,7 @@
         pContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún.</span>`;
       } else {
         pContainer.innerHTML = `
-          <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: var(--ms-tinta-ambar); border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+          <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
             ⭐ Ver Equipos Prioritarios (${pTeams.length})
           </button>
         `;
@@ -25952,7 +26382,7 @@
         iContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos con jugadores interesantes aún.</span>`;
       } else {
         iContainer.innerHTML = `
-          <button type="button" class="btn btn-sm" id="btnViewInterestingTeams" style="background: rgba(147, 51, 234, 0.12); color: var(--tinta-morado); border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+          <button type="button" class="btn btn-sm" id="btnViewInterestingTeams" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
             👁️ Ver Equipos Interesantes (${iTeams.length})
           </button>
         `;
@@ -26004,15 +26434,15 @@
         <div style="margin-bottom: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;">
           <div style="background: var(--bg-subtle); padding: 8px 12px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
             <strong style="font-size: 13px; color: var(--primary-blue);">${escapeHtml(g.categoria)}</strong>
-            <span class="badge" style="background: #e2e8f0; color: var(--text-muted); font-size: 10px;">${escapeHtml(g.federacion)}</span>
+            <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px;">${escapeHtml(g.federacion)}</span>
           </div>
           <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
             ${g.teams.map(t => {
         const badgeStyle = isPriority
-          ? 'background: rgba(245, 158, 11, 0.12); color: var(--ms-tinta-ambar); border: 1px solid rgba(245, 158, 11, 0.3);'
-          : 'background: rgba(147, 51, 234, 0.12); color: var(--tinta-morado); border: 1px solid rgba(147, 51, 234, 0.3);';
+          ? 'background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3);'
+          : 'background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3);';
         const icon = isPriority ? '⭐' : '👁️';
-        const removeColor = isPriority ? 'var(--ms-tinta-ambar)' : 'var(--tinta-morado)';
+        const removeColor = isPriority ? '#b45309' : '#7e22ce';
         return `
               <span class="badge" style="${escapeAttr(badgeStyle)} font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 ${icon} ${escapeHtml(t.display)}
@@ -26092,25 +26522,49 @@
           const fecha = String(m.fecha || '').trim();
           const loc = String(m.local || '').trim();
           const vis = String(m.visitante || '').trim();
+          const tecnico = String(m.tecnico || '').trim();
 
-          if (fed) fedSet.add(fed);
-          if (comp) compSet.add(comp);
-          if (grupo) grupoSet.add(grupo);
-          if (jor) jorSet.add(jor);
+          const passCategoria = selectedCarteleraCategoria === 'all' || comp === String(selectedCarteleraCategoria).trim();
+          const passFederacion = selectedCarteleraFederacion === 'all' || fed === selectedCarteleraFederacion;
+          const passGrupo = selectedCarteleraGrupo === 'all' || grupo === selectedCarteleraGrupo;
+          const passJornada = selectedCarteleraJornadas.length === 0 || selectedCarteleraJornadas.includes(jor);
+          const passFecha = selectedCarteleraFechas.length === 0 || selectedCarteleraFechas.includes(fecha);
+          const passEquipo = selectedCarteleraEquipo === 'all' || loc === selectedCarteleraEquipo || vis === selectedCarteleraEquipo;
+          const passTecnico = selectedCarteleraTecnico === 'all' || tecnico === selectedCarteleraTecnico;
 
-          if (fecha) {
-            if (selectedCarteleraJornadas.length === 0) {
-              fechaSet.add(fecha);
-            } else if (selectedCarteleraJornadas.includes(jor)) {
-              fechaSet.add(fecha);
-            }
+          if (passFederacion && passGrupo && passJornada && passFecha && passEquipo && passTecnico) {
+             if (comp) compSet.add(comp);
           }
-
-          if (loc) equipoSet.add(loc);
-          if (vis) equipoSet.add(vis);
-          if (m.tecnico && m.tecnico.trim()) tecnicoSet.add(m.tecnico.trim());
+          if (passCategoria && passGrupo && passJornada && passFecha && passEquipo && passTecnico) {
+             if (fed) fedSet.add(fed);
+          }
+          if (passCategoria && passFederacion && passJornada && passFecha && passEquipo && passTecnico) {
+             if (grupo) grupoSet.add(grupo);
+          }
+          if (passCategoria && passFederacion && passGrupo && passFecha && passEquipo && passTecnico) {
+             if (jor) jorSet.add(jor);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passEquipo && passTecnico) {
+             if (fecha) fechaSet.add(fecha);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passFecha && passTecnico) {
+             if (loc) equipoSet.add(loc);
+             if (vis) equipoSet.add(vis);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passFecha && passEquipo) {
+             if (tecnico) tecnicoSet.add(tecnico);
+          }
         });
       });
+      
+      // Ensure currently selected values don't vanish from the dropdowns if they are selected
+      if (selectedCarteleraCategoria !== 'all') compSet.add(selectedCarteleraCategoria);
+      if (selectedCarteleraFederacion !== 'all') fedSet.add(selectedCarteleraFederacion);
+      if (selectedCarteleraGrupo !== 'all') grupoSet.add(selectedCarteleraGrupo);
+      selectedCarteleraJornadas.forEach(j => jorSet.add(j));
+      selectedCarteleraFechas.forEach(f => fechaSet.add(f));
+      if (selectedCarteleraEquipo !== 'all') equipoSet.add(selectedCarteleraEquipo);
+      if (selectedCarteleraTecnico !== 'all') tecnicoSet.add(selectedCarteleraTecnico);
 
       if (selectedCarteleraFechas.length > 0) {
         selectedCarteleraFechas = selectedCarteleraFechas.filter(f => fechaSet.has(f));
@@ -26756,12 +27210,12 @@
       const matchesVisibles = allMatches.slice(0, carteleraFilasVisibles);
       html += matchesVisibles.map(m => {
         let locStyle = 'font-weight: 700; color: var(--text-main);';
-        if (m.isInterestingLocal) locStyle = m.isClash ? 'color: var(--tinta-morado-fuerte); font-weight: 900;' : 'color: var(--tinta-morado); font-weight: 900;';
-        else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: var(--ms-tinta-verde); font-weight: 900;' : 'color: var(--ms-tinta-ambar); font-weight: 900;';
+        if (m.isInterestingLocal) locStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+        else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
 
         let visStyle = 'font-weight: 700; color: var(--text-main);';
-        if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: var(--tinta-morado-fuerte); font-weight: 900;' : 'color: var(--tinta-morado); font-weight: 900;';
-        else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: var(--ms-tinta-verde); font-weight: 900;' : 'color: var(--ms-tinta-ambar); font-weight: 900;';
+        if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
+        else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
 
         
           const locPrio = m.locPrio;
@@ -28367,6 +28821,7 @@ const formatTeamName = (str) => {
         });
         marcarPastillaCartelera('priority_teams', true);
 
+        renderCarteleraFilters();
         renderCarteleraMatches();
       };
     }
@@ -28406,6 +28861,7 @@ const formatTeamName = (str) => {
             }
           }
           setter(val);
+          renderCarteleraFilters();
           renderCarteleraMatches();
         };
         el.onchange = handler;
@@ -28443,6 +28899,7 @@ const formatTeamName = (str) => {
       boton.dataset.initialized = 'true';
       boton.onclick = () => {
         limpiarFiltrosCartelera(valor);
+        renderCarteleraFilters();
         renderCarteleraMatches();
       };
     });
@@ -28834,7 +29291,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             task.completada = false;
             task.archivada = false;
             task.completedAt = null;
-            saveToFirebase('agenda', task);   // sin esto, al recargar volvía al archivo
             saveState();
             renderAgenda();
             renderCalendario();
@@ -29400,10 +29856,6 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       statusSel.addEventListener('change', (e) => {
         task.estado = e.target.value;
         task.completada = (task.estado === 'done');
-        // Faltaba guardar la TAREA: saveState() escribe solo la configuración. La tarjeta cambiaba
-        // de columna en pantalla y al recargar volvía a «sin hacer» (Miguel, 11-sep-2026). Es el
-        // mismo defecto que tuvo el partido programado el 9-sep.
-        saveToFirebase('agenda', task);
         saveState();
         renderAgenda();
         renderCalendario();
@@ -29468,7 +29920,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
@@ -29485,7 +29937,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             </div>
           </div>
 
-          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
@@ -29507,7 +29959,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         </div>
 
-        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <div class="form-group mb-0">
             <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -29556,9 +30008,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       const estadoVal = document.getElementById('agEstadoEdit').value;
       task.titulo = title;
+      task.descripcion = document.getElementById('agDescEdit')?.value || '';
       task.tipo = document.getElementById('agTipoEdit')?.value || 'tarea';
       task.fecha = document.getElementById('agDateEdit').value;
       task.hora = document.getElementById('agTimeEdit').value;
+      task.horaFin = document.getElementById('agTimeEndEdit').value;
       const mainPill = pillsContainer ? pillsContainer.querySelector('.tag-pill.main') : null;
       task.categorias = catValues;
       task.categoria = mainPill ? mainPill.dataset.val : (catValues[0] || null);
@@ -29675,7 +30129,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
@@ -29692,7 +30146,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             </div>
           </div>
 
-          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
@@ -29714,7 +30168,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         </div>
 
-        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <div class="form-group mb-0">
             <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -31076,7 +31530,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const imported = JSON.parse(event.target.result);
         if (imported && typeof imported === 'object') {
           showCustomConfirmModal('Restaurar Copia de Seguridad', 'Se actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.', async () => {
-            state = imported;
+            state = migratePositions(imported);
             window.state = state;   // el importador de Excel y el resto usan esta referencia
             saveState();
             if (typeof renderAllViews === 'function') {
@@ -31303,7 +31757,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <button type="button" class="btn-close-modal" id="btnSecondaryCloseModal" style="background: transparent; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--text-muted);">&times;</button>
         </div>
         <div class="modal-body" id="secondaryModalBody" style="padding: 24px; overflow-y: auto; flex: 1;"></div>
-        <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-panel); border-radius: 0 0 16px 16px;">
+        <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 16px 16px;">
           <button type="button" class="btn btn-secondary" id="btnSecondaryCancelModal">Cancelar</button>
           <button type="button" class="btn btn-primary" id="btnSecondarySubmitModal">Guardar</button>
         </div>
@@ -31410,7 +31864,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700; padding: 10px 20px;">
             Cancelar
           </button>
-          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800; background: var(--accion-azul); color: white; padding: 10px 20px;">
+          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800; background: var(--primary-blue, #2563eb); color: white; padding: 10px 20px;">
             Aceptar
           </button>
         </div>
@@ -31870,7 +32324,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Position dictionary mapping
     const positions = FORMATION_POSITIONS[sysSelect] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'MC', 'DC', 'DC', 'DC'];
 
     const players = state.directory?.jugadores || [];
     const equipos = state.directory?.equipos || [];
@@ -32154,7 +32608,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
           let bgStyle = 'background: rgba(15, 23, 42, 0.92); color: #ffffff; border: 1px solid rgba(255,255,255,0.3);';
           if (isSecondary) {
-            bgStyle = 'background: rgba(234, 179, 8, 0.95); color: var(--text-main); border: 1px solid #ca8a04;';
+            bgStyle = 'background: rgba(234, 179, 8, 0.95); color: #1e293b; border: 1px solid #ca8a04;';
           }
 
           return `
@@ -32643,6 +33097,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         div.onclick = () => selectCategoryFn(cat.id);
         tagsList.appendChild(div);
       });
+
+      // Etiqueta "Archivadas"
+      const divArchivadas = document.createElement('div');
+      divArchivadas.className = 'nota-tag-item' + ('archivadas' === currentCategoryId ? ' active' : '');
+      divArchivadas.innerHTML = `<i data-lucide="archive" style="color: var(--text-muted);"></i> <span style="flex:1; font-weight: 800; color: var(--text-muted);">Archivadas</span>`;
+      divArchivadas.onclick = () => selectCategoryFn('archivadas');
+      tagsList.appendChild(divArchivadas);
       lucide.createIcons();
     }
 
@@ -32685,6 +33146,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         emptyState.classList.add('hidden');
         editorArea.classList.remove('hidden');
         renderCards();
+      } else if (id === 'archivadas') {
+        categoryTitle.textContent = 'Notas Archivadas';
+        emptyState.classList.add('hidden');
+        editorArea.classList.remove('hidden');
+        renderCards();
       } else {
         const cat = state.notasCategorias.find(c => c.id === id);
         if (cat) {
@@ -32698,9 +33164,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     function renderCards() {
       cardsGrid.innerHTML = '';
-      const fichas = currentCategoryId === 'todas'
-        ? [...state.notasFichas]
-        : state.notasFichas.filter(f => f.categoryId === currentCategoryId);
+      let fichas = [];
+      if (currentCategoryId === 'todas') {
+        fichas = state.notasFichas.filter(f => !f.archived);
+      } else if (currentCategoryId === 'archivadas') {
+        fichas = state.notasFichas.filter(f => f.archived);
+      } else {
+        fichas = state.notasFichas.filter(f => f.categoryId === currentCategoryId && !f.archived);
+      }
 
       const category = state.notasCategorias.find(c => c.id === currentCategoryId);
       const accentColor = category && category.color ? category.color : 'var(--primary-blue)';
@@ -32710,7 +33181,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       fichas.forEach(ficha => {
         const cardCategory = state.notasCategorias.find(c => c.id === ficha.categoryId);
-        const cardColor = currentCategoryId === 'todas' && cardCategory && cardCategory.color ? cardCategory.color : accentColor;
+        const cardColor = (currentCategoryId === 'todas' || currentCategoryId === 'archivadas') && cardCategory && cardCategory.color ? cardCategory.color : accentColor;
 
         const card = document.createElement('div');
         card.className = 'entity-card';
@@ -32722,17 +33193,22 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const snippetHtml = ficha.content ? ficha.content : '<em style="color:#aaa">Nota vacía</em>';
 
         card.innerHTML = `
-          <!-- LÍNEA 1: Escudo (icono) y Eliminar -->
+          <!-- LÍNEA 1: Escudo (icono) y Eliminar/Archivar -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                 <i data-lucide="file-text" style="width: 24px; height: 24px; color: ${escapeAttr(cardColor)};"></i>
               </div>
-              ${currentCategoryId === 'todas' && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
+              ${(currentCategoryId === 'todas' || currentCategoryId === 'archivadas') && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
             </div>
-            <button class="btn-action-icon danger btn-delete" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="Eliminar">
-              <i data-lucide="trash-2" style="width: 14px; color: var(--text-danger);"></i>
-            </button>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button class="btn-action-icon btn-archive" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="${ficha.archived ? 'Restaurar nota' : 'Archivar nota'}">
+                <i data-lucide="${ficha.archived ? 'upload-cloud' : 'archive'}" style="width: 15px; color: var(--text-muted);"></i>
+              </button>
+              <button class="btn-action-icon danger btn-delete" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="Eliminar">
+                <i data-lucide="trash-2" style="width: 14px; color: var(--text-danger);"></i>
+              </button>
+            </div>
           </div>
 
           <!-- LÍNEA 2: TÍTULO -->
@@ -32757,9 +33233,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         cardsGrid.appendChild(card);
 
         // Attach events
+        card.querySelector('.btn-archive').addEventListener('click', (e) => {
+          e.stopPropagation();
+          ficha.archived = !ficha.archived;
+          saveState();
+          saveToFirebase('notas_fichas', ficha);
+          renderCards();
+        });
+
         card.querySelector('.btn-delete').addEventListener('click', (e) => {
           e.stopPropagation();
-          if (confirm('¿Borrar esta nota?')) {
+          if (confirm('¿Borrar esta nota de forma definitiva?')) {
             state.notasFichas = state.notasFichas.filter(f => f.id !== ficha.id);
             saveState();
             deleteFromFirebase('notas_fichas', ficha.id);
@@ -32811,6 +33295,69 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         e.preventDefault();
         const text = (e.originalEvent || e).clipboardData.getData('text/plain');
         document.execCommand('insertText', false, text);
+      });
+
+      // Autocontinuar checklist al pulsar Enter
+      editorAreaField.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+          let block = selection.getRangeAt(0).startContainer;
+          while (block && block !== editorAreaField && block.tagName !== 'DIV' && block.tagName !== 'P') {
+            block = block.parentNode;
+          }
+          if (block && block !== editorAreaField) {
+            const hasCheckboxInput = block.querySelector('input[type="checkbox"]');
+            const rawText = block.textContent.replace(/\u00a0/g, ' ');
+            const textContent = rawText.trim();
+            const hasUnicodeChecklist = textContent.startsWith('☐') || textContent.startsWith('☑') || textContent.startsWith('[ ]') || textContent.startsWith('[x]') || textContent.startsWith('- [ ]') || textContent.startsWith('- [x]');
+            
+            if (hasCheckboxInput || hasUnicodeChecklist) {
+              let isEmptyLine = false;
+              if (hasCheckboxInput && textContent === '') isEmptyLine = true;
+              else if (hasUnicodeChecklist) {
+                const stripped = textContent.replace(/^(☐|☑|\[ \]|\[x\]|- \[ \]| - \[x\])/i, '').trim();
+                if (stripped === '') isEmptyLine = true;
+              }
+
+              if (isEmptyLine) {
+                e.preventDefault();
+                block.innerHTML = '<br>';
+                const newRange = document.createRange();
+                newRange.setStart(block, 0);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+              } else {
+                setTimeout(() => {
+                  const newSel = window.getSelection();
+                  if (!newSel.rangeCount) return;
+                  let newBlock = newSel.getRangeAt(0).startContainer;
+                  while (newBlock && newBlock !== editorAreaField && newBlock.tagName !== 'DIV' && newBlock.tagName !== 'P') {
+                    newBlock = newBlock.parentNode;
+                  }
+                  if (newBlock && newBlock !== editorAreaField && newBlock !== block) {
+                    if (hasCheckboxInput) {
+                      if (!newBlock.querySelector('input[type="checkbox"]')) {
+                        const checkboxHtml = `<input type="checkbox" style="margin-right: 6px; cursor: pointer; transform: scale(1.1); vertical-align: middle;">&nbsp;`;
+                        document.execCommand('insertHTML', false, checkboxHtml);
+                      }
+                    } else if (hasUnicodeChecklist) {
+                      const prefixMatch = rawText.match(/^\s*(☐|☑|\[ \]|\[x\]|- \[ \]| - \[x\])\s*/i);
+                      if (prefixMatch) {
+                        let newPrefix = prefixMatch[1];
+                        if (newPrefix === '☑') newPrefix = '☐';
+                        else if (newPrefix.toLowerCase() === '[x]') newPrefix = '[ ]';
+                        else if (newPrefix.toLowerCase() === '- [x]') newPrefix = '- [ ]';
+                        document.execCommand('insertText', false, newPrefix + ' ');
+                      }
+                    }
+                  }
+                }, 0);
+              }
+            }
+          }
+        }
       });
 
       // Update the 'checked' attribute so innerHTML captures the checkbox state
@@ -33192,7 +33739,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           dropdown.style.marginTop = '2px';
           dropdown.style.padding = '0';
           dropdown.style.listStyle = 'none';
-          dropdown.style.background = 'var(--bg-card)';
+          dropdown.style.background = 'white';
           dropdown.style.border = '1px solid var(--border-light)';
           dropdown.style.borderRadius = 'var(--radius-md)';
           dropdown.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
@@ -33770,16 +34317,34 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (hoursOffset < 0) hoursOffset = 0;
 
     const topPx = hoursOffset * 50;
-    const heightPx = 1.5 * 50;
+    
+    let durationHours = 1;
+    if (ev.type === 'match') durationHours = 1.75;
+    else if (ev.type === 'report') durationHours = 1.5;
 
+    let horaFinStr = ev.data.horaFin || ev.data.timeEnd || ev.data.end_time || null;
+    let timeDisplay = ev.hora;
+
+    if (horaFinStr) {
+      const endParts = horaFinStr.split(':').map(Number);
+      const endH = endParts[0] || 0;
+      const endM = endParts[1] || 0;
+      let calcDur = (endH + endM / 60) - (hh + mm / 60);
+      if (calcDur > 0) {
+        durationHours = calcDur;
+        timeDisplay = `${ev.hora} - ${horaFinStr}`;
+      }
+    }
+
+    const heightPx = Math.max(durationHours * 50, 24);
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
       if (ev.data.estado === 'programado') {
         bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
       } else if (ev.data.estado === 'directo') {
-        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = 'var(--ms-tinta-ambar)';
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
       } else {
-        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = 'var(--ms-tinta-verde)';
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
       }
       idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
@@ -33806,7 +34371,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         color: ${color};
       ">
         <div class="week-event-title">${escapeHtml(ev.title)}</div>
-        <div class="week-event-time">⏱ ${ev.hora}</div>
+        <div class="week-event-time" style="font-size: 10px; opacity: 0.9; margin-top: 2px;">⏱ ${timeDisplay}</div>
       </div>
     `;
   }
@@ -33979,16 +34544,35 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (hoursOffset < 0) hoursOffset = 0;
 
     const topPx = hoursOffset * 50;
-    const heightPx = 1.5 * 50;
+    
+    let durationHours = 1;
+    if (ev.type === 'match') durationHours = 1.75;
+    else if (ev.type === 'report') durationHours = 1.5;
+
+    let horaFinStr = ev.data.horaFin || ev.data.timeEnd || ev.data.end_time || null;
+    let timeDisplay = ev.hora;
+
+    if (horaFinStr) {
+      const endParts = horaFinStr.split(':').map(Number);
+      const endH = endParts[0] || 0;
+      const endM = endParts[1] || 0;
+      let calcDur = (endH + endM / 60) - (hh + mm / 60);
+      if (calcDur > 0) {
+        durationHours = calcDur;
+        timeDisplay = `${ev.hora} - ${horaFinStr}`;
+      }
+    }
+
+    const heightPx = Math.max(durationHours * 50, 24);
 
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
       if (ev.data.estado === 'programado') {
         bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
       } else if (ev.data.estado === 'directo') {
-        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = 'var(--ms-tinta-ambar)';
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
       } else {
-        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = 'var(--ms-tinta-verde)';
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
       }
       idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
@@ -34015,7 +34599,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         color: ${color};
       ">
         <div class="days-event-title">${escapeHtml(ev.title)}</div>
-        <div class="days-event-time">⏱ ${ev.hora}</div>
+        <div class="days-event-time" style="font-size: 10px; opacity: 0.9; margin-top: 2px;">⏱ ${timeDisplay}</div>
       </div>
     `;
   }

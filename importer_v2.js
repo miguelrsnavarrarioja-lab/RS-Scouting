@@ -372,7 +372,8 @@ function processPlantillasImport(text) {
             comunidad: '',
             poblacion: '',
             lateralidad: '',
-            dorsal: ''
+            dorsal: '',
+            estado: ''
         };
 
         stagedExcelRows.push(baseObj);
@@ -496,7 +497,14 @@ function renderExcelTable() {
                 const latOptions = ['', 'Derecha', 'Izquierda', 'Ambidiestro'];
                 let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">`;
                 latOptions.forEach(p => {
-                    // Match case-insensitively just in case it was imported or mass-edited differently
+                    selectHtml += `<option value="${impEscHtml(p)}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
+                });
+                selectHtml += `</select>`;
+                bodyHtml += `<td style="padding: 0; border: 1px solid var(--border-light);">${selectHtml}</td>`;
+            } else if (k === 'estado') {
+                const estadoOptions = ['', 'Renovación', 'Sube', 'Alta'];
+                let selectHtml = `<select onchange="updateRowField(${rowIndex}, '${impEscJs(k)}', this.value)" class="form-control excel-cell-field" style="border:none; border-radius:0; height:100%; width:100%; padding:8px; ${impEscHtml(isDuplicate ? 'color: #dc2626;' : '')}">`;
+                estadoOptions.forEach(p => {
                     selectHtml += `<option value="${impEscHtml(p)}" ${(row[k] || '').toLowerCase() === p.toLowerCase() ? 'selected' : ''}>${p}</option>`;
                 });
                 selectHtml += `</select>`;
@@ -797,9 +805,9 @@ function saveExcelToDirectory() {
                 poblacion: r.poblacion || '',
                 lateralidad: !isStaff ? (r.lateralidad || '') : '',
                 dorsal: !isStaff ? (r.dorsal || '') : '',
+                estado: !isStaff ? (r.estado || 'ACTIVO') : 'ACTIVO',
                 pais: 'España',
-                sexo: 'MASCULINO',
-                estado: 'ACTIVO'
+                sexo: 'MASCULINO'
             };
             
             if (isStaff) {

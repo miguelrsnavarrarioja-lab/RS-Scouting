@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#06151E">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609111937">
+  <link rel="stylesheet" href="styles.css?v=202609111331">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -1281,13 +1281,13 @@
           <!-- Team Filter (Only for players) -->
           <div class="filter-search-box" id="dirTeamFilterContainer" style="display: none; max-width: 200px; margin-left: 12px;">
             <i data-lucide="shield"></i>
-            <input type="text" id="dirTeamFilterInput" list="dirTeamFilterDatalist" placeholder="Filtrar por equipo..." style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: var(--text-strong);">
+            <input type="text" id="dirTeamFilterInput" list="dirTeamFilterDatalist" placeholder="Filtrar por equipo..." style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
             <datalist id="dirTeamFilterDatalist"></datalist>
           </div>
 
           <div class="filter-search-box" id="dirYearFilterContainer" style="display: none; max-width: 140px; margin-left: 12px;">
             <i data-lucide="calendar"></i>
-            <input type="text" id="dirYearFilterInput" placeholder="Año o 'vacio'" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: var(--text-strong);">
+            <input type="text" id="dirYearFilterInput" placeholder="Año o 'vacio'" style="width: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #334155;">
           </div>
 
           <button type="button" id="dirDuplicatesContainer" class="btn btn-sm" style="display: none; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-medium); color: var(--text-dark); background: var(--bg-card); white-space: nowrap; transition: all 0.2s; box-shadow: none; align-items: center; gap: 6px; margin-left: 12px;" onclick="toggleDuplicatesFilter()">
@@ -1536,20 +1536,20 @@
             </div>
 
             <!-- Equipo Principal de Destino -->
-            <div id="importerEquipoDestinoContainer" style="background: var(--bg-panel); padding: 24px; border-radius: 12px; border: 1px solid var(--border-light); position: relative;">
+            <div id="importerEquipoDestinoContainer" style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; position: relative;">
               <div style="position: absolute; top: -12px; left: 24px; background: #2563eb; color: white; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Paso 1: Destino</div>
               <div class="form-group mb-0">
-                <label style="font-weight: 700; color: var(--text-strong); margin-bottom: 12px; display: block; font-size: 14px;" for="importerDefaultEquipoSelect">¿A qué equipo quieres importar estos jugadores?</label>
+                <label style="font-weight: 700; color: #334155; margin-bottom: 12px; display: block; font-size: 14px;" for="importerDefaultEquipoSelect">¿A qué equipo quieres importar estos jugadores?</label>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                   <div>
-                    <select id="importerDefaultEquipoSelect" class="form-control" style="font-size: 14px; padding: 12px; font-weight: 600; border: 1px solid var(--border-medium); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;">
+                    <select id="importerDefaultEquipoSelect" class="form-control" style="font-size: 14px; padding: 12px; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;">
                       <option value="" selected>-- Seleccionar del Directorio --</option>
                     </select>
                   </div>
                   <div>
                   <div style="position: relative; flex-grow: 1;">
-                    <input type="text" id="importerDefaultEquipo" class="form-control" style="font-size: 14px; padding: 12px; width: 100%; font-weight: 600; border: 1px solid var(--border-medium); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" placeholder="O escribir nombre manualmente..." autocomplete="off">
+                    <input type="text" id="importerDefaultEquipo" class="form-control" style="font-size: 14px; padding: 12px; width: 100%; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" placeholder="O escribir nombre manualmente..." autocomplete="off">
                     <div id="importerEquiposAutocomplete" class="autocomplete-dropdown hidden" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                   </div>
                   </div>
@@ -1562,7 +1562,7 @@
                 <div class="form-group mb-0">
                   <div style="position: relative; padding-top: 12px;">
                     <div style="position: absolute; top: -12px; left: 0; background: var(--accion-verde); color: white; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">Paso 2: Datos</div>
-                    <label style="font-weight: 700; color: var(--text-strong); margin-bottom: 12px; display: block; font-size: 14px;" for="importerRawText">Pega el listado copiado de la Federación</label>
+                    <label style="font-weight: 700; color: #334155; margin-bottom: 12px; display: block; font-size: 14px;" for="importerRawText">Pega el listado copiado de la Federación</label>
               <textarea id="importerRawText" class="form-control importer-textarea" rows="10" placeholder="Pega aquí la lista de la federación. Ejemplo:
 Albisu Muñoz, Unai
 Astrain Perez, Ander
@@ -1570,7 +1570,7 @@ Fuentes Bacáicoa, Martín Javier
 Galvete Vilar, Alvaro
 
    Delegados (1)
-ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical; border-radius: 12px; border: 1px solid var(--border-medium); box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); padding: 16px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 14px; line-height: 1.5; color: var(--text-main); transition: all 0.2s;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.02)';"></textarea>
+ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); padding: 16px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 14px; line-height: 1.5; color: #1e293b; transition: all 0.2s;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='inset 0 2px 4px rgba(0,0,0,0.02)';"></textarea>
                   </div>
                 </div>
 
@@ -2274,15 +2274,15 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609111937" defer></script>
-  <script src="data-guard.js?v=202609111937" defer></script>
-  <script src="firebase-config.js?v=202609111937" defer></script>
-  <script src="auth.js?v=202609111937" defer></script>
-  <script src="app.js?v=202609111937" defer></script>
-  <script src="importer_v2.js?v=202609111937" defer></script>
-  <script src="informe-borrador.js?v=202609111937" defer></script>
-  <script src="calendario-export.js?v=202609111937" defer></script>
-  <script src="sin-cobertura.js?v=202609111937" defer></script>
+  <script src="toast.js?v=202609111331" defer></script>
+  <script src="data-guard.js?v=202609111331" defer></script>
+  <script src="firebase-config.js?v=202609111331" defer></script>
+  <script src="auth.js?v=202609111331" defer></script>
+  <script src="app.js?v=202609111331" defer></script>
+  <script src="importer_v2.js?v=202609111331" defer></script>
+  <script src="informe-borrador.js?v=202609111331" defer></script>
+  <script src="calendario-export.js?v=202609111331" defer></script>
+  <script src="sin-cobertura.js?v=202609111331" defer></script>
 
 
 

@@ -23,25 +23,11 @@ html {
   --bg-card: #FFFFFF;
   --bg-subtle: #F1F5F9;
   --bg-input: #F8FAFC;
-  /* Panel dentro de una tarjeta (el «Paso 1» del importador, cajas de filtros): en claro es el
-     gris casi blanco que llevaban escrito a fuego; en oscuro, una superficie un punto más clara
-     que la tarjeta. Antes de existir, esas cajas se quedaban blancas en modo oscuro. */
-  --bg-panel: #F8FAFC;
   
   --text-main: #0F172A;
-  /* Rótulos y etiquetas de formulario: el slate-700 que iban escribiendo en línea. */
-  --text-strong: #334155;
-  /* Era #64748B: sobre el gris de los paneles (#F1F5F9) daba 4,34 y sobre la fila verde de la
-     cartelera 4,14, por debajo del 4,5 de AA. Un punto más oscuro pasa en todas las superficies
-     de la paleta (medido: 4,72 en la peor) sin que cambie el aspecto. */
-  --text-muted: #5B6B82;
+  --text-muted: #64748B;
   --text-subtle: #94A3B8;
   --text-inverse: #FFFFFF;
-  /* Tintas para texto sobre superficie, por tema. Las de la cartelera (equipos prioritarios en
-     ámbar y verde, de interés en morado) iban escritas a fuego en el JavaScript con los tonos
-     del modo claro y en oscuro quedaban a 2,6-3,2 de contraste. */
-  --tinta-morado: #7E22CE;
-  --tinta-morado-fuerte: #6B21A8;
   
   --border-light: #E2E8F0;
   --border-focus: #3B82F6;
@@ -151,10 +137,8 @@ body.theme-dark {
   --bg-card: #151C2C;
   --bg-subtle: #1E293B;
   --bg-input: #1E293B;
-  --bg-panel: #1E293B;
   
   --text-main: #F8FAFC;
-  --text-strong: #CBD5E1;
   --text-muted: #94A3B8;
   --text-subtle: #64748B;
   --text-inverse: #0F172A;
@@ -461,8 +445,7 @@ a {
 .btn-outline-danger {
   background-color: transparent;
   border: 1px solid var(--accent-red);
-  /* El rojo de acento como TEXTO sobre blanco daba 3,76 («Eliminar» en el detalle de tarea). */
-  color: var(--texto-rojo);
+  color: var(--accent-red);
 }
 
 .btn-outline-danger:hover {
@@ -1114,7 +1097,16 @@ a {
   flex-shrink: 0;
 }
 
-.lineup-row input.name { flex: 1; min-width: 0; }
+.lineup-row input.name { 
+  flex: 1; 
+  min-width: 0; 
+}
+.lineup-row.is-destacado input.name {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="%23fbbf24" stroke="%23d97706" stroke-width="1.5" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 22px;
+}
 .lineup-row select.pos { width: 65px; flex-shrink: 0; padding: 4px 2px; font-size: 11px; font-weight: 700; text-align-last: center; }
 .lineup-row select.pos2 { width: 65px; flex-shrink: 0; padding: 4px 2px; font-size: 11px; font-weight: 700; text-align-last: center; }
 
@@ -2148,9 +2140,8 @@ a {
 }
 
 .link-tab-btn.fav-tab.active {
-  /* Antes iba del ámbar claro (#f59e0b) al medio: el texto blanco quedaba a 2,15. */
-  background: linear-gradient(135deg, var(--accion-ambar), #92400E);
-  border-color: var(--accion-ambar);
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #f59e0b;
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
 }
@@ -6207,8 +6198,6 @@ body.ms-con-barra .tab-view.active { padding-bottom: calc(var(--ms-alto-barra) +
    `--border-color` (51 usos) y `--bg-body` (12). Se vuelven a declarar aquí, donde ya valen los
    colores del tema. Medido antes de tocar: textos a 1,05 de contraste, o sea invisibles. */
 body.theme-dark {
-  --primary-dark: var(--primary-blue-dark);
-  --primary-color: var(--primary-blue);
   --text-dark: var(--text-main);
   --text-primary: var(--text-main);
   --text-color: var(--text-main);
@@ -6276,8 +6265,7 @@ picture.ms-avatar img { width: 100%; height: 100%; object-fit: contain; display:
 .ms-agenda-dia b {
   font: 700 10.5px/1.2 var(--font-body);
   letter-spacing: .08em;
-  /* El verde de acción (#05A37D) es para fondos: como texto de 10,5 px sobre blanco daba 3,21. */
-  color: var(--ms-tinta-verde);
+  color: var(--ms-verde);
 }
 .ms-agenda-dia span { font: 500 10.5px/1.2 var(--font-body); color: var(--text-muted); }
 .ms-agenda-hora {
@@ -6822,16 +6810,6 @@ body.theme-light { color-scheme: light; }
 /* Y el texto sutil sobre la tarjeta oscura: #64748B daba 3,58 sobre #151C2C. */
 body.theme-dark { --text-subtle: #8A9BB3; }   /* 6,01 */
 
-/* Los estados ACTIVOS de pastillas, pestañas y botones de vista pintan el azul de marca de fondo
-   con texto blanco. En claro ese azul es el mismo que `--accion-azul`; en oscuro `--primary-blue`
-   se aclara para servir de texto (5.1) y como fondo dejaba el blanco a 2,54 en «TODOS», «Favoritos»
-   y los contadores. Se les da la superficie de acción, que vale en los dos temas. */
-.role-tab.active, .rs-pill-btn.active, .tag-control-btn.active, .btn-counter-stepper:hover,
-.btn-rating.active, .link-tab-btn.active, .btn-view-mode.active, .status-pill-btn.active,
-.club-type-chip.selected, .tag-pill.main, .btn-action-icon.primary {
-  background-color: var(--accion-azul);
-}
-
 /* Un <button> sin fondo declarado lo pinta el NAVEGADOR, y al declarar `color-scheme: dark`
    ese gris de botón pasa de ser casi blanco (invisible sobre la tarjeta clara) a un gris medio
    que canta sobre el fondo oscuro. Las cinco cifras de la temporada son botones y salían en
@@ -6845,11 +6823,6 @@ body.theme-dark { --text-subtle: #8A9BB3; }   /* 6,01 */
    no se toca aquí: ese ya tiene su propia variable (`--accion-azul`). */
 body.theme-dark {
   --primary-blue: #60A5FA;
-  /* Es el color de varios titulares de tarjeta (`--primary-dark`) y del texto de los partidos
-     programados en el calendario: en oscuro, el azul marino del tema claro daba 2,2. */
-  --primary-blue-dark: #93C5FD;
-  --tinta-morado: #C4B5FD;
-  --tinta-morado-fuerte: #DDD6FE;
   /* `--primary-blue-light` NO se toca: en modo oscuro ya vale `rgba(59,130,246,.15)`, que es un
      velo azul para FONDOS. Aclararlo a un azul de texto lo convirtió en fondo claro y el botón
      de tema activo se fue a 1,41 de contraste — peor que el 3,83 que tenía. «Light» aquí quiere
@@ -6888,13 +6861,13 @@ body.theme-dark .ms-kpi .ms-kpi-nombre { color: var(--text-muted); }
 
 /* El estado vacío iba con el gris más suave, que sobre blanco da 2,56. */
 .empty-state-text, .empty-state div { color: var(--text-muted); }
-/* El nombre del día DE HOY en el calendario iba en el rojo medio sobre blanco: 3,76. Necesita
-   un rojo POR TEMA: `--accion-rojo` es para fondos con texto blanco encima, y usarlo como color
-   de texto lo dejó a 2,63 sobre la tarjeta oscura. Lo pinta la plantilla de la semana, en línea
-   y solo en el día de hoy; los otros seis van en gris, como siempre fueron. (Una regla anterior
-   aquí los teñía los siete de rojo: era una regresión y se retiró el 11-sep.) */
+/* El nombre del día en el calendario, en el rojo medio sobre blanco: 3,76. Necesita un rojo
+   POR TEMA: `--accion-rojo` es para fondos con texto blanco encima, y usarlo como color de
+   texto dejó los seis días a 2,63 sobre la tarjeta oscura. Un arreglo del modo claro abrió un
+   defecto en el oscuro: desde ahora se miden los dos en la misma pasada. */
 :root            { --texto-rojo: #B91C1C; }   /* 6,47 sobre blanco */
 body.theme-dark  { --texto-rojo: #FCA5A5; }   /* 8,03 sobre la tarjeta oscura */
+.week-header-dayname { color: var(--texto-rojo); }
 
 /* ==========================================================================
    6 · EL INICIO EN TRES COMPOSICIONES  (encargo de Miguel, 11-sep-2026)
