@@ -162,8 +162,11 @@
 
   const DEFAULT_INITIAL_STATE = {
     settings: {
-      appName: 'MS Fútbol Scout',
-      theme: 'light'
+      appName: 'MS Fútbol Scout'
+      // Sin `theme`: mientras no llega la configuración del servidor, el tema lo decide el último
+      // que vio este navegador y, si no hay ninguno, el de por defecto (oscuro). Con `theme:
+      // 'light'` aquí, el «oscuro por defecto» decidido el 10-sep no llegó a ocurrir nunca: este
+      // valor tapaba al de reserva y todo el mundo arrancaba en claro.
     },
     matches: [],
     reports: [],
@@ -30900,7 +30903,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
   // 10. SECTION 7: CONFIGURACIÓN & BACKUP JSON
   // --------------------------------------------------------------------------
   function renderConfiguracion() {
-    setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
+    setTheme((state && state.settings && state.settings.theme) || temaRecordado() || 'dark');  // configuración > último tema visto > oscuro (los iconos de la marca son de línea neón)
     pintarAvatar();   // la foto de perfil guardada, al llegar la configuración
   }
 
@@ -30918,12 +30921,22 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     });
   });
 
+  function temaRecordado() {
+    try { const t = localStorage.getItem('ms_tema'); return t === 'dark' || t === 'light' ? t : null; }
+    catch (e) { return null; }
+  }
+
   function setTheme(theme) {
     // Antes se asignaba className entero, lo que borraba cualquier otra clase del cuerpo: al
     // cambiar de tema se perdía, entre otras, la marca de «sesión sin resolver» de la puerta de
     // acceso. Se cambian solo las dos clases del tema.
     document.body.classList.remove('theme-dark', 'theme-light');
     document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+    // Se recuerda en el navegador SOLO el tema (una palabra, no es un dato personal) para que el
+    // próximo arranque pinte desde el primer instante el tema del usuario, sin esperar los hasta
+    // 20 s que tarda en llegar su configuración. Sin esto, un usuario en modo claro veía la
+    // aplicación en oscuro durante toda la carga.
+    try { localStorage.setItem('ms_tema', theme === 'dark' ? 'dark' : 'light'); } catch (e) { /* sin almacenamiento local */ }
     document.querySelectorAll('.btn-theme').forEach(b => {
       if (b.dataset.theme === theme) b.classList.add('active');
       else b.classList.remove('active');
@@ -33077,7 +33090,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Apply saved brand name & theme
     updateAppNameUI();
-    setTheme((state && state.settings && state.settings.theme) || 'dark');  // oscuro por defecto: los iconos de la marca son de linea neon y solo se leen sobre oscuro
+    setTheme((state && state.settings && state.settings.theme) || temaRecordado() || 'dark');  // configuración > último tema visto > oscuro (los iconos de la marca son de línea neón)
     pintarAvatar();   // la foto de perfil guardada, al llegar la configuración
 
     initClock();
