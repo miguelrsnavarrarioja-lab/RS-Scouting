@@ -42,12 +42,12 @@
         const span = btn.querySelector('span');
         if (span) span.style.color = 'white';
       } else {
-        btn.style.background = 'white';
+        btn.style.background = 'var(--bg-card)';
         btn.style.borderColor = 'var(--border-medium)';
         const icon = btn.querySelector('i, svg');
         if (icon) icon.style.color = 'var(--text-muted)';
         const span = btn.querySelector('span');
-        if (span) span.style.color = '#334155';
+        if (span) span.style.color = 'var(--text-strong)';
       }
     }
     if (typeof window.renderDirectorio === 'function') {
@@ -70,12 +70,12 @@
         const span = btn.querySelector('span');
         if (span) span.style.color = 'white';
       } else {
-        btn.style.background = 'white';
+        btn.style.background = 'var(--bg-card)';
         btn.style.borderColor = 'var(--border-medium)';
         const icon = btn.querySelector('i, svg');
         if (icon) icon.style.color = 'var(--text-muted)';
         const span = btn.querySelector('span');
-        if (span) span.style.color = '#334155';
+        if (span) span.style.color = 'var(--text-strong)';
       }
     }
     if (typeof window.renderDirectorio === 'function') {
@@ -2057,7 +2057,7 @@
       const yearsJson = encodeURIComponent(JSON.stringify(stats.years));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openPlayersAgeGroupModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(yearsJson)}')">
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openPlayersAgeGroupModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(yearsJson)}')">
         <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
@@ -2207,7 +2207,7 @@
       const statsJson = encodeURIComponent(JSON.stringify(groupedStats[groupName]));
 
       html += `
-      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsCategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(statsJson)}')">
+      <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openTeamsCategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(statsJson)}')">
         <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
         <div class="kpi-info" style="width: calc(100% - 48px);">
           
@@ -2248,8 +2248,8 @@
       if (y.subAge > 0) subLabel = `<span style="font-size: 9px; color: var(--text-muted); font-weight: 700; margin-top: 2px; display: block;">SUB-${y.subAge}</span>`;
 
       const isSub23 = groupName === 'Senior' && y.subAge > 0 && y.subAge <= 23;
-      const defaultBg = isSub23 ? 'rgba(34, 197, 94, 0.10)' : 'white';
-      const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : '#f8fafc';
+      const defaultBg = isSub23 ? 'rgba(34, 197, 94, 0.10)' : 'var(--bg-card)';
+      const hoverBg = isSub23 ? 'rgba(34, 197, 94, 0.20)' : 'var(--bg-hover)';
 
       const playersJson = encodeURIComponent(JSON.stringify(y.jugadoresVistos || []));
 
@@ -2327,7 +2327,7 @@
             <td style="padding: 12px 16px; font-weight: 600; color: var(--text-dark);">${escapeHtml(p.nombre || 'Sin nombre')}</td>
             <td style="padding: 12px 16px; color: var(--text-muted);">${escapeHtml(p.equipo || '-')}</td>
             <td style="padding: 12px 16px; text-align: center;">
-              <span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(p.rendimientoRS || '-')}</span>
+              <span style="background: var(--bg-subtle); color: var(--text-main); font-weight: 800; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${escapeHtml(p.rendimientoRS || '-')}</span>
             </td>
             <td style="padding: 12px 16px; text-align: center;">
               ${vistosBadge}
@@ -2340,7 +2340,7 @@
       });
 
       html += `
-        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: white;">
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: var(--bg-card);">
           <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
             <thead>
               <tr style="background: var(--bg-subtle); border-bottom: 1px solid var(--border-color);">
@@ -2450,7 +2450,7 @@
       const iconName = stat.vistos >= stat.total ? 'shield-check' : 'shield';
       const groupsJson = encodeURIComponent(JSON.stringify(stat.groups));
       html += `
-        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="openTeamsSubcategoryModal('${escapeJsAttr(stat.cat)}', '${escapeJsAttr(groupName)}', '${escapeJsAttr(groupsJson)}')">
+        <div class="kpi-card" style="padding: 12px; margin: 0; box-shadow: none; border: 1px solid var(--border-color); gap: 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="openTeamsSubcategoryModal('${escapeJsAttr(stat.cat)}', '${escapeJsAttr(groupName)}', '${escapeJsAttr(groupsJson)}')">
           <div class="kpi-icon ${escapeAttr(iconColor)}" style="width: 36px; height: 36px;"><i data-lucide="${escapeAttr(iconName)}" style="width: 18px; height: 18px;"></i></div>
           <div class="kpi-info" style="width: calc(100% - 48px);">
             <span class="kpi-value" style="font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${escapeAttr(stat.vistos >= stat.total ? 'var(--accent-green)' : 'var(--text-primary)')};">${stat.vistos}/${stat.total}</span>
@@ -2678,12 +2678,12 @@
       const visitLogoImg = visitLogo ? `<img src="${escapeAttr(visitLogo)}" alt="Visit" style="width: 28px; height: 28px; object-fit: contain;">` : `<div style="width: 28px; height: 28px; background: #e2e8f0; border-radius: 50%;"></div>`;
 
       return `
-      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${escapeJsAttr(r.id)}\\']').click()">
+      <div class="dashboard-widget-item match-item" style="padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--border-light);" onclick="document.querySelector('.btn-dashboard-view-match[data-match-id=\\'${escapeJsAttr(r.id)}\\']').click()">
         
         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
           ${localLogoImg}
           <div style="flex: 1; text-align: center;">
-            <div style="font-weight: 700; font-size: 13px; color: #0f172a;">
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">
               ${escapeHtml(r.equipoLocal || 'Local')} <span style="color: var(--text-muted); font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(r.equipoVisitante || 'Visitante')}
             </div>
             <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">
@@ -3359,7 +3359,7 @@
 
               <div style="display: flex; gap: 8px; margin-top: 6px;">
                 ${item.reportId ? `
-                  <button class="btn btn-sm btn-open-report" data-repid="${escapeAttr(item.reportId)}" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                  <button class="btn btn-sm btn-open-report" data-repid="${escapeAttr(item.reportId)}" data-mid="${escapeAttr(item.id)}" style="width: 100%; font-size: 12px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: var(--ms-tinta-verde); border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                     <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Ver Informe
                   </button>
                 ` : `
@@ -4368,7 +4368,7 @@
                   <i data-lucide="edit" style="width: 12px; height: 12px;"></i> Abrir
                 </button>
                 ${!r.completado ? `
-                <button class="btn btn-sm btn-complete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
+                <button class="btn btn-sm btn-complete-report" data-repid="${escapeAttr(r.id)}" style="flex: 1; padding: 4px 6px; font-size: 11px; font-weight: 700; border-radius: 20px; background: rgba(22,163,74,0.08); color: var(--ms-tinta-verde); border: 1px solid rgba(22,163,74,0.2); box-shadow: none;">
                   <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Completar
                 </button>
                 ` : `
@@ -5806,7 +5806,7 @@
       dropdown.id = 'lineupAutocompleteDropdown';
       dropdown.style.position = 'absolute';
       dropdown.style.zIndex = '9999';
-      dropdown.style.background = 'white';
+      dropdown.style.background = 'var(--bg-card)';
       dropdown.style.border = '1px solid var(--border-color)';
       dropdown.style.borderRadius = '4px';
       dropdown.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1)';
@@ -5845,7 +5845,7 @@
       if (name && !enteredNames.includes(name.toLowerCase()) && !teamPlayersSet.has(name.toLowerCase())) {
         if (!filterText || name.toLowerCase().includes(filterText)) {
           teamPlayersSet.add(name.toLowerCase());
-          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}" title="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
+          html += `<div class="autocomplete-item" style="padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}" title="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }
       }
     };
@@ -5902,7 +5902,7 @@
     }
 
     // Always append filial option
-    html += `<div class="autocomplete-item special" style="padding: 6px 10px; cursor: pointer; border-top: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-color);" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="FILIAL">+ INCLUIR JUGADOR FUERA DE PLANTILLA</div>`;
+    html += `<div class="autocomplete-item special" style="padding: 6px 10px; cursor: pointer; border-top: 1px solid var(--border-color); font-size: 13px; transition: background 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary-color);" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="FILIAL">+ INCLUIR JUGADOR FUERA DE PLANTILLA</div>`;
 
     dropdown.innerHTML = html;
 
@@ -6130,14 +6130,14 @@
         <div class="form-group mb-2" style="position: relative;">
           <label class="form-label" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">BUSCAR EQUIPO FILIAL U OTRO EQUIPO</label>
           <input type="text" id="filialSelectorSearch" autocomplete="off" class="form-control" placeholder="Escribe el nombre del equipo..." style="font-size: 14px; padding: 10px;">
-          <div id="filialTeamAutocomplete" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: white; border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-height: 200px; overflow-y: auto; display: none;"></div>
+          <div id="filialTeamAutocomplete" style="position: absolute; top: 100%; left: 0; width: 100%; z-index: 10; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-height: 200px; overflow-y: auto; display: none;"></div>
         </div>
         <div style="text-align: right; margin-bottom: 12px;">
           <button type="button" id="btnShowAllTeamsModal" class="btn btn-sm btn-ghost" style="font-size: 11px;">Mostrar todos los equipos</button>
         </div>
         <label class="form-label mb-2" style="font-weight: 800; font-size: 11px; color: var(--text-muted); margin-top: 4px;">JUGADORES DEL EQUIPO (Haz clic en uno para insertarlo)</label>
         <input type="text" id="filialSelectorPlayerSearch" autocomplete="off" class="form-control" placeholder="Buscar jugador..." style="font-size: 13px; padding: 8px; margin-bottom: 8px; display: none;">
-        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+        <div id="filialSelectorPlayersList" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: 8px; padding: 10px;">
           <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 20px 0;">Busca y selecciona un equipo para ver sus jugadores.</p>
         </div>
       </div>
@@ -6167,7 +6167,7 @@
       } else {
         autocompleteDropdown.innerHTML = matches.map(eq => {
           const name = eq.nombre || '';
-          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
+          return `<div class="team-autocomplete-item" style="padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-color); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='transparent';" data-val="${escapeAttr(name)}">${escapeHtml(name)}</div>`;
         }).join('');
       }
       autocompleteDropdown.style.display = 'block';
@@ -6224,7 +6224,7 @@
 
       const addBtn = (pName, tName) => {
         return `
-          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 600; color: #1e293b; width: 100%; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';" data-name="${escapeAttr(pName)}" data-team="${escapeAttr(tName)}">
+          <button type="button" class="btn" style="justify-content: flex-start; text-align: left; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 6px; font-weight: 600; color: var(--text-main); width: 100%; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--border-medium)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-light)';" data-name="${escapeAttr(pName)}" data-team="${escapeAttr(tName)}">
             ${escapeHtml(pName)}
           </button>
         `;
@@ -7100,7 +7100,7 @@
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
               <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">POTENCIAL</div>
               <div class="rs-pills-row" id="pmPotencialGroup">
-                ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : '#fff'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
+                ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : 'var(--bg-card)'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
               </div>
             </div>
 
@@ -7293,7 +7293,7 @@
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
           b.classList.remove('active');
-          b.style.background = '#fff';
+          b.style.background = 'var(--bg-card)';
           b.style.color = '#ec4899';
           b.style.borderColor = 'rgba(236,72,153,0.3)';
         });
@@ -7336,7 +7336,7 @@
           modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
           modalContent.querySelectorAll('#pmPotencialGroup .rs-pill-btn-potencial').forEach(b => {
             b.classList.remove('active');
-            b.style.background = '#fff';
+            b.style.background = 'var(--bg-card)';
             b.style.color = '#ec4899';
             b.style.borderColor = 'rgba(236,72,153,0.3)';
           });
@@ -11346,7 +11346,7 @@
         badgesContainer.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-style: italic;">Ningún tipo seleccionado</span>`;
       } else {
         badgesContainer.innerHTML = selectedClubTypes.map(t => `
-          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--primary-blue, #2563eb); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+          <span class="club-type-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--accion-azul); color: #ffffff; font-size: 12px; font-weight: 700; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
             ${escapeHtml(t)}
             <button type="button" class="btn-remove-club-type" data-type="${escapeAttr(t)}" style="background: none; border: none; color: #ffffff; font-size: 14px; font-weight: 800; cursor: pointer; padding: 0; margin: 0; line-height: 1;">×</button>
           </span>
@@ -11894,7 +11894,7 @@
         staffHTML += `
           <tr style="border-bottom: 1px solid var(--border-light);">
             <td style="padding: 10px; font-weight: 600;">${nameHTML}</td>
-            <td style="padding: 10px; text-align: center; color: var(--text-muted);"><span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 11px; color: #475569; font-weight: 600;">${escapeHtml(sRol)}</span></td>
+            <td style="padding: 10px; text-align: center; color: var(--text-muted);"><span style="background: var(--bg-subtle); padding: 2px 8px; border-radius: 4px; font-size: 11px; color: var(--text-muted); font-weight: 600;">${escapeHtml(sRol)}</span></td>
           </tr>
         `;
       });
@@ -11913,7 +11913,7 @@
 
     let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
     if (destacados.length === 0) {
-      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: 8px; border: 1px dashed #cbd5e1;">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
+      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: 8px; border: 1px dashed var(--border-medium);">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
     } else {
       destacados.forEach(p => {
         destacadosHTML += `
@@ -12018,7 +12018,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Equipo">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12029,7 +12029,7 @@
             <button type="button" class="player-subtab" data-fichatab="plantilla">PLANTILLA</button>
             <button type="button" class="player-subtab" data-fichatab="staff">STAFF</button>
             <button type="button" class="player-subtab" data-fichatab="campograma">CAMPOGRAMA</button>
-            <button type="button" class="player-subtab" data-fichatab="destacados">DESTACADOS <span style="background: var(--ficha-theme); color: white; border-radius: 12px; padding: 2px 6px; font-size: 10px; margin-left: 4px;">${destacados.length}</span></button>
+            <button type="button" class="player-subtab" data-fichatab="destacados">DESTACADOS <span style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))}; border-radius: 12px; padding: 2px 6px; font-size: 10px; margin-left: 4px;">${destacados.length}</span></button>
           </div>
 
           <div id="fichaTab-resumen" class="ficha-tab-pane" style="display: block;">
@@ -12188,7 +12188,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Club">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12227,7 +12227,7 @@
               </div>
             </div>
 
-            ${club.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(club.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
+            ${club.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(club.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Web Oficial</a></div>` : ''}
             
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
                <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos e infraestructura del club.</p>
@@ -12323,7 +12323,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Staff">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12493,8 +12493,8 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-light);">
-              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorPrimary)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(colorPrimary)}"></span>
-              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorSecondary)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(colorSecondary)}"></span>
+              <span id="teamColorPrimaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorPrimary)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Principal: ${escapeAttr(colorPrimary)}"></span>
+              <span id="teamColorSecondaryDot" style="width: 16px; height: 16px; border-radius: 50%; background: ${escapeAttr(colorSecondary)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Secundario: ${escapeAttr(colorSecondary)}"></span>
             </div>
           </div>
         </div>
@@ -13974,7 +13974,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -13989,28 +13989,28 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaFed" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">SEDE / CIUDAD</div>
               <div class="ficha-stat-value">${escapeHtml(fed.sede || fed.ciudad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">PRESIDENTE</div>
               <div class="ficha-stat-value">${escapeHtml(fed.presidente || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AÑO FUNDACIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(fed.fundacion || fed.anoFundacion || '-')}</div>
             </div>
           </div>
           
-          ${fed.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(fed.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${fed.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(fed.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar los datos y las observaciones.</p>
@@ -14050,7 +14050,7 @@
         const cDate = escapeHtml(c.fechaInicio || c.fecha || '');
         const cAct = escapeHtml(c.tipoActividad || '');
         listHtml += `
-          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: white; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc';" onmouseout="this.style.background='white';" onclick="window.openConvocatoriaFichaReadOnly('${escapeJsAttr(c.id || c.codigo)}')">
+          <div style="padding: 12px; border: 1px solid var(--border-light); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-hover)';" onmouseout="this.style.background='var(--bg-card)';" onclick="window.openConvocatoriaFichaReadOnly('${escapeJsAttr(c.id || c.codigo)}')">
             <div>
               <div style="font-weight: 700; color: var(--primary-blue); font-size: 14px;">${cName}</div>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">${cDate ? `<strong>Fechas:</strong> ${cDate} ` : ''}${cAct ? `&nbsp;|&nbsp; <strong>Tipo:</strong> ${cAct}` : ''}</div>
@@ -14117,7 +14117,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14133,26 +14133,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaSel" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); display: grid;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">FEDERACIÓN</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(String(federacionNombre || '').split(' - ')[0] || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">SELECCIONADOR</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 700; color: var(--text-main);">${escapeHtml(primerEntrenador)}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeJsAttr(sel.nombre || sel.seleccion || '')}')">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-color)';" onclick="window.openSelConvocatoriasModal('${escapeJsAttr(sel.nombre || sel.seleccion || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CONVOCATORIAS</div>
               <div class="ficha-stat-value" style="font-size: 18px; font-weight: 800; color: var(--primary-blue);">${selConvocatorias.length}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='white'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeJsAttr(sel.id || sel.codigo || '')}')">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-hover)'; this.style.borderColor='var(--primary-blue)';" onmouseout="this.style.background='var(--bg-card)'; this.style.borderColor='var(--border-color)';" onclick="window.openSelCampogramaPickerModal('${escapeJsAttr(sel.id || sel.codigo || '')}')">
               <div class="ficha-stat-label" style="font-size: 10px; font-weight: 800; color: var(--text-muted); margin-bottom: 6px;">CAMPOGRAMAS</div>
               <div class="ficha-stat-value" style="font-size: 14px; font-weight: 800; color: var(--primary-blue); margin-top: 4px;"><i data-lucide="layout-template" style="width: 16px; height: 16px; vertical-align: middle;"></i> Ver Táctica</div>
             </div>
@@ -14270,37 +14270,37 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaConv" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">FECHAS</div>
               <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(conv.fechaInicio || '-')} al ${escapeHtml(conv.fechaFin || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">COMPETICIÓN / MOTIVO</div>
               <div class="ficha-stat-value">${escapeHtml(conv.competicion || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">LUGAR</div>
               <div class="ficha-stat-value">${escapeHtml(conv.lugar || conv.sede || '-')}</div>
             </div>
-            <div class="ficha-stat-box" id="btnViewConvocados" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+            <div class="ficha-stat-box" id="btnViewConvocados" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">JUGADORES CONVOCADOS</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${numJugadores} Jugadores</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="users" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver plantilla</div>
             </div>
-            <div class="ficha-stat-box" id="btnViewCampogramaConv" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+            <div class="ficha-stat-box" id="btnViewCampogramaConv" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
               <div class="ficha-stat-label">CAMPOGRAMA</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(conv.sistemaTactico || '1-4-3-3')}</div>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;"><i data-lucide="layout-template" style="width: 10px; height: 10px; vertical-align: middle;"></i> Click para ver mapa táctico</div>
             </div>
             ${Array.isArray(conv.partidosList) && conv.partidosList.length > 0 ? `
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
                 ${conv.partidosList.map(p => `
@@ -14315,7 +14315,7 @@
               </div>
             </div>
             ` : (conv.partidos ? `
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
               <div class="ficha-stat-label">PARTIDOS PREVISTOS</div>
               <div class="ficha-stat-value" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(conv.partidos)}</div>
             </div>
@@ -14561,7 +14561,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -14633,7 +14633,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -14658,7 +14658,7 @@
             </div>
           </div>
           
-          ${ag.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(ag.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: white;"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
+          ${ag.web ? `<div style="margin-top: 10px;"><a href="${urlSegura(ag.web)}" target="_blank" class="ficha-link-btn generic" style="background: var(--ficha-theme); color: ${escapeAttr(getContrastColor(themeColor))};"><i data-lucide="external-link"></i> Sitio Web</a></div>` : ''}
           
           <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
              <p style="color: var(--text-muted); font-size: 13px; font-weight: 500; margin: 0;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Haz clic en Editar (lápiz) para modificar su descripción y datos de contacto extra.</p>
@@ -14709,7 +14709,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -14793,7 +14793,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-muted);" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -21589,7 +21589,7 @@
                         data-val="${escapeAttr(cat)}" 
                         draggable="${escapeAttr(isDraggable)}" 
                         title="${escapeAttr(cat)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" 
-                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
+                        style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
                   ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(cat)}
                 </button>
               `;
@@ -21660,7 +21660,7 @@
           ${['TODOS', 'Masculino', 'Femenino'].map(gender => {
         const isActive = currentGenderFilter === gender;
         return `
-            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="genero" data-val="${escapeAttr(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="genero" data-val="${escapeAttr(gender)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${escapeHtml(gender)}
             </button>
             `;
@@ -21685,7 +21685,7 @@
                     data-val="${escapeAttr(comName)}" 
                     draggable="${escapeAttr(isDraggable)}" 
                     title="${escapeAttr(comName)} (Arrastra para reordenar)" 
-                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+                    style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(comName)}
             </button>
           `;
@@ -21721,7 +21721,7 @@
                     data-val="${escapeAttr(com)}" 
                     draggable="${escapeAttr(isDraggable)}" 
                     title="${escapeAttr(com)} (Arrastra para reordenar)"
-                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
+                    style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; user-select: none;">
               ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(com)}
             </button>
             `;
@@ -21752,7 +21752,7 @@
             const label = cargo === 'all' ? 'Todos los Cargos' : cargo;
             const isDraggable = cargo !== 'all';
             return `
-              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${escapeAttr(isActive ? 'active' : '')}" data-type="cargo" data-val="${escapeAttr(cargo)}" draggable="${escapeAttr(isDraggable)}" title="${escapeAttr(label)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
+              <button type="button" class="btn-dir-subfilter btn-cargo-draggable ${escapeAttr(isActive ? 'active' : '')}" data-type="cargo" data-val="${escapeAttr(cargo)}" draggable="${escapeAttr(isDraggable)}" title="${escapeAttr(label)}${escapeAttr(isDraggable ? ' (Arrastra para reordenar)' : '')}" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: ${escapeAttr(isDraggable ? 'grab' : 'pointer')}; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--accion-azul)' : 'var(--bg-card)')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; white-space: nowrap; box-shadow: none;">
                 ${isDraggable ? `<span style="font-size: 10px; opacity: 0.5; margin-right: 4px;">⋮⋮</span>` : ''}${escapeHtml(label)}
               </button>
             `;
@@ -21886,10 +21886,10 @@
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
                     <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
                     </td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
                     <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
@@ -21998,7 +21998,7 @@
                           if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                         }
                       " style="width: 100%; height: 100%; object-fit: contain;">
-                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(clubPriColor)}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
+                      <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(clubPriColor)}; color: ${escapeAttr(getContrastColor(clubPriColor))}; font-size: 16px;">${c.nombre ? c.nombre.charAt(0) : 'C'}</span>
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(c.id || c.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -22131,12 +22131,12 @@
                             if (this.nextElementSibling) this.nextElementSibling.style.display = 'flex';
                           }
                         " style="width: 100%; height: 100%; object-fit: contain;">
-                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; color: ${escapeAttr(eqPriColor)}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
+                        <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(eqPriColor)}; color: ${escapeAttr(getContrastColor(eqPriColor))}; font-size: 16px;">${eq.nombre ? eq.nombre.charAt(0) : 'E'}</span>
                       `}
                     </div>
                   </div>
                   <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--primary-blue, #2563eb); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
+                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--accion-azul); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
                       <i data-lucide="users" style="width: 16px; height: 16px;"></i>
                       ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
                     </span>
@@ -22157,8 +22157,8 @@
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: -2px;">
                   ${escapeHtml(eq.categoria || 'Sin Cat.')} ${eq.grupo ? `(${escapeHtml(eq.grupo)})` : ''} | ${escapeHtml(eq.temporada || '26/27')}
                   <span style="display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle;">
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqPriColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Principal: ${escapeAttr(eqPriColor)}"></span>
-                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqSecColor)}; border: 1px solid #ccc; display: inline-block;" title="Color Secundario: ${escapeAttr(eqSecColor)}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqPriColor)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Principal: ${escapeAttr(eqPriColor)}"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${escapeAttr(eqSecColor)}; border: 1px solid var(--border-medium); display: inline-block;" title="Color Secundario: ${escapeAttr(eqSecColor)}"></span>
                   </span>
                 </div>
 
@@ -22261,7 +22261,7 @@
                       <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
+                      ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(fedColorPrimary)}; color: ${escapeAttr(getContrastColor(fedColorPrimary))}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(f.id || f.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -22388,7 +22388,7 @@
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(s.id || s.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
                     <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                      ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
+                      ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; font-weight: 800; background: ${escapeAttr(selColor)}; color: ${escapeAttr(getContrastColor(selColor))}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
                   </div>
                   <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(s.id || s.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
@@ -23802,7 +23802,7 @@
             <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
           </div>
           
-          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
+          <h3 style="font-size: 22px; font-weight: 800; color: var(--ms-tinta-verde); margin: 0 0 10px 0;">
             🎉 ¡Importación de Clubes Completada con Éxito!
           </h3>
           
@@ -23990,26 +23990,26 @@
         alreadyExists = state.directory.staff.some(s => s && isSamePerson(s.nombre || s.staff || '', row.nombre || ''));
       }
 
-      const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : '#ffffff');
+      const rowBg = alreadyExists ? '#fee2e2' : (isStaff ? '#fffbeb' : 'var(--bg-card)');
 
       html += `
-        <tr data-idx="${escapeAttr(idx)}" style="border-bottom: 1px solid #e2e8f0; background: ${escapeAttr(rowBg)}; transition: background 0.15s ease;">
-          <td style="padding: 6px; text-align: center; border-right: 1px solid #f1f5f9;">
+        <tr data-idx="${escapeAttr(idx)}" style="border-bottom: 1px solid var(--border-light); background: ${escapeAttr(rowBg)}; transition: background 0.15s ease;">
+          <td style="padding: 6px; text-align: center; border-right: 1px solid var(--border-light);">
             <input type="checkbox" class="excel-row-cb" data-idx="${escapeAttr(idx)}" ${row.checked ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-blue, #2563eb);">
           </td>
 
-          <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 6px; text-align: center; font-weight: 800; color: var(--text-muted, #94a3b8); font-size: 11px; border-right: 1px solid var(--border-light);">
             ${idx + 1}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="tipo" style="font-size: 11px; font-weight: 800; padding: 3px 6px; height: 28px; background: ${escapeAttr(isStaff ? '#fef3c7' : '#dbeafe')}; color: ${escapeAttr(isStaff ? '#92400e' : '#1e40af')}; border-radius: 6px;">
               <option value="JUGADOR" ${row.tipo === 'JUGADOR' ? 'selected' : ''}>🏃 JUGADOR</option>
               <option value="STAFF" ${row.tipo === 'STAFF' ? 'selected' : ''}>👔 STAFF</option>
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             ${isStaff ? `
               <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="cargo" list="importerCargoList" value="${escapeAttr(row.cargo)}" style="font-size: 11px; font-weight: 700; padding: 3px 6px; height: 28px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;" placeholder="Cargo..." onchange="if(this.value === '+ Crear nuevo...'){ this.value=''; const v = prompt('Introduce el nuevo cargo:'); if(v && v.trim()) { this.value = v.trim(); this.dispatchEvent(new Event('input', {bubbles:true})); } }">
             ` : `
@@ -24017,63 +24017,63 @@
             `}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="nombre" value="${escapeAttr(row.nombre)}" style="font-size: 12px; font-weight: 700; padding: 3px 6px; height: 28px; border: ${escapeAttr(alreadyExists ? '1px solid #ef4444' : '')};" placeholder="Nombre...">
             ${alreadyExists ? `<div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-top: 2px; text-align: center;">⚠️ YA REGISTRADO</div>` : ''}
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="ano" value="${escapeAttr(row.ano)}" style="font-size: 11px; font-weight: 700; text-align: center; padding: 3px 4px; height: 28px; width: 60px;" placeholder="Año">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pais" value="${escapeAttr(row.pais)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="País">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="sexo" style="font-size: 11px; padding: 3px 6px; height: 28px;">
               <option value="MASCULINO" ${row.sexo === 'MASCULINO' ? 'selected' : ''}>Masculino</option>
               <option value="FEMENINO" ${row.sexo === 'FEMENINO' ? 'selected' : ''}>Femenino</option>
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="equipo" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(row.equipo)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Equipo principal" onfocus="if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="estado" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${estadoOptions.map(e => `<option value="${e}" ${row.estado === e ? 'selected' : ''}>${e}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="comunidad" value="${escapeAttr(row.comunidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Comunidad">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <input type="text" class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="localidad" value="${escapeAttr(row.localidad)}" style="font-size: 11px; padding: 3px 6px; height: 28px;" placeholder="Localidad">
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="pierna" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${piernaOptions.map(p => `<option value="${p}" ${row.pierna === p ? 'selected' : ''}>${p}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="proyeccion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${proyeccionOptions.map(pr => `<option value="${pr}" ${row.proyeccion === pr ? 'selected' : ''}>${pr || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicion" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicion === p ? 'selected' : ''}>${p || '-- Seleccionar --'}</option>`).join('')}
             </select>
           </td>
 
-          <td style="padding: 4px; border-right: 1px solid #f1f5f9;">
+          <td style="padding: 4px; border-right: 1px solid var(--border-light);">
             <select class="form-control excel-cell-field" data-idx="${escapeAttr(idx)}" data-field="posicionSecundaria" style="font-size: 11px; padding: 3px 4px; height: 28px;">
               ${posOptions.map(p => `<option value="${p}" ${row.posicionSecundaria === p ? 'selected' : ''}>${p || '(Ninguna)'}</option>`).join('')}
             </select>
@@ -24324,7 +24324,7 @@
             <i data-lucide="check-circle-2" style="width: 32px; height: 32px;"></i>
           </div>
           
-          <h3 style="font-size: 22px; font-weight: 800; color: #15803d; margin: 0 0 10px 0;">
+          <h3 style="font-size: 22px; font-weight: 800; color: var(--ms-tinta-verde); margin: 0 0 10px 0;">
             🎉 ¡Importación Completada con Éxito!
           </h3>
           
@@ -25054,7 +25054,7 @@
             <!-- Izquierda: Datos Físicos y Resumen -->
             <div style="flex: 1; min-width: 300px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 20px;">
                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
-                  <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--primary-blue, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
+                  <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--accion-azul); color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800;">
                     ${String(stats.nombre || 'J').charAt(0).toUpperCase()}
                   </div>
                   <div>
@@ -25857,7 +25857,7 @@
       const selectedText = sel.options[sel.selectedIndex]?.text || '';
       const textNode = document.createElement('div');
       textNode.style.fontWeight = '800';
-      textNode.style.color = '#1e293b';
+      textNode.style.color = 'var(--text-main)';
       textNode.style.fontSize = '14px';
       textNode.style.marginBottom = '8px';
       textNode.textContent = selectedText.includes('-- Seleccionar') ? 'Sin seleccionar' : selectedText;
@@ -25938,7 +25938,7 @@
         pContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos prioritarios aún.</span>`;
       } else {
         pContainer.innerHTML = `
-          <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+          <button type="button" class="btn btn-sm" id="btnViewPriorityTeams" style="background: rgba(245, 158, 11, 0.12); color: var(--ms-tinta-ambar); border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
             ⭐ Ver Equipos Prioritarios (${pTeams.length})
           </button>
         `;
@@ -25952,7 +25952,7 @@
         iContainer.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); font-style: italic;">No has añadido equipos con jugadores interesantes aún.</span>`;
       } else {
         iContainer.innerHTML = `
-          <button type="button" class="btn btn-sm" id="btnViewInterestingTeams" style="background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
+          <button type="button" class="btn btn-sm" id="btnViewInterestingTeams" style="background: rgba(147, 51, 234, 0.12); color: var(--tinta-morado); border: 1px solid rgba(147, 51, 234, 0.3); font-weight: 800; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 9999px;">
             👁️ Ver Equipos Interesantes (${iTeams.length})
           </button>
         `;
@@ -26004,15 +26004,15 @@
         <div style="margin-bottom: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden;">
           <div style="background: var(--bg-subtle); padding: 8px 12px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
             <strong style="font-size: 13px; color: var(--primary-blue);">${escapeHtml(g.categoria)}</strong>
-            <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px;">${escapeHtml(g.federacion)}</span>
+            <span class="badge" style="background: #e2e8f0; color: var(--text-muted); font-size: 10px;">${escapeHtml(g.federacion)}</span>
           </div>
           <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-card);">
             ${g.teams.map(t => {
         const badgeStyle = isPriority
-          ? 'background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.3);'
-          : 'background: rgba(147, 51, 234, 0.12); color: #7e22ce; border: 1px solid rgba(147, 51, 234, 0.3);';
+          ? 'background: rgba(245, 158, 11, 0.12); color: var(--ms-tinta-ambar); border: 1px solid rgba(245, 158, 11, 0.3);'
+          : 'background: rgba(147, 51, 234, 0.12); color: var(--tinta-morado); border: 1px solid rgba(147, 51, 234, 0.3);';
         const icon = isPriority ? '⭐' : '👁️';
-        const removeColor = isPriority ? '#b45309' : '#7e22ce';
+        const removeColor = isPriority ? 'var(--ms-tinta-ambar)' : 'var(--tinta-morado)';
         return `
               <span class="badge" style="${escapeAttr(badgeStyle)} font-size: 12px; padding: 6px 12px; border-radius: 9999px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 ${icon} ${escapeHtml(t.display)}
@@ -26756,12 +26756,12 @@
       const matchesVisibles = allMatches.slice(0, carteleraFilasVisibles);
       html += matchesVisibles.map(m => {
         let locStyle = 'font-weight: 700; color: var(--text-main);';
-        if (m.isInterestingLocal) locStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
-        else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+        if (m.isInterestingLocal) locStyle = m.isClash ? 'color: var(--tinta-morado-fuerte); font-weight: 900;' : 'color: var(--tinta-morado); font-weight: 900;';
+        else if (m.isPriorityLocal) locStyle = m.isClash ? 'color: var(--ms-tinta-verde); font-weight: 900;' : 'color: var(--ms-tinta-ambar); font-weight: 900;';
 
         let visStyle = 'font-weight: 700; color: var(--text-main);';
-        if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: #6b21a8; font-weight: 900;' : 'color: #7e22ce; font-weight: 900;';
-        else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: #15803d; font-weight: 900;' : 'color: #b45309; font-weight: 900;';
+        if (m.isInterestingVisitante) visStyle = m.isClash ? 'color: var(--tinta-morado-fuerte); font-weight: 900;' : 'color: var(--tinta-morado); font-weight: 900;';
+        else if (m.isPriorityVisitante) visStyle = m.isClash ? 'color: var(--ms-tinta-verde); font-weight: 900;' : 'color: var(--ms-tinta-ambar); font-weight: 900;';
 
         
           const locPrio = m.locPrio;
@@ -31303,7 +31303,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <button type="button" class="btn-close-modal" id="btnSecondaryCloseModal" style="background: transparent; border: none; font-size: 24px; line-height: 1; cursor: pointer; color: var(--text-muted);">&times;</button>
         </div>
         <div class="modal-body" id="secondaryModalBody" style="padding: 24px; overflow-y: auto; flex: 1;"></div>
-        <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 12px; background: #f8fafc; border-radius: 0 0 16px 16px;">
+        <div class="modal-footer" style="padding: 20px 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-panel); border-radius: 0 0 16px 16px;">
           <button type="button" class="btn btn-secondary" id="btnSecondaryCancelModal">Cancelar</button>
           <button type="button" class="btn btn-primary" id="btnSecondarySubmitModal">Guardar</button>
         </div>
@@ -31410,7 +31410,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <button type="button" class="btn btn-secondary" id="btnCustomPromptCancel" style="min-width: 110px; font-weight: 700; padding: 10px 20px;">
             Cancelar
           </button>
-          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800; background: var(--primary-blue, #2563eb); color: white; padding: 10px 20px;">
+          <button type="button" class="btn btn-primary" id="btnCustomPromptAccept" style="min-width: 120px; font-weight: 800; background: var(--accion-azul); color: white; padding: 10px 20px;">
             Aceptar
           </button>
         </div>
@@ -32154,7 +32154,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
           let bgStyle = 'background: rgba(15, 23, 42, 0.92); color: #ffffff; border: 1px solid rgba(255,255,255,0.3);';
           if (isSecondary) {
-            bgStyle = 'background: rgba(234, 179, 8, 0.95); color: #1e293b; border: 1px solid #ca8a04;';
+            bgStyle = 'background: rgba(234, 179, 8, 0.95); color: var(--text-main); border: 1px solid #ca8a04;';
           }
 
           return `
@@ -33192,7 +33192,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           dropdown.style.marginTop = '2px';
           dropdown.style.padding = '0';
           dropdown.style.listStyle = 'none';
-          dropdown.style.background = 'white';
+          dropdown.style.background = 'var(--bg-card)';
           dropdown.style.border = '1px solid var(--border-light)';
           dropdown.style.borderRadius = 'var(--radius-md)';
           dropdown.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
@@ -33777,9 +33777,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (ev.data.estado === 'programado') {
         bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
       } else if (ev.data.estado === 'directo') {
-        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = 'var(--ms-tinta-ambar)';
       } else {
-        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = 'var(--ms-tinta-verde)';
       }
       idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
@@ -33986,9 +33986,9 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (ev.data.estado === 'programado') {
         bg = 'rgba(59, 130, 246, 0.15)'; border = 'var(--primary-blue)'; color = 'var(--primary-blue-dark)';
       } else if (ev.data.estado === 'directo') {
-        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = '#b45309';
+        bg = 'rgba(234, 179, 8, 0.15)'; border = '#eab308'; color = 'var(--ms-tinta-ambar)';
       } else {
-        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = '#047857';
+        bg = 'rgba(16, 185, 129, 0.15)'; border = '#10b981'; color = 'var(--ms-tinta-verde)';
       }
       idAttr = `data-type="match" data-mid="${escapeAttr(ev.data.id)}"`;
     } else if (ev.type === 'agenda') {
