@@ -1107,6 +1107,11 @@
 
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
+          // El tema y la foto llegan con la configuración: se aplican en cuanto llegan. Antes solo
+          // se aplicaban al abrir Ajustes; con el oscuro de reserva, un usuario en claro se quedaba
+          // en oscuro hasta entrar ahí.
+          if (configData.theme === 'light' || configData.theme === 'dark') setTheme(configData.theme);
+          pintarAvatar();
           if (configData.appName) {
             state.settings.appName = configData.appName;
             try {
@@ -1197,6 +1202,11 @@
         const configData = doc.data();
         if (configData) {
           state.settings = Object.assign({}, state.settings, configData);
+          // El tema y la foto llegan con la configuración: se aplican en cuanto llegan. Antes solo
+          // se aplicaban al abrir Ajustes; con el oscuro de reserva, un usuario en claro se quedaba
+          // en oscuro hasta entrar ahí.
+          if (configData.theme === 'light' || configData.theme === 'dark') setTheme(configData.theme);
+          pintarAvatar();
           if (configData.appName) {
             state.settings.appName = configData.appName;
             try { localStorage.setItem(APP_NAME_STORAGE_KEY, configData.appName); } catch (e) { }
@@ -3930,7 +3940,7 @@
 
     let html = `
         <div style="display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="file-check-2" style="width: 14px; color: var(--text-muted);" title="Estado"></i>
             <select id="partidosStatusSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosStatusTab === 'all' ? 'selected' : ''}>TODOS (${reports.length})</option>
@@ -3939,7 +3949,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="trophy" style="width: 14px; color: var(--text-muted);" title="Competición"></i>
             <select id="partidosCatSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosCategoryTab === 'all' ? 'selected' : ''}>TODAS (${reports.length})</option>
@@ -3950,7 +3960,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="calendar" style="width: 14px; color: var(--text-muted);" title="Mes"></i>
             <select id="partidosMonthSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosMonthTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -3963,7 +3973,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="calendar-days" style="width: 14px; color: var(--text-muted);" title="Semana"></i>
             <select id="partidosWeekSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosWeekTab === 'all' ? 'selected' : ''}>TODAS</option>
@@ -3974,7 +3984,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="clock" style="width: 14px; color: var(--text-muted);" title="Día"></i>
             <select id="partidosDaySelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosDayTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -3985,7 +3995,7 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="tv" style="width: 14px; color: var(--text-muted);" title="Visionado"></i>
             <select id="partidosVisionadoSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosVisionadoTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -3994,7 +4004,7 @@
             </select>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="briefcase" style="width: 14px; color: var(--text-muted);" title="Tipo de Informe"></i>
             <select id="partidosTipoInformeSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosTipoInformeTab === 'all' ? 'selected' : ''}>TODOS</option>
@@ -4003,7 +4013,7 @@
             </select>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 20px; padding: 2px 8px;">
             <i data-lucide="alert-triangle" style="width: 14px; color: var(--text-muted);" title="Incidencias"></i>
             <select id="partidosIncidenciaSelect" class="form-select" style="font-size: 12px; font-weight: 600; padding: 4px 20px 4px 4px; border: none; background-color: transparent; box-shadow: none; cursor: pointer; color: var(--text-dark);">
               <option value="all" ${currentPartidosIncidenciaTab === 'all' ? 'selected' : ''}>TODAS</option>
@@ -6416,10 +6426,10 @@
         const amarillas = stats.amarillas || 0;
         const rojas = stats.rojas || 0;
 
-        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+        if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+        if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
         if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+        else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: var(--bg-card); border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
       }
       if (isZurdo) {
         badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
@@ -6538,10 +6548,10 @@
           const amarillas = stats.amarillas || 0;
           const rojas = stats.rojas || 0;
 
-          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
-          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
+          if (goles > 0) badgesHTML += `<div style="position: absolute; top: -6px; right: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Goles: ${escapeAttr(goles)}">⚽${goles > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${goles}</span>` : ''}</div>`;
+          if (asistencias > 0) badgesHTML += `<div style="position: absolute; top: -6px; left: -6px; font-size: 10px; background: var(--bg-card); border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Asistencias: ${escapeAttr(asistencias)}">👞${asistencias > 1 ? `<span style="font-size:7px; margin-left: 1px; color: black;">${asistencias}</span>` : ''}</div>`;
           if (rojas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Tarjeta Roja">🟥</div>`;
-          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: white; border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
+          else if (amarillas > 0) badgesHTML += `<div style="position: absolute; bottom: -4px; left: -4px; font-size: 10px; z-index: 2; line-height: 1;" title="Amarillas: ${escapeAttr(amarillas)}">🟨${amarillas > 1 ? `<span style="font-size:7px; font-weight: bold; background: var(--bg-card); border-radius: 50%; padding: 0 2px;">${amarillas}</span>` : ''}</div>`;
         }
         if (isZurdo) {
           badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
@@ -6706,11 +6716,11 @@
   function buildKeepOpenDropdownHTML(optionsObj, placeholder, targetId) {
     let html = `
     <div class="custom-dropdown-wrapper" style="position: relative; width: 100%; margin-bottom: 0;">
-      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff;" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeJsAttr(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeJsAttr(placeholder)}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
+      <div class="form-control select-compact custom-dropdown-header" style="height: 38px; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);" onclick="event.stopPropagation(); const m = this.nextElementSibling; if(m.classList.contains('hidden')){ document.querySelectorAll('.custom-dropdown-menu').forEach(x=>x.classList.add('hidden')); m.classList.remove('hidden'); const textarea = document.getElementById('${escapeJsAttr(targetId)}'); if(textarea){ const parts = textarea.value.split(',').map(s=>s.trim()).filter(Boolean); m.querySelectorAll('.custom-dropdown-item').forEach(i => { if(parts.includes(i.dataset.val)){ i.innerHTML = '${escapeJsAttr(placeholder)}' ? i.dataset.val + ' <i data-lucide=\\'check\\' style=\\'width:14px; height:14px; color:var(--primary-color); float:right;\\'></i>' : i.dataset.val; } else { i.innerHTML = i.dataset.val; } }); if(window.lucide) window.lucide.createIcons(); } } else { m.classList.add('hidden'); }">
         <span>+ ${escapeHtml(placeholder)}</span>
         <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
       </div>
-      <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
+      <div class="custom-dropdown-menu hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 200px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
     `;
 
     // Opción para crear uno nuevo dinámicamente
@@ -7059,7 +7069,7 @@
           </div>
           <div style="display: flex; gap: 8px;">
             <button type="button" class="btn btn-secondary" id="btnClosePlayerMatchModal" style="font-size: 11px; padding: 6px 12px; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3);">Cerrar</button>
-            <button type="button" class="btn btn-primary" id="btnSavePlayerMatchReport" style="font-size: 11px; padding: 6px 14px; background: #ffffff; color: #1d4ed8; font-weight: 800; border: none;">💾 Guardar Ficha</button>
+            <button type="button" class="btn btn-primary" id="btnSavePlayerMatchReport" style="font-size: 11px; padding: 6px 14px; background: var(--bg-card); color: #1d4ed8; font-weight: 800; border: none;">💾 Guardar Ficha</button>
           </div>
         </div>
 
@@ -8850,7 +8860,7 @@
           
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
@@ -9836,7 +9846,7 @@
               </div>
               
               <!-- Radar Chart Container -->
-              <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: center; position: relative;">
+              <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: center; position: relative;">
                 <canvas id="playerAtributosChart" width="300" height="300"></canvas>
               </div>
             </div>
@@ -11903,11 +11913,11 @@
 
     let destacadosHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;">`;
     if (destacados.length === 0) {
-      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: white; border-radius: 8px; border: 1px dashed #cbd5e1;">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
+      destacadosHTML += `<div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: 8px; border: 1px dashed #cbd5e1;">No hay jugadores marcados como DESTACADO EQUIPO en esta plantilla.</div>`;
     } else {
       destacados.forEach(p => {
         destacadosHTML += `
-          <div style="background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${escapeJsAttr(p.id)}')">
+          <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; transition: transform 0.2s; cursor: pointer;" onclick="openPlayerModal('${escapeJsAttr(p.id)}')">
             <img src="${escapeAttr(p.foto || 'Foto Jugador General.png')}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid ${escapeAttr(themeColor)};">
             <div>
               <div style="font-weight: 800; color: var(--text-dark); font-size: 14px; margin-bottom: 2px;">${escapeHtml(p.nombre || p.jugador || 'Sin Nombre')}</div>
@@ -11992,7 +12002,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -12008,7 +12018,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Equipo">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEquipo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12024,27 +12034,27 @@
 
           <div id="fichaTab-resumen" class="ficha-tab-pane" style="display: block;">
             <div class="ficha-grid" style="gap: 20px;">
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">CLUB VINCULADO</div>
                 <div class="ficha-stat-value">${escapeHtml(team.clubVinculado || team.club || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">GRUPO</div>
                 <div class="ficha-stat-value">${escapeHtml(team.grupo || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">COMPETICIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(team.competicion || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(String(team.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PLANTILLA</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numPlantilla} Jugadores</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">STAFF TÉCNICO</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numStaff} Miembros</div>
               </div>
@@ -12055,19 +12065,19 @@
           </div>
           
           <div id="fichaTab-plantilla" class="ficha-tab-pane" style="display: none;">
-             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
+             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
                ${plantillaHTML}
              </div>
           </div>
 
           <div id="fichaTab-staff" class="ficha-tab-pane" style="display: none;">
-             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
+             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 10px;">
                ${staffHTML}
              </div>
           </div>
 
           <div id="fichaTab-campograma" class="ficha-tab-pane" style="display: none;">
-             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 16px;">
+             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 16px;">
                ${campogramaHTML}
              </div>
           </div>
@@ -12162,7 +12172,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${club.escudo || club.logo ? `<img src="${escapeAttr(club.escudo || club.logo)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="shield" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -12178,7 +12188,7 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Club">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaClub" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
@@ -12191,27 +12201,27 @@
 
           <div id="fichaTabClub-resumen" class="ficha-tab-pane" style="display: block;">
             <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">PAÍS</div>
                 <div class="ficha-stat-value">${escapeHtml(club.pais || 'España')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">COMUNIDAD</div>
                 <div class="ficha-stat-value">${escapeHtml(club.comunidad || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">LOCALIDAD</div>
                 <div class="ficha-stat-value">${escapeHtml(club.localidad || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">FEDERACIÓN</div>
                 <div class="ficha-stat-value">${escapeHtml(String(club.federacion || '').split(' - ')[0] || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">ESTADIO</div>
                 <div class="ficha-stat-value">${escapeHtml(club.estadio || '-')}</div>
               </div>
-              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+              <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">EQUIPOS VINCULADOS</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numEquipos} Equipos</div>
               </div>
@@ -12225,7 +12235,7 @@
           </div>
 
           <div id="fichaTabClub-equipos" class="ficha-tab-pane" style="display: none;">
-             <div style="background: white; border-radius: 8px; border: 1px solid var(--border-light); padding: 20px;">
+             <div style="background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-light); padding: 20px;">
                ${equiposHTML}
              </div>
           </div>
@@ -12299,7 +12309,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(staff.foto || shieldSrc || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(staff.foto || shieldSrc || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(staff.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -12313,26 +12323,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar Staff">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaStaff" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EDAD</div>
               <div class="ficha-stat-value">${escapeHtml(staff.edad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CLUB VINCULADO</div>
               <div class="ficha-stat-value">${escapeHtml(staff.clubVinculado || staff.club || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(staff.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">SITUACIÓN CONTRACTUAL</div>
               <div class="ficha-stat-value">${escapeHtml(staff.contrato || '-')}</div>
             </div>
@@ -12473,8 +12483,8 @@
       <div class="team-modal-wrapper" style="border-top: 6px solid ${escapeAttr(colorPrimary)}; box-shadow: 0 -3px 12px ${escapeAttr(colorPrimary)}33;">
         <div id="teamModalHeaderBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, ${escapeAttr(colorPrimary)}22 0%, ${escapeAttr(colorSecondary)}22 100%); border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid ${escapeAttr(colorPrimary)}40;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              ${escudoData ? `<img src="${escapeAttr(escudoData)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
+            <div id="teamHeaderEscudoBox" style="width: 44px; height: 44px; border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border-light); flex-shrink: 0; padding: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              ${escudoData ? `<img src="${escapeAttr(escudoData)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: var(--bg-card);">` : `<div id="teamHeaderFallbackBadge" style="width: 100%; height: 100%; background: ${colorPrimary}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">${nombre ? nombre.charAt(0) : 'E'}</div>`}
             </div>
             <div>
               <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">${escapeHtml(nombre || 'Equipo')}</h2>
@@ -13004,7 +13014,7 @@
           }
           const headerBox = document.getElementById('teamHeaderEscudoBox');
           if (headerBox) {
-            headerBox.innerHTML = `<img src="${escapeAttr(clubLogo)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;">`;
+            headerBox.innerHTML = `<img src="${escapeAttr(clubLogo)}" id="teamHeaderEscudoImg" style="width: 100%; height: 100%; object-fit: contain; background: var(--bg-card);">`;
           }
         }
         const clubPri = foundClub.colorPrimary || foundClub.colorPrimario || foundClub.color1 || foundClub.colorCamiseta;
@@ -14535,7 +14545,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="trophy" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14551,26 +14561,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaTorneo" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EDICIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(t.edicion || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">FECHAS</div>
               <div class="ficha-stat-value" style="font-size:14px;">${escapeHtml(t.fechaInicio || '-')} al ${escapeHtml(t.fechaFin || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">UBICACIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(t.ciudad || t.pais || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EQUIPOS PARTICIPANTES</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${escapeHtml(t.numEquipos || '-')}</div>
             </div>
@@ -14608,7 +14618,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+              <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                 ${shieldSrc !== 'Escudo Blanco.png' ? `<img src="${escapeAttr(shieldSrc)}" style="max-width: 80%; max-height: 80%; object-fit: contain;">` : `<i data-lucide="briefcase" style="width: 48px; height: 48px; color: var(--text-muted);"></i>`}
               </div>
               <div>
@@ -14623,26 +14633,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgencia" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CIUDAD SEDE</div>
               <div class="ficha-stat-value">${escapeHtml(ag.ciudad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(ag.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EMAIL</div>
               <div class="ficha-stat-value">${escapeHtml(ag.email || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AGENTES ASOCIADOS</div>
               <div class="ficha-stat-value" style="color: var(--text-main);">${numAgentes} Agentes</div>
             </div>
@@ -14685,7 +14695,7 @@
         <div class="ficha-content" style="padding: 30px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(agt.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <img src="${escapeAttr(agt.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(agt.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px; display: flex; flex-direction: column; gap: 4px;">
@@ -14699,26 +14709,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaAgente" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TELÉFONO</div>
               <div class="ficha-stat-value">${escapeHtml(agt.telefono || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">EMAIL</div>
               <div class="ficha-stat-value">${escapeHtml(agt.email || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">LICENCIA FIFA</div>
               <div class="ficha-stat-value">${escapeHtml(agt.licencia || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">NIVEL</div>
               <div class="ficha-stat-value">${escapeHtml(agt.nivel || '-')}</div>
             </div>
@@ -14764,9 +14774,9 @@
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
               ${est.foto ? `
-                <img src="${escapeAttr(est.foto)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <img src="${escapeAttr(est.foto)}" alt="Foto" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
               ` : `
-                <div style="width: 100px; height: 100px; border-radius: 50%; background: white; border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
+                <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--bg-card); border: 4px solid var(--ficha-theme); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;">
                   <i data-lucide="map-pin" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
                 </div>
               `}
@@ -14783,26 +14793,26 @@
               <button type="button" class="btn btn-primary" id="btnAbrirEditorEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: #3b82f6; border: none; color: white;" title="Editar">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: white; border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
+              <button type="button" class="btn btn-secondary" id="btnCerrarFichaEstadio" style="padding: 12px; font-weight: 800; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid #e2e8f0; color: #475569;" title="Volver al Directorio">
                 <i data-lucide="x"></i>
               </button>
             </div>
           </div>
 
           <div class="ficha-grid" style="gap: 20px; margin-bottom: 30px;">
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">CAPACIDAD</div>
               <div class="ficha-stat-value">${escapeHtml(est.capacidad || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">TIPO DE CÉSPED</div>
               <div class="ficha-stat-value">${escapeHtml(est.tipoCesped || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">DIMENSIONES</div>
               <div class="ficha-stat-value">${escapeHtml(est.dimensiones || '-')}</div>
             </div>
-            <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
+            <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
               <div class="ficha-stat-label">AÑO CONSTRUCCIÓN</div>
               <div class="ficha-stat-value">${escapeHtml(est.construccion || '-')}</div>
             </div>
@@ -19454,9 +19464,9 @@
       const clubLogo = c.logo || c.escudo || (c.codigo ? `./escudos/${escapeJsAttr(c.codigo)}.png` : `./escudos/${String(c.nombre || '').toLowerCase().replace(/^(c\.d\.|c\.a\.|a\.d\.|u\.d\.|u\.d\.c\.|c\.f\.|s\.d\.|f\.c\.)\s*/i, '').replace(/[^a-z0-9]/gi, '_')}.png`);
 
       return `
-              <div class="convenido-item-card" data-club-name="${escapeAttr(c.nombre)}" data-club-id="${escapeAttr(c.id || '')}" style="background: #ffffff; border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${escapeAttr(clubPriColor)}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
+              <div class="convenido-item-card" data-club-name="${escapeAttr(c.nombre)}" data-club-id="${escapeAttr(c.id || '')}" style="background: var(--bg-card); border: 1.5px solid var(--border-medium, #cbd5e1); border-top: 4px solid ${escapeAttr(clubPriColor)}; padding: 12px; border-radius: 10px; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; display: flex; flex-direction: column; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${escapeAttr(clubPriColor)}; padding: 2px; flex-shrink: 0;">
+                  <div style="width: 36px; height: 36px; border-radius: 6px; background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid ${escapeAttr(clubPriColor)}; padding: 2px; flex-shrink: 0;">
                     <img src="${escapeAttr(clubLogo)}" onerror="this.style.display='none';" style="width: 100%; height: 100%; object-fit: contain;">
                   </div>
                   <div style="flex: 1; overflow: hidden;">
@@ -21590,7 +21600,7 @@
             <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); min-width: 90px; display: inline-flex; align-items: center; gap: 4px;">
               <i data-lucide="layers" style="width: 14px;"></i> Grupo:
             </span>
-            <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: #ffffff; color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
+            <select class="form-control select-dir-subfilter" data-type="grupo" style="width: auto; max-width: 300px; padding: 2px 30px 2px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; height: 26px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-dark, #1e293b); cursor: pointer; outline: none; appearance: auto;">
               ${allGroups.map(grp => `
                 <option value="${escapeAttr(grp)}" ${currentSubGroupFilter === grp ? 'selected' : ''}>${escapeHtml(grp)}</option>
               `).join('')}
@@ -21801,7 +21811,7 @@
           
           <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-subtle, #f8fafc); padding: 3px 8px; border-radius: 8px; border: 1px solid var(--border-light);">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">Pág.</span>
-            <input type="number" class="dir-page-jump-input" min="1" max="${escapeAttr(totalPages)}" value="${escapeAttr(currentDirectoryPage)}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: #ffffff;">
+            <input type="number" class="dir-page-jump-input" min="1" max="${escapeAttr(totalPages)}" value="${escapeAttr(currentDirectoryPage)}" style="width: 54px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; border-radius: 6px; border: 1px solid var(--border-medium, #cbd5e1); background: var(--bg-card);">
             <span style="font-size: 12px; font-weight: 700; color: var(--text-muted);">de ${totalPages}</span>
             <button type="button" class="btn btn-primary btn-dir-jump-go" style="padding: 4px 8px; font-size: 11px; font-weight: 800; border-radius: 6px;">Ir</button>
           </div>
@@ -21817,7 +21827,7 @@
       <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 8px; align-items: center;">
         <span id="dirSelectedCount" style="font-size: 13px; font-weight: 700; color: var(--text-muted);">0</span> <span style="font-size: 13px; color: var(--text-muted);">seleccionados</span>
         <button id="btnBulkDeleteDir" class="btn btn-danger hidden" style="display: none; align-items: center; gap: 4px; padding: 6px 12px; font-size: 12px; font-weight: 700;">
-          <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar <span id="dirBulkDeleteBadge" class="badge" style="background: white; color: #ef4444; border-radius: 50%; padding: 2px 6px; margin-left: 4px;">0</span>
+          <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Eliminar <span id="dirBulkDeleteBadge" class="badge" style="background: var(--bg-card); color: #ef4444; border-radius: 50%; padding: 2px 6px; margin-left: 4px;">0</span>
         </button>
       </div>
     ` : '';
@@ -21978,7 +21988,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(clubPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(clubPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       <img src="${escapeAttr(clubLogo)}" data-tried="0" onerror="
                         if (this.dataset.tried === '0' && '${escapeJsAttr(c.codigo)}') {
                           this.dataset.tried = '1';
@@ -22107,7 +22117,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(eq.id || eq.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(eqPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(eqPriColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                       ${eqLogo ? `<img src="${escapeAttr(eqLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `
                         <img src="${escapeAttr(finalImgSrc)}" data-tried="0" onerror="
                           if (this.dataset.tried === '0' && '${clubCodigo}') {
@@ -22250,7 +22260,7 @@
                     <div class="fed-drag-handle" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center;" title="Arrastrar para reordenar">
                       <i data-lucide="grip-vertical" style="width: 18px; height: 18px;"></i>
                     </div>
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(fedColorPrimary)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${fedLogo ? `<img src="${escapeAttr(fedLogo)}" alt="${escapeAttr(f.nombre)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${fedColorPrimary}; font-size: 16px;">${f.nombre ? f.nombre.charAt(0) : 'F'}</span>`}
                     </div>
                   </div>
@@ -22377,7 +22387,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(s.id || s.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(selColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${selLogo ? `<img src="${escapeAttr(selLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : `<span style="font-weight: 800; color: ${selColor}; font-size: 16px;">${s.nombre ? s.nombre.charAt(0) : 'S'}</span>`}
                     </div>
                   </div>
@@ -22463,7 +22473,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(c.id || c.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(convColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(convColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(convColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(convColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${badgeSrc
               ? `<img src="${escapeAttr(badgeSrc)}" style="width: 100%; height: 100%; object-fit: contain;">`
               : `<i data-lucide="megaphone" style="width: 24px; height: 24px;"></i>`
@@ -22543,7 +22553,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(t.id || t.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(trnColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(trnColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(trnColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(trnColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${trnLogo ? `<img src="${escapeAttr(trnLogo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="trophy" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22731,7 +22741,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(ag.id || ag.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(agColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(agColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${ag.logo || ag.escudo ? `<img src="${escapeAttr(ag.logo || ag.escudo)}" style="width: 100%; height: 100%; object-fit: contain;">` : '<i data-lucide="briefcase" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22816,7 +22826,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(agt.id || agt.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agtColor)}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(agtColor)}; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${agt.foto || agt.imagen ? `<img src="${escapeAttr(agt.foto || agt.imagen)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : `<img src="Foto Jugador General.png" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`}
                     </div>
                   </div>
@@ -22893,7 +22903,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(est.id || est.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(estColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(estColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(estColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(estColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       ${est.foto || est.imagen ? `<img src="${escapeAttr(est.foto || est.imagen)}" style="width: 100%; height: 100%; object-fit: cover;">` : '<i data-lucide="map-pin" style="width: 24px; height: 24px;"></i>'}
                     </div>
                   </div>
@@ -22946,7 +22956,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 10px;">
                     <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(item.id || item.codigo)}" style="cursor: pointer; width: 18px; height: 18px; accent-color: var(--primary-blue); display: ${escapeAttr(isBulkSelectActive ? 'block' : 'none')};">
-                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(itemColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(itemColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(itemColor)}; padding: 3px; flex-shrink: 0; color: ${escapeAttr(itemColor)}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                       <span style="font-weight: 800; font-size: 16px;">${itemName.charAt(0)}</span>
                     </div>
                   </div>
@@ -28824,6 +28834,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             task.completada = false;
             task.archivada = false;
             task.completedAt = null;
+            saveToFirebase('agenda', task);   // sin esto, al recargar volvía al archivo
             saveState();
             renderAgenda();
             renderCalendario();
@@ -29389,6 +29400,10 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       statusSel.addEventListener('change', (e) => {
         task.estado = e.target.value;
         task.completada = (task.estado === 'done');
+        // Faltaba guardar la TAREA: saveState() escribe solo la configuración. La tarjeta cambiaba
+        // de columna en pantalla y al recargar volvía a «sin hacer» (Miguel, 11-sep-2026). Es el
+        // mismo defecto que tuvo el partido programado el 9-sep.
+        saveToFirebase('agenda', task);
         saveState();
         renderAgenda();
         renderCalendario();
@@ -29453,7 +29468,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
@@ -29470,7 +29485,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             </div>
           </div>
 
-          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
@@ -29492,7 +29507,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         </div>
 
-        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <div class="form-group mb-0">
             <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -29660,7 +29675,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 14px; color: var(--primary-blue);"></i> Fecha</label>
@@ -29677,7 +29692,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
             </div>
           </div>
 
-          <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
               <div class="form-group mb-0">
                 <label class="form-label" style="display: flex; align-items: center; gap: 6px;"><i data-lucide="activity" style="width: 14px; color: var(--primary-blue);"></i> Estado</label>
@@ -29699,7 +29714,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           </div>
         </div>
 
-        <div style="background: #ffffff; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <div class="form-group mb-0">
             <label class="form-label" style="display: flex; align-items: center; gap: 6px; font-weight: 700;"><i data-lucide="bookmark" style="width: 14px; color: var(--primary-blue);"></i> Categoría</label>
             <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -32710,7 +32725,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
           <!-- LÍNEA 1: Escudo (icono) y Eliminar -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
+              <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                 <i data-lucide="file-text" style="width: 24px; height: 24px; color: ${escapeAttr(cardColor)};"></i>
               </div>
               ${currentCategoryId === 'todas' && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
