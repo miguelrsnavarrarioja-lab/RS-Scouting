@@ -29,6 +29,20 @@
   window.openImportTextCalendarModal = function () { return openImportTextCalendarModal(); };
   window.openConvocatoriaFichaReadOnly = function (id) { return openConvocatoriaFichaReadOnly(id); };
 
+  window.isPlayerPotentialRS = function(playerObj) {
+    if (!playerObj) return false;
+    if (playerObj.rendimientoRS === 'A' || playerObj.rendimientoRS === 'B') return false;
+    if (!playerObj.historialEvaluaciones || !Array.isArray(playerObj.historialEvaluaciones)) return false;
+    
+    let countAB = 0;
+    playerObj.historialEvaluaciones.forEach(ev => {
+      if (ev.rendimiento === 'A' || ev.rendimiento === 'B') {
+        countAB++;
+      }
+    });
+    return countAB >= 2;
+  };
+
   window.showOnlyDuplicatePlayers = false;
   window.toggleDuplicatesFilter = function () {
     window.showOnlyDuplicatePlayers = !window.showOnlyDuplicatePlayers;
@@ -6058,6 +6072,7 @@
         } else {
           inputElement.value = val;
           dropdown.style.display = 'none';
+          inputElement.dispatchEvent(new Event('input'));
           renderPitchPins(team);
         }
       });
@@ -6104,27 +6119,54 @@
 
       let inputBgStyle = '';
       let ageBadgeHTML = '';
-      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
-        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+      
+      let pNameLower = (p.name || '').toLowerCase().trim();
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
           ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
         }
       }
 
+      let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+      let badgesRight = '25px';
+      let paddingRight = (25 + numBadges * 20) + 'px';
+      let warningRight = numBadges > 0 ? (25 + numBadges * 20 + 4) + 'px' : '25px';
+
       let missingNameWarning = '';
       if (numVal && (!p.name || p.name.trim() === '')) {
-        missingNameWarning = `<div style="position: absolute; right: ${ageBadgeHTML ? '22px' : '6px'}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        missingNameWarning = `<div style="position: absolute; right: ${warningRight}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
         inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
+      }
+      
+      let displayName = p.name || '';
+      if (displayName) {
+        const parts = displayName.trim().split(/\\s+/);
+        if (parts.length > 2) {
+          displayName = parts[0] + ' ' + parts[1];
+        }
       }
 
       titHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)} text-align: center;">
           <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
-            <input type="text" class="form-control name" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)} width: 100%;">
-            ${ageBadgeHTML ? `<div style="position: absolute; right: 4px; pointer-events: none; z-index: 2;">${ageBadgeHTML}</div>` : ''}
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(displayName)}" style="${escapeAttr(inputBgStyle)} width: 100%; padding-right: ${paddingRight}; text-align: left;" oninput="const b = this.nextElementSibling; if(b && b.className==='badges-container') b.style.display = this.value.trim() ? 'flex' : 'none';">
+            ${(ageBadgeHTML || potentialBadgeHTML || destacadoBadgeHTML) ? `<div class="badges-container" style="position: absolute; right: ${badgesRight}; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center;">${destacadoBadgeHTML}${potentialBadgeHTML}${ageBadgeHTML}</div>` : ''}
             ${missingNameWarning}
           </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
@@ -6167,27 +6209,54 @@
 
       let inputBgStyle = '';
       let ageBadgeHTML = '';
-      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
-        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+      
+      let pNameLower = (p.name || '').toLowerCase().trim();
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
           ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
         }
       }
 
+      let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+      let badgesRight = '25px';
+      let paddingRight = (25 + numBadges * 20) + 'px';
+      let warningRight = numBadges > 0 ? (25 + numBadges * 20 + 4) + 'px' : '25px';
+
       let missingNameWarning = '';
       if (numVal && (!p.name || p.name.trim() === '')) {
-        missingNameWarning = `<div style="position: absolute; right: ${ageBadgeHTML ? '22px' : '6px'}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        missingNameWarning = `<div style="position: absolute; right: ${warningRight}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
         inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
+      }
+      
+      let displayName = p.name || '';
+      if (displayName) {
+        const parts = displayName.trim().split(/\\s+/);
+        if (parts.length > 2) {
+          displayName = parts[0] + ' ' + parts[1];
+        }
       }
 
       supHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)} text-align: center;">
           <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
-            <input type="text" class="form-control name" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)} width: 100%;">
-            ${ageBadgeHTML ? `<div style="position: absolute; right: 4px; pointer-events: none; z-index: 2;">${ageBadgeHTML}</div>` : ''}
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(displayName)}" style="${escapeAttr(inputBgStyle)} width: 100%; padding-right: ${paddingRight}; text-align: left;" oninput="const b = this.nextElementSibling; if(b && b.className==='badges-container') b.style.display = this.value.trim() ? 'flex' : 'none';">
+            ${(ageBadgeHTML || potentialBadgeHTML || destacadoBadgeHTML) ? `<div class="badges-container" style="position: absolute; right: ${badgesRight}; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center;">${destacadoBadgeHTML}${potentialBadgeHTML}${ageBadgeHTML}</div>` : ''}
             ${missingNameWarning}
           </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
@@ -6215,6 +6284,63 @@
       document.getElementById(`${team}SuplentesRows`)
     ];
 
+    const updateRowUI = (nameInput) => {
+      const row = nameInput.closest('.lineup-row');
+      if (!row) return;
+      const pNameLower = nameInput.value.trim().toLowerCase();
+      
+      let inputBgColor = '';
+      let ageBadgeHTML = '';
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
+        if (matchingPlayer) {
+          if (matchingPlayer.rendimientoRS === 'A') inputBgColor = 'rgba(34, 197, 94, 0.25)';
+          else if (matchingPlayer.rendimientoRS === 'B') inputBgColor = 'rgba(234, 179, 8, 0.25)';
+          ageBadgeHTML = typeof getAgeBadgeHTML === 'function' ? getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value) : '';
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
+        }
+      }
+
+      const numInput = row.querySelector('input.num');
+      const posSelect = row.querySelector('select.pos');
+      if (numInput) numInput.style.backgroundColor = inputBgColor;
+      nameInput.style.backgroundColor = inputBgColor;
+      if (posSelect) posSelect.style.backgroundColor = inputBgColor;
+
+      let badgesContainer = row.querySelector('.badges-container');
+      if (!badgesContainer) {
+        badgesContainer = document.createElement('div');
+        badgesContainer.className = 'badges-container';
+        badgesContainer.style.cssText = 'position: absolute; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center; right: 25px;';
+        const flexGrow = nameInput.parentElement;
+        if (flexGrow) flexGrow.appendChild(badgesContainer);
+      }
+      
+      if (pNameLower) {
+        badgesContainer.innerHTML = destacadoBadgeHTML + potentialBadgeHTML + ageBadgeHTML;
+        badgesContainer.style.display = 'flex';
+        let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+        let paddingRight = (25 + numBadges * 20) + 'px';
+        nameInput.style.paddingRight = paddingRight;
+      } else {
+        badgesContainer.innerHTML = '';
+        badgesContainer.style.display = 'none';
+        nameInput.style.paddingRight = '25px';
+      }
+    };
+
     containers.forEach(container => {
       if (!container) return;
       container.querySelectorAll('.lineup-row').forEach(row => {
@@ -6239,6 +6365,7 @@
         });
 
         nameInput?.addEventListener('input', () => {
+          updateRowUI(nameInput);
           renderPitchPins(team);
           showPlayerAutocompleteDropdown(team, nameInput);
         });
@@ -7466,7 +7593,11 @@
       btn.addEventListener('click', () => {
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        if (!isActive) btn.classList.add('active');
+        if (!isActive) {
+          btn.classList.add('active');
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
+        }
       });
     });
 
@@ -7484,6 +7615,8 @@
           btn.style.background = '#ec4899';
           btn.style.color = '#fff';
           btn.style.borderColor = '#ec4899';
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
         }
       });
     });
@@ -7504,7 +7637,11 @@
       btn.addEventListener('click', () => {
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        if (!isActive) btn.classList.add('active');
+        if (!isActive) {
+          btn.classList.add('active');
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
+        }
       });
     });
 
@@ -8820,9 +8957,7 @@
       });
     }
 
-    // Count Partidos Vistos and Auto-fill Posiciones
-    let partidosVistosCount = 0;
-    let partidosNoJuegaCount = 0;
+    // Auto-fill Posiciones
     let posicionesVistas = new Set();
     const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
 
@@ -8865,9 +9000,6 @@
         (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
         (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
 
-        if (foundAsPlayed) partidosVistosCount++;
-        else if (foundAsNoJuega) partidosNoJuegaCount++;
-
         if (rep.localSystems) {
           ['principal', 'secundario', 'ocasional'].forEach(role => {
             if (rep.localSystems[role]) {
@@ -8904,20 +9036,30 @@
       });
     }
 
-    const allMatchHistory = Array.from(allMatchHistoryMap.values());
-    allMatchHistory.sort((a, b) => {
+    const allMatchHistoryFull = Array.from(allMatchHistoryMap.values());
+    allMatchHistoryFull.sort((a, b) => {
       if (!a.fecha) return 1;
       if (!b.fecha) return -1;
       return new Date(b.fecha) - new Date(a.fecha);
     });
 
     let notasJugadorArr = [];
-    allMatchHistory.forEach(ev => {
-      if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) return;
+    let partidosVistosCount = 0;
+    let partidosNoJuegaCount = 0;
+    
+    allMatchHistoryFull.forEach(ev => {
+      if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) {
+        partidosNoJuegaCount++;
+        return;
+      }
+      partidosVistosCount++;
       if (ev.rendimiento && ev.rendimiento !== '-') {
         notasJugadorArr.push(ev.rendimiento);
       }
     });
+
+    // Filtramos para que NO JUEGA no aparezcan en la lista emergente ("no contar para su ficha")
+    const allMatchHistory = allMatchHistoryFull.filter(ev => !(ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))));
     const notasJugadorStr = notasJugadorArr.length > 0 ? notasJugadorArr.join(', ') : '-';
 
     let displayPosPri = player.posicionPrincipal || player.posicion || '';
@@ -9686,9 +9828,9 @@
                 <div class="form-group mb-4">
                   <label class="form-label">ESTADO JUGADOR</label>
                   <div class="status-pill-group" id="pfEstadoGroup">
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Renovación' ? 'active' : '')}" data-val="Renovación">RENOVACIÓN</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Sube' ? 'active' : '')}" data-val="Sube">SUBE</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Alta' ? 'active' : '')}" data-val="Alta">ALTA</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Renovación' || estado === 'RENOVACIÓN' ? 'active' : '')}" data-val="RENOVACIÓN">RENOVACIÓN</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'SUBE DE EQUIPO INFERIOR' || estado === 'Sube' || estado === 'SUBE' ? 'active' : '')}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Alta' || estado === 'ALTA' ? 'active' : '')}" data-val="ALTA">ALTA</button>
                   </div>
                 </div>
 
@@ -13693,9 +13835,11 @@
           let rendRSHTML = '-';
 
           if (foundPlayer) {
+            let potentialIcon = (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(foundPlayer)) ? `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 12px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0;">📈</span>` : '';
             nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundPlayer.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
               <img src="${escapeAttr(foundPlayer.foto || 'Foto Jugador General.png')}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light); flex-shrink: 0;">
               <span style="text-decoration: underline;">${escapeHtml(nameStr)}</span>
+              ${potentialIcon}
             </a>`;
             const dorsalVal = foundPlayer.dorsal || '';
             dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
@@ -22222,20 +22366,20 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="table-responsive" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;">
-            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
+            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: center;">
               <thead>
-                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
+                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle); text-align: center;">
                   <th style="padding: 12px 8px; width: 4%; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
-                  <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
-                  <th style="padding: 12px 16px; width: 5%;">DORSAL</th>
-                  <th style="padding: 12px 16px; width: 8%;">AÑO</th>
-                  <th style="padding: 12px 16px; width: 17%;">EQUIPO</th>
-                  <th style="padding: 12px 16px; width: 12%;">POS. 1</th>
-                  <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
-                  <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
-                  <th style="padding: 12px 16px; width: 8%;">P. VISTOS</th>
-                  <th style="padding: 12px 16px; width: 10%;">VALORACIÓN</th>
-                  <th style="padding: 12px 16px; width: 12%;">PROYECCIÓN</th>
+                  <th style="padding: 12px 16px; width: 22%; text-align: center;">NOMBRE</th>
+                  <th style="padding: 12px 16px; width: 5%; text-align: center;">DORSAL</th>
+                  <th style="padding: 12px 16px; width: 8%; text-align: center;">AÑO</th>
+                  <th style="padding: 12px 16px; width: 17%; text-align: center;">EQUIPO</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">POS. 1</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">POS. 2</th>
+                  <th style="padding: 12px 16px; width: 10%; text-align: center;">LATERALIDAD</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">P. VISTOS</th>
+                  <th style="padding: 12px 16px; width: 8%; text-align: center;">VALORACIÓN</th>
+                  <th style="padding: 12px 16px; width: 22%; text-align: center;">PROYECCIÓN</th>
                 </tr>
               </thead>
               <tbody>
@@ -22253,31 +22397,35 @@
              if (ev.rendimiento && ev.rendimiento !== '-') notasArr.push(ev.rendimiento);
           });
           let notasDirStr = notasArr.length > 0 ? notasArr.join(', ') : '-';
+          
+          let potentialIcon = (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(j)) ? `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 12px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0; margin-left: 4px;">📈</span>` : '';
+          let destacadoIcon = (j.controlSeguimiento && j.controlSeguimiento.includes('DESTACADO EQUIPO')) ? `<span title="Destacado Equipo" style="font-size: 12px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0; margin-left: 4px;">⭐</span>` : '';
 
           return `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${escapeAttr(rowBgStyle)}" class="dir-table-row">
                     <td style="padding: 10px 8px; text-align: center; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};">
                       <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(j.id)}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
                     </td>
-                    <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="player-name-link" data-id="${escapeAttr(j.id)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                    <td style="padding: 10px 16px; text-align: left;">
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${escapeAttr(j.id)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%;">
                         <img src="${escapeAttr(j.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(j.nombre)}</span>
+                        ${destacadoIcon}${potentialIcon}
                       </a>
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
-                    <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.dorsal || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">
+                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px; margin: 0 auto; display: block;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
-                    <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                    <td style="padding: 10px 16px; text-align: center;">
+                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer; text-align: center;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='#fff'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.posicionSecundaria || '-')}</td>
+                    <td style="padding: 8px 12px; text-align: center;">${escapeHtml(j.pierna || '-')}</td>
                     <td style="padding: 8px 12px; font-weight: 800; text-align: center;">${pVistos}</td>
-                    <td style="padding: 8px 12px; font-weight: 800; color: var(--primary-blue);">${escapeHtml(notasDirStr)}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
+                    <td style="padding: 8px 12px; font-weight: 800; color: var(--primary-blue); text-align: center;">${escapeHtml(notasDirStr)}</td>
+                    <td style="padding: 8px 12px; text-align: center;">${escapeHtml(j.proyeccion || '-')}</td>
                   </tr>`;
         }).join('')}
               </tbody>
@@ -22496,6 +22644,7 @@
 
           let countDestacados = 0;
           let countTargetAge = 0;
+          let countPotencialRS = 0;
           if (eq.plantilla && Array.isArray(eq.plantilla) && state.directory && Array.isArray(state.directory.jugadores)) {
             const locNormalizar = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
             const plantillaLower = eq.plantilla.map(n => locNormalizar(typeof n === 'string' ? n : (n.nombre || n.jugador || n.name || '')));
@@ -22508,6 +22657,9 @@
                   }
                   if (getAgeBadgeHTML(p, eq.categoria || eq.competicion) !== '') {
                     countTargetAge++;
+                  }
+                  if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(p)) {
+                    countPotencialRS++;
                   }
                 }
               }
@@ -22538,20 +22690,24 @@
                       `}
                     </div>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--primary-blue, #2563eb); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
-                      <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+                  <div style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0;">
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: var(--primary-blue, #2563eb); padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); white-space: nowrap;" title="Jugadores en plantilla">
+                      <i data-lucide="users" style="width: 14px; height: 14px;"></i>
                       ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
                     </span>
                     ${countDestacados > 0 ? `
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: #fbbf24; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);" title="Jugadores Destacados en la plantilla">
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #fbbf24; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); white-space: nowrap;" title="Jugadores Destacados en la plantilla">
                       <span>⭐</span> ${countDestacados}
                     </span>` : ''}
                     ${countTargetAge > 0 ? `
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: #ef4444; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);" title="Jugadores con Edad Destacada">
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #ef4444; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3); white-space: nowrap;" title="Jugadores con Edad Destacada">
                       <span>🎯</span> ${countTargetAge}
                     </span>` : ''}
-                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
+                    ${countPotencialRS > 0 ? `
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #9333ea; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(147, 51, 234, 0.3); white-space: nowrap;" title="Jugadores con Potencial RS (Varios partidos A/B)">
+                      <span>📈</span> ${countPotencialRS}
+                    </span>` : ''}
+                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 26px; height: 26px; flex-shrink: 0;" title="Eliminar">
                       <i data-lucide="trash-2" style="width: 14px;"></i>
                     </button>
                   </div>
