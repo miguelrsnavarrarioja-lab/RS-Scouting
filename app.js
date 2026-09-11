@@ -2204,7 +2204,7 @@
     });
 
     if (!html) {
-      container.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; padding: 12px;">No hay equipos en el directorio</div>';
+      container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 12px;">No hay equipos en el directorio</div>';
       return;
     }
 
@@ -2670,9 +2670,9 @@
           ${localLogoImg}
           <div style="flex: 1; text-align: center;">
             <div style="font-weight: 700; font-size: 13px; color: #0f172a;">
-              ${escapeHtml(r.equipoLocal || 'Local')} <span style="color: #64748b; font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(r.equipoVisitante || 'Visitante')}
+              ${escapeHtml(r.equipoLocal || 'Local')} <span style="color: var(--text-muted); font-size: 11px; margin: 0 4px;">vs</span> ${escapeHtml(r.equipoVisitante || 'Visitante')}
             </div>
-            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">
               ${escapeHtml(r.categoria || 'Sin Categoría')}
             </div>
           </div>
@@ -2683,7 +2683,7 @@
            <span style="font-size: 11px; font-weight: 800; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px;">
              ${escapeHtml(r.date || '')}
            </span>
-           <span style="font-size: 11px; font-weight: 700; color: #64748b;">
+           <span style="font-size: 11px; font-weight: 700; color: var(--text-muted);">
              ${escapeHtml(r.time || '')}
            </span>
         </div>
@@ -3241,7 +3241,7 @@
     if (combined.length === 0) {
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1;">
-          <i data-lucide="calendar-x" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
+          <i data-lucide="calendar-x" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
           <p class="empty-state-text">No hay partidos ni tareas en el calendario con los filtros seleccionados.</p>
           <button class="btn btn-primary" id="btnEmptyScheduleMatch">Programar Primer Partido</button>
         </div>
@@ -4098,7 +4098,7 @@
       const emptyMsg = 'No hay informes técnicos que coincidan con los filtros seleccionados.';
       container.innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1;">
-          <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-subtle);"></i>
+          <i data-lucide="clipboard" style="width: 48px; height: 48px; color: var(--text-muted);"></i>
           <p class="empty-state-text">${emptyMsg}</p>
           <button class="btn btn-primary" id="btnEmptyCreateReport">Crear Primer Informe</button>
         </div>
@@ -10478,7 +10478,7 @@
                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h1 { font-size: 22px; margin: 0 0 16px; }
         img { max-width: 160px; height: auto; }
-        .form-label { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: .04em; }
+        .form-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .04em; }
         @media print { body { padding: 1cm; } }
       </style></head><body>
       <h1>${escapeHtml(nombre)}</h1>${copia.innerHTML}</body></html>`);
@@ -13695,7 +13695,7 @@
           <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
           <td style="font-weight: 700; text-align: center; color: ${escapeAttr(curPrimaryColor)};">${escapeHtml(p.dorsal || '-')}</td>
           <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
-          <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
+          <td style="color: var(--text-muted);">${escapeHtml(p.posicionSecundaria || '-')}</td>
           <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
           <td>${escapeHtml(p.pierna || '-')}</td>
           <td><span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(p.rendimientoRS || p.rendimiento || 'A')}</span></td>
@@ -13716,7 +13716,7 @@
             body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 15px; background: #fff; line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid ${curPrimaryColor}; padding-bottom: 10px; margin-bottom: 15px; }
             .header-title { font-size: 20px; font-weight: 800; color: #1e293b; }
-            .header-sub { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+            .header-sub { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 2px; }
             .page-tag { background: ${curPrimaryColor}; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 4px; text-transform: uppercase; }
             
             .pitch-wrapper { position: relative; width: 100%; height: 680px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: 8px; border: 3px solid #15803d; overflow: hidden; margin-bottom: 10px; }
@@ -16198,7 +16198,7 @@
           <td style="font-weight: 700; color: #0f172a;">${escapeHtml(p.nombre || p.jugador || 'Jugador')}</td>
           <td style="font-weight: 700; text-align: center; color: ${escapeAttr(curPrimaryColor)};">${escapeHtml(p.dorsal || '-')}</td>
           <td><span style="background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 11px;">${escapeHtml(p.posicionPrincipal || p.posicion || '-')}</span></td>
-          <td style="color: #64748b;">${escapeHtml(p.posicionSecundaria || '-')}</td>
+          <td style="color: var(--text-muted);">${escapeHtml(p.posicionSecundaria || '-')}</td>
           <td>${escapeHtml(calculateSubCategory(p.anoNac || p.ano) || p.sub || p.anoNac || '-')}</td>
           <td>${escapeHtml(p.pierna || '-')}</td>
           <td><span style="background: #f1f5f9; color: #0f172a; font-weight: 800; padding: 2px 8px; border-radius: 4px;">${escapeHtml(p.rendimientoRS || p.rendimiento || 'A')}</span></td>
@@ -16219,7 +16219,7 @@
             body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #1e293b; background: #ffffff; }
             .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid ${curPrimaryColor}; padding-bottom: 12px; margin-bottom: 16px; }
             .title { font-size: 20px; font-weight: 900; color: #0f172a; }
-            .meta { font-size: 12px; color: #64748b; font-weight: 600; }
+            .meta { font-size: 12px; color: var(--text-muted); font-weight: 600; }
             .pitch-container { position: relative; width: 100%; height: 680px; background: linear-gradient(180deg, #1b7a38 0%, #145e2a 100%); border-radius: 12px; border: 3px solid #22c55e; overflow: hidden; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
             th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; padding: 8px 12px; border-bottom: 2px solid #e2e8f0; }
@@ -16822,7 +16822,7 @@
             .title { font-size: 20px; font-weight: 800; color: #0f172a; }
             .badge { background: #e0e7ff; color: #3730a3; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; }
             .grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; font-size: 13px; background: #f8fafc; padding: 12px; border-radius: 6px; }
-            .label { font-weight: 700; color: #64748b; font-size: 10px; text-transform: uppercase; }
+            .label { font-weight: 700; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
             .val { font-size: 13px; font-weight: 600; margin-top: 2px; }
             .section-title { font-size: 14px; font-weight: 800; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-top: 24px; margin-bottom: 12px; color: #2563eb; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -16833,7 +16833,7 @@
           <div class="header">
             <div>
               <div class="title">${escapeHtml(pdfTitle)}</div>
-              <div style="font-size: 11px; color: #64748b; margin-top: 4px;">MS Fútbol Scout • Informe Oficial de Convocatoria</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">MS Fútbol Scout • Informe Oficial de Convocatoria</div>
             </div>
             <span class="badge">${escapeHtml(convData.tipoActividad || 'Convocatoria')}</span>
           </div>
@@ -27396,7 +27396,7 @@ const formatTeamName = (str) => {
         </td>
         <td style="padding: 12px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #e2e8f0;">
           <strong style="color: #334155;">${escapeHtml(m.competicion || 'Liga')}</strong><br>
-          <span style="color: #64748b;">${escapeHtml(m.jornada || '')}</span>
+          <span style="color: var(--text-muted);">${escapeHtml(m.jornada || '')}</span>
         </td>
         <td style="padding: 12px 16px; font-size: 12px; color: #475569; border-bottom: 1px solid #e2e8f0;">
           ${m.estadio ? `${escapeHtml(m.estadio)}` : '-'}
@@ -27449,7 +27449,7 @@ const formatTeamName = (str) => {
             padding: 14px 16px; 
             text-align: left; 
             font-weight: 700; 
-            color: #64748b;
+            color: var(--text-muted);
             text-transform: uppercase;
             font-size: 11px;
             letter-spacing: 0.5px;
@@ -33558,7 +33558,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       headerHTML += `
         <div class="week-header-cell">
-          <span class="week-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayNames[i]}</span>
+          <span class="week-header-dayname" ${isToday ? 'style="color: var(--texto-rojo);"' : ''}>${dayNames[i]}</span>
           <span class="week-header-date ${escapeAttr(isToday ? 'today' : '')}">${d.getDate()}</span>
         </div>
       `;
@@ -33777,7 +33777,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       headerHTML += `
         <div class="days-header-cell">
-          <span class="days-header-dayname" ${isToday ? 'style="color: var(--accent-red);"' : ''}>${dayName}</span>
+          <span class="days-header-dayname" ${isToday ? 'style="color: var(--texto-rojo);"' : ''}>${dayName}</span>
           <span class="days-header-date ${escapeAttr(isToday ? 'today' : '')}">${d.getDate()}</span>
         </div>
       `;

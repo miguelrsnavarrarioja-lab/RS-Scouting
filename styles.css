@@ -59,7 +59,11 @@ html {
   --primary-color: var(--primary-blue);
   
   /* Brand Colors */
-  --primary-blue: #3B82F6;
+  /* Un paso más oscuro que el azul medio: como COLOR DE TEXTO sobre blanco o sobre los pastel
+     azules se quedaba entre 3,01 y 3,68, por debajo de 4,5, en ocho sitios (pestañas activas,
+     modos de vista, botones de contorno). Con este llega a 6,70 sobre blanco. Donde el azul es
+     FONDO con texto blanco encima manda `--accion-azul`, que va aparte. */
+  --primary-blue: #1D4ED8;
   --primary-blue-hover: #2563EB;
   --primary-blue-dark: #1E40AF;
   --primary-blue-light: #EFF6FF;
@@ -6766,3 +6770,97 @@ body.theme-dark { --ms-limpiar-texto: var(--ms-verde-neon); }
    Sobre una pantalla oscura cantan, y no hay CSS que los alcance por dentro. */
 body.theme-dark  { color-scheme: dark; }
 body.theme-light { color-scheme: light; }
+
+/* ==========================================================================
+   5 · SUPERFICIES DE ACCIÓN QUE SE LEEN  (11-sep-2026)
+   ==========================================================================
+   Los colores de acción de la aplicación son los tonos medios de la paleta, y con texto blanco
+   encima NINGUNO llegaba al mínimo legible (AA pide 4,5): azul 3,68 · rojo 3,76 · ámbar 2,15 ·
+   verde 2,54. No es un defecto del modo oscuro: un botón tiene el mismo color en los dos temas,
+   así que llevaba así desde siempre, en las dos. Medido con el gate de contraste de la casa, que
+   baja al elemento que PINTA el texto y trae su propia autoprueba.
+
+   Se cambia solo el color de las superficies con texto blanco encima, con variables propias, y
+   NO los acentos de la paleta: un icono o un borde rojo no tiene texto encima y no debe oscurecerse
+   por esto. */
+:root {
+  --accion-azul:  #1D4ED8;   /* con blanco: 6,70 */
+  --accion-verde: #047857;   /* con blanco: 5,48 */
+  --accion-ambar: #B45309;   /* con blanco: 5,02 */
+  --accion-rojo:  #B91C1C;   /* con blanco: 6,47 */
+}
+.btn-primary { background-color: var(--accion-azul); }
+.btn-danger  { background-color: var(--accion-rojo); }
+.btn-warning { background-color: var(--accion-ambar); }
+.btn-success { background-color: var(--accion-verde); }
+
+/* El mensaje de ánimo de la portada iba en blanco sobre el verde medio: 2,54. */
+#motivationalMessage { background-color: var(--accion-verde) !important; }
+
+/* La llamada a «Nuevo informe»: el degradado arrancaba en el verde de marca y el título, que es
+   de 18 px (justo por debajo de los 18,66 que AA considera «grande»), quedaba en 3,07. */
+.ms-cta-informe {
+  background: linear-gradient(145deg, var(--ms-verde-hondo) 0%, #01423B 100%);
+}
+
+/* Y el texto sutil sobre la tarjeta oscura: #64748B daba 3,58 sobre #151C2C. */
+body.theme-dark { --text-subtle: #8A9BB3; }   /* 6,01 */
+
+/* Un <button> sin fondo declarado lo pinta el NAVEGADOR, y al declarar `color-scheme: dark`
+   ese gris de botón pasa de ser casi blanco (invisible sobre la tarjeta clara) a un gris medio
+   que canta sobre el fondo oscuro. Las cinco cifras de la temporada son botones y salían en
+   cuadrados grises. En el mockup van sueltas sobre el panel, sin caja propia. */
+.ms-cifra { background-color: transparent; }
+
+/* --- 5.1 · lo que quedaba por debajo del mínimo en modo oscuro -------------------------
+   El azul de marca se usa también como COLOR DE TEXTO en los botones de contorno. Sobre los
+   fondos oscuros se queda entre 3,70 y 4,31, por debajo de 4,5. En modo oscuro se aclara: el
+   mismo azul, un paso más claro, sube a 5,35-6,23 sin cambiar la identidad. El azul de FONDO
+   no se toca aquí: ese ya tiene su propia variable (`--accion-azul`). */
+body.theme-dark {
+  --primary-blue: #60A5FA;
+  /* `--primary-blue-light` NO se toca: en modo oscuro ya vale `rgba(59,130,246,.15)`, que es un
+     velo azul para FONDOS. Aclararlo a un azul de texto lo convirtió en fondo claro y el botón
+     de tema activo se fue a 1,41 de contraste — peor que el 3,83 que tenía. «Light» aquí quiere
+     decir «versión suave para fondo», no «color claro». */
+}
+
+/* El día de hoy en el calendario iba en blanco sobre el rojo medio: 3,76. */
+.week-header-date.today { background-color: var(--accion-rojo); }
+
+/* La franja «Todo el día» conservaba un fondo casi blanco (#FAFAFA) escrito a fuego, que en
+   modo oscuro es un parche; y su rótulo quedaba a 2,46 sobre él. */
+body.theme-dark .week-all-day-row,
+body.theme-dark .week-all-day-label { background-color: var(--bg-subtle); }
+
+/* Y el estado vacío del directorio, con el gris sutil a fuego en vez del token: 3,58. */
+body.theme-dark .empty-state,
+body.theme-dark .empty-state-text { color: var(--text-subtle); }
+
+/* --- 5.2 · lo que salía por debajo del mínimo en modo CLARO ---------------------------
+   El título y el texto de la llamada a «Nuevo informe» NUNCA han sido blancos: una regla
+   genérica de `h3` gana a la herencia del contenedor, así que pintaban en el color de texto
+   principal. Con el verde claro de antes rozaba el mínimo (4,4); al oscurecer el degradado para
+   arreglar el modo oscuro se fue a 1,57 —texto oscuro sobre verde oscuro—. Se declara el blanco
+   donde debe estar, en la pieza. */
+.ms-cta-informe h3 { color: #FFFFFF; }
+.ms-cta-informe p  { color: rgba(255, 255, 255, .9); }
+
+/* «Ver todos» en el verde de marca sobre tarjeta blanca: 3,21. */
+.ms-ver-todo { color: var(--ms-verde-hondo); }
+body.theme-dark .ms-ver-todo { color: var(--ms-verde-neon); }
+
+/* Los rótulos de los indicadores, sobre sus fondos pastel, se quedaban entre 4,32 y 4,45: les
+   faltaba menos de dos décimas. Un gris un paso más oscuro los deja en claro por encima de 5. */
+.ms-kpi .ms-kpi-nombre { color: #475569; }
+body.theme-dark .ms-kpi .ms-kpi-nombre { color: var(--text-muted); }
+
+/* El estado vacío iba con el gris más suave, que sobre blanco da 2,56. */
+.empty-state-text, .empty-state div { color: var(--text-muted); }
+/* El nombre del día en el calendario, en el rojo medio sobre blanco: 3,76. Necesita un rojo
+   POR TEMA: `--accion-rojo` es para fondos con texto blanco encima, y usarlo como color de
+   texto dejó los seis días a 2,63 sobre la tarjeta oscura. Un arreglo del modo claro abrió un
+   defecto en el oscuro: desde ahora se miden los dos en la misma pasada. */
+:root            { --texto-rojo: #B91C1C; }   /* 6,47 sobre blanco */
+body.theme-dark  { --texto-rojo: #FCA5A5; }   /* 8,03 sobre la tarjeta oscura */
+.week-header-dayname { color: var(--texto-rojo); }
