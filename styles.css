@@ -6186,6 +6186,24 @@ body.ms-con-barra .tab-view.active { padding-bottom: calc(var(--ms-alto-barra) +
    El cuerpo ya va sobre variables, así que solo hay que ajustar los pasteles:
    un pastel pensado para papel blanco sobre fondo oscuro deslumbra.
    ========================================================================== */
+/* Los diez alias de :root se resuelven en <html>, y el tema se cambia en <body>: es decir, un
+   nivel POR ENCIMA del cambio. Por eso `--text-dark: var(--text-main)` seguía siendo oscuro en
+   modo oscuro aunque apuntara a la variable correcta, y con él las 58 veces que se usa. Lo mismo
+   `--border-color` (51 usos) y `--bg-body` (12). Se vuelven a declarar aquí, donde ya valen los
+   colores del tema. Medido antes de tocar: textos a 1,05 de contraste, o sea invisibles. */
+body.theme-dark {
+  --text-dark: var(--text-main);
+  --text-primary: var(--text-main);
+  --text-color: var(--text-main);
+  --text-secondary: var(--text-muted);
+  --text-light: var(--text-subtle);
+  --border-color: var(--border-light);
+  --bg-body: var(--bg-app);
+  --bg-hover: var(--bg-subtle);
+  --bg-surface-hover: var(--bg-subtle);
+  --primary-light: var(--primary-blue-light);
+}
+
 body.theme-dark {
   --ms-pastel-verde: #0C2E27;
   --ms-pastel-ambar: #2E2413;
