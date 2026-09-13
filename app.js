@@ -2002,6 +2002,8 @@
     // 6. Render New Widgets
     renderDashboardPlayersByYear();
     renderDashboardTeamsByCategory();
+    pintarAgendaInicio();
+    pintarSeguidosInicio();
 
     // 7. Init Shortcuts listeners
     initDashboardShortcuts();
@@ -3201,7 +3203,7 @@
         } else if (target === 'agenda' || target === 'notas-page') {
           currentPlanificacionTab = target === 'notas-page' ? 'notas' : target;
           navigateToTab('planificacion');
-        } else if (target === 'mapas' || target === 'comparador' || target === 'importador') {
+        } else if (target === 'mapas' || target === 'comparador' || target === 'importador' || target === 'estadisticas') {
           // Si el shortcut es "importador", necesitamos forzar el click en el sub-tab
           let subtabId = target;
           if (target === 'comparador') subtabId = 'comparativa';
