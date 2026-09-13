@@ -264,31 +264,12 @@
         </div>
       </div>
 
-      <!-- 4 · HERRAMIENTAS RÁPIDAS -->
-      <div data-area="herramientas" class="ms-panel">
-        <div class="ms-panel-cab"><h3>Herramientas rápidas</h3></div>
-        <div class="ms-herramientas">
-          <button type="button" class="ms-herramienta" data-shortcut="mapas">
-            <i data-lucide="map"></i><span>Mapas</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="comparador">
-            <i data-lucide="scale"></i><span>Comparador</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="importador">
-            <i data-lucide="upload-cloud"></i><span>Importador</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="enlaces">
-            <i data-lucide="link"></i><span>Enlaces</span>
-          </button>
-        </div>
-      </div>
-
       <!-- 5 · CIFRAS DE LA TEMPORADA -->
       <div data-area="estadisticas" class="ms-panel">
         <div class="ms-panel-cab"><h3>Estadísticas principales</h3></div>
         <div class="ms-cifras">
           <button type="button" class="ms-cifra" data-shortcut="partidos">
-            <i data-lucide="dribbble"></i>
+            <i data-lucide="bar-chart-2"></i>
             <b id="kpiPartidosVistos">0</b>
             <span>Partidos vistos</span>
           </button>
@@ -416,6 +397,9 @@
           </button>
         </div>
         <div class="ms-laboratorio">
+          <button type="button" class="ms-modulo" data-shortcut="estadisticas">
+            <i data-lucide="bar-chart-2"></i><span>Estadísticas</span>
+          </button>
           <button type="button" class="ms-modulo" data-shortcut="mapas">
             <i data-lucide="map"></i><span>Mapa RS</span>
           </button>
@@ -915,10 +899,12 @@
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table role-principal" id="localPlayersTableContainer">
                 <div class="lineup-table-header" style="position: relative;">
+                  <span class="titular-controls" style="width: 20px; flex-shrink: 0;"></span>
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>
-                  <span class="col-pos">PO</span>
+                  <span class="col-pos">PO1</span>
                   <span class="col-pos2">PO2</span>
+                  <span class="col-pie" style="width: 35px; text-align: center; font-size: 10px;">PIE</span>
                 </div>
                 <div class="lineup-rows" id="localTitularesRows">
                   <!-- 11 Titulares rows rendered by JS -->
@@ -1100,10 +1086,12 @@
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table role-principal" id="visitantePlayersTableContainer">
                 <div class="lineup-table-header" style="position: relative;">
+                  <span class="titular-controls" style="width: 20px; flex-shrink: 0;"></span>
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>
-                  <span class="col-pos">PO</span>
+                  <span class="col-pos">PO1</span>
                   <span class="col-pos2">PO2</span>
+                  <span class="col-pie" style="width: 35px; text-align: center; font-size: 10px;">PIE</span>
                 </div>
                 <div class="lineup-rows" id="visitanteTitularesRows">
                   <!-- 11 Titulares rows rendered by JS -->
@@ -1336,6 +1324,9 @@
         </button>
         <button class="planificacion-tab sub-nav-btn" data-subtab="importador">
           <i data-lucide="upload-cloud" style="width: 14px; margin-right: 4px;"></i> Importador
+        </button>
+        <button class="planificacion-tab sub-nav-btn" data-subtab="estadisticas">
+          <i data-lucide="pie-chart" style="width: 14px; margin-right: 4px;"></i> Estadísticas
         </button>
       </div>
 
@@ -1650,7 +1641,19 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
       </div>
       </div>
 
-    
+      <!-- Sub-vista Estadísticas -->
+      <div class="laboratorio-subview page-content hidden" id="subview-estadisticas">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
+          <button class="btn btn-sm" id="btnExportEstadisticasPDF" title="Exportar estadísticas a PDF" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar PDF
+          </button>
+        </div>
+        
+        <div id="estadisticasContent" style="display: flex; flex-direction: column; gap: 20px;">
+          <!-- Rendered by app.js -->
+        </div>
+      </div>
+
 </section>
 
     <!-- ==================== 4.5 CARTELERA DE SCOUTING VIEW ==================== -->
