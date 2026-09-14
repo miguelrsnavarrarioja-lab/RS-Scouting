@@ -40,7 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="MS Scout">
   <meta name="theme-color" content="#06151E">
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=202609111937">
+  <link rel="stylesheet" href="styles.css?v=202609141124">
   
   <!-- Lucide Icons -->
   <!-- Versiones fijas y verificadas: sin ellas el proveedor podía servir una versión nueva
@@ -264,31 +264,12 @@
         </div>
       </div>
 
-      <!-- 4 · HERRAMIENTAS RÁPIDAS -->
-      <div data-area="herramientas" class="ms-panel">
-        <div class="ms-panel-cab"><h3>Herramientas rápidas</h3></div>
-        <div class="ms-herramientas">
-          <button type="button" class="ms-herramienta" data-shortcut="mapas">
-            <i data-lucide="map"></i><span>Mapas</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="comparador">
-            <i data-lucide="scale"></i><span>Comparador</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="importador">
-            <i data-lucide="upload-cloud"></i><span>Importador</span>
-          </button>
-          <button type="button" class="ms-herramienta" data-shortcut="enlaces">
-            <i data-lucide="link"></i><span>Enlaces</span>
-          </button>
-        </div>
-      </div>
-
       <!-- 5 · CIFRAS DE LA TEMPORADA -->
       <div data-area="estadisticas" class="ms-panel">
         <div class="ms-panel-cab"><h3>Estadísticas principales</h3></div>
         <div class="ms-cifras">
           <button type="button" class="ms-cifra" data-shortcut="partidos">
-            <i data-lucide="dribbble"></i>
+            <i data-lucide="bar-chart-2"></i>
             <b id="kpiPartidosVistos">0</b>
             <span>Partidos vistos</span>
           </button>
@@ -410,12 +391,15 @@
       <!-- 11 · LABORATORIO · los módulos que existen hoy, con su nombre real -->
       <div data-area="laboratorio" class="ms-panel">
         <div class="ms-panel-cab">
-          <h3>Laboratorio de análisis</h3>
+          <h3>Herramientas rápidas</h3>
           <button type="button" class="ms-ver-todo" data-shortcut="laboratorio">
             Ver todo <i data-lucide="arrow-right"></i>
           </button>
         </div>
         <div class="ms-laboratorio">
+          <button type="button" class="ms-modulo" data-shortcut="estadisticas">
+            <i data-lucide="bar-chart-2"></i><span>Estadísticas</span>
+          </button>
           <button type="button" class="ms-modulo" data-shortcut="mapas">
             <i data-lucide="map"></i><span>Mapa RS</span>
           </button>
@@ -424,6 +408,9 @@
           </button>
           <button type="button" class="ms-modulo" data-shortcut="importador">
             <i data-lucide="share-2"></i><span>Importador</span>
+          </button>
+          <button type="button" class="ms-modulo" data-shortcut="enlaces">
+            <i data-lucide="link"></i><span>Enlaces</span>
           </button>
         </div>
       </div>
@@ -739,6 +726,9 @@
 
           <!-- Actions -->
           <div class="report-banner-actions">
+            <button type="button" class="btn btn-primary" id="btnOpenGeneralContextModal" style="background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); color: white; margin-right: 8px;">
+              <i data-lucide="file-text"></i> CONTEXTO
+            </button>
             <button type="button" class="btn btn-secondary-light" id="btnBackToReportsList">
               <i data-lucide="arrow-left"></i> VOLVER
             </button>
@@ -773,7 +763,7 @@
                 </label>
                 <div class="input-wrapper flex-grow">
                   <span class="input-tag">LOCAL</span>
-                  <input type="text" id="reportLocalTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección local..." value="">
+                  <input type="text" id="reportLocalTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección local..." value="" style="text-align: center;">
                 </div>
               </div>
 
@@ -788,7 +778,7 @@
               <div class="team-input-group visitante">
                 <div class="input-wrapper flex-grow text-right">
                   <span class="input-tag">VISITANTE</span>
-                  <input type="text" id="reportVisitanteTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección visitante..." value="">
+                  <input type="text" id="reportVisitanteTeam" list="reportEquiposSeleccionesDatalistOptions" class="form-control" placeholder="Buscar equipo o selección visitante..." value="" style="text-align: center;">
                 </div>
                 <label class="team-badge-picker" id="visitanteTeamBadge">
                   <i data-lucide="shield"></i>
@@ -915,10 +905,12 @@
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table role-principal" id="localPlayersTableContainer">
                 <div class="lineup-table-header" style="position: relative;">
+                  <span class="titular-controls" style="width: 20px; flex-shrink: 0;"></span>
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>
-                  <span class="col-pos">PO</span>
+                  <span class="col-pos">PO1</span>
                   <span class="col-pos2">PO2</span>
+                  <span class="col-pie" style="width: 35px; text-align: center; font-size: 10px;">PIE</span>
                 </div>
                 <div class="lineup-rows" id="localTitularesRows">
                   <!-- 11 Titulares rows rendered by JS -->
@@ -1100,10 +1092,12 @@
               <!-- Player Lineup Inputs -->
               <div class="players-lineup-table role-principal" id="visitantePlayersTableContainer">
                 <div class="lineup-table-header" style="position: relative;">
+                  <span class="titular-controls" style="width: 20px; flex-shrink: 0;"></span>
                   <span class="col-num">#</span>
                   <span class="col-name">JUGADOR</span>
-                  <span class="col-pos">PO</span>
+                  <span class="col-pos">PO1</span>
                   <span class="col-pos2">PO2</span>
+                  <span class="col-pie" style="width: 35px; text-align: center; font-size: 10px;">PIE</span>
                 </div>
                 <div class="lineup-rows" id="visitanteTitularesRows">
                   <!-- 11 Titulares rows rendered by JS -->
@@ -1238,17 +1232,6 @@
 
         </div>
 
-        <!-- Section 3: Observaciones / Análisis General -->
-        <div class="report-card mt-6">
-          <div class="report-card-header text-uppercase">
-            <i data-lucide="file-text"></i>
-            <span>OBSERVACIONES / ANÁLISIS GENERAL</span>
-          </div>
-          <div class="report-card-body">
-            <textarea id="reportGeneralAnalysis" class="form-control textarea-large" placeholder="Observaciones generales sobre el partido, jugadores destacados, notas tácticas..."></textarea>
-          </div>
-        </div>
-
       </div>
     </section>
 
@@ -1336,6 +1319,9 @@
         </button>
         <button class="planificacion-tab sub-nav-btn" data-subtab="importador">
           <i data-lucide="upload-cloud" style="width: 14px; margin-right: 4px;"></i> Importador
+        </button>
+        <button class="planificacion-tab sub-nav-btn" data-subtab="estadisticas">
+          <i data-lucide="pie-chart" style="width: 14px; margin-right: 4px;"></i> Estadísticas
         </button>
       </div>
 
@@ -1650,7 +1636,19 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
       </div>
       </div>
 
-    
+      <!-- Sub-vista Estadísticas -->
+      <div class="laboratorio-subview page-content hidden" id="subview-estadisticas">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; border-bottom: 2px solid var(--border-light); padding-bottom: 12px;">
+          <button class="btn btn-sm" id="btnExportEstadisticasPDF" title="Exportar estadísticas a PDF" style="font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.3); color: var(--text-dark); background: rgba(100, 116, 139, 0.05); white-space: nowrap; transition: all 0.2s; box-shadow: none; display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="printer" style="width: 14px; height: 14px;"></i> Exportar PDF
+          </button>
+        </div>
+        
+        <div id="estadisticasContent" style="display: flex; flex-direction: column; gap: 20px;">
+          <!-- Rendered by app.js -->
+        </div>
+      </div>
+
 </section>
 
     <!-- ==================== 4.5 CARTELERA DE SCOUTING VIEW ==================== -->
@@ -1874,6 +1872,12 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
               <button type="button" class="btn btn-danger" id="btnDeleteNo2627" style="background-color: var(--accion-rojo); border: none; color: white; margin-top: 10px;">
                 <i data-lucide="trash"></i> Borrar Equipos Duplicados (Sin "26/27")
               </button>
+              <button type="button" class="btn btn-danger" id="btnDeleteShortNamePlayers" style="background-color: var(--accion-ambar); border: none; color: white; margin-top: 10px;">
+                <i data-lucide="users-minus"></i> Borrar Jugadores Duplicados (1 Apellido)
+              </button>
+              <button type="button" class="btn btn-primary" id="btnFixShortNamesInReports" style="background-color: var(--accion-azul); border: none; color: white; margin-top: 10px;">
+                <i data-lucide="file-edit"></i> Reparar Nombres Cortos en Informes
+              </button>
               <button type="button" class="btn btn-primary" id="btnRestoreFavCols" style="background-color: var(--accion-verde); border: none; color: white; margin-top: 10px;">
                 <i data-lucide="refresh-cw"></i> Restaurar Columnas de Enlaces (Favoritos)
               </button>
@@ -1888,6 +1892,25 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
     <!-- ==================== 10. NOTAS VIEW ==================== -->
 
   </main>
+
+      <!-- Modal Contexto Partido -->
+      <div class="modal-overlay hidden" id="modalContextoPartido" style="z-index: 30000;">
+        <div class="modal-card xlarge" style="max-width: 800px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+          <div class="modal-header banner-blue">
+            <h3><i data-lucide="file-text"></i> Contexto / Análisis General</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('modalContextoPartido').classList.add('hidden')" title="Cerrar" aria-label="Cerrar">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 20px; overflow-y: auto;">
+            <p class="text-sm text-muted mb-3">Observaciones generales sobre el partido, jugadores destacados, notas tácticas...</p>
+            <textarea id="reportGeneralAnalysis" class="form-control" style="height: 350px; font-size: 14px; line-height: 1.5;" placeholder="Contexto del partido..."></textarea>
+          </div>
+          <div class="modal-footer" style="padding: 15px 20px; background: var(--bg-card); display: flex; justify-content: flex-end; border-top: 1px solid var(--border-light);">
+            <button class="btn btn-primary" onclick="document.getElementById('modalContextoPartido').classList.add('hidden')">Listo</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Modal for Editing/Creating Notes -->
       <div class="modal-overlay hidden" id="modalEdicionNota" style="z-index: 30000;">
@@ -2274,15 +2297,15 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
   -->
   
   <!-- Configuración pública + puerta de acceso: SIEMPRE antes de app.js -->
-  <script src="toast.js?v=202609111937" defer></script>
-  <script src="data-guard.js?v=202609111937" defer></script>
-  <script src="firebase-config.js?v=202609111937" defer></script>
-  <script src="auth.js?v=202609111937" defer></script>
-  <script src="app.js?v=202609111937" defer></script>
-  <script src="importer_v2.js?v=202609111937" defer></script>
-  <script src="informe-borrador.js?v=202609111937" defer></script>
-  <script src="calendario-export.js?v=202609111937" defer></script>
-  <script src="sin-cobertura.js?v=202609111937" defer></script>
+  <script src="toast.js?v=202609141124" defer></script>
+  <script src="data-guard.js?v=202609141124" defer></script>
+  <script src="firebase-config.js?v=202609141124" defer></script>
+  <script src="auth.js?v=202609141124" defer></script>
+  <script src="app.js?v=202609141124" defer></script>
+  <script src="importer_v2.js?v=202609141124" defer></script>
+  <script src="informe-borrador.js?v=202609141124" defer></script>
+  <script src="calendario-export.js?v=202609141124" defer></script>
+  <script src="sin-cobertura.js?v=202609141124" defer></script>
 
 
 

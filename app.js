@@ -29,6 +29,20 @@
   window.openImportTextCalendarModal = function () { return openImportTextCalendarModal(); };
   window.openConvocatoriaFichaReadOnly = function (id) { return openConvocatoriaFichaReadOnly(id); };
 
+  window.isPlayerPotentialRS = function(playerObj) {
+    if (!playerObj) return false;
+    if (playerObj.rendimientoRS === 'A' || playerObj.rendimientoRS === 'B') return false;
+    if (!playerObj.historialEvaluaciones || !Array.isArray(playerObj.historialEvaluaciones)) return false;
+    
+    let countAB = 0;
+    playerObj.historialEvaluaciones.forEach(ev => {
+      if (ev.rendimiento === 'A' || ev.rendimiento === 'B') {
+        countAB++;
+      }
+    });
+    return countAB >= 2;
+  };
+
   window.showOnlyDuplicatePlayers = false;
   window.toggleDuplicatesFilter = function () {
     window.showOnlyDuplicatePlayers = !window.showOnlyDuplicatePlayers;
@@ -671,6 +685,67 @@
     });
   }
 
+
+  // --- MIGRATION FOR NEW POSITION ACRONYMS ---
+  function migratePositions(stateObj) {
+    if (!stateObj || !stateObj.directory || !stateObj.directory.jugadores) return stateObj;
+    
+    // Check if migration is needed by looking for old DC (which meant Defensa Central)
+    // Actually it's safer to just migrate everything blindly because we might have old files.
+    // However, if it was already migrated, Delantero Centro would be 'DC'.
+    // How to distinguish an old DC (Defensa Central) from a new DC (Delantero Centro)?
+    // The only reliable way is a migration flag in the state settings, OR we assume any state
+    // without the flag needs migration.
+    
+    if (stateObj.settings && stateObj.settings.migratedPositionsV1) {
+      return stateObj;
+    }
+    
+    const mapping = {
+      'PO': 'PT',
+      'DBD': 'LTD',
+      'DBZ': 'LTI',
+      'DCD': 'CTD',
+      'DCZ': 'CTI',
+      'DC': 'CT', // OLD DC (Defensa Central) -> CT
+      'MCD': 'MC',
+      'MCZ': 'MC',
+      'MVD': 'INT',
+      'MVZ': 'INT',
+      'MPD': 'MP',
+      'MPZ': 'MP',
+      'MBD': 'ED',
+      'MBZ': 'EI',
+      'AC': 'DC', // OLD AC (Delantero Centro) -> DC
+      'ACD': 'DC',
+      'ACZ': 'DC'
+    };
+    
+    function mapPos(val) {
+      if (!val) return val;
+      const upper = val.toUpperCase().trim();
+      return mapping[upper] || val; // Fallback to original if not found
+    }
+    
+    stateObj.directory.jugadores.forEach(j => {
+      j.posicionPrincipal = mapPos(j.posicionPrincipal);
+      j.posicionSecundaria = mapPos(j.posicionSecundaria);
+      j.pos = mapPos(j.pos);
+      j.posicion = mapPos(j.posicion);
+      if (j.posicionesAlternativas && Array.isArray(j.posicionesAlternativas)) {
+        j.posicionesAlternativas = j.posicionesAlternativas.map(mapPos);
+      }
+    });
+    
+    // Also migrate positions mapped in team squad or campograma if they exist explicitly? 
+    // Usually they are computed dynamically from player data, so migrating players is enough.
+    
+    if (!stateObj.settings) stateObj.settings = {};
+    stateObj.settings.migratedPositionsV1 = true;
+    
+    return stateObj;
+  }
+
   function loadState() {
     let savedAppName = 'MS Fútbol Scout';
     try {
@@ -686,6 +761,7 @@
   }
 
   let state = loadState();
+  state = migratePositions(state);
 
   // Debounce timer for auto-sync to Firebase
   let _saveStateDebounceTimer = null;
@@ -1471,31 +1547,31 @@
   };
 
   const SYSTEM_STARTER_POSITIONS = {
-    '1-4-3-3': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MBZ', 'AC'],
-    '1-4-4-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'ACD', 'ACZ'],
-    '1-4-4-2 (Rombo)': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
-    '1-4-2-3-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MP', 'MBZ', 'AC'],
-    '1-4-1-4-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MVD', 'MVZ', 'MBZ', 'AC'],
-    '1-4-3-2-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'AC'],
-    '1-4-3-1-2': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'MP', 'ACD', 'ACZ'],
-    '1-4-5-1': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MC', 'MCZ', 'MBZ', 'AC'],
-    '1-3-5-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MC', 'MVD', 'MVZ', 'MBZ', 'ACD', 'ACZ'],
-    '1-3-4-3': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MBD', 'MBZ', 'AC'],
-    '1-3-4-2-1': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MPD', 'MPZ', 'AC'],
-    '1-3-4-1-2': ['PO', 'DCD', 'DC', 'DCZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'MP', 'ACD', 'ACZ'],
-    '1-3-3-3-1': ['PO', 'DCD', 'DC', 'DCZ', 'MC', 'MVD', 'MVZ', 'MBD', 'MP', 'MBZ', 'AC'],
-    '1-5-3-2': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MC', 'MVD', 'MVZ', 'ACD', 'ACZ'],
-    '1-5-4-1': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MBD', 'MCD', 'MCZ', 'MBZ', 'AC'],
-    '1-5-2-3': ['PO', 'DBD', 'DCD', 'DC', 'DCZ', 'DBZ', 'MCD', 'MCZ', 'MBD', 'MBZ', 'AC'],
+    '1-4-3-3': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'],
+    '1-4-4-2': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'ED', 'INT', 'MC', 'EI', 'DC', 'DC'],
+    '1-4-4-2 (Rombo)': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'DC', 'DC'],
+    '1-4-2-3-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'ED', 'MP', 'EI', 'DC'],
+    '1-4-1-4-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'INT', 'MP', 'EI', 'DC'],
+    '1-4-3-2-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'MP', 'DC'],
+    '1-4-3-1-2': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'INT', 'INT', 'MP', 'DC', 'DC'],
+    '1-4-5-1': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'ED', 'INT', 'MC', 'MC', 'EI', 'DC'],
+    '1-3-5-2': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'MC', 'INT', 'MP', 'EI', 'DC', 'DC'],
+    '1-3-4-3': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'INT', 'MC', 'EI', 'ED', 'EI', 'DC'],
+    '1-3-4-2-1': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'INT', 'MC', 'EI', 'MP', 'MP', 'DC'],
+    '1-3-4-1-2': ['PT', 'CTD', 'CT', 'CTI', 'ED', 'INT', 'MC', 'EI', 'MP', 'DC', 'DC'],
+    '1-3-3-3-1': ['PT', 'CTD', 'CT', 'CTI', 'MC', 'INT', 'INT', 'ED', 'MP', 'EI', 'DC'],
+    '1-5-3-2': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'MC', 'INT', 'MP', 'DC', 'DC'],
+    '1-5-4-1': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'ED', 'INT', 'MC', 'EI', 'DC'],
+    '1-5-2-3': ['PT', 'LTD', 'CTD', 'CT', 'CTI', 'LTI', 'INT', 'MC', 'ED', 'EI', 'DC'],
     // Fútbol 7
-    '1-3-2-1 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MCD', 'MCZ', 'AC'],
-    '1-3-1-2 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MC', 'ACD', 'ACZ'],
-    '1-2-3-1 (F7)': ['PO', 'DCD', 'DCZ', 'MBD', 'MC', 'MBZ', 'AC'],
-    '1-2-2-2 (F7)': ['PO', 'DCD', 'DCZ', 'MBD', 'MBZ', 'ACD', 'ACZ'],
-    '1-2-1-3 (F7)': ['PO', 'DCD', 'DCZ', 'MC', 'MBD', 'MBZ', 'AC'],
-    '1-3-3 (F7)': ['PO', 'DBD', 'DC', 'DBZ', 'MBD', 'MBZ', 'AC'],
-    '1-4-2 (F7)': ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'ACD', 'ACZ'],
-    '1-1-4-1 (F7)': ['PO', 'DC', 'MBD', 'MCD', 'MCZ', 'MBZ', 'AC']
+    '1-3-2-1 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'INT', 'MC', 'DC'],
+    '1-3-1-2 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'MC', 'DC', 'DC'],
+    '1-2-3-1 (F7)': ['PT', 'CTD', 'CTI', 'ED', 'MC', 'EI', 'DC'],
+    '1-2-2-2 (F7)': ['PT', 'CTD', 'CTI', 'ED', 'EI', 'DC', 'DC'],
+    '1-2-1-3 (F7)': ['PT', 'CTD', 'CTI', 'MC', 'ED', 'EI', 'DC'],
+    '1-3-3 (F7)': ['PT', 'LTD', 'CT', 'LTI', 'ED', 'EI', 'DC'],
+    '1-4-2 (F7)': ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'DC', 'DC'],
+    '1-1-4-1 (F7)': ['PT', 'CT', 'ED', 'INT', 'MC', 'EI', 'DC']
   };
 
   // --------------------------------------------------------------------------
@@ -1936,6 +2012,8 @@
     // 6. Render New Widgets
     renderDashboardPlayersByYear();
     renderDashboardTeamsByCategory();
+    pintarAgendaInicio();
+    pintarSeguidosInicio();
 
     // 7. Init Shortcuts listeners
     initDashboardShortcuts();
@@ -2276,7 +2354,7 @@
     if (window.lucide) window.lucide.createIcons();
   };
 
-  window.openPlayersSubcategoryModal = function (groupName, year, playersJson) {
+  window.openPlayersSubcategoryModal = function (groupName, year, playersJson, page = 1) {
     const players = JSON.parse(decodeURIComponent(playersJson));
     players.sort((a, b) => {
       const rsA = (a.rendimientoRS && a.rendimientoRS !== '-') ? a.rendimientoRS : 'Z';
@@ -2289,6 +2367,11 @@
 
       return (a.nombre || '').localeCompare(b.nombre || '');
     });
+
+    const itemsPerPage = 20;
+    const totalPages = Math.ceil(players.length / itemsPerPage) || 1;
+    const startIndex = (page - 1) * itemsPerPage;
+    const paginatedPlayers = players.slice(startIndex, startIndex + itemsPerPage);
 
     let html = '<div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">';
 
@@ -2308,7 +2391,7 @@
       html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay jugadores vistos en este año.</div>`;
     } else {
       let tbodyHtml = '';
-      players.forEach(p => {
+      paginatedPlayers.forEach(p => {
         let rowBgStyle = '';
         if (p.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
         else if (p.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
@@ -2357,6 +2440,16 @@
           </table>
         </div>
       `;
+      
+      if (totalPages > 1) {
+        html += `
+          <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+            <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" ${page === 1 ? 'disabled' : ''} onclick="openPlayersSubcategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(year)}', '${escapeJsAttr(playersJson)}', ${page - 1})">Anterior</button>
+            <span style="font-size: 13px; font-weight: 600; align-self: center;">Página ${page} de ${totalPages}</span>
+            <button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" ${page === totalPages ? 'disabled' : ''} onclick="openPlayersSubcategoryModal('${escapeJsAttr(groupName)}', '${escapeJsAttr(year)}', '${escapeJsAttr(playersJson)}', ${page + 1})">Siguiente</button>
+          </div>
+        `;
+      }
     }
     html += '</div>';
 
@@ -2470,9 +2563,24 @@
     if (window.lucide) window.lucide.createIcons();
   };
 
-  window.openTeamsSubcategoryModal = function (subCatName, parentCatName, groupsJson) {
+  window.openTeamsSubcategoryModal = function (subCatName, parentCatName, groupsJson, activeTabIndex = 0) {
     const groups = JSON.parse(decodeURIComponent(groupsJson));
+    const priority = {
+      'navarra': 1,
+      'aragón': 2,
+      'aragon': 2,
+      'la rioja': 3
+    };
+
     const groupNames = Object.keys(groups).sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      
+      const pA = priority[aLower] || 99;
+      const pB = priority[bLower] || 99;
+      
+      if (pA !== pB) return pA - pB;
+
       // Basic numerical sort if they contain numbers, otherwise alphabetical
       const numA = parseInt(a.match(/\d+/)) || 0;
       const numB = parseInt(b.match(/\d+/)) || 0;
@@ -2496,51 +2604,63 @@
 
     if (groupNames.length === 0) {
       html += `<div style="text-align: center; color: var(--text-muted); font-size: 14px; padding: 20px;">No hay equipos registrados en esta categoría.</div>`;
-    }
-
-    groupNames.forEach(gName => {
-      const gStats = groups[gName];
-      const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
-
-      let teamsHtml = '';
-      gStats.equipos.sort((a, b) => {
-        const vA = a.vistoCount || 0;
-        const vB = b.vistoCount || 0;
-        if (vA !== vB) return vB - vA;
-        return a.nombre.localeCompare(b.nombre);
-      }).forEach(t => {
-        let rowBgStyle = '';
-        if (t.vistoCount > 2) {
-          rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
-        } else if (t.vistoCount === 2) {
-          rowBgStyle = 'background-color: rgba(59, 130, 246, 0.15);';
-        } else if (t.vistoCount === 1) {
-          rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
-        }
-
-        const teamIdStr = t.id ? `'${escapeJsAttr(t.id)}'` : 'null';
-        const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
-
-        teamsHtml += `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${escapeAttr(rowBgStyle)}">
-                <span style="color: ${escapeAttr(teamColor)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
-                <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
-            </div>`;
+    } else {
+      // Tabs
+      html += `<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); scrollbar-width: none;">`;
+      groupNames.forEach((gName, idx) => {
+        const isActive = idx === activeTabIndex;
+        const bg = isActive ? 'var(--primary-blue)' : 'var(--bg-surface)';
+        const color = isActive ? 'white' : 'var(--text-dark)';
+        const border = isActive ? 'var(--primary-blue)' : 'var(--border-color)';
+        html += `<button type="button" class="btn btn-outline" style="padding: 6px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; background: ${bg}; color: ${color}; border-color: ${border}; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onclick="openTeamsSubcategoryModal('${escapeJsAttr(subCatName)}', '${escapeJsAttr(parentCatName)}', '${escapeJsAttr(groupsJson)}', ${idx})">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</button>`;
       });
+      html += `</div>`;
+      
+      const activeGroupName = groupNames[activeTabIndex];
+      if (activeGroupName) {
+        const gStats = groups[activeGroupName];
+        const badgeColor = gStats.vistos >= gStats.total && gStats.total > 0 ? 'var(--accent-green)' : 'var(--primary-blue)';
 
-      html += `
-        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
-            <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(gName === 'Sin Grupo' ? 'General' : gName)}</span>
-                <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${escapeAttr(badgeColor)}; padding: 3px 8px; border-radius: 12px;">
-                    ${gStats.vistos} / ${gStats.total} Vistos
-                </span>
-            </div>
-            <div style="padding: 10px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px;">
-                ${teamsHtml}
-            </div>
-        </div>`;
-    });
+        let teamsHtml = '';
+        gStats.equipos.sort((a, b) => {
+          const vA = a.vistoCount || 0;
+          const vB = b.vistoCount || 0;
+          if (vA !== vB) return vB - vA;
+          return a.nombre.localeCompare(b.nombre);
+        }).forEach(t => {
+          let rowBgStyle = '';
+          if (t.vistoCount > 2) {
+            rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
+          } else if (t.vistoCount === 2) {
+            rowBgStyle = 'background-color: rgba(59, 130, 246, 0.15);';
+          } else if (t.vistoCount === 1) {
+            rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          }
+
+          const teamIdStr = t.id ? `'${escapeJsAttr(t.id)}'` : 'null';
+          const teamColor = t.vistoCount > 0 ? 'var(--text-dark)' : 'var(--text-muted)';
+
+          teamsHtml += `
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 8px; border-bottom: 1px dashed var(--border-light); border-radius: 4px; ${escapeAttr(rowBgStyle)}">
+                  <span style="color: ${escapeAttr(teamColor)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(t.nombre)}</span>
+                  <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 11px;" onclick="document.getElementById('btnCloseModal')?.click(); setTimeout(() => openTeamModal(${teamIdStr}), 300)">Ficha</button>
+              </div>`;
+        });
+
+        html += `
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm);">
+              <div style="background: var(--bg-subtle); padding: 10px 14px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 800; color: var(--text-dark); font-size: 14px;">${escapeHtml(activeGroupName === 'Sin Grupo' ? 'General' : activeGroupName)}</span>
+                  <span style="font-size: 12px; font-weight: 800; color: #fff; background: ${escapeAttr(badgeColor)}; padding: 3px 8px; border-radius: 12px;">
+                      ${gStats.vistos} / ${gStats.total} Vistos
+                  </span>
+              </div>
+              <div style="padding: 10px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 16px;">
+                  ${teamsHtml}
+              </div>
+          </div>`;
+      }
+    }
 
     html += '</div>';
 
@@ -3093,7 +3213,7 @@
         } else if (target === 'agenda' || target === 'notas-page') {
           currentPlanificacionTab = target === 'notas-page' ? 'notas' : target;
           navigateToTab('planificacion');
-        } else if (target === 'mapas' || target === 'comparador' || target === 'importador') {
+        } else if (target === 'mapas' || target === 'comparador' || target === 'importador' || target === 'estadisticas') {
           // Si el shortcut es "importador", necesitamos forzar el click en el sub-tab
           let subtabId = target;
           if (target === 'comparador') subtabId = 'comparativa';
@@ -4333,13 +4453,27 @@
 
             const cardDisp = (isWeekCollapsed || isDayCollapsed) ? 'display: none;' : 'display: flex;';
 
+            let missingNames = false;
+            let missingNamesCount = 0;
+            const checkPlayer = (p) => {
+              if (p && p.num && (!p.name || p.name.trim() === '')) {
+                missingNames = true;
+                missingNamesCount++;
+              }
+            };
+            (r.titularesLocal || []).forEach(checkPlayer);
+            (r.suplentesLocal || []).forEach(checkPlayer);
+            (r.titularesVisitante || []).forEach(checkPlayer);
+            (r.suplentesVisitante || []).forEach(checkPlayer);
+
             return `
             <div class="match-card" data-group-id="${escapeAttr(groupId)}" data-day-group-id="${escapeAttr(dayGroupId)}" style="${escapeAttr(cardDisp)} flex-direction: column; gap: 8px; transition: opacity 0.2s;">
-              <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px;">
+              <div class="match-card-header" style="justify-content: flex-start; gap: 8px; padding-bottom: 4px; flex-wrap: wrap;">
                 ${r.categoria ? `<span class="match-category-tag">${escapeHtml(r.categoria)}</span>` : ''}
                 ${r.competicion ? `<span class="match-category-tag">${escapeHtml(r.competicion)}</span>` : (!r.categoria ? `<span class="match-category-tag">Informe Técnico</span>` : '')}
                 ${r.visionado ? `<span class="match-category-tag" style="background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-light);">${escapeHtml(r.visionado)}</span>` : ''}
                 <span class="match-category-tag" style="background: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.1)' : 'rgba(99, 102, 241, 0.1)')}; color: ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? '#0d9488' : '#4f46e5')}; border: 1px solid ${escapeAttr(r.tipoInforme === 'MS (Personal)' ? 'rgba(20, 184, 166, 0.2)' : 'rgba(99, 102, 241, 0.2)')}; font-weight: 800;">${r.tipoInforme === 'MS (Personal)' ? 'MS' : 'RS'}</span>
+                ${missingNames ? `<span class="match-category-tag" style="background: #fef2f2; color: #ef4444; border: 1px solid #f87171;" title="${missingNamesCount} jugador(es) con dorsal pero sin nombre asignado">⚠️ Faltan Nombres (${missingNamesCount})</span>` : ''}
               </div>
 
               <!-- Línea 1 y 2: Escudo y Nombre Equipos + Resultados -->
@@ -4361,6 +4495,8 @@
                 <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date ? r.date.split('-').reverse().join('.') : '')} | ${escapeHtml(r.time)}</div>
                 <!-- Lugar -->
                 <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}${r.clima ? ` | ${escapeHtml(r.clima)}` : ''}</div>
+                <!-- Contexto -->
+                ${r.generalAnalysis && r.generalAnalysis.trim() !== '' ? `<div style="font-weight: 600; font-style: italic; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;" title="${escapeAttr(r.generalAnalysis)}">"${escapeHtml(r.generalAnalysis)}"</div>` : ''}
               </div>
 
               <div style="display: flex; gap: 4px; margin-top: 12px;">
@@ -4542,6 +4678,9 @@
   document.getElementById('btnCreateNewMatchReport')?.addEventListener('click', () => openMatchReportEditor());
   document.getElementById('btnBackToReportsList')?.addEventListener('click', closeReportEditor);
   document.getElementById('btnCloseReportEditor')?.addEventListener('click', closeReportEditor);
+  document.getElementById('btnOpenGeneralContextModal')?.addEventListener('click', () => {
+    document.getElementById('modalContextoPartido')?.classList.remove('hidden');
+  });
 
   function createReportFromMatch(matchId) {
     const match = state.matches.find(m => m.id === matchId);
@@ -4716,9 +4855,17 @@
     if (repData.playerEvaluations) {
       Object.keys(repData.playerEvaluations).forEach(key => {
         const ev = repData.playerEvaluations[key];
-        if (ev.stats && ev.stats.goles) {
-          if (key.includes('_local_')) initLocalAuto += parseInt(ev.stats.goles, 10) || 0;
-          if (key.includes('_visitante_')) initVisitanteAuto += parseInt(ev.stats.goles, 10) || 0;
+        if (ev.stats) {
+          const goles = parseInt(ev.stats.goles, 10) || 0;
+          const golesPropia = parseInt(ev.stats.golesPropia, 10) || 0;
+          if (key.includes('_local_')) {
+            initLocalAuto += goles;
+            initVisitanteAuto += golesPropia;
+          }
+          if (key.includes('_visitante_')) {
+            initVisitanteAuto += goles;
+            initLocalAuto += golesPropia;
+          }
         }
       });
     }
@@ -5103,6 +5250,39 @@
     });
 
     return slotMap;
+  }
+  function getAgeBadgeHTML(player, teamCategory) {
+    if (!player) return '';
+    const pYearStr = String(player.anoNac || player.ano || '').trim();
+    const pYear = parseInt(pYearStr, 10);
+    if (isNaN(pYear)) return '';
+
+    const teamCatStr = String(teamCategory || '').toUpperCase().trim();
+    if (!teamCatStr) return '';
+
+    const isJuvenil = /JUVENIL|JAU|LNJ|DHJ/.test(teamCatStr);
+    const isSenior = /RFEF|AUTON[OÓ]MICA|PREFERENTE|REGIONAL/.test(teamCatStr) && !isJuvenil && !/CADETE|INFANTIL|ALEV[IÍ]N/.test(teamCatStr);
+
+    let exactTargetYear = null;
+    if (teamCatStr.includes('CV')) exactTargetYear = 2012;
+    else if (teamCatStr.includes('CH')) exactTargetYear = 2013;
+    else if (teamCatStr.includes('IH')) exactTargetYear = 2014;
+    else if (teamCatStr.includes('ITX')) exactTargetYear = 2015;
+    else if (teamCatStr.includes('ALV')) exactTargetYear = 2016;
+
+    let markAge = false;
+    if (isJuvenil) {
+       if (pYear === 2010) markAge = true;
+    } else if (isSenior) {
+       if (pYear >= 2003) markAge = true;
+    } else if (exactTargetYear) {
+       if (pYear === exactTargetYear) markAge = true;
+    }
+
+    if (markAge) {
+      return ` <span title="Edad destacada" style="font-size: 11px; margin-left: 3px;">🎯</span>`;
+    }
+    return '';
   }
 
   function formatPlayerNameForCampograma(fullName) {
@@ -5496,6 +5676,7 @@
         const nameEl = r.querySelector('.name') || r.querySelector('input.name');
         const posEl = r.querySelector('.pos') || r.querySelector('select.pos');
         const pos2El = r.querySelector('.pos2') || r.querySelector('select.pos2');
+        const pieEl = r.querySelector('.pie') || r.querySelector('select.pie');
         const parsedNum = numEl && numEl.value.trim() !== '' && !isNaN(numEl.value) ? parseInt(numEl.value, 10) : '';
         const rawName = nameEl ? nameEl.value.trim() : '';
         const cleanName = rawName.replace(/\s*\[.*?\]$/, '');
@@ -5503,7 +5684,8 @@
           num: (parsedNum !== 0 && parsedNum !== '0') ? parsedNum : '',
           name: cleanName,
           pos: posEl ? (posEl.value || '') : '',
-          pos2: pos2El ? (pos2El.value || '') : ''
+          pos2: pos2El ? (pos2El.value || '') : '',
+          pie: pieEl ? (pieEl.value || '') : ''
         });
       });
       return list;
@@ -5641,7 +5823,7 @@
   };
 
   function updateStarterPositionsForFormation(team, formation) {
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
     const rows = document.querySelectorAll(`#${team}TitularesRows .lineup-row`);
     rows.forEach((row, idx) => {
       const posSelect = row.querySelector('select.pos');
@@ -5917,17 +6099,42 @@
         } else {
           inputElement.value = val;
           dropdown.style.display = 'none';
+          inputElement.dispatchEvent(new Event('input'));
           renderPitchPins(team);
         }
       });
     });
   }
 
+  window.updatePlayerPie = function(selectEl, playerName) {
+    if (!playerName || !playerName.trim()) return;
+    const pieVal = selectEl.value;
+    let mappedPie = '';
+    if (pieVal === 'D') mappedPie = 'Derecha';
+    else if (pieVal === 'Z') mappedPie = 'Izquierda';
+    else if (pieVal === 'A') mappedPie = 'Ambidiestro';
+    
+    if (mappedPie && state.directory && state.directory.jugadores) {
+      const pNameLower = playerName.toLowerCase().trim();
+      const matchingPlayer = state.directory.jugadores.find(j => {
+        if (!j.nombre) return false;
+        const jNameLower = j.nombre.toLowerCase().trim();
+        return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+      });
+      if (matchingPlayer) {
+        matchingPlayer.pierna = mappedPie;
+        matchingPlayer.lateralidad = mappedPie;
+        saveToFirebase('jugadores', matchingPlayer);
+        if (typeof window.debouncedSaveCurrentMatch === 'function') window.debouncedSaveCurrentMatch();
+      }
+    }
+  };
+
   function renderPlayerRows(team, titulares = [], suplentes = []) {
-    const posOptions = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
     const formationSelect = document.getElementById(`${team}FormationSelect`);
     const formation = formationSelect ? formationSelect.value : '1-4-3-3';
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
 
     // Titulares (dynamic based on role, default 11 or 7 for F7)
     const currentRole = activeTacticalRole[team] || 'principal';
@@ -5962,18 +6169,66 @@
       const hasCurrent2 = posOptions.includes(currentPos2);
 
       let inputBgStyle = '';
-      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
-        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+      let ageBadgeHTML = '';
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+      
+      let pNameLower = (p.name || '').toLowerCase().trim();
+      let matchingPlayer = null;
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+          ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
         }
+      }
+
+      let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+      let badgesRight = '25px';
+      let paddingRight = (25 + numBadges * 20) + 'px';
+      let warningRight = numBadges > 0 ? (25 + numBadges * 20 + 4) + 'px' : '25px';
+
+      let missingNameWarning = '';
+      if (numVal && (!p.name || p.name.trim() === '')) {
+        missingNameWarning = `<div style="position: absolute; right: ${warningRight}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
+      }
+      
+      let displayName = p.name || '';
+      if (displayName) {
+        const parts = displayName.trim().split(/\s+/);
+        if (parts.length > 2) {
+          displayName = parts[0] + ' ' + parts[1];
+        }
+      }
+
+      let currentPie = p.pie !== undefined ? p.pie : '';
+      if (!currentPie && matchingPlayer && matchingPlayer.pierna) {
+          const piernaLower = matchingPlayer.pierna.toLowerCase();
+          if (piernaLower.includes('izq') || piernaLower.includes('zur') || piernaLower === 'z') currentPie = 'Z';
+          else if (piernaLower.includes('amb') || piernaLower === 'a') currentPie = 'A';
+          else if (piernaLower.includes('der') || piernaLower === 'd') currentPie = 'D';
       }
 
       titHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)} text-align: center;">
+          <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Nombre jugador..." value="${escapeAttr(displayName)}" style="${escapeAttr(inputBgStyle)} width: 100%; padding-right: ${paddingRight}; text-align: left;" oninput="const b = this.nextElementSibling; if(b && b.className==='badges-container') b.style.display = this.value.trim() ? 'flex' : 'none';">
+            ${(ageBadgeHTML || potentialBadgeHTML || destacadoBadgeHTML) ? `<div class="badges-container" style="position: absolute; right: ${badgesRight}; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center;">${destacadoBadgeHTML}${potentialBadgeHTML}${ageBadgeHTML}</div>` : ''}
+            ${missingNameWarning}
+          </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
             ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos === o ? 'selected' : ''}>${o}</option>`).join('')}
@@ -5983,9 +6238,12 @@
             ${!hasCurrent2 && currentPos2 ? `<option value="${escapeAttr(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
           </select>
-          <div class="row-controls titular-controls" style="display: flex; align-items: center; padding-left: 2px;">
-            <button type="button" class="btn btn-outline-danger" style="padding: 0 4px; font-size: 10px; line-height: 1; height: 16px;" onclick="window.removePlayerRow('${escapeJsAttr(team)}', 'titular', ${escapeJsAttr(i)})" title="Eliminar jugador">-</button>
-          </div>
+          <select class="form-control pie select-compact" style="width: 35px; padding: 2px; text-align: center; font-size: 11px; ${escapeAttr(inputBgStyle)}" onchange="window.updatePlayerPie(this, '${escapeJsAttr(displayName)}')">
+            <option value="" ${!currentPie ? 'selected' : ''}>-</option>
+            <option value="D" ${currentPie === 'D' ? 'selected' : ''}>D</option>
+            <option value="Z" ${currentPie === 'Z' ? 'selected' : ''}>Z</option>
+            <option value="A" ${currentPie === 'A' ? 'selected' : ''}>A</option>
+          </select>
         </div>
       `;
     }
@@ -6013,18 +6271,66 @@
       const hasCurrent2 = posOptions.includes(currentPos2);
 
       let inputBgStyle = '';
-      if (p.name && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
-        const matchingPlayer = state.directory.jugadores.find(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase());
+      let ageBadgeHTML = '';
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+      
+      let pNameLower = (p.name || '').toLowerCase().trim();
+      let matchingPlayer = null;
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
         if (matchingPlayer) {
           if (matchingPlayer.rendimientoRS === 'A') inputBgStyle = 'background-color: rgba(34, 197, 94, 0.25);';
           else if (matchingPlayer.rendimientoRS === 'B') inputBgStyle = 'background-color: rgba(234, 179, 8, 0.25);';
+          ageBadgeHTML = getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value);
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
         }
+      }
+
+      let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+      let badgesRight = '25px';
+      let paddingRight = (25 + numBadges * 20) + 'px';
+      let warningRight = numBadges > 0 ? (25 + numBadges * 20 + 4) + 'px' : '25px';
+
+      let missingNameWarning = '';
+      if (numVal && (!p.name || p.name.trim() === '')) {
+        missingNameWarning = `<div style="position: absolute; right: ${warningRight}; pointer-events: none; z-index: 2; font-size: 12px;" title="Falta añadir el nombre para poder enlazarlo con la base de datos">⚠️</div>`;
+        inputBgStyle = 'background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #b91c1c;';
+      }
+      
+      let displayName = p.name || '';
+      if (displayName) {
+        const parts = displayName.trim().split(/\s+/);
+        if (parts.length > 2) {
+          displayName = parts[0] + ' ' + parts[1];
+        }
+      }
+
+      let currentPie = p.pie !== undefined ? p.pie : '';
+      if (!currentPie && matchingPlayer && matchingPlayer.pierna) {
+          const piernaLower = matchingPlayer.pierna.toLowerCase();
+          if (piernaLower.includes('izq') || piernaLower.includes('zur') || piernaLower === 'z') currentPie = 'Z';
+          else if (piernaLower.includes('amb') || piernaLower === 'a') currentPie = 'A';
+          else if (piernaLower.includes('der') || piernaLower === 'd') currentPie = 'D';
       }
 
       supHTML += `
         <div class="lineup-row">
-          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)}">
-          <input type="text" class="form-control name flex-grow" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(p.name)}" style="${escapeAttr(inputBgStyle)}">
+          <input type="number" class="form-control num" value="${escapeAttr(numVal)}" min="1" max="99" placeholder="#" style="${escapeAttr(inputBgStyle)} text-align: center;">
+          <div style="display: flex; align-items: center; position: relative;" class="flex-grow">
+            <input type="text" class="form-control name" autocomplete="off" placeholder="Suplente..." value="${escapeAttr(displayName)}" style="${escapeAttr(inputBgStyle)} width: 100%; padding-right: ${paddingRight}; text-align: left;" oninput="const b = this.nextElementSibling; if(b && b.className==='badges-container') b.style.display = this.value.trim() ? 'flex' : 'none';">
+            ${(ageBadgeHTML || potentialBadgeHTML || destacadoBadgeHTML) ? `<div class="badges-container" style="position: absolute; right: ${badgesRight}; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center;">${destacadoBadgeHTML}${potentialBadgeHTML}${ageBadgeHTML}</div>` : ''}
+            ${missingNameWarning}
+          </div>
           <select class="form-control pos select-compact" style="${escapeAttr(inputBgStyle)}">
             <option value="" ${!currentPos ? 'selected' : ''}>--</option>
             ${!hasCurrent && currentPos ? `<option value="${escapeAttr(currentPos)}" selected>${escapeHtml(currentPos)}</option>` : ''}
@@ -6034,6 +6340,12 @@
             <option value="" ${!currentPos2 ? 'selected' : ''}>-</option>
             ${!hasCurrent2 && currentPos2 ? `<option value="${escapeAttr(currentPos2)}" selected>${escapeHtml(currentPos2)}</option>` : ''}
             ${posOptions.map(o => `<option value="${o}" ${currentPos2 === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+          <select class="form-control pie select-compact" style="width: 35px; padding: 2px; text-align: center; font-size: 11px; ${escapeAttr(inputBgStyle)}" onchange="window.updatePlayerPie(this, '${escapeJsAttr(displayName)}')">
+            <option value="" ${!currentPie ? 'selected' : ''}>-</option>
+            <option value="D" ${currentPie === 'D' ? 'selected' : ''}>D</option>
+            <option value="Z" ${currentPie === 'Z' ? 'selected' : ''}>Z</option>
+            <option value="A" ${currentPie === 'A' ? 'selected' : ''}>A</option>
           </select>
         </div>
       `;
@@ -6049,6 +6361,63 @@
       document.getElementById(`${team}TitularesRows`),
       document.getElementById(`${team}SuplentesRows`)
     ];
+
+    const updateRowUI = (nameInput) => {
+      const row = nameInput.closest('.lineup-row');
+      if (!row) return;
+      const pNameLower = nameInput.value.trim().toLowerCase();
+      
+      let inputBgColor = '';
+      let ageBadgeHTML = '';
+      let potentialBadgeHTML = '';
+      let destacadoBadgeHTML = '';
+
+      if (pNameLower && typeof state !== 'undefined' && state.directory && state.directory.jugadores) {
+        const matchingPlayer = state.directory.jugadores.find(j => {
+          if (!j.nombre) return false;
+          const jNameLower = j.nombre.toLowerCase().trim();
+          return jNameLower === pNameLower || jNameLower.startsWith(pNameLower + ' ') || pNameLower.startsWith(jNameLower + ' ');
+        });
+        if (matchingPlayer) {
+          if (matchingPlayer.rendimientoRS === 'A') inputBgColor = 'rgba(34, 197, 94, 0.25)';
+          else if (matchingPlayer.rendimientoRS === 'B') inputBgColor = 'rgba(234, 179, 8, 0.25)';
+          ageBadgeHTML = typeof getAgeBadgeHTML === 'function' ? getAgeBadgeHTML(matchingPlayer, document.getElementById('reportCategoria')?.value) : '';
+          if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(matchingPlayer)) {
+            potentialBadgeHTML = `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 11px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">📈</span>`;
+          }
+          if (matchingPlayer.controlSeguimiento && matchingPlayer.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+            destacadoBadgeHTML = `<span title="Destacado Equipo" style="font-size: 11px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: white; flex-shrink: 0;">⭐</span>`;
+          }
+        }
+      }
+
+      const numInput = row.querySelector('input.num');
+      const posSelect = row.querySelector('select.pos');
+      if (numInput) numInput.style.backgroundColor = inputBgColor;
+      nameInput.style.backgroundColor = inputBgColor;
+      if (posSelect) posSelect.style.backgroundColor = inputBgColor;
+
+      let badgesContainer = row.querySelector('.badges-container');
+      if (!badgesContainer) {
+        badgesContainer = document.createElement('div');
+        badgesContainer.className = 'badges-container';
+        badgesContainer.style.cssText = 'position: absolute; pointer-events: none; z-index: 2; display: flex; gap: 4px; align-items: center; right: 25px;';
+        const flexGrow = nameInput.parentElement;
+        if (flexGrow) flexGrow.appendChild(badgesContainer);
+      }
+      
+      if (pNameLower) {
+        badgesContainer.innerHTML = destacadoBadgeHTML + potentialBadgeHTML + ageBadgeHTML;
+        badgesContainer.style.display = 'flex';
+        let numBadges = (ageBadgeHTML ? 1 : 0) + (potentialBadgeHTML ? 1 : 0) + (destacadoBadgeHTML ? 1 : 0);
+        let paddingRight = (25 + numBadges * 20) + 'px';
+        nameInput.style.paddingRight = paddingRight;
+      } else {
+        badgesContainer.innerHTML = '';
+        badgesContainer.style.display = 'none';
+        nameInput.style.paddingRight = '25px';
+      }
+    };
 
     containers.forEach(container => {
       if (!container) return;
@@ -6074,6 +6443,7 @@
         });
 
         nameInput?.addEventListener('input', () => {
+          updateRowUI(nameInput);
           renderPitchPins(team);
           showPlayerAutocompleteDropdown(team, nameInput);
         });
@@ -6288,11 +6658,7 @@
         btn.addEventListener('click', () => {
           const pName = btn.getAttribute('data-name');
           const tName = btn.getAttribute('data-team');
-          if (tName === currentTeamName) {
-            inputElement.value = pName;
-          } else {
-            inputElement.value = `${pName} [${tName}]`;
-          }
+          inputElement.value = pName;
           hideModal();
           // Restaurar display del btnSubmit por si se usa en otros modales luego
           if (btnSubmit) btnSubmit.style.display = '';
@@ -6320,7 +6686,7 @@
     if (!formationSelect) return;
     const formation = formationSelect.value;
     const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultStarterPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const defaultStarterPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'MC', 'ED', 'EI', 'DC', 'DC', 'DC'];
     const container = document.getElementById(`${team}PitchPins`);
     if (!container) return;
 
@@ -6411,11 +6777,20 @@
 
       let badgesHTML = '';
       let isZurdo = false;
+      let ageBadgeSpan = '';
+
+      // Check the dropdown value directly first
+      const pieSelect = row?.querySelector('select.pie');
+      if (pieSelect && (pieSelect.value.toUpperCase() === 'Z' || pieSelect.value.toUpperCase() === 'I')) {
+        isZurdo = true;
+      }
+
       if (nameVal && state.directory && state.directory.jugadores) {
         const foundP = state.directory.jugadores.find(p => (p.nombre && p.nombre.toLowerCase() === nameVal.toLowerCase()) || (p.jugador && p.jugador.toLowerCase() === nameVal.toLowerCase()));
         if (foundP) {
           const pierna = String(foundP.pierna || '').toLowerCase();
-          if (pierna.includes('izq') || pierna.includes('zur')) isZurdo = true;
+          if (pierna.includes('izq') || pierna.includes('zur') || pierna === 'z' || pierna === 'i') isZurdo = true;
+          ageBadgeSpan = getAgeBadgeHTML(foundP, document.getElementById('reportCategoria')?.value);
         }
       }
 
@@ -6435,24 +6810,28 @@
         badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
       }
 
-      let shortName = '';
-      if (nameVal) {
-        const parts = nameVal.trim().split(/\s+/);
-        if (parts.length > 1) {
-          const firstAndSurname = parts[0] + ' ' + parts[1];
-          if (firstAndSurname.length <= 15) {
-            shortName = firstAndSurname;
-          } else {
-            shortName = parts[0].charAt(0).toUpperCase() + '.' + parts[1];
-          }
-        } else {
-          shortName = parts[0];
+      if (evalObj && evalObj.rendimientoRS) {
+        if (evalObj.rendimientoRS === 'A') {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #22c55e; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Rendimiento A">A</div>`;
+        } else if (evalObj.rendimientoRS === 'B') {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #eab308; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Rendimiento B">B</div>`;
         }
       }
+
+      // DESTACADO EQUIPO badge
+      if (evalObj && evalObj.tags && evalObj.tags.includes('DESTACADO EQUIPO')) {
+        badgesHTML += `<div style="position: absolute; bottom: -8px; right: -8px; font-size: 12px; z-index: 2; line-height: 1; filter: drop-shadow(0px 0px 2px rgba(255,215,0,0.8));" title="Destacado Equipo">⭐</div>`;
+        if (row) row.classList.add('is-destacado');
+      } else {
+        if (row) row.classList.remove('is-destacado');
+      }
+
+      let shortName = nameVal ? nameVal.trim() : '';
 
       // Sub styles: slightly different border and z-index to stand out
       const borderStyle = isTitular ? '2px solid #ffffff' : '2px dashed #fbbf24';
       const zIndex = isTitular ? 10 : 11; // Subs render above starters if they overlap
+
 
       const generatePinHTML = (positionVal, isPos2) => {
         if (!positionVal) return '';
@@ -6490,7 +6869,7 @@
             ${escapeHtml(displayText)}
             ${badgesHTML}
           </div>
-          ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${escapeHtml(shortName)}</div>` : ''}
+          ${shortName ? `<div class="pitch-pin-name" style="margin-top: 4px; font-size: 9px; font-weight: 700; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8); display: flex; align-items: center; gap: 2px;">${escapeHtml(shortName)}${ageBadgeSpan}</div>` : ''}
         </div>
         `;
       };
@@ -6555,6 +6934,11 @@
         }
         if (isZurdo) {
           badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
+        }
+
+        // DESTACADO EQUIPO badge
+        if (evalObj && evalObj.tags && evalObj.tags.includes('DESTACADO EQUIPO')) {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; right: -8px; font-size: 12px; z-index: 2; line-height: 1; filter: drop-shadow(0px 0px 2px rgba(255,215,0,0.8));" title="Destacado Equipo">⭐</div>`;
         }
 
         return `
@@ -6786,6 +7170,7 @@
       if (evalData.descTecnica) playerInDir.descTecnica = mergeUniqueCsv(playerInDir.descTecnica, evalData.descTecnica);
       if (evalData.descEmocional) playerInDir.descEmocional = mergeUniqueCsv(playerInDir.descEmocional, evalData.descEmocional);
       if (evalData.perfilRS) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS);
+      if (evalData.perfilRS2) playerInDir.perfilRS = mergeUniqueCsv(playerInDir.perfilRS, evalData.perfilRS2);
       if (evalData.rendimientoRS) playerInDir.rendimientoRS = evalData.rendimientoRS;
       
       // Sincronización absoluta de los tags:
@@ -6981,27 +7366,7 @@
       return nameMatch || (numMatch && teamMatch);
     }) : null;
 
-    if (playerInDir && !state.matchPlayerEvaluations[evalKey]) {
-      state.matchPlayerEvaluations[evalKey] = {
-        rendimiento: playerInDir.rendimientoRS || '',
-        potencial: playerInDir.potencial || '',
-        rendimientoRS: playerInDir.rendimientoRS || '',
-        tags: playerInDir.tags || [],
-        minutos: defaultMins,
-        sustituido: false,
-        comentarioGeneral: '',
-        descFisica: playerInDir.descFisica || '',
-        descTecnica: playerInDir.descTecnica || '',
-        descEmocional: playerInDir.descEmocional || '',
-        perfilRS: playerInDir.perfilRS || '',
-        stats: {
-          goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
-          regatesExito: 0, regatesFallidos: 0, recuperaciones: 0, perdidas: 0, duelosGanados: 0,
-          duelosPerdidos: 0, aereoGanado: 0, aereoPerdido: 0, amarillas: 0, rojas: 0,
-          golesPropia: 0, paseFiltradoExito: 0, paseFiltradoFallado: 0, penaltiParado: 0
-        }
-      };
-    }
+
 
     const pEval = state.matchPlayerEvaluations[evalKey] || {
       rendimiento: '',
@@ -7016,14 +7381,6 @@
       descEmocional: '',
       perfilRS: ''
     };
-
-    // Merge tags from the match evaluation with global tags from the directory
-    let combinedTags = new Set(pEval.tags || []);
-    if (playerInDir) {
-      (playerInDir.tags || []).forEach(t => combinedTags.add(t));
-      (playerInDir.controlSeguimiento || []).forEach(t => combinedTags.add(t));
-    }
-    const mergedTagsArray = Array.from(combinedTags);
 
     const pStats = Object.assign({
       goles: 0, asistencias: 0, tirosPuerta: 0, tirosFuera: 0, pasesBuenos: 0, pasesMalos: 0,
@@ -7086,7 +7443,10 @@
           <div style="display: flex; gap: 16px;">
             <!-- Rendimiento -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO</div>
+              <div class="rating-score-title mb-2" style="text-align: center;">
+                RENDIMIENTO
+                ${playerInDir && playerInDir.rendimientoAcumulado ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.rendimientoAcumulado} ${playerInDir.rendimientoAcumuladoAvgNum ? `(${playerInDir.rendimientoAcumuladoAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmRendimientoGroup">
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimiento === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
@@ -7098,7 +7458,10 @@
 
             <!-- Potencial -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">POTENCIAL</div>
+              <div class="rating-score-title mb-2" style="text-align: center; color: #ec4899;">
+                POTENCIAL
+                ${playerInDir && playerInDir.potencial ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.potencial} ${playerInDir.potencialAvgNum ? `(${playerInDir.potencialAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmPotencialGroup">
                 ${[1, 2, 3, 4, 5].map(v => `<button type="button" class="rs-pill-btn-potencial ${pEval.potencial == v ? 'active' : ''}" data-val="${v}" style="width: 38px; height: 38px; font-size: 14px; border-radius: 50%; border: 2px solid ${pEval.potencial == v ? '#ec4899' : 'rgba(236,72,153,0.3)'}; color: ${pEval.potencial == v ? '#fff' : '#ec4899'}; background: ${pEval.potencial == v ? '#ec4899' : 'var(--bg-card)'}; cursor: pointer; transition: all 0.2s;">${v}</button>`).join('')}
               </div>
@@ -7106,7 +7469,10 @@
 
             <!-- Rendimiento RS -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-              <div class="rating-score-title mb-2" style="text-align: center;">RENDIMIENTO RS</div>
+              <div class="rating-score-title mb-2" style="text-align: center;">
+                RENDIMIENTO RS
+                ${playerInDir && playerInDir.rendimientoRS ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${playerInDir.rendimientoRS} ${playerInDir.rendimientoRSAvgNum ? `(${playerInDir.rendimientoRSAvgNum})` : ''}</span>` : ''}
+              </div>
               <div class="rs-pills-row" id="pmRendimientoRSGroup">
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'A' ? 'active' : '')}" data-val="A" style="width: 38px; height: 38px; font-size: 14px;">A</button>
                 <button type="button" class="rs-pill-btn ${escapeAttr(pEval.rendimientoRS === 'B' ? 'active' : '')}" data-val="B" style="width: 38px; height: 38px; font-size: 14px;">B</button>
@@ -7118,16 +7484,39 @@
 
             <!-- Perfil RS -->
             <div class="form-group" style="margin: 0; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start;">
-              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">PERFIL DEL JUGADOR (RS)</label>
-              ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
-              <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+              <label class="form-label" style="font-size: 10px; font-weight: 800; text-align: center; display: block; margin-bottom: 8px;">
+                PERFIL DEL JUGADOR (RS)
+                ${playerInDir && playerInDir.perfilRS ? `<br><span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">Histórico: ${escapeHtml(playerInDir.perfilRS)}</span>` : ''}
+              </label>
+              
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 2px;">${escapeHtml(pPos)}</div>
+                  ${buildFilteredPerfilKeepOpenHTML(pPos, 'pmPerfilRS')}
+                  <textarea id="pmPerfilRS" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil...">${escapeHtml(pEval.perfilRS)}</textarea>
+                </div>
+                <div id="pmPerfilRS2Wrapper" style="flex: 1; min-width: 0; display: ${(pPos2 || pEval.posicionAlternativa) ? 'block' : 'none'};">
+                  <div id="pmPerfilRS2Label" style="font-size: 9px; color: var(--text-muted); text-align: center; margin-bottom: 2px;">${escapeHtml(pPos2 || pEval.posicionAlternativa || '')}</div>
+                  <div id="pmPerfilRS2DropdownContainer">
+                    ${buildFilteredPerfilKeepOpenHTML(pPos2 || pEval.posicionAlternativa || '', 'pmPerfilRS2')}
+                  </div>
+                  <textarea id="pmPerfilRS2" class="desc-card-textarea" style="height: 38px; margin-top: 4px; box-sizing: border-box;" placeholder="Perfil (Alt)...">${escapeHtml(pEval.perfilRS2 || '')}</textarea>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- LÍNEA 2: Botones de 11 ideal y tags -->
-          <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));">
+          ${playerInDir && ((playerInDir.tags || []).length > 0 || (playerInDir.controlSeguimiento || []).length > 0) ? `
+          <div style="text-align: center; margin-top: 8px; margin-bottom: -4px;">
+            <span style="font-size:10px; font-weight:800;">ETIQUETAS Y SEGUIMIENTO</span><br>
+            <span style="font-size:9px; opacity:0.7; font-weight:normal; text-transform:none;">
+              Histórico: ${escapeHtml([...new Set([...(playerInDir.tags || []), ...(playerInDir.controlSeguimiento || [])])].filter(t => !['NO JUEGA', 'NO VISTO'].includes(t)).join(', ') || 'Ninguna')}
+            </span>
+          </div>` : ''}
+          <div class="tags-control-grid" id="pmTagsGroup" style="grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); ${playerInDir && ((playerInDir.tags || []).length > 0 || (playerInDir.controlSeguimiento || []).length > 0) ? 'margin-top: 12px;' : ''}">
             ${['DESTACADO EQUIPO', '11 IDEAL', 'ERF', 'JULEN', 'LERINES', 'MAPA RS', 'KIROL SPORT', 'CLUB CONVENIDO', 'JUGADOR RS CENTRO'].map(tag => `
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes(tag) ? 'active' : '')}" data-tag="${escapeAttr(tag)}">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes(tag) ? 'active' : '')}" data-tag="${escapeAttr(tag)}">
                 ${escapeHtml(tag)}
               </button>
             `).join('')}
@@ -7140,10 +7529,10 @@
               <input type="number" id="pmMinutos" class="form-control" value="${escapeAttr(pEval.minutos || 0)}" min="0" max="120" style="width: 100%; font-weight: 800; text-align: center; height: 38px; box-sizing: border-box;">
             </div>
             <div style="padding-top: 18px; display: flex; gap: 4px;">
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO JUEGA') ? 'active' : '')}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes('NO JUEGA') ? 'active' : '')}" data-tag="NO JUEGA" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No juega">
                 NO JUEGA
               </button>
-              <button type="button" class="tag-control-btn ${escapeAttr(mergedTagsArray.includes('NO VISTO') ? 'active' : '')}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
+              <button type="button" class="tag-control-btn ${escapeAttr((pEval.tags || []).includes('NO VISTO') ? 'active' : '')}" data-tag="NO VISTO" style="margin: 0; flex: 1; padding: 6px 2px; font-size: 9px;" title="No le veo">
                 NO VISTO
               </button>
             </div>
@@ -7280,11 +7669,42 @@
     if (modalContent) modalContent.classList.add('xlarge');
 
     // Pill Button Handlers
+    const updateRendimientoRS = () => {
+      const rendBtn = modalContent.querySelector('#pmRendimientoGroup .rs-pill-btn.active');
+      const potBtn = modalContent.querySelector('#pmPotencialGroup .rs-pill-btn-potencial.active');
+      
+      if (rendBtn && potBtn) {
+        const rendVal = rendBtn.dataset.val;
+        const potVal = parseInt(potBtn.dataset.val, 10);
+        
+        const rendMap = { 'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1 };
+        const numToCharMap = { 5: 'A', 4: 'B', 3: 'C', 2: 'D', 1: 'E' };
+        
+        const rendNum = rendMap[rendVal];
+        if (rendNum !== undefined && !isNaN(potVal)) {
+          const avg = Math.round((rendNum + potVal) / 2);
+          const rsChar = numToCharMap[avg];
+          
+          if (rsChar) {
+            const rsBtnToClick = modalContent.querySelector(`#pmRendimientoRSGroup .rs-pill-btn[data-val="${rsChar}"]`);
+            if (rsBtnToClick && !rsBtnToClick.classList.contains('active')) {
+              rsBtnToClick.click();
+            }
+          }
+        }
+      }
+    };
+
     modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        if (!isActive) btn.classList.add('active');
+        if (!isActive) {
+          btn.classList.add('active');
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
+          updateRendimientoRS();
+        }
       });
     });
 
@@ -7302,6 +7722,9 @@
           btn.style.background = '#ec4899';
           btn.style.color = '#fff';
           btn.style.borderColor = '#ec4899';
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
+          updateRendimientoRS();
         }
       });
     });
@@ -7322,7 +7745,11 @@
       btn.addEventListener('click', () => {
         const isActive = btn.classList.contains('active');
         modalContent.querySelectorAll('#pmRendimientoRSGroup .rs-pill-btn').forEach(b => b.classList.remove('active'));
-        if (!isActive) btn.classList.add('active');
+        if (!isActive) {
+          btn.classList.add('active');
+          // If a rating is given, uncheck "NO JUEGA" and "NO VISTO"
+          modalContent.querySelectorAll('.tag-control-btn[data-tag="NO JUEGA"], .tag-control-btn[data-tag="NO VISTO"]').forEach(b => b.classList.remove('active'));
+        }
       });
     });
 
@@ -7529,6 +7956,25 @@
       if (modalFooter) modalFooter.style.display = '';
     });
 
+    const pmPosicionAlternativaSelect = modalContent.querySelector('#pmPosicionAlternativa');
+    if (pmPosicionAlternativaSelect) {
+      pmPosicionAlternativaSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const wrapper = modalContent.querySelector('#pmPerfilRS2Wrapper');
+        const label = modalContent.querySelector('#pmPerfilRS2Label');
+        const container = modalContent.querySelector('#pmPerfilRS2DropdownContainer');
+        if (wrapper && label && container) {
+          if (val) {
+            wrapper.style.display = 'block';
+            label.textContent = val;
+            container.innerHTML = buildFilteredPerfilKeepOpenHTML(val, 'pmPerfilRS2');
+          } else {
+            wrapper.style.display = 'none';
+          }
+        }
+      });
+    }
+
     // Save Button
     modalContent.querySelector('#btnSavePlayerMatchReport')?.addEventListener('click', () => {
       const activeRSBtn = modalContent.querySelector('#pmRendimientoRSGroup .rs-pill-btn.active');
@@ -7562,6 +8008,7 @@
         posicionAlternativa: modalContent.querySelector('#pmPosicionAlternativa')?.value || '',
         posicionAlternativaNota: modalContent.querySelector('#pmPosicionAlternativaNota')?.value || '',
         perfilRS: modalContent.querySelector('#pmPerfilRS')?.value || '',
+        perfilRS2: modalContent.querySelector('#pmPerfilRS2')?.value || '',
         stats: pStats
       };
 
@@ -7600,12 +8047,60 @@
       // servidor y el objeto que se le pasaba no tiene identificador, así que la llamada salía sin
       // hacer nada. La ficha del jugador ya la guarda syncPlayerMatchReportToDirectory, arriba.
 
+      if (!standaloneMode) {
+        // Recalculate BOTH team goals automatically
+        let totalLocalGoals = 0;
+        let totalVisitanteGoals = 0;
+        const prefix = `${targetRepId}_`;
+        Object.keys(state.matchPlayerEvaluations).forEach(key => {
+          if (key.startsWith(prefix)) {
+            const ev = state.matchPlayerEvaluations[key];
+            if (ev.stats) {
+              const goles = parseInt(ev.stats.goles, 10) || 0;
+              const golesPropia = parseInt(ev.stats.golesPropia, 10) || 0;
+              if (key.includes('_local_')) {
+                totalLocalGoals += goles;
+                totalVisitanteGoals += golesPropia;
+              }
+              if (key.includes('_visitante_')) {
+                totalVisitanteGoals += goles;
+                totalLocalGoals += golesPropia;
+              }
+            }
+          }
+        });
+        
+        ['local', 'visitante'].forEach(t => {
+          const scoreInput = document.getElementById(t === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
+          if (scoreInput) {
+            const totalGoals = t === 'local' ? totalLocalGoals : totalVisitanteGoals;
+            const currentAuto = parseInt(scoreInput.dataset.autoGoals) || 0;
+            const currentValue = parseInt(scoreInput.value) || 0;
+            
+            if (currentValue === currentAuto) {
+              scoreInput.value = totalGoals;
+            } else {
+              scoreInput.value = Math.max(0, currentValue + (totalGoals - currentAuto));
+            }
+            scoreInput.dataset.autoGoals = totalGoals;
+          }
+        });
+      }
+
       // Persist the evaluation to the current Match Report in Firebase immediately
       if (targetRepId && targetRepId !== 'temp') {
         const idx = state.reports.findIndex(r => r.id === targetRepId);
         if (idx !== -1) {
           if (!state.reports[idx].playerEvaluations) state.reports[idx].playerEvaluations = {};
           state.reports[idx].playerEvaluations[evalKey] = evalObj;
+          
+          if (!standaloneMode) {
+            const lScore = document.getElementById('reportLocalScore');
+            const vScore = document.getElementById('reportVisitanteScore');
+            if (lScore) state.reports[idx].localScore = parseInt(lScore.value) || 0;
+            if (vScore) state.reports[idx].visitanteScore = parseInt(vScore.value) || 0;
+          }
+
           saveToFirebase('informes', state.reports[idx]);
           if (standaloneMode && typeof window.showCustomAlertModal === 'function') {
             window.showCustomAlertModal('Guardado', 'La evaluación del partido se ha guardado correctamente.');
@@ -7614,30 +8109,6 @@
       }
 
       if (!standaloneMode) {
-        // Recalculate team goals automatically
-        let totalGoals = 0;
-        const prefix = `${targetRepId}_${team}_`;
-        Object.keys(state.matchPlayerEvaluations).forEach(key => {
-          if (key.startsWith(prefix)) {
-            const ev = state.matchPlayerEvaluations[key];
-            if (ev.stats && ev.stats.goles) {
-              totalGoals += parseInt(ev.stats.goles, 10) || 0;
-            }
-          }
-        });
-        const scoreInput = document.getElementById(team === 'local' ? 'reportLocalScore' : 'reportVisitanteScore');
-        if (scoreInput) {
-          const currentAuto = parseInt(scoreInput.dataset.autoGoals) || 0;
-          const currentValue = parseInt(scoreInput.value) || 0;
-          
-          if (currentValue === currentAuto) {
-            scoreInput.value = totalGoals;
-          } else {
-            scoreInput.value = Math.max(0, currentValue + (totalGoals - currentAuto));
-          }
-          scoreInput.dataset.autoGoals = totalGoals;
-        }
-
         // Update pitch visually to reflect any new stat badges (like goals)
         if (typeof renderPitchPins === 'function') {
           renderPitchPins('local');
@@ -7806,6 +8277,16 @@
           foundPlayer.posicionSecundaria = pObj.pos2;
           updated = true;
         }
+        
+        if (pObj.pie) {
+            let mappedPie = pObj.pie === 'D' ? 'Derecha' : (pObj.pie === 'Z' ? 'Izquierda' : (pObj.pie === 'A' ? 'Ambidiestro' : ''));
+            if (mappedPie && foundPlayer.pierna !== mappedPie) {
+                foundPlayer.pierna = mappedPie;
+                foundPlayer.lateralidad = mappedPie;
+                updated = true;
+            }
+        }
+
         if (updated) {
           saveToFirebase('jugadores', foundPlayer);
         }
@@ -7976,6 +8457,8 @@
         localSuplentes: matchTacticalSystems.local?.principal?.suplentes || [],
         visitanteTitulares: matchTacticalSystems.visitante?.principal?.titulares || [],
         visitanteSuplentes: matchTacticalSystems.visitante?.principal?.suplentes || [],
+        localSystems: matchTacticalSystems.local || {},
+        visitanteSystems: matchTacticalSystems.visitante || {},
 
         playerEvaluations: Object.keys(state.matchPlayerEvaluations || {}).reduce((acc, key) => {
           if (key.startsWith(repId + '_')) {
@@ -8015,21 +8498,50 @@
 
       // Also auto-add/update players into directory
       if (state.directory && Array.isArray(state.directory.jugadores)) {
-        [...reportObj.localTitulares, ...reportObj.visitanteTitulares].forEach(p => {
-          if (p.name && !/^\d/.test(p.name.trim()) && !state.directory.jugadores.some(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase())) {
-            const fichaNueva = {
-              id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
-              nombre: p.name,
-              equipo: reportObj.localTitulares.includes(p) ? reportObj.localTeam : reportObj.visitanteTeam,
-              posicion: p.pos || '',
-              ano: '2006',
-              categoria: reportObj.categoria || 'Senior',
-              nivel: 'Prospecto'
-            };
-            state.directory.jugadores.push(fichaNueva);
-            // Antes solo se añadía en memoria: al recargar, el Directorio volvía a estar sin
-            // estos jugadores y el informe quedaba apuntando a nombres sin ficha.
-            saveToFirebase('jugadores', fichaNueva);
+        const allPlayers = [];
+        if (reportObj.localSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+            if (reportObj.localSystems[sysKey]) {
+              allPlayers.push(...(reportObj.localSystems[sysKey].titulares || []));
+              allPlayers.push(...(reportObj.localSystems[sysKey].suplentes || []));
+            }
+          });
+        }
+        if (reportObj.visitanteSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+            if (reportObj.visitanteSystems[sysKey]) {
+              allPlayers.push(...(reportObj.visitanteSystems[sysKey].titulares || []));
+              allPlayers.push(...(reportObj.visitanteSystems[sysKey].suplentes || []));
+            }
+          });
+        }
+
+        allPlayers.forEach(p => {
+          if (p.name && !/^\d/.test(p.name.trim())) {
+            const normalize = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+            const pNorm = normalize(p.name);
+            const teamName = reportObj.localTitulares.includes(p) || (reportObj.localSystems && Object.values(reportObj.localSystems).some(s => s.titulares.includes(p) || s.suplentes.includes(p))) ? reportObj.localTeam : reportObj.visitanteTeam;
+
+            const exists = state.directory.jugadores.some(j => {
+              if (!j.nombre) return false;
+              const jNorm = normalize(j.nombre);
+              const nameMatch = (jNorm === pNorm || window.flexibleMatch(pNorm, j.nombre) || window.flexibleMatch(jNorm, p.name));
+              return nameMatch && (window.flexibleMatch(teamName, j.equipo) || window.flexibleMatch(j.equipo, teamName));
+            });
+
+            if (!exists) {
+              const fichaNueva = {
+                id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
+                nombre: p.name,
+                equipo: teamName,
+                posicion: p.pos || '',
+                ano: '2006',
+                categoria: reportObj.categoria || 'Senior',
+                nivel: 'Prospecto'
+              };
+              state.directory.jugadores.push(fichaNueva);
+              saveToFirebase('jugadores', fichaNueva);
+            }
           }
         });
       }
@@ -8334,6 +8846,8 @@
           if (typeof renderMapas === 'function') renderMapas();
         } else if (target === 'importador') {
           if (typeof renderImportador === 'function') renderImportador();
+        } else if (target === 'estadisticas') {
+          if (typeof renderEstadisticas === 'function') renderEstadisticas();
         }
       });
     });
@@ -8618,9 +9132,7 @@
       });
     }
 
-    // Count Partidos Vistos and Auto-fill Posiciones
-    let partidosVistosCount = 0;
-    let partidosNoJuegaCount = 0;
+    // Auto-fill Posiciones
     let posicionesVistas = new Set();
     const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
 
@@ -8663,9 +9175,6 @@
         (rep.visitanteTitulares || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
         (rep.visitanteSuplentes || []).forEach(p => checkPlayer(p, rep.visitanteTeam || rep.visitante, rep.id));
 
-        if (foundAsPlayed) partidosVistosCount++;
-        else if (foundAsNoJuega) partidosNoJuegaCount++;
-
         if (rep.localSystems) {
           ['principal', 'secundario', 'ocasional'].forEach(role => {
             if (rep.localSystems[role]) {
@@ -8702,12 +9211,31 @@
       });
     }
 
-    const allMatchHistory = Array.from(allMatchHistoryMap.values());
-    allMatchHistory.sort((a, b) => {
+    const allMatchHistoryFull = Array.from(allMatchHistoryMap.values());
+    allMatchHistoryFull.sort((a, b) => {
       if (!a.fecha) return 1;
       if (!b.fecha) return -1;
       return new Date(b.fecha) - new Date(a.fecha);
     });
+
+    let notasJugadorArr = [];
+    let partidosVistosCount = 0;
+    let partidosNoJuegaCount = 0;
+    
+    allMatchHistoryFull.forEach(ev => {
+      if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) {
+        partidosNoJuegaCount++;
+        return;
+      }
+      partidosVistosCount++;
+      if (ev.rendimiento && ev.rendimiento !== '-') {
+        notasJugadorArr.push(ev.rendimiento);
+      }
+    });
+
+    // Filtramos para que NO JUEGA no aparezcan en la lista emergente ("no contar para su ficha")
+    const allMatchHistory = allMatchHistoryFull.filter(ev => !(ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))));
+    const notasJugadorStr = notasJugadorArr.length > 0 ? notasJugadorArr.join(', ') : '-';
 
     let displayPosPri = player.posicionPrincipal || player.posicion || '';
     let displayPosSec = player.posicionSecundaria || '';
@@ -8853,6 +9381,14 @@
     tempChart.destroy();
     document.body.removeChild(tempCanvas);
 
+    const getRendColor = (rs) => {
+      if (rs === 'A') return '#10b981';
+      if (rs === 'B') return '#eab308';
+      if (rs === 'C') return '#f97316';
+      if (rs === 'D' || rs === 'E') return '#ef4444';
+      return 'var(--primary-dark)';
+    };
+
     const html = `
       <div class="ficha-jugador-container" style="--ficha-theme: ${escapeAttr(themeColor)}; border-top: 6px solid var(--ficha-theme); background: color-mix(in srgb, var(--ficha-theme) 6%, var(--bg-card)); padding: 10px;">
         
@@ -8860,7 +9396,14 @@
           
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
             <div style="display: flex; gap: 24px; align-items: center;">
-              <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+              <div style="position: relative; display: inline-block;">
+                <img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ficha-theme); background: var(--bg-card); box-shadow: 0 4px 12px rgba(0,0,0,0.1);" onerror="this.src='Foto Jugador General.png'">
+                ${(player.rendimientoRS && player.rendimientoRS !== '-') ? `
+                  <div style="position: absolute; bottom: 0px; left: 0px; background: ${getRendColor(player.rendimientoRS)}; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" title="Rendimiento RS: ${escapeHtml(player.rendimientoRS)}">
+                    ${escapeHtml(player.rendimientoRS)}
+                  </div>
+                ` : ''}
+              </div>
               <div>
                 <h2 class="ficha-title" style="margin-bottom: 8px; color: var(--text-main); font-size: 28px;">${escapeHtml(player.nombre || 'Sin Nombre')}</h2>
                 <div class="ficha-subtitle" style="margin-bottom: 0; font-size: 15px;">
@@ -8919,7 +9462,13 @@
               <div class="ficha-stat-value">${escapeHtml(player.proyeccion || '-')}</div>
             </div>
           </div>
-          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+          <div class="ficha-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+            <div class="ficha-stat-box" style="padding: 16px;">
+              <div class="ficha-stat-label">VALORACIONES</div>
+              <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; font-weight: 800;">
+                 ${notasJugadorStr}
+              </div>
+            </div>
             <div class="ficha-stat-box" id="btnAtributosCard" style="padding: 16px; position: relative; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.backgroundColor='var(--bg-hover)'" onmouseout="this.style.backgroundColor=''">
               <div class="ficha-stat-label">ATRIBUTOS</div>
               <div class="ficha-stat-value" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -9077,6 +9626,24 @@
     if (btnEstadisticasEmergente) {
       btnEstadisticasEmergente.onclick = () => {
         let statsPorComp = player.statsPorCompeticion;
+        let tTitular = 0, tSuplente = 0;
+        
+        // Count Titular/Suplente from reports
+        const pNameLower = String(player.nombre || player.jugador || player.name || '').toLowerCase().trim();
+        if (pNameLower) {
+          (state.reports || []).forEach(rep => {
+            let isTitular = false; let isSuplente = false;
+            const checkT = (pObj, teamName) => { if (pObj && isSamePlayerName(pObj.name||'', player.nombre, teamName, player.equipo)) isTitular = true; };
+            const checkS = (pObj, teamName) => { if (pObj && isSamePlayerName(pObj.name||'', player.nombre, teamName, player.equipo)) isSuplente = true; };
+            (rep.localTitulares || []).forEach(p => checkT(p, rep.localTeam || rep.local));
+            (rep.visitanteTitulares || []).forEach(p => checkT(p, rep.visitanteTeam || rep.visitante));
+            (rep.localSuplentes || []).forEach(p => checkS(p, rep.localTeam || rep.local));
+            (rep.visitanteSuplentes || []).forEach(p => checkS(p, rep.visitanteTeam || rep.visitante));
+            
+            if (isTitular) tTitular++;
+            if (isSuplente) tSuplente++;
+          });
+        }
         
         if (!statsPorComp && player.historialEvaluaciones) {
           statsPorComp = {};
@@ -9096,12 +9663,37 @@
         
         statsPorComp = statsPorComp || {};
         
-        let estadisticasHtml = Object.keys(statsPorComp).length > 0
-          ? Object.entries(statsPorComp).map(([c, s]) => `
+        let mStats = player.manualStats || { goles: 0, amarillas: 0, rojas: 0, titular: 0, suplente: 0, convocado: 0 };
+        let autoGoles = 0, autoAmarillas = 0, autoRojas = 0;
+        Object.values(statsPorComp).forEach(s => { autoGoles += (s.goles||0); autoAmarillas += (s.amarillas||0); autoRojas += (s.rojas||0); });
+        
+        let tGoles = autoGoles + (mStats.goles||0);
+        let tAmarillas = autoAmarillas + (mStats.amarillas||0);
+        let tRojas = autoRojas + (mStats.rojas||0);
+        let totalTitular = tTitular + (mStats.titular||0);
+        let totalSuplente = tSuplente + (mStats.suplente||0);
+        let totalConvocado = (tTitular + tSuplente) + (mStats.convocado||0);
+        
+        let estadisticasHtml = `
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; margin-bottom: 12px;">
+            <div style="font-weight: 800; font-size: 14px; margin-bottom: 8px; color: var(--primary-blue); border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">RESUMEN TOTAL (Informes + Manual)</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-dark); font-weight: 700;">
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Titular">▶️</span> <strong>${totalTitular}</strong> Titular</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Suplente">🔄</span> <strong>${totalSuplente}</strong> Suplente</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Convocado">📋</span> <strong>${totalConvocado}</strong> Convocatorias</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Goles">⚽</span> <strong>${tGoles}</strong> Goles</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Amarillas">🟨</span> <strong>${tAmarillas}</strong> Amarillas</div>
+              <div style="display: flex; align-items: center; gap: 4px;"><span title="Rojas">🟥</span> <strong>${tRojas}</strong> Rojas</div>
+            </div>
+          </div>
+        `;
+        
+        if (Object.keys(statsPorComp).length > 0) {
+          estadisticasHtml += Object.entries(statsPorComp).map(([c, s]) => `
             <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
               <div style="font-weight: 800; font-size: 14px; margin-bottom: 8px; color: var(--text-main); border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">${escapeHtml(c)}</div>
               <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary);">
-                <div style="display: flex; align-items: center; gap: 4px;"><span title="Minutos Jugados">⏱️</span> <strong>${s.minutos}</strong></div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span title="Minutos Jugados">⏱️</span> <strong>${s.minutos} min</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Goles">⚽</span> <strong>${s.goles}</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Asistencias">🅰️</span> <strong>${s.asistencias}</strong></div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Amarillas">🟨</span> <strong>${s.amarillas}</strong></div>
@@ -9109,8 +9701,10 @@
                 <div style="display: flex; align-items: center; gap: 4px;"><span title="Penaltis Parados">🧤</span> <strong>${s.penaltiParado}</strong></div>
               </div>
             </div>
-          `).join('')
-          : `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin estadísticas registradas</div>`;
+          `).join('');
+        } else {
+          estadisticasHtml += `<div style="padding: 10px; font-size: 12px; color: var(--text-muted); text-align: center; font-style: italic;">Sin estadísticas registradas en informes</div>`;
+        }
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -9190,7 +9784,7 @@
     const comunidad = player.comunidad || 'Navarra';
     const localidad = player.localidad || 'Pamplona';
 
-    let _piernaRaw = String(player.pierna || 'Derecha').toLowerCase();
+    let _piernaRaw = String(player.lateralidad || player.pierna || 'Derecha').toLowerCase();
     let pierna = 'Derecha';
     if (_piernaRaw.includes('izq') || _piernaRaw.includes('zur')) pierna = 'Izquierda';
     else if (_piernaRaw.includes('ambid')) pierna = 'Ambidiestro';
@@ -9422,12 +10016,11 @@
                 </div>
 
                 <div class="form-group mb-4">
-                  <label class="form-label">ESTADO JUGADOR (TEMPORADA 2026/2027)</label>
+                  <label class="form-label">ESTADO JUGADOR</label>
                   <div class="status-pill-group" id="pfEstadoGroup">
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'ALTA' ? 'active' : '')}" data-val="ALTA">ALTA</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'RENOVACIÓN' ? 'active' : '')}" data-val="RENOVACIÓN">RENOVACIÓN</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'BAJA' ? 'active' : '')}" data-val="BAJA">BAJA</button>
-                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'SUBE DE EQUIPO INFERIOR' ? 'active' : '')}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Renovación' || estado === 'RENOVACIÓN' ? 'active' : '')}" data-val="RENOVACIÓN">RENOVACIÓN</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'SUBE DE EQUIPO INFERIOR' || estado === 'Sube' || estado === 'SUBE' ? 'active' : '')}" data-val="SUBE DE EQUIPO INFERIOR">SUBE DE EQUIPO INFERIOR</button>
+                    <button type="button" class="status-pill-btn ${escapeAttr(estado === 'Alta' || estado === 'ALTA' ? 'active' : '')}" data-val="ALTA">ALTA</button>
                   </div>
                 </div>
 
@@ -9542,16 +10135,16 @@
                 <label class="form-label">POSICIÓN PRINCIPAL</label>
                 <select id="pfPosicion" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionPrincipal && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionPrincipal) ? `<option value="${escapeAttr(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
+                  ${['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].map(p => `<option value="${p}" ${posicionPrincipal === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionPrincipal && !['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].includes(posicionPrincipal) ? `<option value="${escapeAttr(posicionPrincipal)}" selected>${escapeHtml(posicionPrincipal)}</option>` : ''}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">POSICIÓN SECUNDARIA</label>
                 <select id="pfPosicionSecundaria" class="form-control">
                   <option value="">Seleccionar...</option>
-                  ${['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
-                  ${posicionSecundaria && !['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'].includes(posicionSecundaria) ? `<option value="${escapeAttr(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
+                  ${['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].map(p => `<option value="${p}" ${posicionSecundaria === p ? 'selected' : ''}>${p}</option>`).join('')}
+                  ${posicionSecundaria && !['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'].includes(posicionSecundaria) ? `<option value="${escapeAttr(posicionSecundaria)}" selected>${escapeHtml(posicionSecundaria)}</option>` : ''}
                 </select>
               </div>
             </div>
@@ -9703,8 +10296,38 @@
                     </div>
                   </div>
                 `).join('')
-      : `<div style="color: var(--text-muted); font-size:13px;">Sin estadísticas registradas</div>`}
+      : `<div style="color: var(--text-muted); font-size:13px;">Sin estadísticas registradas del informe</div>`}
               </div>
+            </div>
+
+            <div class="player-section-title mb-2 mt-4">
+              <i data-lucide="edit-3"></i> ESTADÍSTICAS MANUALES (Se suman al total)
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;" class="mb-4">
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">⚽ Goles</label>
+                 <input type="number" id="pfManualGoles" class="form-control" value="${player.manualStats?.goles || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🟨 Amarillas</label>
+                 <input type="number" id="pfManualAmarillas" class="form-control" value="${player.manualStats?.amarillas || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🟥 Rojas</label>
+                 <input type="number" id="pfManualRojas" class="form-control" value="${player.manualStats?.rojas || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">▶️ Titular</label>
+                 <input type="number" id="pfManualTitular" class="form-control" value="${player.manualStats?.titular || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">🔄 Suplente</label>
+                 <input type="number" id="pfManualSuplente" class="form-control" value="${player.manualStats?.suplente || 0}">
+               </div>
+               <div class="form-group">
+                 <label class="form-label" style="font-size: 11px;">📋 Convocado</label>
+                 <input type="number" id="pfManualConvocado" class="form-control" value="${player.manualStats?.convocado || 0}">
+               </div>
             </div>
 
             <div class="player-section-title mb-2 mt-4">
@@ -9925,7 +10548,7 @@
       p.nombre = document.getElementById('pfNombre')?.value.trim() || p.nombre || '';
       p.dorsal = document.getElementById('pfDorsal')?.value.trim() || '';
       const activeEstado = document.querySelector('#pfEstadoGroup .status-pill-btn.active');
-      p.estado = activeEstado ? activeEstado.dataset.val : (p.estado || 'ALTA');
+      p.estado = activeEstado ? activeEstado.dataset.val : (p.estado || 'Alta');
       p.equipo = document.getElementById('pfEquipo')?.value.trim() || '';
       p.equipoSecundario = document.getElementById('pfEquipoSecundario')?.value.trim() || '';
       p.seleccion = document.getElementById('pfSeleccion')?.value.trim() || '';
@@ -9937,6 +10560,7 @@
       p.localidad = document.getElementById('pfLocalidad')?.value.trim() || '';
 
       p.pierna = document.getElementById('pfPierna')?.value || 'Derecha';
+      p.lateralidad = p.pierna;
       p.disponibilidad = document.getElementById('pfDisponibilidad')?.value.trim() || '';
       p.proyeccion = document.getElementById('pfProyeccion')?.value || '';
       let posP = document.getElementById('pfPosicion')?.value || '';
@@ -9965,6 +10589,15 @@
       p.transfermarkt = document.getElementById('pfTransfermarkt')?.value.trim() || '';
       p.besoccer = document.getElementById('pfBesoccer')?.value.trim() || '';
       p.telefono = document.getElementById('pfTelefono')?.value.trim() || '';
+
+      p.manualStats = {
+         goles: parseInt(document.getElementById('pfManualGoles')?.value || 0),
+         amarillas: parseInt(document.getElementById('pfManualAmarillas')?.value || 0),
+         rojas: parseInt(document.getElementById('pfManualRojas')?.value || 0),
+         titular: parseInt(document.getElementById('pfManualTitular')?.value || 0),
+         suplente: parseInt(document.getElementById('pfManualSuplente')?.value || 0),
+         convocado: parseInt(document.getElementById('pfManualConvocado')?.value || 0)
+      };
 
       // Este dato no tiene ningún control en el formulario: se leía un campo que no existe y, al no
       // encontrarlo, se reescribía con el valor por defecto en cada guardado. Se conserva lo que
@@ -11791,13 +12424,27 @@
     });
     allPlayersList.forEach(p => {
       const playerTeamNorm = normalizeStr(p.equipo || p.club || p.seleccion);
-      if ((playerTeamNorm === teamNameNorm || window.flexibleMatch(teamNameNorm, playerTeamNorm) || window.flexibleMatch(playerTeamNorm, teamNameNorm)) && p.nombre) {
+      if (playerTeamNorm && (playerTeamNorm === teamNameNorm || window.flexibleMatch(teamNameNorm, playerTeamNorm) || window.flexibleMatch(playerTeamNorm, teamNameNorm)) && p.nombre) {
         combinedPlantillaMap.set(normalizeStr(p.nombre), p.nombre);
       }
     });
     let localPlantillaList = Array.from(combinedPlantillaMap.values());
 
     const numPlantilla = localPlantillaList.length;
+    let yearCounts = {};
+    localPlantillaList.forEach(pName => {
+      const player = allPlayersList.find(p => {
+        const nP = normalizeStr(p.nombre || p.jugador || p.name);
+        const nName = normalizeStr(pName);
+        return nP === nName || window.flexibleMatch(nName, nP) || window.flexibleMatch(nP, nName);
+      });
+      if (player) {
+        const ano = player.anoNac || player.ano || '?';
+        yearCounts[ano] = (yearCounts[ano] || 0) + 1;
+      }
+    });
+    const yearKeys = Object.keys(yearCounts).sort((a,b) => b - a);
+    const yearStr = yearKeys.length > 0 ? yearKeys.map(k => `${k}: ${yearCounts[k]}`).join(' | ') : 'N/A';
 
     // Shield
     let shieldSrc = team.escudo || team.logo || '';
@@ -11816,12 +12463,14 @@
           <th style="padding: 10px; text-align: center;">Dorsal</th>
           <th style="padding: 10px; text-align: center;">Año</th>
           <th style="padding: 10px; text-align: center;">Posición</th>
+          <th style="padding: 10px; text-align: center;">Lateralidad</th>
+          <th style="padding: 10px; text-align: center;">Estado</th>
         </tr>
       </thead>
       <tbody>
     `;
     if (numPlantilla === 0) {
-      plantillaHTML += `<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
+      plantillaHTML += `<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No hay jugadores en la plantilla</td></tr>`;
     } else {
       localPlantillaList.forEach(pName => {
         const player = allPlayersList.find(p => {
@@ -11834,8 +12483,10 @@
             <tr style="border-bottom: 1px solid var(--border-light);">
               <td style="padding: 10px; font-weight: 600;"><a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(player.id)}" style="color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px;"><img src="${escapeAttr(player.foto || 'Foto Jugador General.png')}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light);">${escapeHtml(pName)}</a></td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.dorsal || '-')}</td>
-              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.anoNac || player.ano || '-')}${getAgeBadgeHTML(player, team.categoria || team.competicion)}</td>
               <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.posicionPrincipal || player.posicion || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.lateralidad || player.pierna || '-')}</td>
+              <td style="padding: 10px; text-align: center; color: var(--text-muted);">${escapeHtml(player.estado || '-')}</td>
             </tr>
           `;
         }
@@ -11936,7 +12587,7 @@
     let campogramaHTML = '';
     const formation = team.sistemaHabitual || '1-4-3-3';
     const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
     const curTextColor = getContrastColor(themeColor);
@@ -11960,7 +12611,7 @@
           <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
               ${zBadge}
-              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}${getAgeBadgeHTML(p, team.categoria || team.competicion)}</span>
             </div>
           </div>
         `}).join('');
@@ -12057,6 +12708,10 @@
               <div class="ficha-stat-box" style="background: var(--bg-card); border: 1px solid rgba(0,0,0,0.05); padding: 16px;">
                 <div class="ficha-stat-label">STAFF TÉCNICO</div>
                 <div class="ficha-stat-value" style="color: var(--text-main);">${numStaff} Miembros</div>
+              </div>
+              <div class="ficha-stat-box" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 16px; grid-column: 1 / -1;">
+                <div class="ficha-stat-label">AÑOS DE NACIMIENTO (PLANTILLA)</div>
+                <div class="ficha-stat-value" style="color: var(--text-main); font-size: 14px;">${yearStr}</div>
               </div>
             </div>
             <div style="text-align: center; margin-top: 20px; padding: 16px; background: rgba(0,0,0,0.02); border-radius: 8px;">
@@ -13370,14 +14025,17 @@
           let rendRSHTML = '-';
 
           if (foundPlayer) {
+            let potentialIcon = (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(foundPlayer)) ? `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 12px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0;">📈</span>` : '';
             nameHTML = `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundPlayer.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
               <img src="${escapeAttr(foundPlayer.foto || 'Foto Jugador General.png')}" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-light); flex-shrink: 0;">
               <span style="text-decoration: underline;">${escapeHtml(nameStr)}</span>
+              ${potentialIcon}
             </a>`;
             const dorsalVal = foundPlayer.dorsal || '';
             dorsalHTML = `<input type="text" class="form-control inline-edit-input" data-field="dorsal" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(dorsalVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
             const anoVal = foundPlayer.anoNac || foundPlayer.ano || '';
-            anoHTML = `<input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center;">`;
+            const curCat = document.getElementById('tfCategoria')?.value || '';
+            anoHTML = `<div style="display: flex; align-items: center; justify-content: center;"><input type="text" class="form-control inline-edit-input" data-field="anoNac" data-pid="${escapeAttr(foundPlayer.id)}" value="${escapeAttr(anoVal)}" style="font-size: 10px; padding: 2px 4px; height: 24px; width: 100%; text-align: center; min-width: 0;">${getAgeBadgeHTML(foundPlayer, curCat)}</div>`;
             let posPri = foundPlayer.posicionPrincipal || foundPlayer.posicion || '';
             let posSec = foundPlayer.posicionSecundaria || '';
 
@@ -13461,14 +14119,14 @@
               }
             }
 
-            let _pRaw = String(foundPlayer.pierna || '').toLowerCase();
+            let _pRaw = String(foundPlayer.lateralidad || foundPlayer.pierna || '').toLowerCase();
             let pierna = _pRaw ? 'Derecha' : '';
             if (_pRaw.includes('izq') || _pRaw.includes('zur')) pierna = 'Izquierda';
             else if (_pRaw.includes('ambid')) pierna = 'Ambidiestro';
             const estado = foundPlayer.estado || 'ALTA';
             const proyeccion = foundPlayer.proyeccion || foundPlayer.rendimientoRS || foundPlayer.rendimiento || '';
 
-            const posicionesOpts = ['PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+            const posicionesOpts = ['PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
             const generatePosOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += posicionesOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -13491,7 +14149,7 @@
               return opts;
             };
 
-            const estadoOpts = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
+            const estadoOpts = ['Renovación', 'Sube', 'Alta'];
             const generateEstadoOptions = (selected) => {
               let opts = `<option value="">--</option>`;
               opts += estadoOpts.map(p => `<option value="${escapeAttr(p)}" ${selected === p ? 'selected' : ''}>${p}</option>`).join('');
@@ -13629,7 +14287,7 @@
 
       const formation = sysSelect.value || '1-4-3-3';
       const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
       // Resolve valid player objects for squad from directory
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
@@ -13680,7 +14338,7 @@
             <div class="campograma-player-link" data-playerid="${escapeAttr(p.id)}" style="background: ${escapeAttr(pBg)}; color: ${escapeAttr(pColor)}; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 2px; max-width: 110px; border: 1px solid ${escapeAttr(pBorder)}; text-align: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3);" title="${escapeAttr(p.nombre || p.jugador)}">
               <div style="display: flex; align-items: center; justify-content: center; gap: 4px; overflow: hidden; width: 100%;">
                 ${zBadge}
-                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}</span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(formatPlayerNameForCampograma(p.nombre || p.jugador))}${getAgeBadgeHTML(p, document.getElementById('tfCategoria')?.value)}</span>
               </div>
             </div>
           `}).join('');
@@ -13745,7 +14403,7 @@
       const curSys = document.getElementById('tfCampogramaSistema')?.value || sistemaHabitual || '1-4-3-3';
 
       const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
       const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
       const squadPlayers = localPlantillaList.map(item => {
@@ -14377,7 +15035,7 @@
       return { nombre: pName, demarcacion: item.pos1 || 'MC', id: null };
     }).filter(Boolean);
 
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[sys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
     const slotMap = distributePlayersToSlots(squadPlayers, defaultPositions);
 
     let resolvedColor = '#2563eb';
@@ -15887,7 +16545,7 @@
           let dispAno = j.ano || (foundP ? (foundP.ano || foundP.anoNacimiento || '') : '');
 
           const nameHTML = foundP ? `<a href="javascript:void(0)" class="player-modal-link" data-playerid="${escapeAttr(foundP.id)}" style="color: var(--primary-blue); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 13px; height: 13px;"></i> ${escapeHtml(jName)}</a>` : escapeHtml(jName);
-          const posOptions = ['-', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+          const posOptions = ['-', 'PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
           const pos1HTML = `<select class="form-control sel-jugador-pos1" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos1 === p || (!dispPos1 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const pos2HTML = `<select class="form-control sel-jugador-pos2" data-idx="${escapeAttr(idx)}" style="font-size: 11px; padding: 4px 8px; height: 26px;">` + posOptions.map(p => `<option value="${escapeAttr(p === '-' ? '' : p)}" ${dispPos2 === p || (!dispPos2 && p === '-') ? 'selected' : ''}>${p}</option>`).join('') + `</select>`;
           const anoHTML = `<input type="text" class="form-control sel-jugador-ano" data-idx="${escapeAttr(idx)}" value="${escapeAttr(dispAno)}" placeholder="Año" style="font-size: 11px; padding: 4px 8px; height: 26px; width: 50px; text-align: center;">`;
@@ -16082,7 +16740,7 @@
 
       const formation = sysSelect.value || '1-4-3-3';
       const positions = FORMATION_POSITIONS[formation] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[formation] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
       // Filter convocatorias belonging ONLY to THIS selección
       const allConvocatorias = state.directory.convocatorias || [];
@@ -16242,7 +16900,7 @@
       const convText = convSelect && convSelect.options[convSelect.selectedIndex] ? convSelect.options[convSelect.selectedIndex].text : '';
 
       const positions = FORMATION_POSITIONS[curSys] || FORMATION_POSITIONS['1-4-3-3'];
-      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+      const defaultPositions = SYSTEM_STARTER_POSITIONS[curSys] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
       // Active convocatoria players
       const allConvocatorias = state.directory.convocatorias || [];
@@ -21453,8 +22111,26 @@
     const filterValPos = document.getElementById('dirFilterPosicion')?.value.toLowerCase().trim() || '';
     const filterValOtro = document.getElementById('dirFilterOtro')?.value.toLowerCase().trim() || '';
 
+    function getConvocatoriaCategoria(conv) {
+      if (!conv) return 'Sin Categoría';
+      if (conv.categoria) return String(conv.categoria).trim();
+      const selName = String(conv.seleccion || conv.seleccionVinculada || conv.nombre || '').trim();
+      if (!selName) return 'Sin Categoría';
+      const sel = (state.directory.selecciones || []).find(s => String(s.nombre || s.seleccion || '').trim().toLowerCase() === selName.toLowerCase());
+      if (sel && sel.categoria) return String(sel.categoria).trim();
+      const match = selName.match(/(Sub\d{2}|Absolut[ao]|Alev[ií]n|Infantil|Cadete|Juvenil|Amateur)/i);
+      if (match) return match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+      return 'Sin Categoría';
+    }
+
     // All items returned cleanly without filter interference
     let subFilteredItems = rawItems;
+
+    if (currentDirectoryTab === 'convocatorias') {
+      if (currentSubCategoryFilter !== 'TODOS') {
+        subFilteredItems = subFilteredItems.filter(item => getConvocatoriaCategoria(item).toUpperCase() === currentSubCategoryFilter.toUpperCase());
+      }
+    }
 
     if (currentDirectoryTab === 'equipos') {
       if (currentSubCategoryFilter !== 'TODOS') {
@@ -21652,6 +22328,31 @@
 
       const allComs = ['TODAS', ...comList];
 
+      let categoriasBarHTML = '';
+      if (currentDirectoryTab === 'convocatorias') {
+        const catSet = new Set();
+        rawItems.forEach(item => {
+          catSet.add(getConvocatoriaCategoria(item));
+        });
+        const categories = Array.from(catSet).sort();
+        const allCats = ['TODOS', ...categories];
+        categoriasBarHTML = `
+        <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
+            <i data-lucide="filter" style="width: 14px;"></i> Categoría:
+          </span>
+          ${allCats.map(cat => {
+            const isActive = currentSubCategoryFilter === cat;
+            return `
+            <button type="button" class="btn-dir-subfilter ${escapeAttr(isActive ? 'active' : '')}" data-type="categoria" data-val="${escapeAttr(cat)}" style="padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 800; cursor: pointer; border: 1px solid ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : 'var(--border-light)')}; background: ${escapeAttr(isActive ? 'var(--primary-blue, #2563eb)' : '#ffffff')}; color: ${escapeAttr(isActive ? '#ffffff' : 'var(--text-dark, #1e293b)')}; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); user-select: none;">
+              ${escapeHtml(cat)}
+            </button>
+            `;
+          }).join('')}
+        </div>
+        `;
+      }
+
       const genderBarHTML = currentDirectoryTab === 'selecciones' ? `
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
@@ -21669,7 +22370,6 @@
       ` : '';
 
       subFilterBarHTML = `
-        ${genderBarHTML}
         <div class="dir-subfilter-bar mb-3" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: var(--bg-subtle, #f8fafc); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
           <span style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-right: 6px; display: inline-flex; align-items: center; gap: 4px;">
             <i data-lucide="globe" style="width: 14px;"></i> Federaciones:
@@ -21691,6 +22391,8 @@
           `;
       }).join('')}
         </div>
+        ${categoriasBarHTML}
+        ${genderBarHTML}
       `;
     } else if (currentDirectoryTab === 'estadios') {
       const comunidadesSet = new Set(rawItems.map(est => String(est.comunidad || 'Sin Comunidad').trim()).filter(Boolean));
@@ -21854,18 +22556,20 @@
         container.innerHTML = `
           ${bulkToolbarHTML}
           <div class="table-responsive" style="width: 100%; background-color: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto;">
-            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: left;">
+            <table style="width: 100%; min-width: 800px; font-size: 13px; border-collapse: collapse; text-align: center;">
               <thead>
-                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle);">
+                <tr style="border-bottom: 2px solid var(--border-light); font-weight: 800; color: var(--text-muted); background: var(--bg-subtle); text-align: center;">
                   <th style="padding: 12px 8px; width: 4%; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};"><input type="checkbox" id="dirSelectAllCheckbox" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);"></th>
-                  <th style="padding: 12px 16px; width: 22%;">NOMBRE</th>
-                  <th style="padding: 12px 16px; width: 5%;">DORSAL</th>
-                  <th style="padding: 12px 16px; width: 8%;">AÑO</th>
-                  <th style="padding: 12px 16px; width: 17%;">EQUIPO</th>
-                  <th style="padding: 12px 16px; width: 12%;">POS. 1</th>
-                  <th style="padding: 12px 16px; width: 12%;">POS. 2</th>
-                  <th style="padding: 12px 16px; width: 12%;">LATERALIDAD</th>
-                  <th style="padding: 12px 16px; width: 12%;">PROYECCIÓN</th>
+                  <th style="padding: 12px 16px; width: 22%; text-align: center;">NOMBRE</th>
+                  <th style="padding: 12px 16px; width: 5%; text-align: center;">DORSAL</th>
+                  <th style="padding: 12px 16px; width: 8%; text-align: center;">AÑO</th>
+                  <th style="padding: 12px 16px; width: 17%; text-align: center;">EQUIPO</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">POS. 1</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">POS. 2</th>
+                  <th style="padding: 12px 16px; width: 10%; text-align: center;">LATERALIDAD</th>
+                  <th style="padding: 12px 16px; width: 6%; text-align: center;">P. VISTOS</th>
+                  <th style="padding: 12px 16px; width: 8%; text-align: center;">VALORACIÓN</th>
+                  <th style="padding: 12px 16px; width: 22%; text-align: center;">PROYECCIÓN</th>
                 </tr>
               </thead>
               <tbody>
@@ -21873,28 +22577,45 @@
           let rowBgStyle = '';
           if (j.rendimientoRS === 'A') rowBgStyle = 'background-color: rgba(34, 197, 94, 0.15);';
           else if (j.rendimientoRS === 'B') rowBgStyle = 'background-color: rgba(234, 179, 8, 0.15);';
+          
+          let evals = j.historialEvaluaciones || [];
+          let pVistos = 0;
+          let notasArr = [];
+          evals.forEach(ev => {
+             if (ev.tags && (ev.tags.includes('NO JUEGA') || ev.tags.includes('NO VISTO'))) return;
+             pVistos++;
+             if (ev.rendimiento && ev.rendimiento !== '-') notasArr.push(ev.rendimiento);
+          });
+          let notasDirStr = notasArr.length > 0 ? notasArr.join(', ') : '-';
+          
+          let potentialIcon = (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(j)) ? `<span title="Potencial RS: Varios partidos con A o B" style="font-size: 12px; background: #9333ea; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0; margin-left: 4px;">📈</span>` : '';
+          let destacadoIcon = (j.controlSeguimiento && j.controlSeguimiento.includes('DESTACADO EQUIPO')) ? `<span title="Destacado Equipo" style="font-size: 12px; background: #fbbf24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: white; flex-shrink: 0; margin-left: 4px;">⭐</span>` : '';
+
           return `
                   <tr style="border-bottom: 1px solid var(--border-light); transition: background-color 0.2s; ${escapeAttr(rowBgStyle)}" class="dir-table-row">
                     <td style="padding: 10px 8px; text-align: center; display: ${escapeAttr(isBulkSelectActive ? 'table-cell' : 'none')};">
                       <input type="checkbox" class="dir-item-checkbox" data-id="${escapeAttr(j.id)}" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary-blue);">
                     </td>
-                    <td style="padding: 10px 16px;">
-                      <a href="javascript:void(0)" class="player-name-link" data-id="${escapeAttr(j.id)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                    <td style="padding: 10px 16px; text-align: left;">
+                      <a href="javascript:void(0)" class="player-name-link" data-id="${escapeAttr(j.id)}" style="font-weight: 700; color: var(--text-dark); text-decoration: none; display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%;">
                         <img src="${escapeAttr(j.foto || 'Foto Jugador General.png')}" alt="Foto" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-medium); flex-shrink: 0;">
                         <span style="text-decoration: underline; color: var(--primary-blue);">${escapeHtml(j.nombre)}</span>
+                        ${destacadoIcon}${potentialIcon}
                       </a>
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.dorsal || '-')}</td>
-                    <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.dorsal || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">
+                      <input type="text" class="inline-edit-year" data-id="${escapeAttr(j.id)}" value="${escapeAttr(j.ano || j.anoNac || '')}" style="width: 50px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: center; font-size: 13px; margin: 0 auto; display: block;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'">
                     </td>
-                    <td style="padding: 10px 16px;">
-                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
+                    <td style="padding: 10px 16px; text-align: center;">
+                      <input type="text" class="inline-edit-team" data-id="${escapeAttr(j.id)}" list="reportEquiposSeleccionesDatalistOptions" value="${escapeAttr(j.equipo || j.equipoVinculado || '')}" placeholder="Sin equipo" style="width: 100%; min-width: 120px; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-size: 13px; outline: none; cursor: pointer; text-align: center;" onfocus="this.style.border='1px solid var(--border-medium)'; this.style.background='var(--bg-card)'; this.style.cursor='text'; if(typeof updateReportEquiposDatalist === 'function') updateReportEquiposDatalist();" onblur="this.style.border='1px solid transparent'; this.style.background='transparent'; this.style.cursor='pointer';">
                     </td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
-                    <td style="padding: 10px 16px;">${escapeHtml(j.posicionSecundaria || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.pierna || '-')}</td>
-                    <td style="padding: 8px 12px;">${escapeHtml(j.proyeccion || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.posicion || j.posicionPrincipal || '-')}</td>
+                    <td style="padding: 10px 16px; text-align: center;">${escapeHtml(j.posicionSecundaria || '-')}</td>
+                    <td style="padding: 8px 12px; text-align: center;">${escapeHtml(j.pierna || '-')}</td>
+                    <td style="padding: 8px 12px; font-weight: 800; text-align: center;">${pVistos}</td>
+                    <td style="padding: 8px 12px; font-weight: 800; color: var(--primary-blue); text-align: center;">${escapeHtml(notasDirStr)}</td>
+                    <td style="padding: 8px 12px; text-align: center;">${escapeHtml(j.proyeccion || '-')}</td>
                   </tr>`;
         }).join('')}
               </tbody>
@@ -22111,6 +22832,30 @@
           const localEscudoPath = `./escudos/${cleanName}.png`;
           const finalImgSrc = eqLogo || (clubCodigo ? `./escudos/${clubCodigo}.png` : localEscudoPath);
 
+          let countDestacados = 0;
+          let countTargetAge = 0;
+          let countPotencialRS = 0;
+          if (eq.plantilla && Array.isArray(eq.plantilla) && state.directory && Array.isArray(state.directory.jugadores)) {
+            const locNormalizar = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+            const plantillaLower = eq.plantilla.map(n => locNormalizar(typeof n === 'string' ? n : (n.nombre || n.jugador || n.name || '')));
+            state.directory.jugadores.forEach(p => {
+              if (p) {
+                const pName = locNormalizar(p.nombre || p.jugador || p.name || '');
+                if (plantillaLower.includes(pName)) {
+                  if (p.controlSeguimiento && p.controlSeguimiento.includes('DESTACADO EQUIPO')) {
+                    countDestacados++;
+                  }
+                  if (getAgeBadgeHTML(p, eq.categoria || eq.competicion) !== '') {
+                    countTargetAge++;
+                  }
+                  if (typeof isPlayerPotentialRS === 'function' && isPlayerPotentialRS(p)) {
+                    countPotencialRS++;
+                  }
+                }
+              }
+            });
+          }
+
           return `
               <div class="entity-card" style="border-top: 5px solid ${escapeAttr(eqPriColor)} !important; background: linear-gradient(180deg, ${escapeAttr(eqPriColor)}12 0%, var(--bg-card, #ffffff) 35%); padding: 14px; border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 8px;">
                 <!-- LÍNEA 1: Checkbox + Escudo amplio (izquierda) y Eliminar (derecha) -->
@@ -22135,12 +22880,24 @@
                       `}
                     </div>
                   </div>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 800; color: #fff; background: var(--accion-azul); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);" title="Jugadores en plantilla">
-                      <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+                  <div style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0;">
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: var(--accion-azul); padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3); white-space: nowrap;" title="Jugadores en plantilla">
+                      <i data-lucide="users" style="width: 14px; height: 14px;"></i>
                       ${(eq.plantilla && Array.isArray(eq.plantilla)) ? eq.plantilla.length : 0}
                     </span>
-                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 28px; height: 28px;" title="Eliminar">
+                    ${countDestacados > 0 ? `
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #fbbf24; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3); white-space: nowrap;" title="Jugadores Destacados en la plantilla">
+                      <span>⭐</span> ${countDestacados}
+                    </span>` : ''}
+                    ${countTargetAge > 0 ? `
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #ef4444; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3); white-space: nowrap;" title="Jugadores con Edad Destacada">
+                      <span>🎯</span> ${countTargetAge}
+                    </span>` : ''}
+                    ${countPotencialRS > 0 ? `
+                    <span style="font-size: 12px; font-weight: 800; color: #fff; background: #9333ea; padding: 4px 6px; border-radius: 20px; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(147, 51, 234, 0.3); white-space: nowrap;" title="Jugadores con Potencial RS (Varios partidos A/B)">
+                      <span>📈</span> ${countPotencialRS}
+                    </span>` : ''}
+                    <button class="btn-action-icon danger btn-delete-dir-item" data-id="${escapeAttr(eq.id || eq.codigo)}" style="width: 26px; height: 26px; flex-shrink: 0;" title="Eliminar">
                       <i data-lucide="trash-2" style="width: 14px;"></i>
                     </button>
                   </div>
@@ -22200,10 +22957,29 @@
                   const estado = String(foundPlayer.estado || '').toUpperCase();
                   if (estado === 'ALTA') altas++;
                   else if (estado === 'RENOVACIÓN' || estado === 'RENOVACION') renov++;
-                  else if (estado === 'SUBE DE EQUIPO INFERIOR') sube++;
+                  else if (estado === 'SUBE DE EQUIPO INFERIOR' || estado === 'SUBE') sube++;
                 }
               });
               return `${altas} | Renovaciones: ${renov} | Sube: ${sube}`;
+            })()}</div>
+                  <div style="font-weight: 800; color: var(--text-main); font-size: 11px;">Por Año: ${(() => {
+              const yearsCount = {};
+              const playersPool = (state.directory && Array.isArray(state.directory.jugadores)) ? state.directory.jugadores : [];
+              (eq.plantilla || []).forEach(j => {
+                const nameStr = typeof j === 'string' ? j : (j.nombre || j.jugador || j.name || '');
+                const foundPlayer = playersPool.find(p =>
+                  (p.nombre && p.nombre.toLowerCase() === nameStr.toLowerCase()) ||
+                  (p.jugador && p.jugador.toLowerCase() === nameStr.toLowerCase()) ||
+                  (p.name && p.name.toLowerCase() === nameStr.toLowerCase())
+                );
+                if (foundPlayer) {
+                  const ano = foundPlayer.anoNac || foundPlayer.ano || '?';
+                  yearsCount[ano] = (yearsCount[ano] || 0) + 1;
+                }
+              });
+              const keys = Object.keys(yearsCount).sort((a,b) => b - a);
+              if (keys.length === 0) return '-';
+              return keys.map(k => `${k}: ${yearsCount[k]}`).join(' | ');
             })()}</div>
                 </div>
 
@@ -23969,7 +24745,7 @@
     }
 
     // Positions from player modal (only abbreviated codes)
-    const posOptions = ['', 'PO', 'DBD', 'DBZ', 'DCD', 'DCZ', 'DC', 'MCD', 'MCZ', 'MC', 'MVD', 'MVZ', 'MPD', 'MPZ', 'MP', 'MBD', 'MBZ', 'ACD', 'ACZ', 'AC'];
+    const posOptions = ['', 'PT', 'LTD', 'LTI', 'CTD', 'CTI', 'CT', 'MC', 'INT', 'MP', 'ED', 'EI', 'DC'];
     const estadoOptions = ['RENOVACIÓN', 'ALTA', 'SEGUIMIENTO', 'PRUEBA', 'DILIGENCIA', 'BAJA', 'SUBE DE EQUIPO INFERIOR'];
     const proyeccionOptions = ['', 'CANTERA PROFESIONAL', 'JUGADOR PROFESIONAL', 'JUGADOR INTERNACIONAL', 'JUGADOR RFEF', 'JUGADOR 3 RFEF', 'JUGADOR AUTONOMICO', 'JUGADOR REGIONAL', 'Proyección Alta', 'Proyección Media', 'Nivel A', 'Nivel B', 'Nivel C'];
     const piernaOptions = ['Derecha', 'Izquierda', 'Ambidiestro'];
@@ -25803,7 +26579,7 @@
               ${renderTextSection('Descripción Técnica / Táctica', player.descTecnica)}
               ${renderTextSection('Descripción Física', player.descFisica)}
               ${renderTextSection('Descripción Emocional / Carácter', player.descEmocional)}
-              ${renderTextSection('Perfil RS (Estilo de Juego)', player.perfilRS)}
+              ${renderTextSection('Perfil RS (Estilo de Juego)', [player.perfilRS, player.perfilRS2].filter(Boolean).join(' | '))}
               ${renderTextSection('Comentario General', player.comentarioGeneral)}
             </div>
 
@@ -25918,6 +26694,319 @@
     setTimeout(() => {
       printWin.print();
     }, 500);
+  }
+
+  function exportarEstadisticasPDF() {
+    const container = document.getElementById('estadisticasContent');
+    if (!container) return;
+
+    const clone = container.cloneNode(true);
+    const printWin = window.open('', '', 'width=900,height=700');
+    printWin.document.write(`
+      <html>
+        <head>
+          <title>Estadísticas Globales - Laboratorio</title>
+          <style>
+            :root {
+              --primary-blue: #2563eb;
+              --primary-dark: #1e3a8a;
+            }
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              padding: 20px;
+              color: #1e293b;
+              background: #fff;
+            }
+            h1 { font-size: 24px; color: var(--primary-dark); border-bottom: 2px solid var(--primary-blue); padding-bottom: 10px; margin-bottom: 20px; }
+            #estadisticasContent { width: 100%; }
+            .grid-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+            .stat-card { border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; flex: 1; min-width: 200px; }
+            .rankings-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+            .ranking-card { border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; flex: 1; min-width: 300px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: left; font-size: 13px; }
+            th { background: #f8fafc; font-weight: 700; color: #475569; }
+            @media print {
+               body { margin: 0; padding: 1cm; }
+               @page { margin: 0; size: A4; }
+               .ranking-card { break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Estadísticas Globales de Scouting</h1>
+          ${clone.innerHTML}
+        </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 500);
+  }
+
+  function renderEstadisticas() {
+    const container = document.getElementById('estadisticasContent');
+    if (!container) return;
+
+    const reports = state.reports || [];
+    const totalReports = reports.length;
+
+    let countVideo = 0;
+    let countDirecto = 0;
+    const catCounts = {};
+    const monthCounts = {};
+    const compCounts = {};
+    const teamsSeen = {};
+    const playersSeen = {};
+    const perfCounts = {};
+    const potCounts = {};
+    const rsCounts = {};
+
+    reports.forEach(r => {
+      // Visionado
+      const visionado = (r.visionado || '').toUpperCase();
+      if (visionado.includes('VÍDEO') || visionado.includes('VIDEO')) {
+        countVideo++;
+      } else if (visionado.includes('DIRECTO')) {
+        countDirecto++;
+      }
+
+      // Competición
+      const comp = r.competicion || 'Desconocida';
+      compCounts[comp] = (compCounts[comp] || 0) + 1;
+
+      // Categoria
+      const cats = r.categorias || (r.categoria ? [r.categoria] : []);
+      cats.forEach(c => {
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      });
+
+      // Mes
+      const dStr = r.date || r.fecha;
+      if (dStr) {
+        const parts = dStr.split('-');
+        if (parts.length >= 2) {
+          const m = parts[0] + '-' + parts[1]; // YYYY-MM
+          monthCounts[m] = (monthCounts[m] || 0) + 1;
+        }
+      }
+
+      // Equipos
+      const lt = r.localTeam || '';
+      const vt = r.visitanteTeam || '';
+      if (lt) {
+        if (!teamsSeen[lt]) teamsSeen[lt] = { total: 0, comps: {} };
+        teamsSeen[lt].total++;
+        teamsSeen[lt].comps[comp] = (teamsSeen[lt].comps[comp] || 0) + 1;
+      }
+      if (vt) {
+        if (!teamsSeen[vt]) teamsSeen[vt] = { total: 0, comps: {} };
+        teamsSeen[vt].total++;
+        teamsSeen[vt].comps[comp] = (teamsSeen[vt].comps[comp] || 0) + 1;
+      }
+
+      // Jugadores
+      const extractPlayers = (arr, cStr) => {
+        if (Array.isArray(arr)) {
+          arr.forEach(p => {
+            const pName = p.name || p.nombre || p.jugador;
+            if (pName && pName.trim()) {
+              const pLower = pName.trim();
+              if (!playersSeen[pLower]) playersSeen[pLower] = { total: 0, comps: {} };
+              playersSeen[pLower].total++;
+              playersSeen[pLower].comps[cStr] = (playersSeen[pLower].comps[cStr] || 0) + 1;
+            }
+          });
+        }
+      };
+      extractPlayers(r.localTitulares, comp);
+      extractPlayers(r.localSuplentes, comp);
+      extractPlayers(r.visitanteTitulares, comp);
+      extractPlayers(r.visitanteSuplentes, comp);
+
+      // Evaluaciones
+      if (r.playerEvaluations) {
+        Object.values(r.playerEvaluations).forEach(ev => {
+          if (ev.rendimiento) perfCounts[ev.rendimiento] = (perfCounts[ev.rendimiento] || 0) + 1;
+          if (ev.potencial) potCounts[ev.potencial] = (potCounts[ev.potencial] || 0) + 1;
+          if (ev.rendimientoRS) rsCounts[ev.rendimientoRS] = (rsCounts[ev.rendimientoRS] || 0) + 1;
+        });
+      }
+    });
+
+    const getSorted = (obj) => Object.entries(obj).sort((a,b) => b[1] - a[1]);
+
+    const topTeams = Object.entries(teamsSeen).sort((a,b) => b[1].total - a[1].total).slice(0, 15);
+    const topPlayers = Object.entries(playersSeen).sort((a,b) => b[1].total - a[1].total).slice(0, 15);
+    
+    const sortedCats = getSorted(catCounts);
+    const sortedComps = getSorted(compCounts);
+    const sortedMonths = Object.entries(monthCounts).sort((a,b) => a[0].localeCompare(b[0])); // Sort by date ascending
+    const sortedPerf = getSorted(perfCounts);
+    const sortedPot = getSorted(potCounts);
+    const sortedRS = getSorted(rsCounts);
+
+    const renderStatBar = (label, count, total, color, icon) => {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      return `
+        <div style="margin-bottom: 8px;">
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 13px;">
+            <div style="color: ${color}; font-weight: 700; display: flex; align-items: center; gap: 6px; overflow: hidden;">
+              <i data-lucide="${icon}" style="width: 16px; flex-shrink: 0;"></i>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+            </div>
+            <div style="font-weight: 800; color: var(--text-main); font-size: 14px;">
+              ${count} <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-left: 2px;">(${pct}%)</span>
+            </div>
+          </div>
+          <div style="height: 6px; background: ${color}20; border-radius: 4px; overflow: hidden;"><div style="height: 100%; width: ${pct}%; background: ${color}; border-radius: 4px;"></div></div>
+        </div>
+      `;
+    };
+
+    const renderCompsTooltip = (compsObj) => {
+      return Object.entries(compsObj).map(c => `${c[0]}: ${c[1]}`).join(' | ');
+    };
+    const renderCompsBadges = (compsObj) => {
+      return Object.entries(compsObj).map(c => `<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:12px; background:rgba(37,99,235,0.1); color:#1e3a8a; margin-right:4px;">${escapeHtml(c[0])} (${c[1]})</span>`).join('');
+    };
+
+    let html = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 24px; margin-bottom: 24px;">
+        
+        <div class="stat-card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="bar-chart-2" style="width: 18px;"></i> Total Partidos</h3>
+            <div style="font-size: 64px; font-weight: 900; color: var(--primary-blue); line-height: 1;">${totalReports}</div>
+          </div>
+          <div style="text-align: right; border-left: 2px solid var(--border-light); padding-left: 20px;">
+            <div style="font-size: 14px; color: var(--text-main); margin-bottom: 8px; font-weight: 700;"><span style="color: var(--text-muted); font-weight: 600;">Equipos Únicos:</span> ${Object.keys(teamsSeen).length}</div>
+            <div style="font-size: 14px; color: var(--text-main); font-weight: 700;"><span style="color: var(--text-muted); font-weight: 600;">Jugadores Únicos:</span> ${Object.keys(playersSeen).length}</div>
+          </div>
+        </div>
+
+        <div class="stat-card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); display: flex; flex-direction: column; justify-content: center;">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 16px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="eye" style="width: 18px;"></i> Visión</h3>
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            ${renderStatBar('Directo', countDirecto, totalReports, '#10b981', 'eye')}
+            ${renderStatBar('Vídeo', countVideo, totalReports, '#ea580c', 'video')}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 24px; margin-bottom: 32px;">
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="tag" style="width: 18px;"></i> Categorías</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedCats.map(c => renderStatBar(c[0], c[1], totalReports, '#3b82f6', 'tag')).join('')}
+          </div>
+        </div>
+
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="trophy" style="width: 18px;"></i> Competiciones</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedComps.map(c => renderStatBar(c[0], c[1], totalReports, '#8b5cf6', 'trophy')).join('')}
+          </div>
+        </div>
+
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="calendar" style="width: 18px;"></i> Meses</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedMonths.map(m => renderStatBar(m[0], m[1], totalReports, '#64748b', 'calendar')).join('')}
+          </div>
+        </div>
+
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="star" style="width: 18px;"></i> Rendimiento</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedPerf.map(p => renderStatBar(p[0] || 'N/A', p[1], Object.values(perfCounts).reduce((a,b)=>a+b, 0), '#eab308', 'star')).join('')}
+          </div>
+        </div>
+
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="trending-up" style="width: 18px;"></i> Potencial</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedPot.map(p => renderStatBar(p[0] || 'N/A', p[1], Object.values(potCounts).reduce((a,b)=>a+b, 0), '#ec4899', 'trending-up')).join('')}
+          </div>
+        </div>
+
+        <div class="stat-card" style="display: block; background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 14px; color: var(--text-muted); font-weight: 700; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;"><i data-lucide="award" style="width: 18px;"></i> Rendimiento RS</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            ${sortedRS.map(r => renderStatBar(r[0] || 'N/A', r[1], Object.values(rsCounts).reduce((a,b)=>a+b, 0), '#14b8a6', 'award')).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="rankings-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px;">
+        <div class="ranking-card stat-card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 15px; font-weight: 800; margin: 0 0 16px 0; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="shield" style="color: var(--primary-blue); width: 20px;"></i> Top 15 Equipos más Vistos
+          </h3>
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-light);">
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase;">Equipo</th>
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase;">Desglose Competiciones</th>
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; width: 70px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topTeams.map((t, idx) => `
+                <tr style="border-bottom: 1px solid var(--border-light); background: ${idx < 3 ? 'rgba(37,99,235,0.02)' : 'transparent'};">
+                  <td style="padding: 14px 8px; font-size: 14px; font-weight: ${idx < 3 ? '800' : '600'}; color: ${idx < 3 ? 'var(--primary-blue)' : 'var(--text-main)'};">
+                    ${idx === 0 ? '🏆 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : `<span style="color: var(--text-muted); margin-right: 6px; font-size: 12px;">${idx+1}.</span>`))}${escapeHtml(t[0])}
+                  </td>
+                  <td style="padding: 14px 8px; font-size: 12px; line-height: 1.6;" title="${escapeHtml(renderCompsTooltip(t[1].comps))}">${renderCompsBadges(t[1].comps)}</td>
+                  <td style="padding: 14px 8px; font-size: 15px; font-weight: 900; color: var(--text-main); text-align: right;">${t[1].total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="ranking-card stat-card" style="background: var(--bg-card); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light);">
+          <h3 style="font-size: 15px; font-weight: 800; margin: 0 0 16px 0; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="users" style="color: var(--primary-blue); width: 20px;"></i> Top 15 Jugadores más Vistos
+          </h3>
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-light);">
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase;">Jugador</th>
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase;">Desglose Competiciones</th>
+                <th style="padding: 12px 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; width: 70px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topPlayers.map((p, idx) => `
+                <tr style="border-bottom: 1px solid var(--border-light); background: ${idx < 3 ? 'rgba(37,99,235,0.02)' : 'transparent'};">
+                  <td style="padding: 14px 8px; font-size: 14px; font-weight: ${idx < 3 ? '800' : '600'}; color: ${idx < 3 ? 'var(--primary-blue)' : 'var(--text-main)'}; text-transform: capitalize;">
+                    ${idx === 0 ? '🏆 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : `<span style="color: var(--text-muted); margin-right: 6px; font-size: 12px;">${idx+1}.</span>`))}${escapeHtml(p[0])}
+                  </td>
+                  <td style="padding: 14px 8px; font-size: 12px; line-height: 1.6;" title="${escapeHtml(renderCompsTooltip(p[1].comps))}">${renderCompsBadges(p[1].comps)}</td>
+                  <td style="padding: 14px 8px; font-size: 15px; font-weight: 900; color: var(--text-main); text-align: right;">${p[1].total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+    
+    // Bind Export PDF Event
+    const btnExport = document.getElementById('btnExportEstadisticasPDF');
+    if (btnExport) {
+      btnExport.onclick = () => {
+        exportarEstadisticasPDF();
+      };
+    }
+    
+    // Re-render lucide icons
+    if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
   }
 
   function renderCartelera() {
@@ -26092,25 +27181,49 @@
           const fecha = String(m.fecha || '').trim();
           const loc = String(m.local || '').trim();
           const vis = String(m.visitante || '').trim();
+          const tecnico = String(m.tecnico || '').trim();
 
-          if (fed) fedSet.add(fed);
-          if (comp) compSet.add(comp);
-          if (grupo) grupoSet.add(grupo);
-          if (jor) jorSet.add(jor);
+          const passCategoria = selectedCarteleraCategoria === 'all' || comp === String(selectedCarteleraCategoria).trim();
+          const passFederacion = selectedCarteleraFederacion === 'all' || fed === selectedCarteleraFederacion;
+          const passGrupo = selectedCarteleraGrupo === 'all' || grupo === selectedCarteleraGrupo;
+          const passJornada = selectedCarteleraJornadas.length === 0 || selectedCarteleraJornadas.includes(jor);
+          const passFecha = selectedCarteleraFechas.length === 0 || selectedCarteleraFechas.includes(fecha);
+          const passEquipo = selectedCarteleraEquipo === 'all' || loc === selectedCarteleraEquipo || vis === selectedCarteleraEquipo;
+          const passTecnico = selectedCarteleraTecnico === 'all' || tecnico === selectedCarteleraTecnico;
 
-          if (fecha) {
-            if (selectedCarteleraJornadas.length === 0) {
-              fechaSet.add(fecha);
-            } else if (selectedCarteleraJornadas.includes(jor)) {
-              fechaSet.add(fecha);
-            }
+          if (passFederacion && passGrupo && passJornada && passFecha && passEquipo && passTecnico) {
+             if (comp) compSet.add(comp);
           }
-
-          if (loc) equipoSet.add(loc);
-          if (vis) equipoSet.add(vis);
-          if (m.tecnico && m.tecnico.trim()) tecnicoSet.add(m.tecnico.trim());
+          if (passCategoria && passGrupo && passJornada && passFecha && passEquipo && passTecnico) {
+             if (fed) fedSet.add(fed);
+          }
+          if (passCategoria && passFederacion && passJornada && passFecha && passEquipo && passTecnico) {
+             if (grupo) grupoSet.add(grupo);
+          }
+          if (passCategoria && passFederacion && passGrupo && passFecha && passEquipo && passTecnico) {
+             if (jor) jorSet.add(jor);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passEquipo && passTecnico) {
+             if (fecha) fechaSet.add(fecha);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passFecha && passTecnico) {
+             if (loc) equipoSet.add(loc);
+             if (vis) equipoSet.add(vis);
+          }
+          if (passCategoria && passFederacion && passGrupo && passJornada && passFecha && passEquipo) {
+             if (tecnico) tecnicoSet.add(tecnico);
+          }
         });
       });
+      
+      // Ensure currently selected values don't vanish from the dropdowns if they are selected
+      if (selectedCarteleraCategoria !== 'all') compSet.add(selectedCarteleraCategoria);
+      if (selectedCarteleraFederacion !== 'all') fedSet.add(selectedCarteleraFederacion);
+      if (selectedCarteleraGrupo !== 'all') grupoSet.add(selectedCarteleraGrupo);
+      selectedCarteleraJornadas.forEach(j => jorSet.add(j));
+      selectedCarteleraFechas.forEach(f => fechaSet.add(f));
+      if (selectedCarteleraEquipo !== 'all') equipoSet.add(selectedCarteleraEquipo);
+      if (selectedCarteleraTecnico !== 'all') tecnicoSet.add(selectedCarteleraTecnico);
 
       if (selectedCarteleraFechas.length > 0) {
         selectedCarteleraFechas = selectedCarteleraFechas.filter(f => fechaSet.has(f));
@@ -28367,6 +29480,7 @@ const formatTeamName = (str) => {
         });
         marcarPastillaCartelera('priority_teams', true);
 
+        renderCarteleraFilters();
         renderCarteleraMatches();
       };
     }
@@ -28406,6 +29520,7 @@ const formatTeamName = (str) => {
             }
           }
           setter(val);
+          renderCarteleraFilters();
           renderCarteleraMatches();
         };
         el.onchange = handler;
@@ -28443,6 +29558,7 @@ const formatTeamName = (str) => {
       boton.dataset.initialized = 'true';
       boton.onclick = () => {
         limpiarFiltrosCartelera(valor);
+        renderCarteleraFilters();
         renderCarteleraMatches();
       };
     });
@@ -29556,9 +30672,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       const estadoVal = document.getElementById('agEstadoEdit').value;
       task.titulo = title;
+      task.descripcion = document.getElementById('agDescEdit')?.value || '';
       task.tipo = document.getElementById('agTipoEdit')?.value || 'tarea';
       task.fecha = document.getElementById('agDateEdit').value;
       task.hora = document.getElementById('agTimeEdit').value;
+      task.horaFin = document.getElementById('agTimeEndEdit').value;
       const mainPill = pillsContainer ? pillsContainer.querySelector('.tag-pill.main') : null;
       task.categorias = catValues;
       task.categoria = mainPill ? mainPill.dataset.val : (catValues[0] || null);
@@ -31076,7 +32194,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const imported = JSON.parse(event.target.result);
         if (imported && typeof imported === 'object') {
           showCustomConfirmModal('Restaurar Copia de Seguridad', 'Se actualizarán tus informes, agenda, enlaces y directorio local y se sincronizarán con Firebase.', async () => {
-            state = imported;
+            state = migratePositions(imported);
             window.state = state;   // el importador de Excel y el resto usan esta referencia
             saveState();
             if (typeof renderAllViews === 'function') {
@@ -31870,7 +32988,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     // Position dictionary mapping
     const positions = FORMATION_POSITIONS[sysSelect] || FORMATION_POSITIONS['1-4-3-3'];
-    const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PO', 'DBD', 'DCD', 'DCZ', 'DBZ', 'MCD', 'MC', 'ACD', 'ACZ', 'AC'];
+    const defaultPositions = SYSTEM_STARTER_POSITIONS[sysSelect] || ['PT', 'LTD', 'CTD', 'CTI', 'LTI', 'INT', 'MC', 'DC', 'DC', 'DC'];
 
     const players = state.directory?.jugadores || [];
     const equipos = state.directory?.equipos || [];
@@ -32518,7 +33636,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
       if (!inputEl || inputEl._hasClearBtn) return;
       if (inputEl.tagName !== 'INPUT') return;
       const type = inputEl.type || 'text';
-      if (['hidden', 'checkbox', 'radio', 'color', 'file', 'submit', 'button', 'date'].includes(type)) return;
+      if (['hidden', 'checkbox', 'radio', 'color', 'file', 'submit', 'button', 'date', 'number'].includes(type)) return;
 
       const idLower = String(inputEl.id || '').toLowerCase();
       const phLower = String(inputEl.placeholder || '').toLowerCase();
@@ -32643,6 +33761,13 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         div.onclick = () => selectCategoryFn(cat.id);
         tagsList.appendChild(div);
       });
+
+      // Etiqueta "Archivadas"
+      const divArchivadas = document.createElement('div');
+      divArchivadas.className = 'nota-tag-item' + ('archivadas' === currentCategoryId ? ' active' : '');
+      divArchivadas.innerHTML = `<i data-lucide="archive" style="color: var(--text-muted);"></i> <span style="flex:1; font-weight: 800; color: var(--text-muted);">Archivadas</span>`;
+      divArchivadas.onclick = () => selectCategoryFn('archivadas');
+      tagsList.appendChild(divArchivadas);
       lucide.createIcons();
     }
 
@@ -32685,6 +33810,11 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         emptyState.classList.add('hidden');
         editorArea.classList.remove('hidden');
         renderCards();
+      } else if (id === 'archivadas') {
+        categoryTitle.textContent = 'Notas Archivadas';
+        emptyState.classList.add('hidden');
+        editorArea.classList.remove('hidden');
+        renderCards();
       } else {
         const cat = state.notasCategorias.find(c => c.id === id);
         if (cat) {
@@ -32698,9 +33828,14 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
     function renderCards() {
       cardsGrid.innerHTML = '';
-      const fichas = currentCategoryId === 'todas'
-        ? [...state.notasFichas]
-        : state.notasFichas.filter(f => f.categoryId === currentCategoryId);
+      let fichas = [];
+      if (currentCategoryId === 'todas') {
+        fichas = state.notasFichas.filter(f => !f.archived);
+      } else if (currentCategoryId === 'archivadas') {
+        fichas = state.notasFichas.filter(f => f.archived);
+      } else {
+        fichas = state.notasFichas.filter(f => f.categoryId === currentCategoryId && !f.archived);
+      }
 
       const category = state.notasCategorias.find(c => c.id === currentCategoryId);
       const accentColor = category && category.color ? category.color : 'var(--primary-blue)';
@@ -32710,7 +33845,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
 
       fichas.forEach(ficha => {
         const cardCategory = state.notasCategorias.find(c => c.id === ficha.categoryId);
-        const cardColor = currentCategoryId === 'todas' && cardCategory && cardCategory.color ? cardCategory.color : accentColor;
+        const cardColor = (currentCategoryId === 'todas' || currentCategoryId === 'archivadas') && cardCategory && cardCategory.color ? cardCategory.color : accentColor;
 
         const card = document.createElement('div');
         card.className = 'entity-card';
@@ -32722,17 +33857,22 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         const snippetHtml = ficha.content ? ficha.content : '<em style="color:#aaa">Nota vacía</em>';
 
         card.innerHTML = `
-          <!-- LÍNEA 1: Escudo (icono) y Eliminar -->
+          <!-- LÍNEA 1: Escudo (icono) y Eliminar/Archivar -->
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 48px; height: 48px; border-radius: var(--radius-md, 8px); background-color: var(--bg-card); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1.5px solid ${escapeAttr(cardColor)}; padding: 3px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); position: relative;">
                 <i data-lucide="file-text" style="width: 24px; height: 24px; color: ${escapeAttr(cardColor)};"></i>
               </div>
-              ${currentCategoryId === 'todas' && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
+              ${(currentCategoryId === 'todas' || currentCategoryId === 'archivadas') && cardCategory ? `<span style="font-size: 11px; font-weight: 800; background-color: ${cardColor}22; color: ${cardColor}; padding: 2px 6px; border-radius: 4px;">${escapeHtml(cardCategory.name)}</span>` : ''}
             </div>
-            <button class="btn-action-icon danger btn-delete" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="Eliminar">
-              <i data-lucide="trash-2" style="width: 14px; color: var(--text-danger);"></i>
-            </button>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button class="btn-action-icon btn-archive" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="${ficha.archived ? 'Restaurar nota' : 'Archivar nota'}">
+                <i data-lucide="${ficha.archived ? 'upload-cloud' : 'archive'}" style="width: 15px; color: var(--text-muted);"></i>
+              </button>
+              <button class="btn-action-icon danger btn-delete" style="width: 28px; height: 28px; background: transparent; border: none; cursor: pointer;" title="Eliminar">
+                <i data-lucide="trash-2" style="width: 14px; color: var(--text-danger);"></i>
+              </button>
+            </div>
           </div>
 
           <!-- LÍNEA 2: TÍTULO -->
@@ -32757,9 +33897,17 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         cardsGrid.appendChild(card);
 
         // Attach events
+        card.querySelector('.btn-archive').addEventListener('click', (e) => {
+          e.stopPropagation();
+          ficha.archived = !ficha.archived;
+          saveState();
+          saveToFirebase('notas_fichas', ficha);
+          renderCards();
+        });
+
         card.querySelector('.btn-delete').addEventListener('click', (e) => {
           e.stopPropagation();
-          if (confirm('¿Borrar esta nota?')) {
+          if (confirm('¿Borrar esta nota de forma definitiva?')) {
             state.notasFichas = state.notasFichas.filter(f => f.id !== ficha.id);
             saveState();
             deleteFromFirebase('notas_fichas', ficha.id);
@@ -32811,6 +33959,69 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         e.preventDefault();
         const text = (e.originalEvent || e).clipboardData.getData('text/plain');
         document.execCommand('insertText', false, text);
+      });
+
+      // Autocontinuar checklist al pulsar Enter
+      editorAreaField.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+          let block = selection.getRangeAt(0).startContainer;
+          while (block && block !== editorAreaField && block.tagName !== 'DIV' && block.tagName !== 'P') {
+            block = block.parentNode;
+          }
+          if (block && block !== editorAreaField) {
+            const hasCheckboxInput = block.querySelector('input[type="checkbox"]');
+            const rawText = block.textContent.replace(/\u00a0/g, ' ');
+            const textContent = rawText.trim();
+            const hasUnicodeChecklist = textContent.startsWith('☐') || textContent.startsWith('☑') || textContent.startsWith('[ ]') || textContent.startsWith('[x]') || textContent.startsWith('- [ ]') || textContent.startsWith('- [x]');
+            
+            if (hasCheckboxInput || hasUnicodeChecklist) {
+              let isEmptyLine = false;
+              if (hasCheckboxInput && textContent === '') isEmptyLine = true;
+              else if (hasUnicodeChecklist) {
+                const stripped = textContent.replace(/^(☐|☑|\[ \]|\[x\]|- \[ \]| - \[x\])/i, '').trim();
+                if (stripped === '') isEmptyLine = true;
+              }
+
+              if (isEmptyLine) {
+                e.preventDefault();
+                block.innerHTML = '<br>';
+                const newRange = document.createRange();
+                newRange.setStart(block, 0);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+              } else {
+                setTimeout(() => {
+                  const newSel = window.getSelection();
+                  if (!newSel.rangeCount) return;
+                  let newBlock = newSel.getRangeAt(0).startContainer;
+                  while (newBlock && newBlock !== editorAreaField && newBlock.tagName !== 'DIV' && newBlock.tagName !== 'P') {
+                    newBlock = newBlock.parentNode;
+                  }
+                  if (newBlock && newBlock !== editorAreaField && newBlock !== block) {
+                    if (hasCheckboxInput) {
+                      if (!newBlock.querySelector('input[type="checkbox"]')) {
+                        const checkboxHtml = `<input type="checkbox" style="margin-right: 6px; cursor: pointer; transform: scale(1.1); vertical-align: middle;">&nbsp;`;
+                        document.execCommand('insertHTML', false, checkboxHtml);
+                      }
+                    } else if (hasUnicodeChecklist) {
+                      const prefixMatch = rawText.match(/^\s*(☐|☑|\[ \]|\[x\]|- \[ \]| - \[x\])\s*/i);
+                      if (prefixMatch) {
+                        let newPrefix = prefixMatch[1];
+                        if (newPrefix === '☑') newPrefix = '☐';
+                        else if (newPrefix.toLowerCase() === '[x]') newPrefix = '[ ]';
+                        else if (newPrefix.toLowerCase() === '- [x]') newPrefix = '- [ ]';
+                        document.execCommand('insertText', false, newPrefix + ' ');
+                      }
+                    }
+                  }
+                }, 0);
+              }
+            }
+          }
+        }
       });
 
       // Update the 'checked' attribute so innerHTML captures the checkbox state
@@ -33498,6 +34709,147 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (window.lucide) window.lucide.createIcons();
   });
 
+  window.borrarJugadoresCortos = async function() {
+    if (!state.directory || !state.directory.jugadores) return;
+    const players = state.directory.jugadores;
+    const toDeleteIds = [];
+    let count = 0;
+    
+    players.forEach(p1 => {
+      const words1 = (p1.nombre || '').trim().split(/\s+/);
+      // Solo 1 apellido = 2 palabras
+      if (words1.length === 2 && p1.equipo) {
+        // Encontrar duplicado con nombre más largo en mismo equipo
+        const p2 = players.find(j => 
+          j.id !== p1.id && 
+          j.equipo === p1.equipo && 
+          j.nombre && 
+          j.nombre.toLowerCase().startsWith(p1.nombre.toLowerCase() + ' ')
+        );
+        if (p2) {
+          toDeleteIds.push(p1.id);
+          count++;
+        }
+      }
+    });
+
+    if (count === 0) {
+      alert('No se encontraron jugadores duplicados de 1 apellido.');
+      return;
+    }
+
+    if (confirm(`Se han encontrado ${count} jugadores duplicados de 1 apellido (mismo nombre y equipo que otro más largo). ¿Deseas borrarlos?`)) {
+      if (db) {
+        deleteMultipleFromFirebase('jugadores', toDeleteIds);
+      }
+      toDeleteIds.forEach(id => {
+        deleteDirectoryItem('jugadores', id);
+      });
+      alert(`Se han borrado ${count} jugadores duplicados con éxito.`);
+      renderDirectorio();
+    }
+  };
+
+  document.getElementById('btnDeleteShortNamePlayers')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnDeleteShortNamePlayers');
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+
+    if (typeof window.borrarJugadoresCortos === 'function') {
+      await window.borrarJugadoresCortos();
+    }
+
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  window.repararNombresInformes = async function() {
+    if (!state.reports || !state.directory || !state.directory.jugadores) return;
+    const players = state.directory.jugadores;
+    let reportsUpdated = 0;
+    
+    state.reports.forEach(report => {
+      let changed = false;
+      
+      const processArray = (arr, teamName) => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(p => {
+          if (!p.name) return;
+          const shortName = p.name.trim().toLowerCase();
+          const teamN = (teamName || '').trim().toLowerCase();
+          
+          const matching = players.find(j => {
+            if (!j.nombre || !j.equipo) return false;
+            if (j.equipo.trim().toLowerCase() !== teamN) return false;
+            const longName = j.nombre.trim().toLowerCase();
+            return longName.startsWith(shortName + ' ') && longName.length > shortName.length;
+          });
+          
+          if (matching) {
+            p.name = matching.nombre;
+            changed = true;
+          }
+        });
+      };
+
+      if (report.localSystems) {
+        ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+          if (report.localSystems[sysKey]) {
+            processArray(report.localSystems[sysKey].titulares, report.localTeam);
+            processArray(report.localSystems[sysKey].suplentes, report.localTeam);
+          }
+        });
+      }
+      // Also check root level for older reports
+      processArray(report.localTitulares, report.localTeam);
+      processArray(report.localSuplentes, report.localTeam);
+
+      if (report.visitanteSystems) {
+        ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+          if (report.visitanteSystems[sysKey]) {
+            processArray(report.visitanteSystems[sysKey].titulares, report.visitanteTeam);
+            processArray(report.visitanteSystems[sysKey].suplentes, report.visitanteTeam);
+          }
+        });
+      }
+      // Also check root level for older reports
+      processArray(report.visitanteTitulares, report.visitanteTeam);
+      processArray(report.visitanteSuplentes, report.visitanteTeam);
+
+      if (changed) {
+        saveToFirebase('informes', report);
+        reportsUpdated++;
+      }
+    });
+
+    if (reportsUpdated === 0) {
+      alert('No se encontraron informes que necesiten ser reparados.');
+    } else {
+      saveState();
+      alert(`Se han reparado los nombres cortos en ${reportsUpdated} informes con éxito.`);
+      renderPartidosList();
+    }
+  };
+
+  document.getElementById('btnFixShortNamesInReports')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnFixShortNamesInReports');
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+
+    if (typeof window.repararNombresInformes === 'function') {
+      await window.repararNombresInformes();
+    }
+
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+
+
   window.restaurarColumnasEnlaces = async function () {
     if (!db) {
       console.error("Firebase no está inicializado.");
@@ -33770,8 +35122,26 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (hoursOffset < 0) hoursOffset = 0;
 
     const topPx = hoursOffset * 50;
-    const heightPx = 1.5 * 50;
+    
+    let durationHours = 1;
+    if (ev.type === 'match') durationHours = 1.75;
+    else if (ev.type === 'report') durationHours = 1.5;
 
+    let horaFinStr = ev.data.horaFin || ev.data.timeEnd || ev.data.end_time || null;
+    let timeDisplay = ev.hora;
+
+    if (horaFinStr) {
+      const endParts = horaFinStr.split(':').map(Number);
+      const endH = endParts[0] || 0;
+      const endM = endParts[1] || 0;
+      let calcDur = (endH + endM / 60) - (hh + mm / 60);
+      if (calcDur > 0) {
+        durationHours = calcDur;
+        timeDisplay = `${ev.hora} - ${horaFinStr}`;
+      }
+    }
+
+    const heightPx = Math.max(durationHours * 50, 24);
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
       if (ev.data.estado === 'programado') {
@@ -33806,7 +35176,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         color: ${color};
       ">
         <div class="week-event-title">${escapeHtml(ev.title)}</div>
-        <div class="week-event-time">⏱ ${ev.hora}</div>
+        <div class="week-event-time" style="font-size: 10px; opacity: 0.9; margin-top: 2px;">⏱ ${timeDisplay}</div>
       </div>
     `;
   }
@@ -33979,7 +35349,26 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     if (hoursOffset < 0) hoursOffset = 0;
 
     const topPx = hoursOffset * 50;
-    const heightPx = 1.5 * 50;
+    
+    let durationHours = 1;
+    if (ev.type === 'match') durationHours = 1.75;
+    else if (ev.type === 'report') durationHours = 1.5;
+
+    let horaFinStr = ev.data.horaFin || ev.data.timeEnd || ev.data.end_time || null;
+    let timeDisplay = ev.hora;
+
+    if (horaFinStr) {
+      const endParts = horaFinStr.split(':').map(Number);
+      const endH = endParts[0] || 0;
+      const endM = endParts[1] || 0;
+      let calcDur = (endH + endM / 60) - (hh + mm / 60);
+      if (calcDur > 0) {
+        durationHours = calcDur;
+        timeDisplay = `${ev.hora} - ${horaFinStr}`;
+      }
+    }
+
+    const heightPx = Math.max(durationHours * 50, 24);
 
     let bg, border, color, idAttr;
     if (ev.type === 'match') {
@@ -34015,7 +35404,7 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
         color: ${color};
       ">
         <div class="days-event-title">${escapeHtml(ev.title)}</div>
-        <div class="days-event-time">⏱ ${ev.hora}</div>
+        <div class="days-event-time" style="font-size: 10px; opacity: 0.9; margin-top: 2px;">⏱ ${timeDisplay}</div>
       </div>
     `;
   }
