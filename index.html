@@ -726,6 +726,9 @@
 
           <!-- Actions -->
           <div class="report-banner-actions">
+            <button type="button" class="btn btn-primary" id="btnOpenGeneralContextModal" style="background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); color: white; margin-right: 8px;">
+              <i data-lucide="file-text"></i> CONTEXTO
+            </button>
             <button type="button" class="btn btn-secondary-light" id="btnBackToReportsList">
               <i data-lucide="arrow-left"></i> VOLVER
             </button>
@@ -1227,17 +1230,6 @@
             </div>
           </div>
 
-        </div>
-
-        <!-- Section 3: Observaciones / Análisis General -->
-        <div class="report-card mt-6">
-          <div class="report-card-header text-uppercase">
-            <i data-lucide="file-text"></i>
-            <span>OBSERVACIONES / ANÁLISIS GENERAL</span>
-          </div>
-          <div class="report-card-body">
-            <textarea id="reportGeneralAnalysis" class="form-control textarea-large" placeholder="Observaciones generales sobre el partido, jugadores destacados, notas tácticas..."></textarea>
-          </div>
         </div>
 
       </div>
@@ -1880,6 +1872,12 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
               <button type="button" class="btn btn-danger" id="btnDeleteNo2627" style="background-color: var(--accion-rojo); border: none; color: white; margin-top: 10px;">
                 <i data-lucide="trash"></i> Borrar Equipos Duplicados (Sin "26/27")
               </button>
+              <button type="button" class="btn btn-danger" id="btnDeleteShortNamePlayers" style="background-color: var(--accion-ambar); border: none; color: white; margin-top: 10px;">
+                <i data-lucide="users-minus"></i> Borrar Jugadores Duplicados (1 Apellido)
+              </button>
+              <button type="button" class="btn btn-primary" id="btnFixShortNamesInReports" style="background-color: var(--accion-azul); border: none; color: white; margin-top: 10px;">
+                <i data-lucide="file-edit"></i> Reparar Nombres Cortos en Informes
+              </button>
               <button type="button" class="btn btn-primary" id="btnRestoreFavCols" style="background-color: var(--accion-verde); border: none; color: white; margin-top: 10px;">
                 <i data-lucide="refresh-cw"></i> Restaurar Columnas de Enlaces (Favoritos)
               </button>
@@ -1894,6 +1892,25 @@ ECHARTE ESPINAL, MIGUEL" style="width: 100%; min-height: 300px; resize: vertical
     <!-- ==================== 10. NOTAS VIEW ==================== -->
 
   </main>
+
+      <!-- Modal Contexto Partido -->
+      <div class="modal-overlay hidden" id="modalContextoPartido" style="z-index: 30000;">
+        <div class="modal-card xlarge" style="max-width: 800px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+          <div class="modal-header banner-blue">
+            <h3><i data-lucide="file-text"></i> Contexto / Análisis General</h3>
+            <button type="button" class="modal-close" onclick="document.getElementById('modalContextoPartido').classList.add('hidden')" title="Cerrar" aria-label="Cerrar">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="modal-body" style="padding: 20px; overflow-y: auto;">
+            <p class="text-sm text-muted mb-3">Observaciones generales sobre el partido, jugadores destacados, notas tácticas...</p>
+            <textarea id="reportGeneralAnalysis" class="form-control" style="height: 350px; font-size: 14px; line-height: 1.5;" placeholder="Contexto del partido..."></textarea>
+          </div>
+          <div class="modal-footer" style="padding: 15px 20px; background: var(--bg-card); display: flex; justify-content: flex-end; border-top: 1px solid var(--border-light);">
+            <button class="btn btn-primary" onclick="document.getElementById('modalContextoPartido').classList.add('hidden')">Listo</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Modal for Editing/Creating Notes -->
       <div class="modal-overlay hidden" id="modalEdicionNota" style="z-index: 30000;">

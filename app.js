@@ -4485,6 +4485,8 @@
                 <div style="font-weight: 600;"><i data-lucide="calendar" style="width: 14px;"></i> ${escapeHtml(r.date ? r.date.split('-').reverse().join('.') : '')} | ${escapeHtml(r.time)}</div>
                 <!-- Lugar -->
                 <div style="font-weight: 600;"><i data-lucide="map-pin" style="width: 14px;"></i> ${escapeHtml(r.estadio || 'N/A')}${r.clima ? ` | ${escapeHtml(r.clima)}` : ''}</div>
+                <!-- Contexto -->
+                ${r.generalAnalysis && r.generalAnalysis.trim() !== '' ? `<div style="font-weight: 600; font-style: italic; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;" title="${escapeAttr(r.generalAnalysis)}">"${escapeHtml(r.generalAnalysis)}"</div>` : ''}
               </div>
 
               <div style="display: flex; gap: 4px; margin-top: 12px;">
@@ -4666,6 +4668,9 @@
   document.getElementById('btnCreateNewMatchReport')?.addEventListener('click', () => openMatchReportEditor());
   document.getElementById('btnBackToReportsList')?.addEventListener('click', closeReportEditor);
   document.getElementById('btnCloseReportEditor')?.addEventListener('click', closeReportEditor);
+  document.getElementById('btnOpenGeneralContextModal')?.addEventListener('click', () => {
+    document.getElementById('modalContextoPartido')?.classList.remove('hidden');
+  });
 
   function createReportFromMatch(matchId) {
     const match = state.matches.find(m => m.id === matchId);
@@ -6795,6 +6800,14 @@
         badgesHTML += `<div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #3b82f6; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Zurdo">Z</div>`;
       }
 
+      if (evalObj && evalObj.rendimientoRS) {
+        if (evalObj.rendimientoRS === 'A') {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #22c55e; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Rendimiento A">A</div>`;
+        } else if (evalObj.rendimientoRS === 'B') {
+          badgesHTML += `<div style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #eab308; color: white; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2;" title="Rendimiento B">B</div>`;
+        }
+      }
+
       // DESTACADO EQUIPO badge
       if (evalObj && evalObj.tags && evalObj.tags.includes('DESTACADO EQUIPO')) {
         badgesHTML += `<div style="position: absolute; bottom: -8px; right: -8px; font-size: 12px; z-index: 2; line-height: 1; filter: drop-shadow(0px 0px 2px rgba(255,215,0,0.8));" title="Destacado Equipo">⭐</div>`;
@@ -6803,20 +6816,7 @@
         if (row) row.classList.remove('is-destacado');
       }
 
-      let shortName = '';
-      if (nameVal) {
-        const parts = nameVal.trim().split(/\s+/);
-        if (parts.length > 1) {
-          const firstAndSurname = parts[0] + ' ' + parts[1];
-          if (firstAndSurname.length <= 15) {
-            shortName = firstAndSurname;
-          } else {
-            shortName = parts[0].charAt(0).toUpperCase() + '.' + parts[1];
-          }
-        } else {
-          shortName = parts[0];
-        }
-      }
+      let shortName = nameVal ? nameVal.trim() : '';
 
       // Sub styles: slightly different border and z-index to stand out
       const borderStyle = isTitular ? '2px solid #ffffff' : '2px dashed #fbbf24';
@@ -8447,6 +8447,8 @@
         localSuplentes: matchTacticalSystems.local?.principal?.suplentes || [],
         visitanteTitulares: matchTacticalSystems.visitante?.principal?.titulares || [],
         visitanteSuplentes: matchTacticalSystems.visitante?.principal?.suplentes || [],
+        localSystems: matchTacticalSystems.local || {},
+        visitanteSystems: matchTacticalSystems.visitante || {},
 
         playerEvaluations: Object.keys(state.matchPlayerEvaluations || {}).reduce((acc, key) => {
           if (key.startsWith(repId + '_')) {
@@ -8486,21 +8488,50 @@
 
       // Also auto-add/update players into directory
       if (state.directory && Array.isArray(state.directory.jugadores)) {
-        [...reportObj.localTitulares, ...reportObj.visitanteTitulares].forEach(p => {
-          if (p.name && !/^\d/.test(p.name.trim()) && !state.directory.jugadores.some(j => j.nombre && j.nombre.toLowerCase() === p.name.toLowerCase())) {
-            const fichaNueva = {
-              id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
-              nombre: p.name,
-              equipo: reportObj.localTitulares.includes(p) ? reportObj.localTeam : reportObj.visitanteTeam,
-              posicion: p.pos || '',
-              ano: '2006',
-              categoria: reportObj.categoria || 'Senior',
-              nivel: 'Prospecto'
-            };
-            state.directory.jugadores.push(fichaNueva);
-            // Antes solo se añadía en memoria: al recargar, el Directorio volvía a estar sin
-            // estos jugadores y el informe quedaba apuntando a nombres sin ficha.
-            saveToFirebase('jugadores', fichaNueva);
+        const allPlayers = [];
+        if (reportObj.localSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+            if (reportObj.localSystems[sysKey]) {
+              allPlayers.push(...(reportObj.localSystems[sysKey].titulares || []));
+              allPlayers.push(...(reportObj.localSystems[sysKey].suplentes || []));
+            }
+          });
+        }
+        if (reportObj.visitanteSystems) {
+          ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+            if (reportObj.visitanteSystems[sysKey]) {
+              allPlayers.push(...(reportObj.visitanteSystems[sysKey].titulares || []));
+              allPlayers.push(...(reportObj.visitanteSystems[sysKey].suplentes || []));
+            }
+          });
+        }
+
+        allPlayers.forEach(p => {
+          if (p.name && !/^\d/.test(p.name.trim())) {
+            const normalize = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, ' ');
+            const pNorm = normalize(p.name);
+            const teamName = reportObj.localTitulares.includes(p) || (reportObj.localSystems && Object.values(reportObj.localSystems).some(s => s.titulares.includes(p) || s.suplentes.includes(p))) ? reportObj.localTeam : reportObj.visitanteTeam;
+
+            const exists = state.directory.jugadores.some(j => {
+              if (!j.nombre) return false;
+              const jNorm = normalize(j.nombre);
+              const nameMatch = (jNorm === pNorm || window.flexibleMatch(pNorm, j.nombre) || window.flexibleMatch(jNorm, p.name));
+              return nameMatch && (window.flexibleMatch(teamName, j.equipo) || window.flexibleMatch(j.equipo, teamName));
+            });
+
+            if (!exists) {
+              const fichaNueva = {
+                id: 'j_' + Date.now() + Math.random().toString(36).substr(2, 4),
+                nombre: p.name,
+                equipo: teamName,
+                posicion: p.pos || '',
+                ano: '2006',
+                categoria: reportObj.categoria || 'Senior',
+                nivel: 'Prospecto'
+              };
+              state.directory.jugadores.push(fichaNueva);
+              saveToFirebase('jugadores', fichaNueva);
+            }
           }
         });
       }
@@ -34662,6 +34693,147 @@ Danok Bat vs Oberena" style="font-family: monospace; font-size: 12px; line-heigh
     btn.disabled = false;
     if (window.lucide) window.lucide.createIcons();
   });
+
+  window.borrarJugadoresCortos = async function() {
+    if (!state.directory || !state.directory.jugadores) return;
+    const players = state.directory.jugadores;
+    const toDeleteIds = [];
+    let count = 0;
+    
+    players.forEach(p1 => {
+      const words1 = (p1.nombre || '').trim().split(/\s+/);
+      // Solo 1 apellido = 2 palabras
+      if (words1.length === 2 && p1.equipo) {
+        // Encontrar duplicado con nombre más largo en mismo equipo
+        const p2 = players.find(j => 
+          j.id !== p1.id && 
+          j.equipo === p1.equipo && 
+          j.nombre && 
+          j.nombre.toLowerCase().startsWith(p1.nombre.toLowerCase() + ' ')
+        );
+        if (p2) {
+          toDeleteIds.push(p1.id);
+          count++;
+        }
+      }
+    });
+
+    if (count === 0) {
+      alert('No se encontraron jugadores duplicados de 1 apellido.');
+      return;
+    }
+
+    if (confirm(`Se han encontrado ${count} jugadores duplicados de 1 apellido (mismo nombre y equipo que otro más largo). ¿Deseas borrarlos?`)) {
+      if (db) {
+        deleteMultipleFromFirebase('jugadores', toDeleteIds);
+      }
+      toDeleteIds.forEach(id => {
+        deleteDirectoryItem('jugadores', id);
+      });
+      alert(`Se han borrado ${count} jugadores duplicados con éxito.`);
+      renderDirectorio();
+    }
+  };
+
+  document.getElementById('btnDeleteShortNamePlayers')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnDeleteShortNamePlayers');
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+
+    if (typeof window.borrarJugadoresCortos === 'function') {
+      await window.borrarJugadoresCortos();
+    }
+
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  window.repararNombresInformes = async function() {
+    if (!state.reports || !state.directory || !state.directory.jugadores) return;
+    const players = state.directory.jugadores;
+    let reportsUpdated = 0;
+    
+    state.reports.forEach(report => {
+      let changed = false;
+      
+      const processArray = (arr, teamName) => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(p => {
+          if (!p.name) return;
+          const shortName = p.name.trim().toLowerCase();
+          const teamN = (teamName || '').trim().toLowerCase();
+          
+          const matching = players.find(j => {
+            if (!j.nombre || !j.equipo) return false;
+            if (j.equipo.trim().toLowerCase() !== teamN) return false;
+            const longName = j.nombre.trim().toLowerCase();
+            return longName.startsWith(shortName + ' ') && longName.length > shortName.length;
+          });
+          
+          if (matching) {
+            p.name = matching.nombre;
+            changed = true;
+          }
+        });
+      };
+
+      if (report.localSystems) {
+        ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+          if (report.localSystems[sysKey]) {
+            processArray(report.localSystems[sysKey].titulares, report.localTeam);
+            processArray(report.localSystems[sysKey].suplentes, report.localTeam);
+          }
+        });
+      }
+      // Also check root level for older reports
+      processArray(report.localTitulares, report.localTeam);
+      processArray(report.localSuplentes, report.localTeam);
+
+      if (report.visitanteSystems) {
+        ['principal', 'secundario', 'ocasional'].forEach(sysKey => {
+          if (report.visitanteSystems[sysKey]) {
+            processArray(report.visitanteSystems[sysKey].titulares, report.visitanteTeam);
+            processArray(report.visitanteSystems[sysKey].suplentes, report.visitanteTeam);
+          }
+        });
+      }
+      // Also check root level for older reports
+      processArray(report.visitanteTitulares, report.visitanteTeam);
+      processArray(report.visitanteSuplentes, report.visitanteTeam);
+
+      if (changed) {
+        saveToFirebase('informes', report);
+        reportsUpdated++;
+      }
+    });
+
+    if (reportsUpdated === 0) {
+      alert('No se encontraron informes que necesiten ser reparados.');
+    } else {
+      saveState();
+      alert(`Se han reparado los nombres cortos en ${reportsUpdated} informes con éxito.`);
+      renderPartidosList();
+    }
+  };
+
+  document.getElementById('btnFixShortNamesInReports')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btnFixShortNamesInReports');
+    const prevHtml = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" class="spin"></i> Procesando...';
+    btn.disabled = true;
+
+    if (typeof window.repararNombresInformes === 'function') {
+      await window.repararNombresInformes();
+    }
+
+    btn.innerHTML = prevHtml;
+    btn.disabled = false;
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+
 
   window.restaurarColumnasEnlaces = async function () {
     if (!db) {
