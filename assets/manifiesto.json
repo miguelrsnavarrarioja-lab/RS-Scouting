@@ -630,5 +630,13 @@
    "data_graphics/05_graphic_radar_player.webp",
    "data_graphics/05_graphic_radar_player@2x.webp"
   ]
+ },
+ {
+  "origen": "Logo MS.png (recortado a la caja del escudo, margen 12 px)",
+  "familia": "01_branding",
+  "salidas": [
+   "branding/logo_escudo_ms.webp",
+   "branding/logo_escudo_ms@2x.webp"
+  ]
  }
 ]

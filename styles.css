@@ -5795,6 +5795,15 @@ body.theme-dark .rs-borrador-estado { background: var(--bg-subtle, #1E293B); }
 .brand-badge .brand-logo-img {
   filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(11, 235, 165, .45));
   opacity: .95;
+  /* El fichero original (677×369) llevaba el escudo en el centro rodeado de un halo casi
+     transparente: para que el escudo midiera 46 px la imagen medía 156×85 y asomaba 20 px por
+     fuera de la ventana (desborde medido por el gate de ancho a 390, 1366 y 1440). El escudo va
+     ahora recortado a su caja, con el mismo tamaño dibujado, y la imagen cabe donde está. */
+  height: 50px; width: auto;
+  max-width: none; max-height: none;
+}
+@media (max-width: 767px) {
+  .brand-badge .brand-logo-img { height: 27px; }
 }
 .brand-name {
   color: #fff;
